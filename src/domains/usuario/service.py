@@ -13,7 +13,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, Dados
 from .repository import UsuarioRepository
 
 CAMPOS_ATUALIZAVEIS = {
-    "nome_completo", "email", "telefone"
+    "nome_completo", "email", "telefone", "tipo_usuario", "atributos_profissionais_json",
 }
 
 
@@ -21,7 +21,6 @@ class UsuarioService:
 
     def __init__(self):
         self.repo = UsuarioRepository()
-        
 
     def buscar_por_uuid(self, uuid: str):
         u = self.repo.find_by_uuid(uuid)
@@ -84,4 +83,3 @@ class UsuarioService:
         u = self.buscar_por_uuid(uuid)
         u.status = "ativo"
         return self.repo.save(u)
-
