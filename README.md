@@ -1,29 +1,23 @@
 # Bion API
+
+API REST (JSON-only) para gestão hospitalar multi-tenant: pacientes, atendimentos,
+triagem (Manchester/NEWS2), protocolos clínicos e suporte à decisão por IA.
+
+Este projeto é uma evolução do `bion.zip` original (aplicação Flask web tradicional
+com templates HTML), reestruturado conforme `caminhos.md`:
+
+- **API JSON-only**: sem templates, sem `render_template`, sem `static/`. Toda rota
+  devolve `{"status": "success"|"error", "message": ..., "data": ...}`.
+- **Estrutura de pastas** em `src/`, agrupada por domínio (`src/domains/`), com
+  segurança/criptografia isolada em `src/core/`.
+- **Modelos separados por domínio** em `src/database/` (`corp.py`, `usuarios.py`,
+  `paciente.py`, `catalogo.py`, `protocolos.py`, `clinico.py`, `auditoria.py`), em vez
+  de um único `modelos.py` monolítico.
+- **Autenticação por cookie de sessão httpOnly** (não JWT), já que a API é servida
+  no mesmo domínio do front-end.
+
 ## Rodando localmente
 
-```bash
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-cp .env.example .env            # preencha SECRET_KEY, DATABASE_URL, AES_KEY, HMAC_KEY
-
-# gerar uma AES_KEY válida (32 bytes em base64):
-python -c "import os,base64; print(base64.b64encode(os.urandom(32)).decode())"
-
-flask --app app db upgrade      # aplica migrations (após configurar Flask-Migrate)
-flask --app app run             # http://localhost:5000
-```
-
-## Rodando os testes
-
-```bash
-pip install -r requirements.txt
-pytest tests/ -v
-```
-
-A suíte cobre: motor de protocolos (unitário), segurança/criptografia (unitário),
-autenticação e fluxo clínico completo (integração, via `test_client()` do Flask).
 
 ## Estrutura de pastas
 
