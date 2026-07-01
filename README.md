@@ -2,20 +2,6 @@
 
 API REST (JSON-only) para gestão hospitalar multi-tenant: pacientes, atendimentos,
 triagem (Manchester/NEWS2), protocolos clínicos e suporte à decisão por IA.
-
-Este projeto é uma evolução do `bion.zip` original (aplicação Flask web tradicional
-com templates HTML), reestruturado conforme `caminhos.md`:
-
-- **API JSON-only**: sem templates, sem `render_template`, sem `static/`. Toda rota
-  devolve `{"status": "success"|"error", "message": ..., "data": ...}`.
-- **Estrutura de pastas** em `src/`, agrupada por domínio (`src/domains/`), com
-  segurança/criptografia isolada em `src/core/`.
-- **Modelos separados por domínio** em `src/database/` (`corp.py`, `usuarios.py`,
-  `paciente.py`, `catalogo.py`, `protocolos.py`, `clinico.py`, `auditoria.py`), em vez
-  de um único `modelos.py` monolítico.
-- **Autenticação por cookie de sessão httpOnly** (não JWT), já que a API é servida
-  no mesmo domínio do front-end.
-
 ## Rodando localmente
 
 ```bash
