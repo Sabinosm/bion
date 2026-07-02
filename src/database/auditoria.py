@@ -16,10 +16,10 @@ from src.database.types import BigIntPK
 class LogAcesso(db.Model):
     __tablename__ = "log_acesso"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_log",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_log",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_usuario = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"), nullable=False)
+    id_usuario = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     recurso_acessado = db.Column(db.String(255), nullable=False)
     operacao = db.Column(
         db.Enum("leitura", "escrita", "exclusao-logica", "exportacao"), nullable=False)
@@ -50,8 +50,8 @@ class LogAcesso(db.Model):
 class LogAlteracao(db.Model):
     __tablename__ = "log_alteracao"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_alteracao",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_alteracao",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     tabela_origem = db.Column(db.String(100), nullable=False)
     id_registro = db.Column(db.BigInteger, nullable=False)
@@ -60,7 +60,7 @@ class LogAlteracao(db.Model):
     campo_alterado = db.Column(db.String(100))
     valor_anterior = db.Column(db.Text)
     valor_novo = db.Column(db.Text)
-    alterado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"))
+    alterado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
     ip_origem = db.Column(db.String(45))
     justificativa = db.Column(db.Text)
     alterado_em = db.Column(db.DateTime(timezone=True),

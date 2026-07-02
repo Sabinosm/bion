@@ -17,20 +17,20 @@ from src.database.types import BigIntPK
 class Paciente(db.Model):
     __tablename__ = "paciente"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_paciente", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_paciente", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     identificacao_anonima = db.Column(db.String(64))
     sexo_biologico = db.Column(db.Enum("M", "F", "I"), nullable=False)
     tipo_sanguineo = db.Column(db.String(10))
     data_nascimento = db.Column(db.Date)
-    id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id"))
+    id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
     data_primeiro_atendimento = db.Column(db.Date, nullable=False)
     status = db.Column(db.Enum("ativo", "inativo", "obito"),
                         nullable=False, default="ativo")
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
-    cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"))
+    cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
 
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="pacientes")
     pessoal = db.relationship("PacientePessoal", back_populates="paciente",
@@ -73,10 +73,10 @@ class Paciente(db.Model):
 class PacientePessoal(db.Model):
     __tablename__ = "paciente_pessoal"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_paciente_p", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_paciente_p", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"),
+    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"),
                              unique=True, nullable=False)
     nome_completo = db.Column(db.String(500), nullable=False)   # AES-256
     cpf = db.Column(db.String(500))                             # AES-256 (valor exibível)
@@ -107,10 +107,10 @@ class PacientePessoal(db.Model):
 class Alergia(db.Model):
     __tablename__ = "alergia"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_alergia", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_alergia", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"), nullable=False)
+    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
     substancia = db.Column(db.String(255), nullable=False)
     codigo_substancia = db.Column(db.String(100))
     tipo_reacao = db.Column(
@@ -143,10 +143,10 @@ class Alergia(db.Model):
 class DoencaCronica(db.Model):
     __tablename__ = "doenca_cronica"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_doenca_cronica", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_doenca_cronica", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"), nullable=False)
+    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
     codigo_cid10 = db.Column(db.String(10), nullable=False)
     descricao_cid10 = db.Column(db.String(255), nullable=False)
     desde = db.Column(db.Date, nullable=False)
@@ -172,11 +172,11 @@ class DoencaCronica(db.Model):
 
 
 class MedicamentoEmUso(db.Model):
-    __tablename__ = "medicamentos_em_uso"
+    __tablename__ = "Medicamentos_em_uso"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"), nullable=False)
-    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id"))
+    id = db.Column("id_medicamento_uso", BigIntPK, primary_key=True, autoincrement=True)
+    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
+    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamentos"), nullable=False)
     descricao = db.Column(db.Text)
     dose = db.Column(db.String(100))
     frequencia = db.Column(db.String(100))
@@ -204,11 +204,11 @@ class MedicamentoEmUso(db.Model):
 class Consentimento(db.Model):
     __tablename__ = "consentimento_lgpd"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_consentimento", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_consentimento", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"), nullable=False)
-    coletado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"))
+    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
+    coletado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
     versao_termo = db.Column(db.String(50), nullable=False)
     data_consentimento = db.Column(db.DateTime(timezone=True), nullable=False)
     canal_coleta = db.Column(

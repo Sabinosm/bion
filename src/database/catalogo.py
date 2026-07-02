@@ -16,8 +16,8 @@ from src.database.types import BigIntPK
 class CatalogoExames(db.Model):
     __tablename__ = "catalogo_exames"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_catalogo_exame",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_catalogo_exame",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_exame = db.Column(db.String(255), nullable=False)
     codigo_tuss = db.Column(db.String(20))
@@ -47,8 +47,8 @@ class CatalogoExames(db.Model):
 class CatalogoMedicamentos(db.Model):
     __tablename__ = "catalogo_medicamentos"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_catalogo_medicamento",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_catalogo_medicamento",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     principio_ativo = db.Column(db.String(255))
     classe_farmaceutica = db.Column(db.String(255))
@@ -78,11 +78,11 @@ class CatalogoMedicamentos(db.Model):
 class InteracoesMedicamentos(db.Model):
     __tablename__ = "interacoes_medicamentos"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_interacao",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_interacao",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_medicamento_a = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id"))
-    id_medicamento_b = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id"))
+    id_medicamento_a = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamentos"))
+    id_medicamento_b = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamentos"))
     gravidade = db.Column(db.String(50))
     mecanismo_efeito = db.Column(db.Text)
 

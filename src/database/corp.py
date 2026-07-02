@@ -21,7 +21,7 @@ from src.database.types import BigIntPK
 class RegiaoGeografica(db.Model):
     __tablename__ = "regiao_geografica"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
+    id = db.Column("id_regiao_geografica", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column(db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_regiao = db.Column(db.String(255), nullable=False)
@@ -29,7 +29,9 @@ class RegiaoGeografica(db.Model):
         db.Enum("pais", "estado", "mesorregiao", "microrregiao",
                 "municipio", "distrito-sanitario"),
         nullable=False)
-    id_regiao_pai = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id"))
+    
+    id_regiao_pai = db.Column("id_regiao_pai", db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
+    
     codigo_ibge = db.Column(db.String(20), unique=True)
     uf = db.Column(db.String(2))
     latitude_centroide = db.Column(db.Numeric(10, 8))
@@ -40,8 +42,10 @@ class RegiaoGeografica(db.Model):
 
     regioes_filhas = db.relationship(
         "RegiaoGeografica",
-        backref=db.backref("regiao_pai", remote_side=[id]),
+        primaryjoin="RegiaoGeografica.id == RegiaoGeografica.id_regiao_pai",
+        backref=db.backref("regiao_pai", remote_side="RegiaoGeografica.id"),
     )
+    
     empresas = db.relationship("Empresa", back_populates="regiao_geografica")
     pacientes = db.relationship("Paciente", back_populates="regiao_geografica")
 
@@ -62,8 +66,8 @@ class RegiaoGeografica(db.Model):
 class Empresa(db.Model):
     __tablename__ = "empresa"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_empresa", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_empresa", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_fantasia = db.Column(db.String(255), nullable=False)
     razao_social = db.Column(db.String(255))
@@ -72,7 +76,7 @@ class Empresa(db.Model):
     bairro = db.Column(db.String(100))
     complemento = db.Column(db.String(150))
     cep = db.Column(db.String(20))
-    id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id"))
+    id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
     status_plano = db.Column(db.String(50))
     plano = db.Column(db.String(100))
     criado_em = db.Column(db.DateTime(timezone=True),

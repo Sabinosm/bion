@@ -22,8 +22,8 @@ from src.database.types import BigIntPK
 class CatalogoFluxogramasMts(db.Model):
     __tablename__ = "catalogo_fluxogramas_mts"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_fluxo_mts",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_fluxo_mts", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     codigo_fluxograma = db.Column(db.String(50), nullable=False)
     nome_fluxograma = db.Column(db.String(255), nullable=False)
@@ -47,8 +47,8 @@ class CatalogoFluxogramasMts(db.Model):
 class CatalogoModulos(db.Model):
     __tablename__ = "catalogo_modulos"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_modulo",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_modulo", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_modulo = db.Column(db.String(255), nullable=False)
     tipo_modulo = db.Column(
@@ -78,10 +78,10 @@ class CatalogoModulos(db.Model):
 class OutputBion(db.Model):
     __tablename__ = "output_bion"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_output", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_output", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_input = db.Column(db.BigInteger, db.ForeignKey("input_protocolo.id"))
+    id_input = db.Column(db.BigInteger, db.ForeignKey("input_protocolo.id_input"))
     output_ia_json = db.Column(db.JSON)
     versao_modelo_ia = db.Column(db.String(50))
     indice_completude = db.Column(db.Numeric(5, 2))
@@ -110,8 +110,8 @@ class OutputBion(db.Model):
 class ProtocoloCatalogo(db.Model):
     __tablename__ = "protocolo_catalogo"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_protocolo_catalogo", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_protocolo_catalogo", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_protocolo = db.Column(db.String(255), nullable=False)
     sigla = db.Column(db.String(50), unique=True, nullable=False)  # usado por ProtocoloFactory
@@ -158,9 +158,9 @@ class ProtocoloCatalogo(db.Model):
 class ProtocoloMts(db.Model):
     __tablename__ = "protocolo_mts"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    id_fluxo_mts = db.Column(db.BigInteger, db.ForeignKey("catalogo_fluxogramas_mts.id"))
-    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id"))
+    id = db.Column("id_protocolo_mts", BigIntPK, primary_key=True, autoincrement=True)
+    id_fluxo_mts = db.Column(db.BigInteger, db.ForeignKey("catalogo_fluxogramas_mts.id_fluxo_mts"))
+    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id_protocolo_catalogo"))
 
     fluxo_mts = db.relationship("CatalogoFluxogramasMts", back_populates="protocolos_mts")
     protocolo_catalogo = db.relationship("ProtocoloCatalogo", back_populates="protocolos_mts")
@@ -172,9 +172,9 @@ class ProtocoloMts(db.Model):
 class ProtocoloPersonalizado(db.Model):
     __tablename__ = "protocolo_personalizado"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    id_modulo = db.Column(db.BigInteger, db.ForeignKey("catalogo_modulos.id"))
-    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id"))
+    id = db.Column("id_protocolo_personalizado", BigIntPK, primary_key=True, autoincrement=True)
+    id_modulo = db.Column(db.BigInteger, db.ForeignKey("catalogo_modulos.id_modulo"))
+    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id_protocolo_catalogo"))
     codigo_protocolo = db.Column(db.String(100))
 
     modulo = db.relationship("CatalogoModulos", back_populates="protocolos_personalizados")

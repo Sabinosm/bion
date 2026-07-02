@@ -16,10 +16,10 @@ from src.database.types import BigIntPK
 class Usuario(db.Model):
     __tablename__ = "usuarios"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_usuario", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_usuario", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id"), nullable=False)
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id_empresa"), nullable=False)
     nome_completo = db.Column(db.String(255), nullable=False)
     cpf = db.Column(db.String(500), nullable=False)  # AES-256-GCM (valor exibível)
     cpf_hash = db.Column(db.String(64), unique=True, nullable=False)  # HMAC-SHA256 (índice de busca)
@@ -73,10 +73,10 @@ class Usuario(db.Model):
 class Configuracao(db.Model):
     __tablename__ = "configuracao"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_configuracao", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_configuracao", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_usuario = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"),
+    id_usuario = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"),
                             unique=True, nullable=False)
     configuracoes_json = db.Column(db.JSON)
     criado_em = db.Column(db.DateTime(timezone=True),

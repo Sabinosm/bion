@@ -17,10 +17,10 @@ from src.database.types import BigIntPK
 class Consulta(db.Model):
     __tablename__ = "consulta"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_consulta",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_consulta",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id"), nullable=False)
+    id_paciente = db.Column("id_paciente",db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
     tipo_consulta = db.Column(db.Enum("triagem", "consulta-medica"), nullable=False)
     origem_encaminhamento = db.Column(
         db.Enum("espontanea", "SAMU", "transferencia", "regulacao"),
@@ -34,8 +34,8 @@ class Consulta(db.Model):
     data_hora_fim = db.Column(db.DateTime(timezone=True))
     desfecho_final = db.Column(
         db.Enum("alta", "internacao", "transferencia", "obito", "evasao"))
-    iniciada_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"))
-    finalizada_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"))
+    iniciada_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
+    finalizada_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -64,14 +64,14 @@ class Consulta(db.Model):
 class Atendimento(db.Model):
     __tablename__ = "atendimento"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_atendimento",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_atendimento",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_consulta = db.Column(db.BigInteger, db.ForeignKey("consulta.id"), nullable=False)
+    id_consulta = db.Column(db.BigInteger, db.ForeignKey("consulta.id_consulta"), nullable=False)
     tipo_atendimento = db.Column(
         db.Enum("triagem", "avaliacao-medica", "reavaliacao", "alta", "procedimento"),
         nullable=False)
-    realizado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"), nullable=False)
+    realizado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     status = db.Column(db.Enum("em-andamento", "finalizado", "cancelado"),
                         nullable=False, default="em-andamento")
     data_hora_inicio = db.Column(db.DateTime(timezone=True), nullable=False,
@@ -107,10 +107,10 @@ class Atendimento(db.Model):
 class ColetaClinica(db.Model):
     __tablename__ = "coleta_clinica"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_coleta",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_coleta",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id"), nullable=False)
+    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id_atendimento"), nullable=False)
     desde_quando_sintomas = db.Column(db.SmallInteger)  # horas
 
     atendimento = db.relationship("Atendimento", back_populates="coletas_clinicas")
@@ -127,10 +127,10 @@ class ColetaClinica(db.Model):
 class SinalVital(db.Model):
     __tablename__ = "sinal_vital"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_sinal_vital",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_sinal_vital",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id"), nullable=False)
+    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id_atendimento"), nullable=False)
     tipo_parametro = db.Column(
         db.Enum("frequencia-respiratoria", "spo2", "pa-sistolica", "pa-diastolica",
                 "frequencia-cardiaca", "temperatura", "glicemia-capilar"),
@@ -143,7 +143,7 @@ class SinalVital(db.Model):
                 "manguito-braco-direito", "manguito-braco-esquerdo"))
     data_hora_medicao = db.Column(db.DateTime(timezone=True), nullable=False,
                                    default=lambda: datetime.now(timezone.utc))
-    coletado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"), nullable=False)
+    coletado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     flag_validacao_faixa = db.Column(
         db.Enum("dentro-do-limite", "fora-limite-alertado", "fora-limite-rejeitado"),
         nullable=False, default="dentro-do-limite")
@@ -170,10 +170,10 @@ class SinalVital(db.Model):
 class InputProtocolo(db.Model):
     __tablename__ = "input_protocolo"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_input", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_input", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_coleta_clinica = db.Column(db.BigInteger, db.ForeignKey("coleta_clinica.id"))
+    id_coleta_clinica = db.Column(db.BigInteger, db.ForeignKey("coleta_clinica.id_coleta"))
     tipo_input = db.Column(db.Enum("triagem", "consulta"))
     input_json = db.Column(db.JSON)
     queixa_principal = db.Column(db.Text)
@@ -201,9 +201,9 @@ class InputProtocolo(db.Model):
 class InputProtocoloExecucao(db.Model):
     __tablename__ = "input_protocolo_execucao"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    id_input = db.Column(db.BigInteger, db.ForeignKey("input_protocolo.id"))
-    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id"))
+    id = db.Column("id_input_execucao",BigIntPK, primary_key=True, autoincrement=True)
+    id_input = db.Column(db.BigInteger, db.ForeignKey("input_protocolo.id_input"))
+    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id_protocolo_catalogo"))
 
     input_protocolo = db.relationship("InputProtocolo", back_populates="execucoes")
     protocolo_catalogo = db.relationship("ProtocoloCatalogo", back_populates="execucoes")
@@ -215,11 +215,11 @@ class InputProtocoloExecucao(db.Model):
 class ResultadoPrescricao(db.Model):
     __tablename__ = "resultado_prescricao"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_resultado", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_resultado", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id"), nullable=False)
-    id_output = db.Column(db.BigInteger, db.ForeignKey("output_bion.id"))
+    id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id_atendimento"), nullable=False)
+    id_output = db.Column(db.BigInteger, db.ForeignKey("output_bion.id_output"))
     codigo_cid10_principal = db.Column(db.String(10), nullable=False)
     descricao_cid10_principal = db.Column(db.String(255), nullable=False)
     certeza_diagnostica = db.Column(
@@ -259,9 +259,9 @@ class ResultadoPrescricao(db.Model):
 class Prescricao(db.Model):
     __tablename__ = "prescricao"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    id_resultado_prescricao = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id"))
-    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id"))
+    id = db.Column("id_prescricao", BigIntPK, primary_key=True, autoincrement=True)
+    id_resultado_prescricao = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id_resultado"))
+    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamento"))
     dose = db.Column(db.String(100))
     frequencia = db.Column(db.String(100))
     duracao = db.Column(db.String(100))
@@ -287,12 +287,12 @@ class Prescricao(db.Model):
 class PrescricaoExame(db.Model):
     __tablename__ = "prescricao_exame"
 
-    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    id = db.Column("id_prescricao_exame", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_prescricao_exame", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
-    id_resultado = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id"))
-    id_exame = db.Column(db.BigInteger, db.ForeignKey("catalogo_exames.id"))
-    id_output_origem = db.Column(db.BigInteger, db.ForeignKey("output_bion.id"))
+    id_resultado = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id_resultado"))
+    id_exame = db.Column(db.BigInteger, db.ForeignKey("catalogo_exames.id_catalogo_exame"))
+    id_output_origem = db.Column(db.BigInteger, db.ForeignKey("output_bion.id_output"))
     urgencia = db.Column(db.Enum("rotina", "urgente", "emergencia"))
     justificativa = db.Column(db.Text)
     origem_sugestao = db.Column(db.Enum("medico", "bion_ia", "protocolo"))
