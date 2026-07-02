@@ -47,15 +47,15 @@ class CatalogoExames(db.Model):
 class CatalogoMedicamentos(db.Model):
     __tablename__ = "catalogo_medicamentos"
 
-    id = db.Column("id_catalogo_medicamento",BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_catalogo_medicamento",db.String(36), unique=True, nullable=False,
+    id = db.Column("id_catalogo_medicamentos",BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_catalogo_medicamentos",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     principio_ativo = db.Column(db.String(255))
     classe_farmaceutica = db.Column(db.String(255))
     nomes_comerciais_json = db.Column(db.JSON)
 
-    medicamentos_em_uso = db.relationship("MedicamentoEmUso", back_populates="catalogo_medicamento")
-    prescricoes = db.relationship("Prescricao", back_populates="catalogo_medicamento")
+    medicamentos_em_uso = db.relationship("MedicamentoEmUso", back_populates="catalogo_medicamentos")
+    prescricoes = db.relationship("Prescricao", back_populates="catalogo_medicamentos")
     interacoes_como_a = db.relationship(
         "InteracoesMedicamentos", foreign_keys="InteracoesMedicamentos.id_medicamento_a",
         back_populates="medicamento_a")

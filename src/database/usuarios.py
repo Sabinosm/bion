@@ -22,7 +22,6 @@ class Usuario(db.Model):
     id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id_empresa"), nullable=False)
     nome_completo = db.Column(db.String(255), nullable=False)
     cpf = db.Column(db.String(500), nullable=False)  # AES-256-GCM (valor exibível)
-    cpf_hash = db.Column(db.String(64), unique=True, nullable=False)  # HMAC-SHA256 (índice de busca)
     email = db.Column(db.String(255), unique=True, nullable=False)
     telefone = db.Column(db.String(50))
     user_login = db.Column(db.String(100), unique=True)

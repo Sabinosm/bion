@@ -49,11 +49,11 @@ class UsuarioService:
         if self.repo.find_by_cpf_hash(cpf_hash):
             raise ConflictoError("CPF já cadastrado para outro usuário.")
 
+    # O cpf sendo salvo em hash, nao sei ainda se vai continuar assim
         u = Usuario(
             id_empresa=dados["id_empresa"],
             nome_completo=dados["nome_completo"],
             cpf=aes_encrypt(dados["cpf"]),
-            cpf_hash=cpf_hash,
             email=dados["email"],
             telefone=dados.get("telefone"),
             user_login=dados["user_login"],

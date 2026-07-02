@@ -172,7 +172,7 @@ class DoencaCronica(db.Model):
 
 
 class MedicamentoEmUso(db.Model):
-    __tablename__ = "Medicamentos_em_uso"
+    __tablename__ = "medicamentos_em_uso"
 
     id = db.Column("id_medicamento_uso", BigIntPK, primary_key=True, autoincrement=True)
     id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
@@ -184,7 +184,7 @@ class MedicamentoEmUso(db.Model):
     flag_em_uso = db.Column(db.Boolean, default=True)
 
     paciente = db.relationship("Paciente", back_populates="medicamentos_em_uso")
-    catalogo_medicamento = db.relationship("CatalogoMedicamentos",
+    catalogo_medicamentos = db.relationship("CatalogoMedicamentos",
                                             back_populates="medicamentos_em_uso")
 
     def to_dict(self):

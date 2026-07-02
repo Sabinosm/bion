@@ -227,7 +227,7 @@ class ResultadoPrescricao(db.Model):
     tipo_prescricao = db.Column(
         db.Enum("farmacologica", "nao-farmacologica", "encaminhamento", "internacao", "alta"))
     consistente_com_classificacao = db.Column(db.Boolean)
-    formulado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id"), nullable=False)
+    formulado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     data_hora_formulacao = db.Column(db.DateTime(timezone=True), nullable=False,
                                       default=lambda: datetime.now(timezone.utc))
     criado_em = db.Column(db.DateTime(timezone=True),
@@ -261,14 +261,14 @@ class Prescricao(db.Model):
 
     id = db.Column("id_prescricao", BigIntPK, primary_key=True, autoincrement=True)
     id_resultado_prescricao = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id_resultado"))
-    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamento"))
+    id_catalogo = db.Column(db.BigInteger, db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamentos"))
     dose = db.Column(db.String(100))
     frequencia = db.Column(db.String(100))
     duracao = db.Column(db.String(100))
     orientacoes = db.Column(db.Text)
 
     resultado_prescricao = db.relationship("ResultadoPrescricao", back_populates="prescricoes")
-    catalogo_medicamento = db.relationship("CatalogoMedicamentos", back_populates="prescricoes")
+    catalogo_medicamentos = db.relationship("CatalogoMedicamentos", back_populates="prescricoes")
 
     def to_dict(self):
         return {

@@ -79,8 +79,7 @@ class Empresa(db.Model):
     id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
     status_plano = db.Column(db.String(50))
     plano = db.Column(db.String(100))
-    criado_em = db.Column(db.DateTime(timezone=True),
-                           default=lambda: datetime.now(timezone.utc), nullable=False)
+    criado_em = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="empresas")
     usuarios = db.relationship("Usuario", back_populates="empresa",
