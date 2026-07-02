@@ -1,6 +1,7 @@
 
 
-from flask import Flask, jsonify
+from flask import Flask, app, jsonify
+from flask_cors import CORS
 
 from src.config.database import config
 from src.database import db, migrate
@@ -17,7 +18,17 @@ def create_app(config_name: str = "development") -> Flask:
     _registrar_blueprints(app)
     _registrar_error_handlers(app)
 
+    origens_permitidas = [
+        "http://127.0.0.1:5500",  
+        "http://localhost:5500",             
+        "http://127.0.0.1:5500"
+    ]
+
+    CORS(app, resources={r"/api/*": {"origins": origens_permitidas}})
+
     return app
+
+
 
 
 def _registrar_blueprints(app: Flask):
@@ -36,7 +47,7 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.paciente.controllers import pessoal_bp, clinico_bp, lgpd_bp
 
-    app.register_blueprint(auth_bp)                                        # /api/auth
+    app.register_blueprint(auth_bp)                                        # /api/authc
     app.register_blueprint(usuario_bp, url_prefix="/api/usuarios")
     app.register_blueprint(empresa_bp, url_prefix="/api/empresas")
     app.register_blueprint(regiao_bp, url_prefix="/api/regioes")

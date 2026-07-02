@@ -62,16 +62,15 @@ class UsuarioService:
             atributos_profissionais_json=atributos,
         )
         
+        
         return self.repo.save(u)
 
 
-    # TODO fazer 2fa aqui
+    # TODO fazer 2fa aqui 
+    # TODO aviso ao fazer essas ações
     
     def atualizar(self, uuid: str, dados: dict):
         u = self.buscar_por_uuid(uuid)
-        
-        
-        
         for campo in CAMPOS_ATUALIZAVEIS:
             if campo in dados:
                 setattr(u, campo, dados[campo])
@@ -79,10 +78,6 @@ class UsuarioService:
             u.hash_senha = ph.hash(dados["senha"])
         return self.repo.save(u)
 
-    
-    # TODO somente admin pode desativar/ativar usuarios, mas isso é controlado no controller
-    # TODO 2FA aqui
-    
     def desativar(self, uuid: str):
         u = self.buscar_por_uuid(uuid)
         u.status = "inativo"
@@ -197,6 +192,5 @@ class UsuarioService:
         except ValueError as e:
             raise DadosInvalidosError("Tipos de dados inválidos.")
 
-        
-        
+
         

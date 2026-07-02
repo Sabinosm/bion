@@ -17,6 +17,7 @@ JSON padronizada, ja que a API agora e JSON-only.
 from flask import Blueprint, request, session, jsonify
 
 from src.core.responses import json_success, json_error
+from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -41,8 +42,11 @@ def login():
     session["tipo_usuario"] = usuario.tipo_usuario
     session["usuario_uuid"] = usuario.uuid       # conveniência para o front-end
 
+    cfg_service = ConfiguracaoService()
+    cfg = cfg_service.obter_ou_criar(session["usuario_id"])
+    
     return json_success(
-        data={"usuario": usuario.to_dict()},
+        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
         message="Login realizado com sucesso.",
     )
 
