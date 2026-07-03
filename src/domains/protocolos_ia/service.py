@@ -44,9 +44,14 @@ class ProtocoloCatalogoService:
     def buscar_por_uuid(self, uuid: str):
         e = self.repo.find_by_uuid(uuid)
         if not e:
-            raise RecursoNaoEncontradoError(f"ProtocoloCatalogo não encontrado: {uuid}")
+            raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid}")
         return e
 
+    def buscar_por_id(self, id:int):
+        e = self.repo.find_by_id(id)
+        if not e:
+            raise RecursoNaoEncontradoError(f"Protocolo não encontrado {id}")
+    
     def listar(self):
         return self.repo.find_all()
 

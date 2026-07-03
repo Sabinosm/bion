@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from src.database import db
 from src.core.interfaces import IRepository
-from src.database.usuarios import Configuracao
+from src.database.usuarios import Configuracao, ConfiguracaoProtocolo
 
 
 class ConfiguracaoRepository(IRepository[Configuracao]):
@@ -31,3 +31,18 @@ class ConfiguracaoRepository(IRepository[Configuracao]):
 
     def find_all(self) -> List[Configuracao]:
         return Configuracao.query.all()
+
+    # --- ConfiguracaoProtocolo (linhas filhas, 1 por protocolo habilitado) ---
+
+    def find_protocolos_by_configuracao(self, id_configuracao: int) -> List[ConfiguracaoProtocolo]:
+        return ConfiguracaoProtocolo.query.filter_by(id_configuracao=id_configuracao).all()
+
+    def find_protocolo(self, id_configuracao: int, id_protocolo) -> Optional[ConfiguracaoProtocolo]:
+        return ConfiguracaoProtocolo.query.filter_by(
+            id_configuracao=id_configuracao, id_protocolo=id_protocolo
+        ).first()
+
+    def save_protocolo(self, entity: ConfiguracaoProtocolo) -> ConfiguracaoProtocolo:
+        db.session.add(entity)
+        db.session.commit()
+        return entity

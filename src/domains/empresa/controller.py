@@ -11,6 +11,7 @@ bp = Blueprint("empresa", __name__)
 _svc = EmpresaService()
 
 
+# Por que o admin recebe a lista de todas as empresas? Deveria ser os dados da empresa dele não faz sentido
 @bp.get("/")
 @requer_admin
 def lista():

@@ -67,3 +67,6 @@ def me():
 def logout():
     session.clear()
     return json_success(message="Sessão encerrada.")
+
+
+# TODO fazer sing in do administrador e a criação da empresa

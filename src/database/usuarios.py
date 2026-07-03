@@ -82,9 +82,48 @@ class Configuracao(db.Model):
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     usuario = db.relationship("Usuario", back_populates="configuracao")
+    protocolos = db.relationship("ConfiguracaoProtocolo", back_populates="configuracao",
+                                  cascade="all, delete-orphan")
 
     def to_dict(self):
-        return {"uuid": self.uuid, "configuracoes": self.configuracoes_json}
+        return {
+            "uuid": self.uuid,
+            "configuracoes": self.configuracoes_json,
+            "protocolos": {
+                #
+                (p.protocolo.sigla if p.protocolo else p.id_protocolo): {
+                    "nome": p.protocolo.nome_protocolo if p.protocolo else None,
+                    "tipo": p.protocolo.tipo_protocolo if p.protocolo else None,
+                    "id": p.id_protocolo,
+                }
+                for p in self.protocolos
+            }
+        }
 
     def __repr__(self):
         return f"<Configuracao {self.uuid}>"
+
+
+class ConfiguracaoProtocolo(db.Model):
+    __tablename__ = "configuracao_protocolo"
+
+    id = db.Column("id_configuracao_protocolo", BigIntPK, primary_key=True, autoincrement=True)
+    id_configuracao = db.Column(db.BigInteger, db.ForeignKey("configuracao.id_configuracao"),
+                                 nullable=False)
+    id_protocolo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id_protocolo_catalogo"),
+                              nullable=True)
+
+    configuracao = db.relationship("Configuracao", back_populates="protocolos")
+    protocolo = db.relationship("ProtocoloCatalogo") 
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "id_protocolo": self.id_protocolo,
+            "nome": self.protocolo.nome_protocolo if self.protocolo else None,
+            "tipo": self.protocolo.tipo_protocolo if self.protocolo else None,
+            "configuracoes": self.configuracao.configuracoes_json if self.configuracao else None,
+        }
+
+    def __repr__(self):
+        return f"<ConfiguracaoProtocolo {self.id}>"
