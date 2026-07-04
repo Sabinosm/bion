@@ -40,7 +40,10 @@ class Config:
     SESSION_PERMANENT = True
     SESSION_COOKIE_HTTPONLY = True   # JS do front não acessa o cookie
     SESSION_COOKIE_SAMESITE = "Lax"  # Proteção CSRF básica
-
+    
+    GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
+    GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
+    
     # JSON
     JSON_SORT_KEYS = False
 

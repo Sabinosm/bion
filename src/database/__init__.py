@@ -44,7 +44,7 @@ from src.database.auditoria import LogAcesso, LogAlteracao  # noqa: E402,F401
 __all__ = [
     "db", "migrate",
     "RegiaoGeografica", "Empresa",
-    "Usuario", "Configuracao",
+    "Usuario", "Configuracao","ConfiguracaoProtocolo",
     "Paciente", "PacientePessoal", "Alergia", "DoencaCronica",
     "MedicamentoEmUso", "Consentimento",
     "CatalogoExames", "CatalogoMedicamentos", "InteracoesMedicamentos",

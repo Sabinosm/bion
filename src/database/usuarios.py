@@ -20,6 +20,7 @@ class Usuario(db.Model):
     uuid = db.Column("uuid_usuario", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id_empresa"), nullable=False)
+    google_sub = db.Column(db.String(255), unique=True, nullable=True, index=True)
     nome_completo = db.Column(db.String(255), nullable=False)
     cpf = db.Column(db.String(500), nullable=False)  # AES-256-GCM (valor exibível)
     email = db.Column(db.String(255), unique=True, nullable=False)
@@ -58,6 +59,7 @@ class Usuario(db.Model):
             "tipo_usuario": self.tipo_usuario,
             "status": self.status,
             "ultimo_acesso": self.ultimo_acesso.isoformat() if self.ultimo_acesso else None,
+            "id_empresa" : self.id_empresa
         }
         if incluir_sensiveis:
             from src.core.security import aes_decrypt

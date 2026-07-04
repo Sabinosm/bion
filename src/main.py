@@ -46,8 +46,10 @@ def _registrar_blueprints(app: Flask):
     from src.domains.atendimento.controller import bp_prescricao as prescricao_bp
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.paciente.controllers import pessoal_bp, clinico_bp, lgpd_bp
+    from src.domains.auth.oauth import bp_oauth
 
-    app.register_blueprint(auth_bp)                                        # /api/authc
+    app.register_blueprint(auth_bp)                                       # /api/authc
+    app.register_blueprint(bp_oauth)
     app.register_blueprint(usuario_bp, url_prefix="/api/usuarios")
     app.register_blueprint(empresa_bp, url_prefix="/api/empresas")
     app.register_blueprint(regiao_bp, url_prefix="/api/regioes")
