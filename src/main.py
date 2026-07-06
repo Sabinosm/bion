@@ -9,6 +9,8 @@ from src.core.exceptions import BionException
 
 
 def create_app(config_name: str = "development") -> Flask:
+    from src.domains.auth.oauth import init_oauth
+    
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
@@ -19,13 +21,17 @@ def create_app(config_name: str = "development") -> Flask:
     _registrar_error_handlers(app)
 
     origens_permitidas = [
-        "http://127.0.0.1:5500",  
-        "http://localhost:5500",             
-        "http://127.0.0.1:5500"
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
     ]
 
-    CORS(app, resources={r"v1/api/*": {"origins": origens_permitidas}})
-
+    CORS(
+    app,
+    resources={r"/v1/api/*": {"origins": origens_permitidas}},
+    supports_credentials=True,
+    )
+    init_oauth(app)
+    
     return app
 
 
@@ -50,8 +56,10 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auth.onboarding import bp_onboarding
     from src.domains.auth.step_up import bp_step_up
     from src.domains.auth.webauthn_2fa import bp_webauthn_2fa
+    from src.domains.auth.status import bp_status
 
-    app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")                                       # /v1/api/authc
+    app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")       
+    app.register_blueprint(bp_status, url_prefix="/v1/api/auth")                                       # /v1/api/authc
     app.register_blueprint(bp_oauth, url_prefix="/v1/api/auth")
     app.register_blueprint(bp_onboarding, url_prefix="/v1/api/auth")
     app.register_blueprint(bp_step_up, url_prefix="/v1/api")
