@@ -69,11 +69,11 @@ def usuario_admin(app, empresa):
 
 @pytest.fixture()
 def login_medico(client, usuario_medico):
-    client.post("/api/auth/login", json={"login": "medico1", "senha": "senha123"})
+    client.post("v1/api/auth/login", json={"login": "medico1", "senha": "senha123"})
     return usuario_medico
 
 
 @pytest.fixture()
 def login_admin(client, usuario_admin):
-    client.post("/api/auth/login", json={"login": "admin", "senha": "senha123"})
+    client.post("v1/api/auth/login", json={"login": "admin", "senha": "senha123"})
     return usuario_admin

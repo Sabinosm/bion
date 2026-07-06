@@ -48,7 +48,7 @@ def detalhe(uuid):
 def cadastrar():
     dados = request.get_json(silent=True) or {}
     try:
-        p = _svc.cadastrar(dados, session["usuario_id"])
+        p = _svc.cadastrar(dados, session["id_usuario"])
         return json_success(data=_serializar(p, True), message="Paciente cadastrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

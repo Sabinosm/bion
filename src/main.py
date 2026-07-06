@@ -24,7 +24,7 @@ def create_app(config_name: str = "development") -> Flask:
         "http://127.0.0.1:5500"
     ]
 
-    CORS(app, resources={r"/api/*": {"origins": origens_permitidas}})
+    CORS(app, resources={r"v1/api/*": {"origins": origens_permitidas}})
 
     return app
 
@@ -47,26 +47,32 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.paciente.controllers import pessoal_bp, clinico_bp, lgpd_bp
     from src.domains.auth.oauth import bp_oauth
+    from src.domains.auth.onboarding import bp_onboarding
+    from src.domains.auth.step_up import bp_step_up
+    from src.domains.auth.webauthn_2fa import bp_webauthn_2fa
 
-    app.register_blueprint(auth_bp)                                       # /api/authc
-    app.register_blueprint(bp_oauth)
-    app.register_blueprint(usuario_bp, url_prefix="/api/usuarios")
-    app.register_blueprint(empresa_bp, url_prefix="/api/empresas")
-    app.register_blueprint(regiao_bp, url_prefix="/api/regioes")
-    app.register_blueprint(configuracao_bp, url_prefix="/api/configuracao")
-    app.register_blueprint(catalogo_exames_bp, url_prefix="/api/catalogo/exames")
-    app.register_blueprint(catalogo_medicamentos_bp, url_prefix="/api/catalogo/medicamentos")
-    app.register_blueprint(protocolo_bp, url_prefix="/api/protocolos")
-    app.register_blueprint(ia_bp, url_prefix="/api/ia")
-    app.register_blueprint(consulta_bp, url_prefix="/api/consultas")
-    app.register_blueprint(atendimento_bp, url_prefix="/api/atendimentos")
-    app.register_blueprint(prescricao_bp, url_prefix="/api/prescricoes")
-    app.register_blueprint(auditoria_bp, url_prefix="/api/auditoria")
-    app.register_blueprint(pessoal_bp, url_prefix="/api/pacientes")
-    app.register_blueprint(clinico_bp, url_prefix="/api/pacientes")
-    app.register_blueprint(lgpd_bp, url_prefix="/api/pacientes")
+    app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")                                       # /v1/api/authc
+    app.register_blueprint(bp_oauth, url_prefix="/v1/api/auth")
+    app.register_blueprint(bp_onboarding, url_prefix="/v1/api/auth")
+    app.register_blueprint(bp_step_up, url_prefix="/v1/api")
+    app.register_blueprint(bp_webauthn_2fa, url_prefix="/v1/api")
+    app.register_blueprint(usuario_bp, url_prefix="/v1/api/usuarios")
+    app.register_blueprint(empresa_bp, url_prefix="/v1/api/empresas")
+    app.register_blueprint(regiao_bp, url_prefix="/v1/api/regioes")
+    app.register_blueprint(configuracao_bp, url_prefix="/v1/api/configuracao")
+    app.register_blueprint(catalogo_exames_bp, url_prefix="/v1/api/catalogo/exames")
+    app.register_blueprint(catalogo_medicamentos_bp, url_prefix="/v1/api/catalogo/medicamentos")
+    app.register_blueprint(protocolo_bp, url_prefix="/v1/api/protocolos")
+    app.register_blueprint(ia_bp, url_prefix="/v1/api/ia")
+    app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
+    app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
+    app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")
+    app.register_blueprint(auditoria_bp, url_prefix="/v1/api/auditoria")
+    app.register_blueprint(pessoal_bp, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(clinico_bp, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes")
 
-    @app.get("/api/health")
+    @app.get("/v1/api/health")
     def health():
         return jsonify({"status": "success", "message": "Bion API no ar."})
 

@@ -31,7 +31,7 @@ class Usuario(db.Model):
                         nullable=False, default="ativo")
     atributos_profissionais_json = db.Column(db.JSON)
     hash_senha = db.Column(db.String(500), nullable=False)  # Argon2id
-    mfa_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
     ultimo_acesso = db.Column(db.DateTime(timezone=True))
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -49,6 +49,7 @@ class Usuario(db.Model):
     def is_admin(self):
         return self.tipo_usuario == "admin"
 
+    #TODO verificar se todos os dados aqui são utilizaveis no momento em que são entregues 
     def to_dict(self, incluir_sensiveis=False):
         d = {
             "uuid": self.uuid,
@@ -129,3 +130,34 @@ class ConfiguracaoProtocolo(db.Model):
 
     def __repr__(self):
         return f"<ConfiguracaoProtocolo {self.id}>"
+
+class CredencialWebAuthn(db.Model):
+    """
+    Guarda a CHAVE PÚBLICA de cada dispositivo/autenticador que o usuário
+    cadastrou (ex: Face ID do celular, Windows Hello do notebook, Yubikey).
+ 
+    Um mesmo usuário pode ter várias linhas aqui (um por dispositivo).
+    A chave PRIVADA nunca existe no servidor — fica só no hardware do usuário.
+    """
+ 
+    __tablename__ = "credencial_webauthn"
+ 
+    id_credencial = db.Column(db.BigInteger, primary_key=True)
+    id_usuario = db.Column(
+        db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False, index=True
+    )
+ 
+    # ID público da credencial, gerado pelo autenticador (base64url)
+    credential_id = db.Column(db.String(512), unique=True, nullable=False, index=True)
+ 
+    # Chave pública em bytes (formato COSE) — usada para VERIFICAR assinaturas
+    public_key = db.Column(db.LargeBinary, nullable=False)
+ 
+    # Contador anti-replay: incrementa a cada login: se vier um valor menor
+    # ou igual ao salvo, pode ser um clone/replay da credencial -> bloquear
+    sign_count = db.Column(db.BigInteger, nullable=False, default=0)
+ 
+    # Nome amigável pro usuário identificar o dispositivo (opcional)
+    apelido_dispositivo = db.Column(db.String(120), nullable=True)
+ 
+    criado_em = db.Column(db.DateTime, server_default=db.func.now())

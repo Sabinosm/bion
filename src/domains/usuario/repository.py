@@ -43,3 +43,5 @@ class UsuarioRepository(IRepository[Usuario]):
 
     def find_por_empresa(self, empresa_id: int) -> List[Usuario]:
         return Usuario.query.filter_by(id_empresa=empresa_id).all()
+
+    

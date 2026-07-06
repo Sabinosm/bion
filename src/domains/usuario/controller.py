@@ -7,6 +7,7 @@ from src.core.exceptions import BionException
 from src.core.session import requer_admin, requer_login
 from .service import UsuarioService
 
+
 bp = Blueprint("usuario", __name__)
 _svc = UsuarioService()
 
@@ -68,3 +69,20 @@ def ativar(uuid):
         return json_success(data=u.to_dict(), message="Usuário ativado.")
     except BionException as e:
         return json_error(e.message, e.status_code)
+
+
+# TODO parte do admin ( primeiro to fazendo o 2FA depois eu sigo para essa parte)
+# TODO Garantir a criação do admin e do usuario corretamente
+
+@bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-2fa", methods=["POST"])
+@requer_login
+@requer_admin
+def resetar_2fa(uuid_usuario):
+    _svc.reset_2fa(uuid_usuario)
+ 
+ 
+@bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-completo", methods=["POST"])
+@requer_login
+@requer_admin
+def resetar_completo(uuid_usuario):
+    _svc.reset_total(uuid_usuario)

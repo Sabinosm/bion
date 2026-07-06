@@ -6,9 +6,11 @@ from src.database import db
 from src.domains.configuracao.service import ConfiguracaoService
 from src.core.responses import json_success
 
+ 
 oauth = OAuth()
-bp_oauth = Blueprint("oauth", __name__, url_prefix="/api/auth")
-
+bp_oauth = Blueprint("oauth", __name__)
+ 
+ 
 def init_oauth(app):
     oauth.init_app(app)
     oauth.register(
@@ -18,47 +20,57 @@ def init_oauth(app):
         server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
         client_kwargs={"scope": "openid email profile"},
     )
-
+ 
+ 
+ # FIXME
 @bp_oauth.route("/google/login")
 def google_login():
     redirect_uri = url_for("oauth.google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
-
+ 
+ 
 @bp_oauth.route("/google/callback")
 def google_callback():
     token = oauth.google.authorize_access_token()
     userinfo = token["userinfo"]
-
+ 
     email = userinfo["email"]
     google_sub = userinfo["sub"]
-
-    usuario = Usuario.query.filter_by(google_sub=google_sub).first()
-    if not usuario:
-        usuario = Usuario.query.filter_by(email=email).first()
-        if usuario:
-            usuario.google_sub = google_sub
-            user_dict = usuario.to_dict()
-            
-            if user_dict["hash_senha"] == None:
-                #TODO Lógica de 1° login, usuario existe mas é o 1° log in
-                pass
-        else:
-            return jsonify({"erro": "usuario_nao_cadastrado"}), 403
-        db.session.commit()
-
-    if not usuario.ativo:
-        session.clear()
-        return jsonify({"erro": "conta_inativa"}), 403
-
-    session.permanent = True                    # respeita PERMANENT_SESSION_LIFETIME
-    session["usuario_id"] = usuario.id           # chave lida por todos os decorators
-    session["tipo_usuario"] = usuario.tipo_usuario
-    session["usuario_uuid"] = usuario.uuid       # conveniência para o front-end
-
-    cfg_service = ConfiguracaoService()
-    cfg = cfg_service.obter_ou_criar(session["usuario_id"])
+ 
+    # o usuário TEM que já existir (cadastrado pelo admin).
+    # Google aqui só serve para provar "esta pessoa é dona deste email" —
+    # ele NUNCA cria conta nova sozinho.
     
-    return json_success(
-        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
-        message="Login realizado com sucesso.",
-    ),200
+    usuario = Usuario.query.filter_by(email=email).first()
+    if not usuario:
+        return jsonify({"erro": "usuario_nao_cadastrado"}), 403
+ 
+    if not usuario.ativo:
+        return jsonify({"erro": "conta_inativa"}), 403
+ 
+    # Vincula o google_sub na primeira vez (próximos logins via Google
+    # poderiam usar direto o sub, mas o e-mail já cumpre o papel aqui)
+    
+    if not usuario.google_sub:
+        usuario.google_sub = google_sub
+        db.session.commit()
+ 
+    session.clear()
+    session["id_usuario"] = usuario.id
+ 
+    if usuario.onboarding_pendente:
+        # Ainda não definiu senha nem cadastrou WebAuthn.
+        # Sessão fica restrita só às rotas de onboarding.
+        
+        session["onboarding_pendente"] = True
+        session.permanent = True
+        return jsonify({"status": "onboarding_requerido"}), 200
+ 
+    # Onboarding já concluído: login por Google recorrente ainda assim
+    # respeita a política de 2FA obrigatório (WebAuthn)
+    
+    session["mfa_pendente"] = True
+    session.permanent = True
+    return jsonify({"status": "mfa_requerido", "metodo": "webauthn"}), 200
+
+

@@ -52,7 +52,7 @@ def consultas_do_paciente(uuid_paciente):
 def abrir_consulta(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc_consulta.abrir(uuid_paciente, dados, session["usuario_id"])
+        c = _svc_consulta.abrir(uuid_paciente, dados, session["id_usuario"])
         return json_success(data=c.to_dict(), message="Consulta aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -63,7 +63,7 @@ def abrir_consulta(uuid_paciente):
 def encerrar_consulta(uuid):
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc_consulta.encerrar(uuid, dados.get("desfecho_final"), session["usuario_id"])
+        c = _svc_consulta.encerrar(uuid, dados.get("desfecho_final"), session["id_usuario"])
         return json_success(data=c.to_dict(), message="Consulta encerrada.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -102,7 +102,7 @@ def atendimentos_da_consulta(uuid_consulta):
 @requer_medico_ou_enfermeiro
 def abrir_triagem(uuid_consulta):
     try:
-        a = _svc_atendimento.abrir_triagem(uuid_consulta, session["usuario_id"])
+        a = _svc_atendimento.abrir_triagem(uuid_consulta, session["id_usuario"])
         return json_success(data=a.to_dict(), message="Triagem aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -112,7 +112,7 @@ def abrir_triagem(uuid_consulta):
 @requer_medico
 def abrir_avaliacao_medica(uuid_consulta):
     try:
-        a = _svc_atendimento.abrir_avaliacao_medica(uuid_consulta, session["usuario_id"])
+        a = _svc_atendimento.abrir_avaliacao_medica(uuid_consulta, session["id_usuario"])
         return json_success(data=a.to_dict(), message="Avaliação médica aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -124,7 +124,7 @@ def registrar_sinais_vitais(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
         registrados = _svc_atendimento.registrar_sinais_vitais(
-            uuid_atendimento, dados.get("sinais", []), session["usuario_id"]
+            uuid_atendimento, dados.get("sinais", []), session["id_usuario"]
         )
         return json_success(
             data=[s.to_dict() for s in registrados],
@@ -179,7 +179,7 @@ def finalizar_atendimento(uuid_atendimento):
 def registrar_resultado(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
-        r = _svc_prescricao.registrar_resultado(uuid_atendimento, dados, session["usuario_id"])
+        r = _svc_prescricao.registrar_resultado(uuid_atendimento, dados, session["id_usuario"])
         return json_success(data=r.to_dict(), message="Resultado de prescrição registrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

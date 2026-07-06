@@ -29,7 +29,7 @@ def listar(uuid_paciente):
 def registrar(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc.registrar(uuid_paciente, dados, session["usuario_id"])
+        c = _svc.registrar(uuid_paciente, dados, session["id_usuario"])
         return json_success(data=c.to_dict(), message="Consentimento registrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

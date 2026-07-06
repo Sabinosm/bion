@@ -9,7 +9,7 @@ from datetime import date
 
 
 def _cadastrar_paciente(client):
-    return client.post("/api/pacientes/", json={
+    return client.post("/v1/api/pacientes/", json={
         "sexo_biologico": "M", "data_nascimento": "1990-05-10",
         "nome_completo": "João da Silva", "cpf": "222.222.222-22",
         "telefone": "11999999999", "email": "joao@teste.com",
@@ -34,7 +34,7 @@ def test_medico_ve_pii_descriptografada(client, login_medico):
     resp = _cadastrar_paciente(client)
     uuid = resp.get_json()["data"]["uuid"]
 
-    resp = client.get(f"/api/pacientes/{uuid}")
+    resp = client.get(f"/v1/api/pacientes/{uuid}")
     pessoal = resp.get_json()["data"]["pessoal"]
     assert pessoal["nome_completo"] == "João da Silva"
     assert pessoal["cpf"] == "222.222.222-22"
@@ -65,20 +65,20 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
     r = _cadastrar_paciente(client)
     paciente_uuid = r.get_json()["data"]["uuid"]
 
-    r = client.post(f"/api/consultas/paciente/{paciente_uuid}", json={"tipo_consulta": "triagem"})
+    r = client.post(f"/v1/api/consultas/paciente/{paciente_uuid}", json={"tipo_consulta": "triagem"})
     assert r.status_code == 201
     consulta_uuid = r.get_json()["data"]["uuid"]
 
-    r = client.post(f"/api/atendimentos/consulta/{consulta_uuid}/abrir-triagem")
+    r = client.post(f"/v1/api/atendimentos/consulta/{consulta_uuid}/abrir-triagem")
     assert r.status_code == 201
     atendimento_uuid = r.get_json()["data"]["uuid"]
 
-    r = client.post(f"/api/atendimentos/{atendimento_uuid}/coleta-clinica",
+    r = client.post(f"/v1/api/atendimentos/{atendimento_uuid}/coleta-clinica",
                      json={"desde_quando_sintomas": 2})
     assert r.status_code == 201
     coleta_uuid = r.get_json()["data"]["uuid"]
 
-    r = client.post(f"/api/atendimentos/coleta-clinica/{coleta_uuid}/input-protocolo", json={
+    r = client.post(f"/v1/api/atendimentos/coleta-clinica/{coleta_uuid}/input-protocolo", json={
         "queixa_principal": "dor no peito",
         "input_json": {"fluxograma": {"discriminadores": [
             {"nome": "dor toracica", "resultado": "positivo", "cor_resultante": "Vermelho"}
@@ -91,7 +91,7 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
         from src.database.clinico import InputProtocolo
         id_input = InputProtocolo.query.filter_by(uuid=input_uuid).first().id
 
-    r = client.post("/api/ia/analisar", json={
+    r = client.post("/v1/api/ia/analisar", json={
         "sigla_protocolo": "MTS", "id_input_protocolo": id_input,
         "queixa_principal": "dor no peito",
         "input_json": {"fluxograma": {"discriminadores": [
@@ -103,7 +103,7 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
 
     # Regressão do bug: esta rota quebrava com AttributeError
     # (OutputBionService.buscar_output_triagem não existia).
-    r = client.get(f"/api/ia/output-triagem/{consulta_uuid}")
+    r = client.get(f"/v1/api/ia/output-triagem/{consulta_uuid}")
     assert r.status_code == 200
     assert r.get_json()["data"]["cor_mts"] == "Vermelho"
 
@@ -111,17 +111,17 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
 def test_encerrar_consulta_com_desfecho_invalido(app, client, login_medico):
     r = _cadastrar_paciente(client)
     paciente_uuid = r.get_json()["data"]["uuid"]
-    r = client.post(f"/api/consultas/paciente/{paciente_uuid}", json={"tipo_consulta": "triagem"})
+    r = client.post(f"/v1/api/consultas/paciente/{paciente_uuid}", json={"tipo_consulta": "triagem"})
     consulta_uuid = r.get_json()["data"]["uuid"]
 
-    r = client.post(f"/api/consultas/{consulta_uuid}/encerrar", json={"desfecho_final": "invalido"})
+    r = client.post(f"/v1/api/consultas/{consulta_uuid}/encerrar", json={"desfecho_final": "invalido"})
     assert r.status_code == 422
 
 
 def test_anonimizacao_requer_admin(app, client, login_medico):
     r = _cadastrar_paciente(client)
     paciente_uuid = r.get_json()["data"]["uuid"]
-    r = client.post(f"/api/pacientes/{paciente_uuid}/anonimizar")
+    r = client.post(f"/v1/api/pacientes/{paciente_uuid}/anonimizar")
     assert r.status_code == 403
 
 
@@ -140,13 +140,13 @@ def test_anonimizacao_remove_pii(app, client, login_admin):
         _db.session.add(m)
         _db.session.commit()
 
-    client.post("/api/auth/login", json={"login": "medico2", "senha": "senha123"})
+    client.post("/v1/api/auth/login", json={"login": "medico2", "senha": "senha123"})
     r = _cadastrar_paciente(client)
     paciente_uuid = r.get_json()["data"]["uuid"]
 
-    client.post("/api/auth/login", json={"login": "admin", "senha": "senha123"})
-    r = client.post(f"/api/pacientes/{paciente_uuid}/anonimizar")
+    client.post("/v1/api/auth/login", json={"login": "admin", "senha": "senha123"})
+    r = client.post(f"/v1/api/pacientes/{paciente_uuid}/anonimizar")
     assert r.status_code == 200
 
-    r = client.get(f"/api/pacientes/{paciente_uuid}")
+    r = client.get(f"/v1/api/pacientes/{paciente_uuid}")
     assert r.get_json()["data"].get("pessoal") is None
