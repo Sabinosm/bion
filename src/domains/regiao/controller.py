@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_admin, requer_login
+from src.core.session import requer_login, requer_papel
 from .service import RegiaoService
 
 bp = Blueprint("regiao", __name__)
@@ -30,7 +30,7 @@ def detalhe(uuid):
 
 
 @bp.post("/")
-@requer_admin
+@requer_papel("admin")
 def criar():
     dados = request.get_json(silent=True) or {}
     try:

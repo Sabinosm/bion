@@ -43,6 +43,7 @@ def login():
     session["id_usuario"] = usuario.id           # chave lida por todos os decorators
     session["tipo_usuario"] = usuario.tipo_usuario
     session["usuario_uuid"] = usuario.uuid       # conveniência para o front-end
+    session["id_empresa"] = usuario.id_empresa
 
     if tem_2fa:
         # Sessão FICA PENDENTE — id_empresa não é liberado ainda.

@@ -3,7 +3,7 @@
 from flask import Blueprint, request
 
 from src.core.responses import json_success
-from src.core.session import requer_admin
+from src.core.session import requer_papel
 from .service import AuditoriaService
 
 bp = Blueprint("auditoria", __name__)
@@ -11,7 +11,7 @@ _svc = AuditoriaService()
 
 
 @bp.get("/acessos")
-@requer_admin
+@requer_papel("admin")
 def listar_acessos():
     id_usuario = request.args.get("id_usuario", type=int)
     itens = _svc.listar_acessos(id_usuario)
@@ -19,7 +19,7 @@ def listar_acessos():
 
 
 @bp.get("/alteracoes")
-@requer_admin
+@requer_papel("admin")
 def listar_alteracoes():
     tabela = request.args.get("tabela")
     uuid_registro = request.args.get("uuid_registro")

@@ -7,7 +7,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_medico_ou_enfermeiro
+from src.core.session import requer_login, requer_papel
 from src.domains.paciente.services import DadosClinicosService
 
 bp = Blueprint("paciente_clinico", __name__)
@@ -27,7 +27,7 @@ def listar_alergias(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/alergias")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def adicionar_alergia(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
@@ -50,7 +50,7 @@ def listar_doencas(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/doencas-cronicas")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def adicionar_doenca(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
@@ -73,7 +73,7 @@ def listar_medicamentos_em_uso(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/medicamentos-em-uso")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def adicionar_medicamento_em_uso(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:

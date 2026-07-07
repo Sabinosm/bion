@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_admin, requer_medico_ou_enfermeiro, requer_medico
+from src.core.session import requer_login, requer_papel
 from .service import ProtocoloCatalogoService, OutputBionService
 
 bp_protocolo = Blueprint("protocolo", __name__)
@@ -34,7 +34,7 @@ def detalhe_protocolo(uuid):
 
 
 @bp_protocolo.post("/")
-@requer_admin
+@requer_papel("admin")
 def criar_protocolo():
     dados = request.get_json(silent=True) or {}
     try:
@@ -47,7 +47,7 @@ def criar_protocolo():
 # ---------------- IA (Output_bion) ----------------
 
 @bp_ia.post("/analisar")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def analisar():
     """Executa um protocolo (via Strategy/Factory) e persiste o resultado."""
     dados = request.get_json(silent=True) or {}
@@ -64,7 +64,7 @@ def analisar():
 
 
 @bp_ia.post("/analisar-llm")
-@requer_medico
+@requer_papel("medico")
 def analisar_llm():
     """
     Suporte adicional de IA generativa (Claude), complementar aos

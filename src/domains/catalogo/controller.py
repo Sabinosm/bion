@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_medico_ou_enfermeiro
+from src.core.session import requer_login, requer_papel
 from .service import CatalogoExamesService, CatalogoMedicamentosService
 
 bp_exames = Blueprint("catalogo_exames", __name__)
@@ -35,7 +35,7 @@ def detalhe_exame(uuid):
 
 
 @bp_exames.post("/")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico")
 def criar_exame():
     dados = request.get_json(silent=True) or {}
     try:
@@ -66,7 +66,7 @@ def detalhe_medicamento(uuid):
 
 
 @bp_medicamentos.get("/<uuid>/interacoes")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico")
 def interacoes_medicamento(uuid):
     try:
         interacoes = _svc_medicamentos.verificar_interacoes(uuid)
@@ -76,7 +76,7 @@ def interacoes_medicamento(uuid):
 
 
 @bp_medicamentos.post("/")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico")
 def criar_medicamento():
     dados = request.get_json(silent=True) or {}
     try:

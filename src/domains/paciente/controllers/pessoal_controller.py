@@ -10,7 +10,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_medico_ou_enfermeiro
+from src.core.session import requer_login, requer_papel
 from src.domains.paciente.services import PacienteService
 
 bp = Blueprint("paciente_pessoal", __name__)
@@ -44,7 +44,7 @@ def detalhe(uuid):
 
 
 @bp.post("/")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def cadastrar():
     dados = request.get_json(silent=True) or {}
     try:
@@ -55,7 +55,7 @@ def cadastrar():
 
 
 @bp.put("/<uuid>")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def atualizar(uuid):
     dados = request.get_json(silent=True) or {}
     try:

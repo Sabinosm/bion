@@ -25,9 +25,24 @@ class UsuarioRepository(IRepository[Usuario]):
     def find_by_email(self, email: str) -> Optional[Usuario]:
         return Usuario.query.filter_by(email=email).first()
 
-    def save(self, entity: Usuario) -> Usuario:
-        db.session.add(entity)
-        db.session.commit()
+    def save(self, entity: Usuario, commit: bool=True) -> Usuario:
+        if commit == True:
+            db.session.add(entity)
+            db.session.commit()
+        else:
+            """
+            Usado quando quem está chamando quer controlar a transação
+            por fora (ex: criar empresa + admin juntos). Só adiciona/dá
+            flush — quem chamou decide quando commitar ou dar rollback.
+            """
+            # já gera o entity.id, mas não fecha a transação
+            db.session.add(entity)
+            db.session.flush()
+            
+        return entity
+    
+    def save_sem_commit(self, entity):
+       
         return entity
 
     def delete(self, id: int) -> bool:
@@ -38,10 +53,8 @@ class UsuarioRepository(IRepository[Usuario]):
         db.session.commit()
         return True
 
-    def find_all(self) -> List[Usuario]:
-        return Usuario.query.all()
 
-    def find_por_empresa(self, empresa_id: int) -> List[Usuario]:
-        return Usuario.query.filter_by(id_empresa=empresa_id).all()
+    def find_all(self, id_empresa: int) -> List[Usuario]:
+        return Usuario.query.filter_by(id_empresa=id_empresa).all()
 
     

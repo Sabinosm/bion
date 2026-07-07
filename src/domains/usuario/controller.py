@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_admin, requer_login
+from src.core.session import requer_login, requer_papel, id_empresa_sessao
 from .service import UsuarioService
 
 
@@ -13,9 +13,9 @@ _svc = UsuarioService()
 
 
 @bp.get("/")
-@requer_admin
+@requer_papel("admin")
 def lista():
-    usuarios = _svc.listar()
+    usuarios = _svc.listar(id_empresa_sessao())
     return json_success(data=[u.to_dict() for u in usuarios])
 
 
@@ -30,18 +30,18 @@ def detalhe(uuid):
 
 
 @bp.post("/")
-@requer_admin
+@requer_papel("admin")
 def criar():
     dados = request.get_json(silent=True) or {}
     try:
-        u = _svc.criar(dados)
+        u = _svc.criar(dados, commit=True)
         return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
     except BionException as e:
         return json_error(e.message, e.status_code)
 
 
 @bp.put("/<uuid>")
-@requer_admin
+@requer_papel("admin")
 def atualizar(uuid):
     dados = request.get_json(silent=True) or {}
     try:
@@ -52,7 +52,7 @@ def atualizar(uuid):
 
 
 @bp.post("/<uuid>/desativar")
-@requer_admin
+@requer_papel("admin")
 def desativar(uuid):
     try:
         u = _svc.desativar(uuid)
@@ -62,7 +62,7 @@ def desativar(uuid):
 
 
 @bp.post("/<uuid>/ativar")
-@requer_admin
+@requer_papel("admin")
 def ativar(uuid):
     try:
         u = _svc.ativar(uuid)
@@ -72,17 +72,14 @@ def ativar(uuid):
 
 
 # TODO parte do admin ( primeiro to fazendo o 2FA depois eu sigo para essa parte)
-# TODO Garantir a criação do admin e do usuario corretamente
 
 @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-2fa", methods=["POST"])
-@requer_login
-@requer_admin
+@requer_papel("admin")
 def resetar_2fa(uuid_usuario):
     _svc.reset_2fa(uuid_usuario)
  
  
 @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-completo", methods=["POST"])
-@requer_login
-@requer_admin
+@requer_papel("admin")
 def resetar_completo(uuid_usuario):
     _svc.reset_total(uuid_usuario)

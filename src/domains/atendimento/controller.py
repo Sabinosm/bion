@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_medico_ou_enfermeiro, requer_medico
+from src.core.session import requer_login, requer_papel
 from .services import ConsultaService, AtendimentoService, PrescricaoService
 
 bp_consulta = Blueprint("consulta", __name__)
@@ -48,7 +48,7 @@ def consultas_do_paciente(uuid_paciente):
 
 
 @bp_consulta.post("/paciente/<uuid_paciente>")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def abrir_consulta(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
@@ -59,7 +59,7 @@ def abrir_consulta(uuid_paciente):
 
 
 @bp_consulta.post("/<uuid>/encerrar")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def encerrar_consulta(uuid):
     dados = request.get_json(silent=True) or {}
     try:
@@ -99,7 +99,7 @@ def atendimentos_da_consulta(uuid_consulta):
 
 
 @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def abrir_triagem(uuid_consulta):
     try:
         a = _svc_atendimento.abrir_triagem(uuid_consulta, session["id_usuario"])
@@ -109,7 +109,7 @@ def abrir_triagem(uuid_consulta):
 
 
 @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-avaliacao-medica")
-@requer_medico
+@requer_papel("medico")
 def abrir_avaliacao_medica(uuid_consulta):
     try:
         a = _svc_atendimento.abrir_avaliacao_medica(uuid_consulta, session["id_usuario"])
@@ -119,7 +119,7 @@ def abrir_avaliacao_medica(uuid_consulta):
 
 
 @bp_atendimento.post("/<uuid_atendimento>/sinais-vitais")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def registrar_sinais_vitais(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
@@ -135,7 +135,7 @@ def registrar_sinais_vitais(uuid_atendimento):
 
 
 @bp_atendimento.post("/<uuid_atendimento>/coleta-clinica")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def registrar_coleta_clinica(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
@@ -146,7 +146,7 @@ def registrar_coleta_clinica(uuid_atendimento):
 
 
 @bp_atendimento.post("/coleta-clinica/<uuid_coleta>/input-protocolo")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def registrar_input_protocolo(uuid_coleta):
     """
     Registra os dados de entrada (queixa, sinais, respostas de fluxograma)
@@ -162,7 +162,7 @@ def registrar_input_protocolo(uuid_coleta):
 
 
 @bp_atendimento.post("/<uuid_atendimento>/finalizar")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def finalizar_atendimento(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
@@ -175,7 +175,7 @@ def finalizar_atendimento(uuid_atendimento):
 # ==================== Prescrição ====================
 
 @bp_prescricao.post("/atendimento/<uuid_atendimento>")
-@requer_medico
+@requer_papel("medico")
 def registrar_resultado(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
@@ -196,7 +196,7 @@ def detalhe_resultado(uuid_resultado):
 
 
 @bp_prescricao.post("/<uuid_resultado>/medicamentos")
-@requer_medico
+@requer_papel("medico")
 def adicionar_medicamento(uuid_resultado):
     dados = request.get_json(silent=True) or {}
     try:
@@ -207,7 +207,7 @@ def adicionar_medicamento(uuid_resultado):
 
 
 @bp_prescricao.post("/<uuid_resultado>/exames")
-@requer_medico
+@requer_papel("medico")
 def adicionar_exame(uuid_resultado):
     dados = request.get_json(silent=True) or {}
     try:

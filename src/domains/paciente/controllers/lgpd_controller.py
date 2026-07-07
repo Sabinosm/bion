@@ -6,7 +6,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_medico_ou_enfermeiro, requer_admin
+from src.core.session import requer_login, requer_papel
 from src.domains.paciente.services import ConsentimentoService, PacienteService
 
 bp = Blueprint("paciente_lgpd", __name__)
@@ -25,7 +25,7 @@ def listar(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/consentimentos")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def registrar(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
@@ -36,7 +36,7 @@ def registrar(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/consentimentos/revogar")
-@requer_medico_ou_enfermeiro
+@requer_papel("medico","enfermeiro")
 def revogar(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
@@ -47,7 +47,7 @@ def revogar(uuid_paciente):
 
 
 @bp.post("/<uuid_paciente>/anonimizar")
-@requer_admin
+@requer_papel("admin")
 def anonimizar(uuid_paciente):
     """Exclusão de dados pessoais mediante solicitação do titular (LGPD)."""
     try:

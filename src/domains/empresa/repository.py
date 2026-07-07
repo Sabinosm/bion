@@ -16,11 +16,23 @@ class EmpresaRepository(IRepository[Empresa]):
     def find_by_cnpj(self, cnpj: str) -> Optional[Empresa]:
         return Empresa.query.filter_by(cnpj=cnpj).first()
 
-    def save(self, entity: Empresa) -> Empresa:
-        db.session.add(entity)
-        db.session.commit()
+    def save(self, entity: Empresa, commit: bool = True) -> Empresa:
+        if commit == True:
+            db.session.add(entity)
+            db.session.commit()
+        else:
+            """
+            Usado quando quem está chamando quer controlar a transação
+            por fora (ex: criar empresa + admin juntos). Só adiciona/dá
+            flush — quem chamou decide quando commitar ou dar rollback.
+            """
+            # já gera o entity.id, mas não fecha a transação
+            db.session.add(entity)
+            db.session.flush()
+            
         return entity
 
+        
     def delete(self, id: int) -> bool:
         e = self.find_by_id(id)
         if not e:
