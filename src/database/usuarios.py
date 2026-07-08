@@ -30,7 +30,7 @@ class Usuario(db.Model):
     status = db.Column(db.Enum("ativo", "inativo", "suspenso"),
                         nullable=False, default="ativo")
     atributos_profissionais_json = db.Column(db.JSON)
-    hash_senha = db.Column(db.String(255), nullable=False)  # Argon2id
+    hash_senha = db.Column(db.String(255), nullable=True)  # Argon2id
     onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
     ultimo_acesso = db.Column(db.DateTime(timezone=True))
     criado_em = db.Column(db.DateTime(timezone=True),

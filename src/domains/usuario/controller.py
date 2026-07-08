@@ -6,7 +6,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, id_empresa_sessao
 from .service import UsuarioService
-
+from flask import Blueprint, request, g
 
 bp = Blueprint("usuario", __name__)
 _svc = UsuarioService()
@@ -32,20 +32,24 @@ def detalhe(uuid):
 @bp.post("/")
 @requer_papel("admin")
 def criar():
+    
     dados = request.get_json(silent=True) or {}
     try:
-        u = _svc.criar(dados, commit=True)
+        u = _svc.criar(id_empresa=id_empresa_sessao(),dados=dados, commitar=True)
         return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
     except BionException as e:
         return json_error(e.message, e.status_code)
 
 
 @bp.put("/<uuid>")
-@requer_papel("admin")
+@requer_login
 def atualizar(uuid):
+    if uuid != g.uuid_usuario and g.tipo_usuario != "admin":
+        return json_error("Você só pode atualizar o seu próprio cadastro.", 403)
+
     dados = request.get_json(silent=True) or {}
     try:
-        u = _svc.atualizar(uuid, dados)
+        u = _svc.atualizar(uuid, dados, solicitante_eh_admin=(g.tipo_usuario == "admin"))
         return json_success(data=u.to_dict(), message="Usuário atualizado.")
     except BionException as e:
         return json_error(e.message, e.status_code)

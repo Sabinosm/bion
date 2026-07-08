@@ -42,7 +42,7 @@ def login():
     session.permanent = True                    # respeita PERMANENT_SESSION_LIFETIME
     session["id_usuario"] = usuario.id           # chave lida por todos os decorators
     session["tipo_usuario"] = usuario.tipo_usuario
-    session["usuario_uuid"] = usuario.uuid       # conveniência para o front-end
+    session["uuid_usuario"] = usuario.uuid       # conveniência para o front-end
     session["id_empresa"] = usuario.id_empresa
 
     if tem_2fa:

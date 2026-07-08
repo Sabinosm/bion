@@ -62,19 +62,12 @@ def _sem_permissao(papel):
 
 
 def _requer_papeis(*papeis_permitidos):
-    """
-    Fábrica interna de decorator. Checagem completa de sessão
-    (autenticado + onboarding concluído + mfa concluído) seguida da
-    checagem de papel, se algum papel for exigido.
-
-    papeis_permitidos vazio = só exige sessão liberada, sem restringir
-    por tipo_usuario (é o que requer_login usa).
-    """
+    """Fábrica interna de decorator — usada pelos requer_* nomeados abaixo."""
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             if not session.get("id_usuario"):
-                return jsonify({"erro": "nao_autenticado"}), 401
+                return _nao_autenticado()
 
             if session.get("onboarding_pendente"):
                 return jsonify({"erro": "onboarding_requerido"}), 403
@@ -87,6 +80,7 @@ def _requer_papeis(*papeis_permitidos):
                 return _sem_permissao(rotulo)
 
             g.id_usuario = session["id_usuario"]
+            g.uuid_usuario = session.get("uuid_usuario")
             g.id_empresa = session.get("id_empresa")
             g.tipo_usuario = session.get("tipo_usuario")
 
@@ -165,7 +159,17 @@ def _requer_papeis(*papeis_permitidos):
         return wrapper
     return decorator
 
-
+# def _ja_logado():
+#     def decorator(f):
+#         @wraps(f)
+#         def wrapper(*args, **kwargs):
+#            if session.get("id_usuario"):
+#                 return jsonify({"status": "error", "message": "Usuario já logado."}), 409
+#            else :
+#                return f(*args, **kwargs)
+#         return wrapper
+#     return decorator
+        
 
 def requer_papel(*papeis_permitidos):
     """

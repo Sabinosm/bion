@@ -146,3 +146,34 @@ def validar_cep(cep) -> bool:
     if cep_limpo == cep_limpo[0] * 8:
         return False
     return True
+
+def validar_senha(senha: str):
+    if not senha:
+        return False, {"erro": "senha_obrigatoria"}
+
+    if len(senha) < 12:
+        return False, {"erro": "senha_muito_curta"}
+
+    # Limite alto o suficiente para não incomodar ninguém, baixo o
+    # suficiente para evitar DoS via hashing de payloads gigantes.
+    # Não é limitação do Argon2id (que aceita ~4GB) — é proteção operacional.
+    if len(senha) > 128:
+        return False, {"erro": "senha_muito_longa"}
+
+    especiais_seguros = set("!@#%^()-_=+[]{}/?~.,:<>'\"|;&$`\\")
+
+    requisitos_faltando = []
+    if not any(c.isdigit() for c in senha):
+        requisitos_faltando.append("numero")
+    if not any(c.isupper() for c in senha):
+        requisitos_faltando.append("maiuscula")
+    if not any(c in especiais_seguros or not c.isalnum() for c in senha):
+        requisitos_faltando.append("caracter_especial")
+
+    if requisitos_faltando:
+        return False, {
+            "erro": "senha_fraca",
+            "requisitos_faltando": requisitos_faltando
+        }
+
+    return True, {"success": "senha_forte"}

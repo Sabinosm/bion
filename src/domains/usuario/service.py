@@ -8,16 +8,15 @@ service e controller foram unificados, o metodo de update precisava
 existir de fato.
 """
 
-from flask import  jsonify, session
+from flask import  jsonify, session, g
 from src.core.security import ph, aes_encrypt, hmac_sha256, aes_decrypt
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
 from .repository import UsuarioRepository
 from ...schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema
 from src.database.usuarios import Usuario
+import json
 
 
-# Campos que o schema de atualização pode devolver e que mapeiam 1:1 pro
-# model do banco. Centralizado aqui pra não espalhar strings soltas.
 CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "nome_completo",
     "email",
@@ -25,9 +24,26 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "user_login",
 )
 
-def _monta_atributos_json(schema: CadastroUsuarioSchema):
-    import json
+# Só admin pode alterar isso, mesmo no próprio cadastro
+CAMPOS_RESTRITOS_A_ADMIN = (
+    "tipo_usuario",
+    "numero-crm", "uf-crm", "rqe",
+    "numero-coren", "uf-coren", "especialidade",
+)
 
+
+def _atributos_atuais(u) -> dict:
+    """Decodifica o JSON de atributos profissionais salvo no banco.
+    Sem isso, o merge de 'dados atuais' fica sempre vazio."""
+    if not u.atributos_profissionais_json:
+        return {}
+    try:
+        return json.loads(u.atributos_profissionais_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def _monta_atributos_json(schema: CadastroUsuarioSchema):
     atributos_dict = {}
     if schema.tipo_usuario == "medico":
         atributos_dict = {
@@ -43,12 +59,11 @@ def _monta_atributos_json(schema: CadastroUsuarioSchema):
         }
     return json.dumps(atributos_dict) if atributos_dict else None
 
+
 class UsuarioService:
 
     def __init__(self):
         self.repo = UsuarioRepository()
-
-    # -- Leitura --------------------------------------------------------
 
     def buscar_por_uuid(self, uuid: str):
         u = self.repo.find_by_uuid(uuid)
@@ -56,11 +71,8 @@ class UsuarioService:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
 
-    def listar(self,id_empresa):
+    def listar(self, id_empresa):
         return self.repo.find_all(id_empresa)
-
-
-    # -- Escrita ----------------------------------------------------------
 
     def _checar_duplicidade(self, *, cpf_hash=None, email=None, login=None, ignorar_uuid=None):
         checagens = (
@@ -74,29 +86,18 @@ class UsuarioService:
             existente = buscador(valor)
             if existente and getattr(existente, "uuid", None) != ignorar_uuid:
                 raise ConflictoError(f"{rotulo} já cadastrado para outro usuário.")
- 
-    def criar(self, id_empresa: int, dados: dict, commitar: bool = True):
-        """
-        id_empresa vem do contexto de quem chama (admin autenticado, ou
-        EmpresaService.cadastrar_com_admin logo após criar a empresa).
- 
-        commitar=True (padrão): comportamento normal, salva e já commita —
-            usado no fluxo comum de "admin já logado cria um usuário".
-        commitar=False: usado quando quem chama (ex: cadastrar_com_admin)
-            quer controlar o commit/rollback por fora, como parte de uma
-            transação maior que envolve mais de um insert.
-        """
+
+    def criar(self, id_empresa, dados: dict, commitar: bool = True):
         from src.database.usuarios import Usuario
- 
+
         try:
             schema = CadastroUsuarioSchema(**dados)
         except Exception as e:
             raise DadosInvalidosError(f"Erro de validação: {e}") from e
- 
+
         cpf_hash = hmac_sha256(schema.cpf)
- 
         self._checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
- 
+
         u = Usuario(
             id_empresa=id_empresa,
             nome_completo=schema.nome_completo,
@@ -106,47 +107,68 @@ class UsuarioService:
             telefone=schema.telefone,
             user_login=schema.user_login,
             tipo_usuario=schema.tipo_usuario,
-            hash_senha=ph.hash(schema.senha),
             atributos_profissionais_json=_monta_atributos_json(schema),
         )
- 
         return self.repo.save(u, commitar)
- 
-    # TODO fazer 2fa aqui
-    # TODO aviso ao fazer essas acoes
- 
-    def atualizar(self, uuid: str, dados: dict):
+
+    def atualizar(self, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
         u = self.buscar_por_uuid(uuid)
- 
+        eh_auto_edicao = (uuid == solicitante_uuid)
+
+        # --- Camada 1: sanitização por papel ---------------------------
+        if not solicitante_eh_admin:
+            campos_bloqueados = [c for c in CAMPOS_RESTRITOS_A_ADMIN if c in dados]
+            if campos_bloqueados:
+                raise DadosInvalidosError(
+                    f"Você não tem permissão para alterar: {', '.join(campos_bloqueados)}."
+                )
+
+        # --- Camada 2: admin não pode se autorrebaixar ------------------
+        if eh_auto_edicao and "tipo_usuario" in dados and dados["tipo_usuario"] != u.tipo_usuario:
+            raise DadosInvalidosError("Você não pode alterar seu próprio tipo de usuário.")
+
+        # --- Camada 3: troca de tipo exige os novos atributos completos -
+        atributos_atuais = _atributos_atuais(u)
+        novo_tipo = dados.get("tipo_usuario", u.tipo_usuario)
+        tipo_mudou = novo_tipo != u.tipo_usuario
+
+        if tipo_mudou:
+            if novo_tipo == "medico" and not (dados.get("numero-crm") and dados.get("uf-crm")):
+                raise DadosInvalidosError("Troca para médico exige 'numero-crm' e 'uf-crm'.")
+            if novo_tipo == "enfermeiro" and not (
+                dados.get("numero-coren") and dados.get("uf-coren") and dados.get("especialidade")
+            ):
+                raise DadosInvalidosError(
+                    "Troca para enfermeiro exige 'numero-coren', 'uf-coren' e 'especialidade'."
+                )
+
         try:
             schema_parcial = AtualizacaoUsuarioSchema(**dados)
         except Exception as e:
             raise DadosInvalidosError(f"Erro de validação: {e}") from e
- 
+
         campos_enviados = schema_parcial.model_dump(exclude_unset=True, exclude_none=True)
         if not campos_enviados:
             raise DadosInvalidosError("Nenhum campo para atualizar foi enviado.")
- 
+
         cpf_novo = campos_enviados.get("cpf")
         email_novo = campos_enviados.get("email")
         login_novo = campos_enviados.get("user_login")
- 
-        # Com cpf_hash na tabela, não precisa mais descriptografar o CPF
-        # atual pra saber se mudou — basta comparar hashes (determinístico).
+
         cpf_hash_novo = hmac_sha256(cpf_novo) if cpf_novo else None
         cpf_mudou = bool(cpf_hash_novo) and cpf_hash_novo != u.cpf_hash
- 
+
         self._checar_duplicidade(
             cpf_hash=cpf_hash_novo if cpf_mudou else None,
             email=email_novo if email_novo and email_novo != u.email else None,
             login=login_novo if login_novo and login_novo != u.user_login else None,
             ignorar_uuid=uuid,
         )
- 
+
         cpf_para_validar = campos_enviados.get("cpf") or aes_decrypt(u.cpf)
- 
-        # id_empresa nao entra no dict de merge: o usuario nunca "muda" de
-        # empresa por esse endpoint, e o schema nem tem mais esse campo.
+
+        # --- MERGE CORRIGIDO: lê os atributos do JSON decodificado, --
+        # --- não de atributos inexistentes no model -------------------
         dados_mesclados = {
             "nome_completo": u.nome_completo,
             "cpf": cpf_para_validar,
@@ -155,39 +177,40 @@ class UsuarioService:
             "tipo_usuario": u.tipo_usuario,
             "senha": "placeholder1",
             "telefone": u.telefone,
-            "numero-crm": getattr(u, "numero_crm", None),
-            "uf-crm": getattr(u, "uf_crm", None),
-            "rqe": getattr(u, "rqe", None),
-            "numero-coren": getattr(u, "numero_coren", None),
-            "uf-coren": getattr(u, "uf_coren", None),
-            "especialidade": getattr(u, "especialidade", None),
+            "numero-crm": atributos_atuais.get("numero-crm"),
+            "uf-crm": atributos_atuais.get("uf-crm"),
+            "rqe": atributos_atuais.get("rqe"),
+            "numero-coren": atributos_atuais.get("numero-coren"),
+            "uf-coren": atributos_atuais.get("uf-coren"),
+            "especialidade": atributos_atuais.get("especialidade"),
         }
         dados_mesclados.update(dados)
- 
+
         try:
             schema_completo = CadastroUsuarioSchema(**dados_mesclados)
         except Exception as e:
             raise DadosInvalidosError(f"Erro de validação: {e}") from e
- 
+
         for campo in CAMPOS_SIMPLES_ATUALIZAVEIS:
             if campo in campos_enviados:
                 setattr(u, campo, getattr(schema_completo, campo))
- 
+
         if "cpf" in campos_enviados:
             u.cpf = aes_encrypt(schema_completo.cpf)
             u.cpf_hash = hmac_sha256(schema_completo.cpf)
- 
+
         if "senha" in campos_enviados:
             u.hash_senha = ph.hash(campos_enviados["senha"])
- 
-        if "tipo_usuario" in campos_enviados or any(
+
+        if tipo_mudou or any(
             c in campos_enviados
             for c in ("numero_crm", "uf_crm", "rqe", "numero_coren", "uf_coren", "especialidade")
         ):
             u.tipo_usuario = schema_completo.tipo_usuario
             u.atributos_profissionais_json = _monta_atributos_json(schema_completo)
- 
+
         return self.repo.save(u)
+
     def desativar(self, uuid: str):
         u = self.buscar_por_uuid(uuid)
         u.status = "inativo"
@@ -197,6 +220,8 @@ class UsuarioService:
         u = self.buscar_por_uuid(uuid)
         u.status = "ativo"
         return self.repo.save(u)
+
+    # reset_2fa e reset_total sem mudança
 
 
     def reset_2fa(self, uuid):

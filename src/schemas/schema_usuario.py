@@ -31,7 +31,6 @@ class CadastroUsuarioSchema(BaseModel):
     email: EmailStr
     user_login: str = Field(..., min_length=3, max_length=30)
     tipo_usuario: Literal["medico", "enfermeiro", "admin"]
-    senha: str = Field(..., min_length=6, max_length=72)  # 72 = limite prático do bcrypt/argon2
     telefone: Optional[str] = None
  
     # Campos específicos opcionais no payload geral
@@ -82,15 +81,6 @@ class CadastroUsuarioSchema(BaseModel):
                 "números, ponto, hífen ou underline."
             )
         return v.lower()
- 
-    @field_validator("senha")
-    @classmethod
-    def valida_forca_senha(cls, v: str) -> str:
-        if not REGEX_SENHA_FORTE.match(v):
-            raise ValueError(
-                "Senha deve ter ao menos 6 caracteres, incluindo letras e números."
-            )
-        return v
  
     @field_validator("telefone")
     @classmethod
@@ -192,7 +182,7 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
     email: Optional[EmailStr] = None
     user_login: Optional[str] = Field(None, min_length=3, max_length=30)
     tipo_usuario: Optional[Literal["medico", "enfermeiro", "admin"]] = None
-    senha: Optional[str] = Field(None, min_length=6, max_length=72)
+    senha: Optional[str] = Field(None, min_length=8, max_length=128)
  
     @field_validator("cpf")
     @classmethod
@@ -218,13 +208,14 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
     @field_validator("senha")
     @classmethod
     def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        if not REGEX_SENHA_FORTE.match(v):
+        senha_valida, resposta = vl.validar_senha(v)
+        if senha_valida == True:
+            return v
+        else:
             raise ValueError(
-                "Senha deve ter ao menos 6 caracteres, incluindo letras e números."
+                resposta["erro"]
             )
-        return v
+        
  
     @field_validator("nome_completo")
     @classmethod
@@ -242,6 +233,7 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
 # ---------------------------------------------------------------------------
 # Camada de processamento de negócio
 # ---------------------------------------------------------------------------
+
 def validacao_input(self, dados: dict) -> Tuple[dict, Optional[str]]:
     try:
         schema = CadastroUsuarioSchema(**dados)
@@ -259,7 +251,6 @@ def validacao_input(self, dados: dict) -> Tuple[dict, Optional[str]]:
         "telefone": schema.telefone,
         "user_login": schema.user_login,
         "tipo_usuario": schema.tipo_usuario,
-        "hash_senha": ph.hash(schema.senha),
     }
  
     atributos_dict = {}

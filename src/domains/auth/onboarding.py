@@ -16,6 +16,7 @@ from argon2 import PasswordHasher
 from src.database import db
 from src.database.usuarios import Usuario, CredencialWebAuthn 
 from src.core.session import onboarding_pendente_required
+from src.core.validacoes import validar_senha
 
 from src.domains.auth.webauthn_2fa import generate_registration_options, verify_registration_response, options_to_json
 from webauthn.helpers.structs import (
@@ -31,15 +32,19 @@ RP_ID = "bion.com.br"
 RP_NAME = "Bion"
 
 
+
+
 @bp_onboarding.route("/onboarding/definir-senha", methods=["POST"])
 @onboarding_pendente_required
 def definir_senha():
     dados = request.get_json()
     nova_senha = dados.get("senha")
 
-    if not nova_senha or len(nova_senha) < 8:
-        return jsonify({"erro": "senha_muito_curta"}), 400
-
+    senha_valida, resposta = validar_senha(nova_senha)
+    
+    if senha_valida == False:
+        return jsonify(resposta),400
+    
     usuario = Usuario.query.get(session["id_usuario"])
     usuario.hash_senha = ph.hash(nova_senha)
     db.session.commit()
@@ -89,7 +94,7 @@ def onboarding_webauthn_concluir():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="https://bion.com.br",
+            expected_origin="https://bion.com.br", # Alterar
         )
     except Exception as erro:
         return jsonify({"erro": "credencial_invalida", "detalhe": str(erro)}), 400
