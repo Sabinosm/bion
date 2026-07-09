@@ -76,7 +76,7 @@ class UsuarioService:
 
     def _checar_duplicidade(self, *, cpf_hash=None, email=None, login=None, ignorar_uuid=None):
         checagens = (
-            (cpf_hash, self.repo.find_by_cpf_hash, "CPF"),
+            (cpf_hash, self.repo.find_by_cpf_hash, "CPF"),-
             (email, self.repo.find_by_email, "E-mail"),
             (login, self.repo.find_by_login, "Login"),
         )

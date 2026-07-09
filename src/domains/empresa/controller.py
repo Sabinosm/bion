@@ -1,6 +1,7 @@
 """Rotas JSON do dominio Empresa (tenant)."""
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
+
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
@@ -11,29 +12,27 @@ bp = Blueprint("empresa", __name__)
 _svc = EmpresaService()
 
 # Por que o admin recebe a lista de todas as empresas? Deveria ser os dados da empresa dele não faz sentido
+
 @bp.get("/")
 @requer_papel("admin")
-def lista():
-    itens = _svc.listar()
-    return json_success(data=[e.to_dict() for e in itens])
-
-
-@bp.get("/<uuid>")
-@requer_login
-def detalhe(uuid):
+def detalhe():
     try:
-        e = _svc.buscar_por_uuid(uuid)
+        e = _svc.repo.find_by_id(g.id_empresa)
         return json_success(data=e.to_dict())
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
 
 
-@bp.put("/<uuid>")
+# TODO garantir que a empresa so possa ser atualizada pela admin que possui aquele id empresa
+# TODO Garantir que: todas as bucas sejam feitas apenas pelo ID
+
+@bp.put("/<uuid>") # UUID DA empresa
 @requer_papel("admin")
 def atualizar(uuid):
+    
     dados = request.get_json(silent=True) or {}
     try:
-        e = _svc.atualizar(uuid, dados)
+        e = _svc.atualizar(g.id_empresa, dados, uuid)
         return json_success(data=e.to_dict(), message="Empresa atualizada.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

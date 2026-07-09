@@ -1,4 +1,4 @@
-from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
+from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
 from .repository import EmpresaRepository
 from src.database.corp import Empresa
 from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
@@ -101,29 +101,36 @@ class EmpresaService:
             db.session.rollback()  # desfaz empresa E admin, mesmo que só um tenha falhado
             raise
  
-    def atualizar(self, id_empresa: int, dados: dict) -> "Empresa":
-        try:
-            schema = AtualizacaoEmpresaSchema(**dados)
-        except DadosInvalidosError:
-            raise
-        except Exception as e:
-            raise DadosInvalidosError(f"Erro de validação: {e}") from e
- 
+    def atualizar(self, id_empresa: int, dados: dict, uuid_empresa: str) -> Empresa:
+        
         empresa = self.repo.find_by_id(id_empresa)
-        if not empresa:
-            raise DadosInvalidosError("Empresa não encontrada.")
+        
+        if empresa.uuid == uuid_empresa:
+            try:
+                schema = AtualizacaoEmpresaSchema(**dados)
+            except DadosInvalidosError:
+                raise
+            except Exception as e:
+                raise DadosInvalidosError(f"Erro de validação: {e}") from e
+    
+            empresa = self.repo.find_by_id(id_empresa)
+            if not empresa:
+                raise DadosInvalidosError("Empresa não encontrada.")
+    
+            # Se o CNPJ está sendo alterado, checa duplicidade ignorando a própria empresa
+            if schema.cnpj and schema.cnpj != empresa.cnpj:
+                existente = self.repo.find_by_cnpj(schema.cnpj)
+                if existente and existente.id != id_empresa:
+                    raise ConflictoError("CNPJ já cadastrado para outra empresa.")
+    
+            # model_dump com exclude_unset garante que só os campos enviados
+            # pelo cliente sejam sobrescritos — campos ausentes no payload
+            # permanecem com o valor atual da empresa.
+            atualizacoes = schema.model_dump(exclude_unset=True, exclude_none=True)
+            for campo, valor in atualizacoes.items():
+                setattr(empresa, campo, valor)
  
-        # Se o CNPJ está sendo alterado, checa duplicidade ignorando a própria empresa
-        if schema.cnpj and schema.cnpj != empresa.cnpj:
-            existente = self.repo.find_by_cnpj(schema.cnpj)
-            if existente and existente.id != id_empresa:
-                raise ConflictoError("CNPJ já cadastrado para outra empresa.")
- 
-        # model_dump com exclude_unset garante que só os campos enviados
-        # pelo cliente sejam sobrescritos — campos ausentes no payload
-        # permanecem com o valor atual da empresa.
-        atualizacoes = schema.model_dump(exclude_unset=True, exclude_none=True)
-        for campo, valor in atualizacoes.items():
-            setattr(empresa, campo, valor)
- 
-        return self.repo.salvar(empresa)
+            return self.repo.salvar(empresa)
+        
+        else:
+            raise BionException (f"Não é possível alterar outras empresas:")
