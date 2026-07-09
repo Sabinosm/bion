@@ -80,10 +80,10 @@ def ativar(uuid):
 @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-2fa", methods=["POST"])
 @requer_papel("admin")
 def resetar_2fa(uuid_usuario):
-    _svc.reset_2fa(uuid_usuario)
+    return _svc.reset_2fa(uuid_usuario)
  
  
 @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-completo", methods=["POST"])
 @requer_papel("admin")
 def resetar_completo(uuid_usuario):
-    _svc.reset_total(uuid_usuario)
+   return _svc.reset_total(uuid_usuario)
