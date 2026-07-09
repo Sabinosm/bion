@@ -167,15 +167,13 @@ class UsuarioService:
 
         cpf_para_validar = campos_enviados.get("cpf") or aes_decrypt(u.cpf)
 
-        # --- MERGE CORRIGIDO: lê os atributos do JSON decodificado, --
-        # --- não de atributos inexistentes no model -------------------
+        
         dados_mesclados = {
             "nome_completo": u.nome_completo,
             "cpf": cpf_para_validar,
             "email": u.email,
             "user_login": u.user_login,
             "tipo_usuario": u.tipo_usuario,
-            "senha": "placeholder1",
             "telefone": u.telefone,
             "numero-crm": atributos_atuais.get("numero-crm"),
             "uf-crm": atributos_atuais.get("uf-crm"),

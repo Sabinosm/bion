@@ -26,15 +26,17 @@ _svc = AuthService()
 @bp.post("/login")
 def login():
     data = request.get_json(silent=True) or request.form.to_dict()
-    login_val = (data.get("login") or "").strip()
+    login_val = (data.get("user_login") or "").strip()
     senha = data.get("senha") or ""
 
     if not login_val or not senha:
         return json_error("Login e senha são obrigatórios.", 422)
 
-    usuario = _svc.autenticar(login_val, senha)
+    usuario, motivo = _svc.autenticar(login_val, senha)
+    if motivo == "sem_senha":
+        return json_error("Usuário sem senha, faça login pelo Google.", 400)
     if not usuario:
-        return json_error("Login ou senha incorretos.", 401)
+        return json_error("Credenciais inválidas.", 401)
 
     tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
 

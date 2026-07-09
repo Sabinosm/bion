@@ -133,31 +133,6 @@ def mfa_pendente_required(f):
 # garante tudo. Empilhar os dois juntos não quebra nada, só é redundante.
 # ---------------------------------------------------------------------------
 
-def _requer_papeis(*papeis_permitidos):
-    """Fábrica interna de decorator — usada pelos requer_* nomeados abaixo."""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if not session.get("id_usuario"):
-                return _nao_autenticado()
-
-            if session.get("onboarding_pendente"):
-                return jsonify({"erro": "onboarding_requerido"}), 403
-
-            if session.get("mfa_pendente"):
-                return jsonify({"erro": "mfa_requerido"}), 401
-
-            if session.get("tipo_usuario") not in papeis_permitidos:
-                rotulo = " ou ".join(papeis_permitidos)
-                return _sem_permissao(rotulo)
-
-            g.id_usuario = session["id_usuario"]
-            g.id_empresa = session.get("id_empresa")
-            g.tipo_usuario = session.get("tipo_usuario")
-
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
 
 # def _ja_logado():
 #     def decorator(f):

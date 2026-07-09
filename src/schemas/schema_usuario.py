@@ -21,7 +21,6 @@ class DadosInvalidosError(Exception):
 # ---------------------------------------------------------------------------
 REGEX_LOGIN = re.compile(r"^[a-zA-Z0-9._-]{3,30}$")
 REGEX_UF = re.compile(r"^[A-Z]{2}$")
-REGEX_SENHA_FORTE = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{6,}$")  # letra + número, min 6
  
  
 class CadastroUsuarioSchema(BaseModel):

@@ -49,7 +49,7 @@ def atualizar(uuid):
 
     dados = request.get_json(silent=True) or {}
     try:
-        u = _svc.atualizar(uuid, dados, solicitante_eh_admin=(g.tipo_usuario == "admin"))
+        u = _svc.atualizar(uuid, dados, solicitante_eh_admin=(g.tipo_usuario == "admin"), solicitante_uuid=g.uuid_usuario)
         return json_success(data=u.to_dict(), message="Usuário atualizado.")
     except BionException as e:
         return json_error(e.message, e.status_code)
