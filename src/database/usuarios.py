@@ -88,11 +88,21 @@ class Configuracao(db.Model):
     usuario = db.relationship("Usuario", back_populates="configuracao")
     protocolos = db.relationship("ConfiguracaoProtocolo", back_populates="configuracao",
                                   cascade="all, delete-orphan")
-
+    
+    # Quebrar configuracoes_json
     def to_dict(self):
+        # "design": {
+        #     "tema": "claro",
+        #     "tamanho_fonte": "medio",
+        # },
+        # "preferencias": {
+        #     "linguagem": ["pt-BR"]
+        # }
+        
         return {
             "uuid": self.uuid,
-            "configuracoes": self.configuracoes_json,
+            "design": self.configuracoes_json["design"],
+            "preferencias": self.configuracoes_json["preferencias"],
             "protocolos": {
                 #
                 (p.protocolo.sigla if p.protocolo else p.id_protocolo): {
@@ -106,7 +116,7 @@ class Configuracao(db.Model):
 
     def __repr__(self):
         return f"<Configuracao {self.uuid}>"
-
+    
 
 class ConfiguracaoProtocolo(db.Model):
     __tablename__ = "configuracao_protocolo"

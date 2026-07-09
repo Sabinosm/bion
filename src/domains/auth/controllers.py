@@ -12,19 +12,19 @@ depois da confirmacao via /webauthn/2fa/confirmar (ver webauthn_2fa.py)
 a sessao e promovida a completa.
 """
 
-from flask import Blueprint, request, session, jsonify
+from flask import Blueprint, request, session, jsonify, g
 from src.database.usuarios import Usuario, CredencialWebAuthn
 from src.core.responses import json_success, json_error
 from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService
-
+from src.core.session import requer_login
 
 bp = Blueprint("auth", __name__)
 _svc = AuthService()
 
 
 @bp.post("/login")
-def login():
+def login(): 
     data = request.get_json(silent=True) or request.form.to_dict()
     login_val = (data.get("user_login") or "").strip()
     senha = data.get("senha") or ""
@@ -45,7 +45,6 @@ def login():
     session["id_usuario"] = usuario.id           # chave lida por todos os decorators
     session["tipo_usuario"] = usuario.tipo_usuario
     session["uuid_usuario"] = usuario.uuid       # conveniência para o front-end
-    session["id_empresa"] = usuario.id_empresa
 
     if tem_2fa:
         # Sessão FICA PENDENTE — id_empresa não é liberado ainda.
@@ -70,15 +69,11 @@ def login():
 
 
 @bp.get("/me")
+@requer_login
 def me():
-    if not session.get("id_usuario"):
-        return json_error("Nenhuma sessão ativa.", 401)
-
-    if session.get("mfa_pendente"):
-        return json_error("Confirmação de segundo fator pendente.", 401)
 
     from src.domains.usuario.repository import UsuarioRepository
-    usuario = UsuarioRepository().find_by_id(session["id_usuario"])
+    usuario = UsuarioRepository().find_by_id(g.id_usuario)
     if not usuario:
         session.clear()
         return json_error("Sessão inválida.", 401)

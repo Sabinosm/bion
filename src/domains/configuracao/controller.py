@@ -1,6 +1,6 @@
 """Rotas JSON do dominio Configuracao (preferencias por usuario)."""
 
-from flask import Blueprint, request, session
+from flask import Blueprint, request, g
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
@@ -14,8 +14,8 @@ _svc = ConfiguracaoService()
 @bp.get("/")
 @requer_login
 def minha_configuracao():
-    cfg = _svc.obter_ou_criar(session["id_usuario"])
-    return json_success(data=cfg.to_dict())
+    cfg = _svc.obter_ou_criar(g.id_usuario)
+    return json_success(data={ "configuracoes": cfg.to_dict()})
 
 
 @bp.put("/")
@@ -23,8 +23,8 @@ def minha_configuracao():
 def atualizar():
     dados = request.get_json(silent=True) or {}
     try:
-        cfg = _svc.atualizar(session["id_usuario"], dados.get("configuracoes", {}))
-        return json_success(data=cfg.to_dict(), message="Configurações atualizadas.")
+        cfg = _svc.atualizar(g.id_usuario, dados.get("configuracoes", {}))
+        return json_success(data={ "configuracoes": cfg.to_dict()}, message="Configurações atualizadas.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
 
@@ -32,7 +32,7 @@ def atualizar():
 @bp.get("/protocolos")
 @requer_login
 def listar_protocolos():
-    protocolos = _svc.listar_protocolos(session["id_usuario"])
+    protocolos = _svc.listar_protocolos(g.id_usuario)
     return json_success(data=[p.to_dict() for p in protocolos])
 
 
@@ -42,7 +42,7 @@ def habilitar_protocolo(id_protocolo):
     dados = request.get_json(silent=True) or {}
     try:
         protocolo = _svc.habilitar_protocolo(
-            session["id_usuario"], id_protocolo, dados.get("configuracoes")
+            g.id_usuario, id_protocolo, dados.get("configuracoes")
         )
         return json_success(data=protocolo.to_dict(), message="Protocolo habilitado.")
     except BionException as ex:
@@ -53,7 +53,7 @@ def habilitar_protocolo(id_protocolo):
 @requer_login
 def desabilitar_protocolo(id_protocolo):
     try:
-        protocolo = _svc.desabilitar_protocolo(session["id_usuario"], id_protocolo)
+        protocolo = _svc.desabilitar_protocolo(g.id_usuario, id_protocolo)
         return json_success(data=protocolo.to_dict(), message="Protocolo desabilitado.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
