@@ -4,7 +4,7 @@ from flask import Flask, app, jsonify
 from flask_cors import CORS
 
 from src.config.database import config
-from src.database import db, migrate
+from src.models import db, migrate
 from src.core.exceptions import BionException
 
 
@@ -33,8 +33,6 @@ def create_app(config_name: str = "development") -> Flask:
     init_oauth(app)
     
     return app
-
-
 
 
 def _registrar_blueprints(app: Flask):
@@ -67,7 +65,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(usuario_bp, url_prefix="/v1/api/usuarios")
     app.register_blueprint(empresa_bp, url_prefix="/v1/api/empresas")
     app.register_blueprint(regiao_bp, url_prefix="/v1/api/regioes")
-    app.register_blueprint(configuracao_bp, url_prefix="/v1/api/configuracao")
+    app.register_blueprint(configuracao_bp, url_prefix="/v1/api/configuracoes")
     app.register_blueprint(catalogo_exames_bp, url_prefix="/v1/api/catalogo/exames")
     app.register_blueprint(catalogo_medicamentos_bp, url_prefix="/v1/api/catalogo/medicamentos")
     app.register_blueprint(protocolo_bp, url_prefix="/v1/api/protocolos")

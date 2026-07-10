@@ -1,8 +1,8 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.corp import Empresa
+from src.models.corp.empresa import Empresa
 
 
 class EmpresaRepository(IRepository[Empresa]):
@@ -41,5 +41,3 @@ class EmpresaRepository(IRepository[Empresa]):
         db.session.commit()
         return True
 
-    def find_all(self) -> List[Empresa]:
-        return Empresa.query.all()

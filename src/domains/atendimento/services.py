@@ -42,7 +42,7 @@ class ConsultaService:
         return self.repo.find_por_paciente(id_paciente)
 
     def abrir(self, uuid_paciente: str, dados: dict, id_usuario: int):
-        from src.database.clinico import Consulta
+        from src.models.clinico import Consulta
         from src.domains.paciente.repositories import PacienteRepository
 
         paciente = PacienteRepository().find_by_uuid(uuid_paciente)
@@ -98,7 +98,7 @@ class AtendimentoService:
         return self.repo.find_por_consulta(c.id)
 
     def abrir_triagem(self, uuid_consulta: str, id_usuario: int):
-        from src.database.clinico import Atendimento
+        from src.models.clinico import Atendimento
         c = self.consulta_repo.find_by_uuid(uuid_consulta)
         if not c:
             raise RecursoNaoEncontradoError(f"Consulta não encontrada: {uuid_consulta}")
@@ -117,7 +117,7 @@ class AtendimentoService:
         return atendimento
 
     def abrir_avaliacao_medica(self, uuid_consulta: str, id_usuario: int):
-        from src.database.clinico import Atendimento
+        from src.models.clinico import Atendimento
         c = self.consulta_repo.find_by_uuid(uuid_consulta)
         if not c:
             raise RecursoNaoEncontradoError(f"Consulta não encontrada: {uuid_consulta}")
@@ -136,7 +136,7 @@ class AtendimentoService:
         return atendimento
 
     def registrar_sinais_vitais(self, uuid_atendimento: str, lista_sinais: list, id_usuario: int):
-        from src.database.clinico import SinalVital
+        from src.models.clinico import SinalVital
         atendimento = self.buscar_por_uuid(uuid_atendimento)
         if not lista_sinais:
             raise DadosInvalidosError("Informe ao menos um sinal vital.")
@@ -165,7 +165,7 @@ class AtendimentoService:
         return registrados
 
     def registrar_coleta_clinica(self, uuid_atendimento: str, dados: dict):
-        from src.database.clinico import ColetaClinica
+        from src.models.clinico import ColetaClinica
         atendimento = self.buscar_por_uuid(uuid_atendimento)
         coleta = ColetaClinica(
             id_atendimento=atendimento.id,
@@ -174,7 +174,7 @@ class AtendimentoService:
         return self.coleta_repo.save(coleta)
 
     def registrar_input_protocolo(self, uuid_coleta: str, dados: dict):
-        from src.database.clinico import InputProtocolo
+        from src.models.clinico import InputProtocolo
         coleta = self.coleta_repo.find_by_uuid(uuid_coleta)
         if not coleta:
             raise RecursoNaoEncontradoError(f"Coleta clínica não encontrada: {uuid_coleta}")
@@ -187,7 +187,7 @@ class AtendimentoService:
             valor_avpu=dados.get("valor_avpu"),
             dados_criticos_ausentes_json=dados.get("dados_criticos_ausentes"),
         )
-        from src.database import db
+        from src.models import db
         db.session.add(ip)
         db.session.commit()
         return ip
@@ -215,7 +215,7 @@ class PrescricaoService:
         self.atendimento_repo = AtendimentoRepository()
 
     def registrar_resultado(self, uuid_atendimento: str, dados: dict, id_usuario: int):
-        from src.database.clinico import ResultadoPrescricao
+        from src.models.clinico import ResultadoPrescricao
         atendimento = self.atendimento_repo.find_by_uuid(uuid_atendimento)
         if not atendimento:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
@@ -239,7 +239,7 @@ class PrescricaoService:
         return self.resultado_repo.save(resultado)
 
     def adicionar_medicamento(self, uuid_resultado: str, dados: dict):
-        from src.database.clinico import Prescricao
+        from src.models.clinico import Prescricao
         resultado = self.resultado_repo.find_by_uuid(uuid_resultado)
         if not resultado:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
@@ -255,7 +255,7 @@ class PrescricaoService:
         return self.prescricao_repo.save(p)
 
     def adicionar_exame(self, uuid_resultado: str, dados: dict):
-        from src.database.clinico import PrescricaoExame
+        from src.models.clinico import PrescricaoExame
         resultado = self.resultado_repo.find_by_uuid(uuid_resultado)
         if not resultado:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")

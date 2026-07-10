@@ -1,6 +1,6 @@
 from src.core.exceptions import RecursoNaoEncontradoError
 from .repository import ConfiguracaoRepository
-from src.database.usuarios import Configuracao, ConfiguracaoProtocolo
+from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 
 
 class ConfiguracaoService:

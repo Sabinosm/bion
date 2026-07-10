@@ -1,8 +1,10 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.catalogo import CatalogoExames, CatalogoMedicamentos, InteracoesMedicamentos
+from src.models.catalogos.catalogo_exames import CatalogoExames
+from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
+from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
 
 
 class CatalogoExamesRepository(IRepository[CatalogoExames]):

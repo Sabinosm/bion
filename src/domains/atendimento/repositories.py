@@ -8,12 +8,15 @@ todas essas entidades vivem dentro do ciclo de vida de uma Consulta.
 
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.clinico import (
+from src.models.clinico import (
     Consulta, Atendimento, ColetaClinica, SinalVital, InputProtocolo,
     ResultadoPrescricao, Prescricao, PrescricaoExame,
 )
+
+from src.models.catalogos.prescricao_exame import PrescricaoExame
+
 
 
 class ConsultaRepository(IRepository[Consulta]):

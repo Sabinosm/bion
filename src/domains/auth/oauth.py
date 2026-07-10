@@ -1,8 +1,8 @@
 # auth/oauth.py
 from flask import Blueprint, session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
-from src.database.usuarios import Usuario
-from src.database import db
+from src.models.usuarios import Usuario
+from src.models import db
 
 oauth = OAuth()
 bp_oauth = Blueprint("oauth", __name__)

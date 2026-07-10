@@ -13,7 +13,7 @@ a sessao e promovida a completa.
 """
 
 from flask import Blueprint, request, session, jsonify, g
-from src.database.usuarios import Usuario, CredencialWebAuthn
+from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.core.responses import json_success, json_error
 from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService

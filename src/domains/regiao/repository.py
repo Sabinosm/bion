@@ -1,8 +1,8 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.corp import RegiaoGeografica
+from src.models.corp.empresa import RegiaoGeografica
 
 
 class RegiaoRepository(IRepository[RegiaoGeografica]):

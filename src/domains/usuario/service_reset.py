@@ -14,8 +14,8 @@ class ResetCredenciaisMixin:
     (UsuarioRepository) com o metodo `find_by_uuid`."""
 
     def reset_2fa(self, uuid):
-        from src.database.usuarios import CredencialWebAuthn
-        from src.database import db
+        from src.models.usuarios import CredencialWebAuthn
+        from src.models import db
         """
         Remove todas as credenciais WebAuthn do usuário. Próximo login dele
         (via senha) vai cair em mfa_pendente, mas sem credencial cadastrada —
@@ -41,8 +41,8 @@ class ResetCredenciaisMixin:
         return jsonify({"status": "2fa_resetado", "uuid_usuario": uuid}), 200
 
     def reset_total(self, uuid):
-        from src.database.usuarios import CredencialWebAuthn
-        from src.database import db
+        from src.models.usuarios import CredencialWebAuthn
+        from src.models import db
 
         """
         Reset mais drástico: invalida a senha também. Usuário precisa passar

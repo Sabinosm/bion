@@ -14,8 +14,8 @@ mapeados no schema do projeto (analise.md / UML).
 from datetime import datetime, timezone
 import uuid as _uuid
 
-from src.database import db
-from src.database.types import BigIntPK
+from src.models import db
+from src.models.types import BigIntPK
 
 
 class RegiaoGeografica(db.Model):

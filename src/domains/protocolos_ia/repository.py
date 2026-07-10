@@ -1,11 +1,11 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.protocolos import (
+from src.models.protocolos import (
     ProtocoloCatalogo, CatalogoFluxogramasMts, CatalogoModulos, OutputBion,
 )
-from src.database.clinico import Consulta, Atendimento, ColetaClinica, InputProtocolo
+from src.models.clinico import Consulta, Atendimento, ColetaClinica, InputProtocolo
 
 
 class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):

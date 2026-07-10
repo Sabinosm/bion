@@ -17,8 +17,8 @@ def _cadastrar_paciente(client):
 
 
 def test_cadastro_paciente_cifra_pii_no_banco(app, client, login_medico):
-    from src.database import db as _db
-    from src.database.paciente import PacientePessoal
+    from src.models import db as _db
+    from src.models.pacientes import PacientePessoal
 
     resp = _cadastrar_paciente(client)
     assert resp.status_code == 201
@@ -50,8 +50,8 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
     """Fluxo completo via API: paciente -> consulta -> triagem ->
     coleta clínica -> input de protocolo -> execução IA (MTS) ->
     consulta do resultado pela tela médica (output-triagem)."""
-    from src.database import db as _db
-    from src.database.protocolos import ProtocoloCatalogo
+    from src.models import db as _db
+    from src.models.protocolos import ProtocoloCatalogo
 
     with app.app_context():
         p = ProtocoloCatalogo(
@@ -88,7 +88,7 @@ def test_fluxo_triagem_mts_ate_output(app, client, login_medico):
     input_uuid = r.get_json()["data"]["uuid"]
 
     with app.app_context():
-        from src.database.clinico import InputProtocolo
+        from src.models.clinico import InputProtocolo
         id_input = InputProtocolo.query.filter_by(uuid=input_uuid).first().id
 
     r = client.post("/v1/api/ia/analisar", json={
@@ -126,9 +126,9 @@ def test_anonimizacao_requer_admin(app, client, login_medico):
 
 
 def test_anonimizacao_remove_pii(app, client, login_admin):
-    from src.database.usuarios import Usuario
+    from src.models.usuarios import Usuario
     from src.core.security import ph, aes_encrypt, hmac_sha256
-    from src.database import db as _db
+    from src.models import db as _db
 
     with app.app_context():
         medico = Usuario.query.filter_by(user_login="admin").first()

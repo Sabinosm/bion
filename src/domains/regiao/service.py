@@ -19,7 +19,7 @@ class RegiaoService:
         return self.repo.find_all()
 
     def criar(self, dados: dict):
-        from src.database.corp import RegiaoGeografica
+        from src.models.corp.empresa import RegiaoGeografica
         if not dados.get("nome_regiao") or not dados.get("tipo_regiao"):
             raise DadosInvalidosError("nome_regiao e tipo_regiao são obrigatórios.")
         r = RegiaoGeografica(

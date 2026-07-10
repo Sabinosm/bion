@@ -1,8 +1,8 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.usuarios import Configuracao, ConfiguracaoProtocolo
+from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 
 
 class ConfiguracaoRepository(IRepository[Configuracao]):

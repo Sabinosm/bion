@@ -1,8 +1,8 @@
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.auditoria import LogAcesso, LogAlteracao
+from src.models.auditoria import LogAcesso, LogAlteracao
 
 
 class LogAcessoRepository(IRepository[LogAcesso]):

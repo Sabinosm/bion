@@ -8,7 +8,7 @@ os.environ.setdefault("HMAC_KEY", "chave-teste-hmac")
 os.environ.setdefault("SECRET_KEY", "chave-teste-secret")
 
 from src.main import create_app
-from src.database import db as _db
+from src.models import db as _db
 
 
 @pytest.fixture()
@@ -28,7 +28,7 @@ def client(app):
 
 @pytest.fixture()
 def empresa(app):
-    from src.database.corp import Empresa
+    from src.models.corp.empresa import Empresa
     e = Empresa(nome_fantasia="Hospital Teste", cnpj="00.000.000/0001-00")
     _db.session.add(e)
     _db.session.commit()
@@ -37,7 +37,7 @@ def empresa(app):
 
 @pytest.fixture()
 def usuario_medico(app, empresa):
-    from src.database.usuarios import Usuario
+    from src.models.usuarios import Usuario
     from src.core.security import ph, aes_encrypt, hmac_sha256
     cpf = "111.111.111-11"
     u = Usuario(
@@ -53,7 +53,7 @@ def usuario_medico(app, empresa):
 
 @pytest.fixture()
 def usuario_admin(app, empresa):
-    from src.database.usuarios import Usuario
+    from src.models.usuarios import Usuario
     from src.core.security import ph, aes_encrypt, hmac_sha256
     cpf = "000.000.000-00"
     u = Usuario(

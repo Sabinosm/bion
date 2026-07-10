@@ -20,7 +20,7 @@ class AuditoriaService:
 
     def registrar_acesso(self, id_usuario: int, recurso: str, operacao: str,
                           ip_origem: str, resultado: str = "sucesso", uuid_paciente: str = None):
-        from src.database.auditoria import LogAcesso
+        from src.models.auditoria.log_acesso import LogAcesso
         log = LogAcesso(
             id_usuario=id_usuario,
             recurso_acessado=recurso,
@@ -36,7 +36,7 @@ class AuditoriaService:
                              operacao: str, id_usuario: int = None, campo_alterado: str = None,
                              valor_anterior: str = None, valor_novo: str = None,
                              ip_origem: str = None, justificativa: str = None):
-        from src.database.auditoria import LogAlteracao
+        from src.models.auditoria.log_alteracao import LogAlteracao
         log = LogAlteracao(
             tabela_origem=tabela_origem,
             id_registro=id_registro,

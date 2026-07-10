@@ -24,7 +24,7 @@ from .service_helpers import (
 )
 from .service_reset import ResetCredenciaisMixin
 from ...schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema
-from src.database.usuarios import Usuario
+from src.models.usuarios import Usuario
 
 
 class UsuarioService(ResetCredenciaisMixin):

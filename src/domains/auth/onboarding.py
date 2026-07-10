@@ -13,8 +13,8 @@ import base64
 from flask import Blueprint, request, jsonify, session
 from argon2 import PasswordHasher
 
-from src.database import db
-from src.database.usuarios import Usuario, CredencialWebAuthn 
+from src.models import db
+from src.models.usuarios import Usuario, CredencialWebAuthn 
 from src.core.session import onboarding_pendente_required
 from src.core.validacoes import validar_senha
 

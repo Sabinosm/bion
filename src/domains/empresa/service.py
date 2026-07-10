@@ -1,9 +1,9 @@
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
 from .repository import EmpresaRepository
-from src.database.corp import Empresa
+from src.models.corp.empresa import Empresa
 from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
 from typing import Tuple
-from src.database import db  # objeto de sessao/conexao (SQLAlchemy, etc)
+from src.models import db  # objeto de sessao/conexao (SQLAlchemy, etc)
 from src.domains.usuario.service import UsuarioService
 
 
@@ -126,11 +126,15 @@ class EmpresaService:
             # model_dump com exclude_unset garante que só os campos enviados
             # pelo cliente sejam sobrescritos — campos ausentes no payload
             # permanecem com o valor atual da empresa.
+            
             atualizacoes = schema.model_dump(exclude_unset=True, exclude_none=True)
+            
             for campo, valor in atualizacoes.items():
                 setattr(empresa, campo, valor)
  
-            return self.repo.salvar(empresa)
+            return self.repo.save(empresa)
         
         else:
             raise BionException (f"Não é possível alterar outras empresas:")
+        
+        

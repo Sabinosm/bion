@@ -11,7 +11,6 @@ from .service import EmpresaService
 bp = Blueprint("empresa", __name__)
 _svc = EmpresaService()
 
-# Por que o admin recebe a lista de todas as empresas? Deveria ser os dados da empresa dele não faz sentido
 
 @bp.get("/")
 @requer_papel("admin")
@@ -22,9 +21,6 @@ def detalhe():
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
 
-
-# TODO garantir que a empresa so possa ser atualizada pela admin que possui aquele id empresa
-# TODO Garantir que: todas as bucas sejam feitas apenas pelo ID
 
 @bp.put("/<uuid>") # UUID DA empresa
 @requer_papel("admin")

@@ -10,6 +10,6 @@ em memoria, ver TestingConfig); em MySQL o comportamento e identico ao
 BigInteger puro. `with_variant` resolve os dois casos ao mesmo tempo.
 """
 
-from src.database import db
+from src.models import db
 
 BigIntPK = db.BigInteger().with_variant(db.Integer, "sqlite")

@@ -20,7 +20,7 @@ class CatalogoExamesService:
         return self.repo.buscar_por_nome(termo)
 
     def criar(self, dados: dict):
-        from src.database.catalogo import CatalogoExames
+        from src.models.catalogos.catalogo_exames import CatalogoExames
         if not dados.get("nome_exame"):
             raise DadosInvalidosError("nome_exame é obrigatório.")
         e = CatalogoExames(
@@ -56,7 +56,7 @@ class CatalogoMedicamentosService:
         return self.repo.interacoes_de(m.id)
 
     def criar(self, dados: dict):
-        from src.database.catalogo import CatalogoMedicamentos
+        from src.models.catalogos.catalogo_exames import CatalogoMedicamentos
         if not dados.get("principio_ativo"):
             raise DadosInvalidosError("principio_ativo é obrigatório.")
         m = CatalogoMedicamentos(

@@ -9,9 +9,9 @@ e sempre acessadas no contexto de um Paciente.
 
 from typing import Optional, List
 
-from src.database import db
+from src.models import db
 from src.core.interfaces import IRepository
-from src.database.paciente import (
+from src.models.pacientes import (
     Paciente, PacientePessoal, Alergia, DoencaCronica, MedicamentoEmUso, Consentimento,
 )
 

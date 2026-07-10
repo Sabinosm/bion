@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Blueprint, request, jsonify, session
 
-from src.database import db
-from src.database.usuarios import CredencialWebAuthn
-from src.database.step_up import StepUpToken
+from src.models import db
+from src.models.usuarios import CredencialWebAuthn
+from src.models.auditoria import StepUpToken
 from src.core.session import requer_login
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json

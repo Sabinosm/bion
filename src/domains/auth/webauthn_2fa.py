@@ -20,8 +20,8 @@ from webauthn import (
 )
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
 
-from src.database import db
-from src.database.usuarios import Usuario, CredencialWebAuthn
+from src.models import db
+from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.core.session import mfa_pendente_required
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)

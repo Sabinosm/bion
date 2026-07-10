@@ -56,7 +56,7 @@ class ProtocoloCatalogoService:
         return self.repo.find_all()
 
     def criar(self, dados: dict):
-        from src.database.protocolos import ProtocoloCatalogo
+        from src.models.protocolos import ProtocoloCatalogo
         obrigatorios = ("nome_protocolo", "sigla", "tipo_resultado",
                         "versao_vigente", "data_vigencia")
         faltando = [c for c in obrigatorios if not dados.get(c)]
@@ -135,7 +135,7 @@ class OutputBionService:
             resultado.__dict__ if hasattr(resultado, "__dict__") else dict(resultado)
         )
 
-        from src.database.protocolos import OutputBion
+        from src.models.protocolos import OutputBion
         output = OutputBion(
             id_input=id_input_protocolo,
             output_ia_json=output_json,
@@ -157,7 +157,7 @@ class OutputBionService:
         motor = LlmMotor()
         resultado_json = motor.analisar(contexto)
 
-        from src.database.protocolos import OutputBion
+        from src.models.protocolos import OutputBion
         output = OutputBion(
             id_input=id_input_protocolo,
             output_ia_json=resultado_json,

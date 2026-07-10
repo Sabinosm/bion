@@ -51,7 +51,7 @@ class PacienteService:
         return p
 
     def cadastrar(self, dados: dict, id_usuario_cadastro: int):
-        from src.database.paciente import Paciente, PacientePessoal
+        from src.models.pacientes import Paciente, PacientePessoal
 
         obrigatorios = ("sexo_biologico", "data_nascimento", "nome_completo", "cpf")
         faltando = [c for c in obrigatorios if not dados.get(c)]
@@ -88,7 +88,7 @@ class PacienteService:
             contato_emergencia_nome=dados.get("contato_emergencia_nome"),
             contato_emergencia_telefone=aes_encrypt(dados.get("contato_emergencia_telefone")),
         )
-        from src.database import db
+        from src.models import db
         db.session.add(pessoal)
         db.session.commit()
 
@@ -141,7 +141,7 @@ class PacienteService:
         cpf_plaintext = aes_decrypt(paciente.pessoal.cpf)
         paciente.identificacao_anonima = hmac_sha256(cpf_plaintext)
 
-        from src.database import db
+        from src.models import db
         db.session.delete(paciente.pessoal)
         db.session.commit()
         return paciente
@@ -167,7 +167,7 @@ class DadosClinicosService:
         return self.alergia_repo.find_por_paciente(p.id)
 
     def adicionar_alergia(self, uuid_paciente: str, dados: dict):
-        from src.database.paciente import Alergia
+        from src.models.pacientes import Alergia
         p = self._paciente_ou_404(uuid_paciente)
         if not dados.get("substancia") or not dados.get("tipo_reacao") or not dados.get("gravidade"):
             raise DadosInvalidosError("substancia, tipo_reacao e gravidade são obrigatórios.")
@@ -187,7 +187,7 @@ class DadosClinicosService:
         return self.doenca_repo.find_por_paciente(p.id)
 
     def adicionar_doenca(self, uuid_paciente: str, dados: dict):
-        from src.database.paciente import DoencaCronica
+        from src.models.pacientes import DoencaCronica
         p = self._paciente_ou_404(uuid_paciente)
         obrigatorios = ("codigo_cid10", "descricao_cid10", "desde", "status")
         faltando = [c for c in obrigatorios if not dados.get(c)]
@@ -208,7 +208,7 @@ class DadosClinicosService:
         return self.medicamento_repo.find_por_paciente(p.id)
 
     def adicionar_medicamento_em_uso(self, uuid_paciente: str, dados: dict):
-        from src.database.paciente import MedicamentoEmUso
+        from src.models.pacientes import MedicamentoEmUso
         p = self._paciente_ou_404(uuid_paciente)
         m = MedicamentoEmUso(
             id_paciente=p.id,
@@ -240,7 +240,7 @@ class ConsentimentoService:
         return self.repo.find_por_paciente(p.id)
 
     def registrar(self, uuid_paciente: str, dados: dict, id_usuario_coletor: int):
-        from src.database.paciente import Consentimento
+        from src.models.pacientes import Consentimento
         p = self._paciente_ou_404(uuid_paciente)
         obrigatorios = ("versao_termo", "canal_coleta")
         faltando = [c for c in obrigatorios if not dados.get(c)]

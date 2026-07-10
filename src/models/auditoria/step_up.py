@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from src.database import db
-from src.database.types import BigIntPK
+from src.models import db
+from src.models.types import BigIntPK
 
 
 class StepUpToken(db.Model):
