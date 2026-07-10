@@ -1,12 +1,4 @@
-"""
-Protocolo NEWS2 (National Early Warning Score 2, RCP 2017).
-
-Ver nota de correcoes em `base.py`: `inp.sinais_vitais` e os campos de
-`ResultadoTriagem` usados aqui (`nivel_risco_news2`, `score_news2`,
-`subscores_news2`) so existem porque `base.py` foi ajustado para
-comporta-los. A logica de calculo do score (faixas de pontuacao,
-threshold de nivel de risco) foi mantida identica ao codigo original.
-"""
+"""Protocolo NEWS2 (National Early Warning Score 2, RCP 2017)."""
 
 from .base import (
     IProtocoloTriagem, IProtocoloConsulta,
@@ -23,9 +15,25 @@ FAIXAS = {
 
 
 class News2Protocolo(IProtocoloTriagem, IProtocoloConsulta):
+    """
+    Implementação Strategy do NEWS2. Único protocolo do motor que
+    implementa as duas interfaces (triagem e consulta), já que o mesmo
+    cálculo de score é reaproveitado nas duas etapas.
+    """
+
     VERSAO = "NEWS2-2017"
 
     def _calcular(self, sinais):
+        """
+        Calcula os subscores por parâmetro fisiológico, o score total e
+        o nível de risco resultante (baixo/médio/alto).
+
+        Args:
+            sinais: lista de dicts com tipo_parametro e valor_numerico.
+
+        Returns:
+            Tupla (subscores, score_total, nivel_risco, parametro_escalado).
+        """
         mapa = {s["tipo_parametro"]: float(s["valor_numerico"]) for s in sinais}
         sub = {}
         for p, faixas in FAIXAS.items():
@@ -42,6 +50,10 @@ class News2Protocolo(IProtocoloTriagem, IProtocoloConsulta):
         return sub, total, nivel, escalado
 
     def executar(self, inp):
+        """
+        Executa o cálculo do NEWS2 e retorna ResultadoTriagem ou
+        ResultadoConsulta, dependendo do tipo do input recebido.
+        """
         sub, total, nivel, escalado = self._calcular(inp.sinais_vitais)
         alertas = [f"Parâmetro crítico: {escalado}"] if escalado else []
         if isinstance(inp, InputTriagem):
@@ -54,10 +66,13 @@ class News2Protocolo(IProtocoloTriagem, IProtocoloConsulta):
         return ResultadoConsulta(indice_confianca=0.7, alertas=alertas)
 
     def validar_input(self, i) -> bool:
+        """Exige ao menos um sinal vital informado."""
         return len(i.sinais_vitais) > 0
 
     def get_nome(self):
+        """Retorna o nome de exibição do protocolo."""
         return "NEWS2"
 
     def get_versao(self):
+        """Retorna a versão/edição do protocolo implementada."""
         return self.VERSAO

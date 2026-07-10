@@ -1,55 +1,32 @@
+"""Repositório de acesso a dados da entidade OutputBion (resultados de IA)."""
+
 from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.protocolos import (
-    ProtocoloCatalogo, CatalogoFluxogramasMts, CatalogoModulos, OutputBion,
-)
+from src.models.protocolos import OutputBion
 from src.models.clinico import Consulta, Atendimento, ColetaClinica, InputProtocolo
 
 
-class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
-
-    def find_by_id(self, id: int) -> Optional[ProtocoloCatalogo]:
-        return db.session.get(ProtocoloCatalogo, id)
-
-    def find_by_uuid(self, uuid: str) -> Optional[ProtocoloCatalogo]:
-        return ProtocoloCatalogo.query.filter_by(uuid=uuid).first()
-
-    def find_by_sigla(self, sigla: str) -> Optional[ProtocoloCatalogo]:
-        return ProtocoloCatalogo.query.filter_by(sigla=sigla).first()
-
-    def save(self, entity: ProtocoloCatalogo) -> ProtocoloCatalogo:
-        db.session.add(entity)
-        db.session.commit()
-        return entity
-
-    def delete(self, id: int) -> bool:
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
-
-    def find_all(self) -> List[ProtocoloCatalogo]:
-        return ProtocoloCatalogo.query.all()
-
-
 class OutputBionRepository(IRepository[OutputBion]):
+    """Encapsula todo acesso a dados de OutputBion via SQLAlchemy."""
 
     def find_by_id(self, id: int) -> Optional[OutputBion]:
+        """Busca um OutputBion pelo ID interno (chave primária)."""
         return db.session.get(OutputBion, id)
 
     def find_by_uuid(self, uuid: str) -> Optional[OutputBion]:
+        """Busca um OutputBion pelo UUID público exposto na API."""
         return OutputBion.query.filter_by(uuid=uuid).first()
 
     def save(self, entity: OutputBion) -> OutputBion:
+        """Persiste (insert ou update) um OutputBion e commita a transação."""
         db.session.add(entity)
         db.session.commit()
         return entity
 
     def delete(self, id: int) -> bool:
+        """Remove um OutputBion pelo ID. Retorna False se não existir."""
         e = self.find_by_id(id)
         if not e:
             return False
@@ -58,13 +35,14 @@ class OutputBionRepository(IRepository[OutputBion]):
         return True
 
     def find_all(self) -> List[OutputBion]:
+        """Lista todos os OutputBion cadastrados, sem filtro."""
         return OutputBion.query.all()
 
     def find_output_triagem_da_consulta(self, uuid_consulta: str) -> Optional[OutputBion]:
         """
         Navega Consulta -> Atendimento(tipo=triagem) -> ColetaClinica ->
         InputProtocolo -> OutputBion mais recente. Usado pela tela de
-        avaliacao medica para reaproveitar o resultado ja calculado pela
+        avaliação médica para reaproveitar o resultado já calculado pela
         IA na triagem, sem reprocessar.
         """
         consulta = Consulta.query.filter_by(uuid=uuid_consulta).first()
@@ -99,53 +77,3 @@ class OutputBionRepository(IRepository[OutputBion]):
             return None
 
         return sorted(input_protocolo.outputs, key=lambda o: o.criado_em, reverse=True)[0]
-
-
-class CatalogoFluxogramasMtsRepository(IRepository[CatalogoFluxogramasMts]):
-
-    def find_by_id(self, id: int) -> Optional[CatalogoFluxogramasMts]:
-        return db.session.get(CatalogoFluxogramasMts, id)
-
-    def find_by_uuid(self, uuid: str) -> Optional[CatalogoFluxogramasMts]:
-        return CatalogoFluxogramasMts.query.filter_by(uuid=uuid).first()
-
-    def save(self, entity: CatalogoFluxogramasMts) -> CatalogoFluxogramasMts:
-        db.session.add(entity)
-        db.session.commit()
-        return entity
-
-    def delete(self, id: int) -> bool:
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
-
-    def find_all(self) -> List[CatalogoFluxogramasMts]:
-        return CatalogoFluxogramasMts.query.all()
-
-
-class CatalogoModulosRepository(IRepository[CatalogoModulos]):
-
-    def find_by_id(self, id: int) -> Optional[CatalogoModulos]:
-        return db.session.get(CatalogoModulos, id)
-
-    def find_by_uuid(self, uuid: str) -> Optional[CatalogoModulos]:
-        return CatalogoModulos.query.filter_by(uuid=uuid).first()
-
-    def save(self, entity: CatalogoModulos) -> CatalogoModulos:
-        db.session.add(entity)
-        db.session.commit()
-        return entity
-
-    def delete(self, id: int) -> bool:
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
-
-    def find_all(self) -> List[CatalogoModulos]:
-        return CatalogoModulos.query.all()

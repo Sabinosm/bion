@@ -1,55 +1,23 @@
-"""Rotas JSON dos dominios Protocolo e IA (Output_bion)."""
+"""Rotas JSON do domínio IA: execução de protocolos, análise via LLM e consulta de resultados (OutputBion)."""
 
 from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel
-from .service import ProtocoloCatalogoService, OutputBionService
+from .service import OutputBionService
+from .service_llm import OutputBionLlmService
 
-bp_protocolo = Blueprint("protocolo", __name__)
 bp_ia = Blueprint("ia", __name__)
 
-_svc_protocolo = ProtocoloCatalogoService()
 _svc_ia = OutputBionService()
+_svc_ia_llm = OutputBionLlmService()
 
-
-# ---------------- Protocolo ----------------
-
-@bp_protocolo.get("/")
-@requer_login
-def lista_protocolos():
-    itens = _svc_protocolo.listar()
-    return json_success(data=[p.to_dict() for p in itens])
-
-
-@bp_protocolo.get("/<uuid>")
-@requer_login
-def detalhe_protocolo(uuid):
-    try:
-        p = _svc_protocolo.buscar_por_uuid(uuid)
-        return json_success(data=p.to_dict())
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-@bp_protocolo.post("/")
-@requer_papel("admin")
-def criar_protocolo():
-    dados = request.get_json(silent=True) or {}
-    try:
-        p = _svc_protocolo.criar(dados)
-        return json_success(data=p.to_dict(), message="Protocolo cadastrado.", status=201)
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-# ---------------- IA (Output_bion) ----------------
 
 @bp_ia.post("/analisar")
-@requer_papel("medico","enfermeiro")
+@requer_papel("medico", "enfermeiro")
 def analisar():
-    """Executa um protocolo (via Strategy/Factory) e persiste o resultado."""
+    """Executa um protocolo determinístico (via Strategy/Factory) e persiste o resultado."""
     dados = request.get_json(silent=True) or {}
     sigla = dados.get("sigla_protocolo")
     if not sigla:
@@ -66,10 +34,7 @@ def analisar():
 @bp_ia.post("/analisar-llm")
 @requer_papel("medico")
 def analisar_llm():
-    """
-    Suporte adicional de IA generativa (Claude), complementar aos
-    protocolos deterministicos. Requer LLM_API_KEY configurada.
-    """
+    """Executa a análise clínica via IA generativa (Claude), complementar aos protocolos determinísticos."""
     from .motor.ia_base import ContextoClinico
     dados = request.get_json(silent=True) or {}
     ctx = ContextoClinico(
@@ -80,7 +45,7 @@ def analisar_llm():
         resultado_triagem=dados.get("resultado_triagem"),
     )
     try:
-        output = _svc_ia.analisar_com_llm(ctx, id_input_protocolo=dados.get("id_input_protocolo"))
+        output = _svc_ia_llm.analisar_com_llm(ctx, id_input_protocolo=dados.get("id_input_protocolo"))
         return json_success(data=output.to_dict(), message="Análise da IA (LLM) concluída.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

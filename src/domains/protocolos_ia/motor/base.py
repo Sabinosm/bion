@@ -1,31 +1,4 @@
-"""
-Contratos do motor de protocolos (padrao Strategy + Factory).
-
-CORRECOES APLICADAS (bion.zip original quebrava em runtime nos 3 pontos
-abaixo assim que qualquer protocolo fosse executado de fato):
-
-1. `motores/mts.py` instanciava `ResultadoTriagem(..., discriminadores_avaliados=...,
-   discriminante_determinante=...)`, mas o dataclass so tinha `cor_mts` e
-   `tempo_max_espera`. TypeError certo.
-
-2. `motores/news2.py` instanciava `ResultadoTriagem(nivel_risco_news2=...,
-   score_news2=..., subscores_news2=..., alertas=...)` -- nenhum desses
-   campos existia no dataclass (nem os do MTS, ja que NEWS2 e um score
-   numerico, nao uma cor). TypeError certo.
-
-3. `motores/news2.py` lia `inp.sinais_vitais` em `executar()` e
-   `validar_input()`, mas nem `InputTriagem` nem `InputConsulta` tinham
-   esse atributo -- so `input_json`. AttributeError certo.
-
-Solucao: os dataclasses de input passaram a expor tanto `input_json`
-quanto `sinais_vitais` (lista de dicts com tipo_parametro/valor_numerico,
-default vazia). O dataclass de resultado de triagem passou a ser "largo o
-suficiente" para os dois protocolos que hoje o usam (MTS = cor; NEWS2 =
-score numerico), com todos os campos especificos de cada um opcionais.
-Isso evita ter que criar uma hierarquia de subclasses so para dois casos,
-mas mantem compatibilidade se um terceiro protocolo de triagem por cor ou
-por score for adicionado no futuro.
-"""
+"""Contratos do motor de protocolos determinísticos (padrão Strategy + Factory)."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -34,6 +7,7 @@ from typing import Optional
 
 @dataclass
 class InputTriagem:
+    """Entrada de um protocolo de triagem (ex: MTS, NEWS2)."""
     input_json: dict = field(default_factory=dict)
     sinais_vitais: list = field(default_factory=list)
     queixa_principal: Optional[str] = None
@@ -41,12 +15,21 @@ class InputTriagem:
 
 @dataclass
 class ResultadoTriagem:
-    # Campos genéricos de protocolos de cor (ex.: MTS)
+    """
+    Resultado de um protocolo de triagem.
+
+    Campos suficientemente amplos para acomodar tanto triagem por cor
+    (ex: MTS) quanto por score numérico (ex: NEWS2), com os campos
+    específicos de cada tipo sendo opcionais. Evita criar uma hierarquia
+    de subclasses para apenas dois casos, mantendo compatibilidade caso
+    um terceiro protocolo de triagem por cor ou por score seja adicionado.
+    """
+    # Campos de protocolos de cor (ex.: MTS)
     cor_mts: Optional[str] = None
     tempo_max_espera: Optional[int] = None
     discriminadores_avaliados: list = field(default_factory=list)
     discriminante_determinante: Optional[str] = None
-    # Campos genéricos de protocolos de score (ex.: NEWS2)
+    # Campos de protocolos de score (ex.: NEWS2)
     nivel_risco_news2: Optional[str] = None
     score_news2: Optional[int] = None
     subscores_news2: dict = field(default_factory=dict)
@@ -56,39 +39,61 @@ class ResultadoTriagem:
 
 @dataclass
 class InputConsulta:
+    """Entrada de um protocolo aplicado durante a consulta/avaliação médica."""
     input_json: dict = field(default_factory=dict)
     sinais_vitais: list = field(default_factory=list)
 
 
 @dataclass
 class ResultadoConsulta:
+    """Resultado de um protocolo aplicado durante a consulta/avaliação médica."""
     alertas: list = field(default_factory=list)
     indice_confianca: float = 0.0
 
 
 class IProtocoloTriagem(ABC):
-    @abstractmethod
-    def executar(self, inp: InputTriagem) -> ResultadoTriagem: ...
+    """Contrato (Strategy) para protocolos executados na etapa de triagem."""
 
     @abstractmethod
-    def validar_input(self, i: InputTriagem) -> bool: ...
+    def executar(self, inp: InputTriagem) -> ResultadoTriagem:
+        """Executa o protocolo sobre o input de triagem e retorna o resultado."""
+        ...
 
     @abstractmethod
-    def get_nome(self) -> str: ...
+    def validar_input(self, i: InputTriagem) -> bool:
+        """Retorna True se o input tem dados suficientes para executar o protocolo."""
+        ...
 
     @abstractmethod
-    def get_versao(self) -> str: ...
+    def get_nome(self) -> str:
+        """Retorna o nome de exibição do protocolo."""
+        ...
+
+    @abstractmethod
+    def get_versao(self) -> str:
+        """Retorna a versão/edição do protocolo implementada."""
+        ...
 
 
 class IProtocoloConsulta(ABC):
-    @abstractmethod
-    def executar(self, inp: InputConsulta) -> ResultadoConsulta: ...
+    """Contrato (Strategy) para protocolos executados na etapa de consulta/avaliação médica."""
 
     @abstractmethod
-    def validar_input(self, i: InputConsulta) -> bool: ...
+    def executar(self, inp: InputConsulta) -> ResultadoConsulta:
+        """Executa o protocolo sobre o input de consulta e retorna o resultado."""
+        ...
 
     @abstractmethod
-    def get_nome(self) -> str: ...
+    def validar_input(self, i: InputConsulta) -> bool:
+        """Retorna True se o input tem dados suficientes para executar o protocolo."""
+        ...
 
     @abstractmethod
-    def get_versao(self) -> str: ...
+    def get_nome(self) -> str:
+        """Retorna o nome de exibição do protocolo."""
+        ...
+
+    @abstractmethod
+    def get_versao(self) -> str:
+        """Retorna a versão/edição do protocolo implementada."""
+        ...

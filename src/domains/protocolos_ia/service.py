@@ -1,87 +1,14 @@
-"""
-Regras de negocio do dominio Protocolos / IA.
-
-CORRECAO APLICADA: `ia/controller.py` original chamava
-`_svc.buscar_output_triagem(consulta_uuid)`, metodo que nunca existia em
-`OutputBionService` -- a rota `/output-triagem/<consulta_uuid>` quebrava
-com AttributeError sempre que era chamada. Implementado aqui de fato,
-delegando a navegacao de relacionamentos para o repository (ver
-`find_output_triagem_da_consulta`).
-
-`executar_protocolo` e o metodo novo que efetivamente liga o
-ProtocoloCatalogo (dado persistido) ao motor Strategy/Factory
-(`src/domains/protocolos_ia/motor/`), que antes existia mas nunca era
-chamado por nenhum service -- so os motores ficavam soltos no filesystem.
-"""
-
-from datetime import datetime, timezone, date
+"""Regras de negócio de execução de protocolos determinísticos (Strategy/Factory) e consulta de resultados de IA."""
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .repository import (
-    ProtocoloCatalogoRepository, OutputBionRepository,
-    CatalogoFluxogramasMtsRepository, CatalogoModulosRepository,
-)
+from .repository import OutputBionRepository
+from src.domains.protocolo.repository import ProtocoloCatalogoRepository
 from .motor.factory import ProtocoloFactory
-from .motor.base import InputTriagem, InputConsulta, ResultadoTriagem
-from .motor.ia_base import ContextoClinico
-from .motor.llm_motor import LlmMotor
-
-
-def _parse_data(valor):
-    if valor is None or isinstance(valor, date):
-        return valor
-    try:
-        return datetime.strptime(valor, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
-
-
-class ProtocoloCatalogoService:
-
-    def __init__(self):
-        self.repo = ProtocoloCatalogoRepository()
-
-    def buscar_por_uuid(self, uuid: str):
-        e = self.repo.find_by_uuid(uuid)
-        if not e:
-            raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid}")
-        return e
-
-    def buscar_por_id(self, id:int):
-        e = self.repo.find_by_id(id)
-        if not e:
-            raise RecursoNaoEncontradoError(f"Protocolo não encontrado {id}")
-    
-    def listar(self):
-        return self.repo.find_all()
-
-    def criar(self, dados: dict):
-        from src.models.protocolos import ProtocoloCatalogo
-        obrigatorios = ("nome_protocolo", "sigla", "tipo_resultado",
-                        "versao_vigente", "data_vigencia")
-        faltando = [c for c in obrigatorios if not dados.get(c)]
-        if faltando:
-            raise DadosInvalidosError(f"Campos obrigatórios ausentes: {', '.join(faltando)}")
-        if self.repo.find_by_sigla(dados["sigla"]):
-            raise DadosInvalidosError(f"Já existe um protocolo com a sigla {dados['sigla']}.")
-
-        p = ProtocoloCatalogo(
-            nome_protocolo=dados["nome_protocolo"],
-            sigla=dados["sigla"],
-            tipo_resultado=dados["tipo_resultado"],
-            tipo_protocolo=dados.get("tipo_protocolo"),
-            escopo_populacao=dados.get("escopo_populacao", "universal"),
-            escopo_uso=dados.get("escopo_uso", "ambos"),
-            versao_vigente=dados["versao_vigente"],
-            data_vigencia=_parse_data(dados["data_vigencia"]),
-            referencia_bibliografica=dados.get("referencia_bibliografica"),
-            orgao_emissor=dados.get("orgao_emissor"),
-            flag_personalizado=bool(dados.get("flag_personalizado", False)),
-        )
-        return self.repo.save(p)
+from .motor.base import InputTriagem, InputConsulta
 
 
 class OutputBionService:
+    """Casos de uso de execução de protocolos e consulta de resultados de IA (OutputBion)."""
 
     def __init__(self):
         self.repo = OutputBionRepository()
@@ -89,12 +16,19 @@ class OutputBionService:
         self.factory = ProtocoloFactory()
 
     def buscar_por_uuid(self, uuid: str):
+        """Retorna um OutputBion pelo UUID ou lança RecursoNaoEncontradoError."""
         e = self.repo.find_by_uuid(uuid)
         if not e:
             raise RecursoNaoEncontradoError(f"OutputBion não encontrado: {uuid}")
         return e
 
     def buscar_output_triagem(self, consulta_uuid: str):
+        """
+        Retorna o OutputBion mais recente gerado na triagem de uma Consulta.
+
+        Raises:
+            RecursoNaoEncontradoError: se não houver resultado de IA para a triagem.
+        """
         output = self.repo.find_output_triagem_da_consulta(consulta_uuid)
         if not output:
             raise RecursoNaoEncontradoError(
@@ -105,9 +39,18 @@ class OutputBionService:
     def executar_protocolo(self, sigla_protocolo: str, dados_input: dict, id_input_protocolo: int = None):
         """
         Instancia o motor certo via Factory (Strategy), executa e persiste
-        o resultado como OutputBion. `dados_input` deve conter as chaves
-        esperadas pelo motor (`input_json`, `sinais_vitais`, `queixa_principal`),
-        conforme o protocolo escolhido.
+        o resultado como OutputBion.
+
+        Args:
+            sigla_protocolo: sigla do ProtocoloCatalogo (ex: 'MTS', 'NEWS2').
+            dados_input: deve conter as chaves esperadas pelo motor
+                (`input_json`, `sinais_vitais`, `queixa_principal`),
+                conforme o protocolo escolhido.
+            id_input_protocolo: ID do InputProtocolo de origem, se houver.
+
+        Raises:
+            RecursoNaoEncontradoError: se o protocolo não existir.
+            DadosInvalidosError: se os dados de entrada forem insuficientes.
         """
         catalogo = self.protocolo_repo.find_by_sigla(sigla_protocolo)
         if not catalogo:
@@ -144,55 +87,3 @@ class OutputBionService:
             indice_confianca=getattr(resultado, "indice_confianca", None),
         )
         return self.repo.save(output)
-
-    def analisar_com_llm(self, contexto: ContextoClinico, id_input_protocolo: int = None):
-        """
-        Suporte adicional de IA generativa (Claude via API), complementar
-        aos protocolos deterministicos. Usado tipicamente na avaliacao
-        medica, apos a triagem, para sugerir diagnosticos/condutas com
-        base no contexto clinico completo do atendimento. Requer
-        LLM_API_KEY configurada (.env); a decisao final permanece sempre
-        do profissional de saude.
-        """
-        motor = LlmMotor()
-        resultado_json = motor.analisar(contexto)
-
-        from src.models.protocolos import OutputBion
-        output = OutputBion(
-            id_input=id_input_protocolo,
-            output_ia_json=resultado_json,
-            versao_modelo_ia=f"{motor.get_nome_modelo()}-{motor.get_versao()}",
-            indice_completude=None,
-            indice_confianca=None,
-        )
-        return self.repo.save(output)
-
-
-class CatalogoFluxogramasMtsService:
-
-    def __init__(self):
-        self.repo = CatalogoFluxogramasMtsRepository()
-
-    def buscar_por_uuid(self, uuid: str):
-        e = self.repo.find_by_uuid(uuid)
-        if not e:
-            raise RecursoNaoEncontradoError(f"Fluxograma MTS não encontrado: {uuid}")
-        return e
-
-    def listar(self):
-        return self.repo.find_all()
-
-
-class CatalogoModulosService:
-
-    def __init__(self):
-        self.repo = CatalogoModulosRepository()
-
-    def buscar_por_uuid(self, uuid: str):
-        e = self.repo.find_by_uuid(uuid)
-        if not e:
-            raise RecursoNaoEncontradoError(f"Módulo não encontrado: {uuid}")
-        return e
-
-    def listar(self):
-        return self.repo.find_all()
