@@ -1,15 +1,10 @@
-"""
-Rotas de login/logout (le e escreve a sessao via cookie httpOnly).
+"""Rotas de login/logout do domínio Auth.
 
-Alem disso, o `return f"<{usuario.uuid}>"` do controller original (que
-devolvia uma string solta, nao JSON) foi substituido por uma resposta
-JSON padronizada, ja que a API agora e JSON-only.
-
-2FA (WebAuthn) ADICIONADO: apos autenticar login/senha, se o usuario
-tiver credencial WebAuthn cadastrada, a sessao fica em estado
-PENDENTE (mfa_pendente=True) e id_empresa NAO e liberado ainda. Only
-depois da confirmacao via /webauthn/2fa/confirmar (ver webauthn_2fa.py)
-a sessao e promovida a completa.
+A sessão é lida e escrita via cookie httpOnly. Após autenticar login e
+senha, se o usuário tiver credencial WebAuthn cadastrada, a sessão fica
+em estado pendente (`mfa_pendente=True`) e `id_empresa` não é liberado
+ainda -- a sessão só é promovida a completa após a confirmação via
+`/webauthn/2fa/confirmar` (ver `webauthn_2fa.py`).
 """
 
 from flask import Blueprint, request, session, jsonify, g
@@ -24,7 +19,21 @@ _svc = AuthService()
 
 
 @bp.post("/login")
-def login(): 
+def login():
+    """Autentica um usuário por login e senha.
+
+    Se o usuário tiver WebAuthn cadastrado, deixa a sessão em estado
+    pendente de segundo fator em vez de liberá-la por completo.
+
+    Corpo esperado (JSON ou form): `user_login`, `senha`.
+
+    Retorno:
+        200 com dados de usuário e configurações se autenticado sem 2FA.
+        200 com `status: mfa_requerido` se autenticado mas pendente de 2FA.
+        400 se o usuário só tiver login via Google (sem senha).
+        401 se as credenciais forem inválidas.
+        422 se login ou senha não forem enviados.
+    """
     data = request.get_json(silent=True) or request.form.to_dict()
     login_val = (data.get("user_login") or "").strip()
     senha = data.get("senha") or ""
@@ -41,22 +50,18 @@ def login():
     tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
 
     session.clear()
-    session.permanent = True                    # respeita PERMANENT_SESSION_LIFETIME
-    session["id_usuario"] = usuario.id           # chave lida por todos os decorators
+    session.permanent = True
+    session["id_usuario"] = usuario.id
     session["tipo_usuario"] = usuario.tipo_usuario
-    session["uuid_usuario"] = usuario.uuid       # conveniência para o front-end
+    session["uuid_usuario"] = usuario.uuid
 
     if tem_2fa:
-        # Sessão FICA PENDENTE — id_empresa não é liberado ainda.
-        # Decorators de acesso (requer_login) devem tratar essa flag
-        # como "não autenticado" até a confirmação via WebAuthn.
         session["mfa_pendente"] = True
         return json_success(
             data={"status": "mfa_requerido", "metodo": "webauthn"},
             message="Confirmação adicional necessária.",
         )
 
-    # Sem 2FA cadastrado: libera a sessão completa normalmente
     session["id_empresa"] = usuario.id_empresa
 
     cfg_service = ConfiguracaoService()
@@ -71,7 +76,13 @@ def login():
 @bp.get("/me")
 @requer_login
 def me():
+    """Retorna os dados do usuário autenticado na sessão atual.
 
+    Retorno:
+        200 com os dados do usuário.
+        401 se a sessão referenciar um usuário que não existe mais
+        (nesse caso a sessão também é limpa).
+    """
     from src.domains.usuario.repository import UsuarioRepository
     usuario = UsuarioRepository().find_by_id(g.id_usuario)
     if not usuario:
@@ -82,5 +93,10 @@ def me():
 
 @bp.post("/logout")
 def logout():
+    """Encerra a sessão atual.
+
+    Retorno:
+        200 confirmando o encerramento.
+    """
     session.clear()
     return json_success(message="Sessão encerrada.")

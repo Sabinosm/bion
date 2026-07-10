@@ -1,4 +1,10 @@
-# auth/oauth.py
+"""Login via Google OAuth (login social, não cria conta nova).
+
+O usuário precisa já existir (cadastrado por um admin). O Google aqui
+serve apenas para provar posse do e-mail cadastrado -- nunca cria conta
+automaticamente.
+"""
+
 from flask import Blueprint, session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
 from src.models.usuarios import Usuario
@@ -9,6 +15,12 @@ bp_oauth = Blueprint("oauth", __name__)
 
 
 def init_oauth(app):
+    """Registra o provedor Google no cliente OAuth da aplicação.
+
+    Parâmetros:
+        app: instância da aplicação Flask, de onde são lidas as
+            credenciais `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
+    """
     oauth.init_app(app)
     oauth.register(
         name="google",
@@ -21,35 +33,45 @@ def init_oauth(app):
 
 @bp_oauth.route("/auth/google/login")
 def google_login():
+    """Inicia o fluxo OAuth redirecionando o navegador para o Google.
+
+    Retorno:
+        Redirect HTTP para a tela de autorização do Google.
+    """
     redirect_uri = url_for("oauth.google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
 
 @bp_oauth.route("/auth/google/callback")
 def google_callback():
+    """Recebe o callback do Google e autentica o usuário existente.
+
+    Vincula o `google_sub` na primeira vez que o usuário loga via Google.
+    Define o próximo estado da sessão conforme o usuário já tenha
+    concluído o onboarding (senha + WebAuthn) ou não.
+
+    Esta rota é alcançada por navegação real do navegador (redirect do
+    Google), não por fetch -- por isso responde com redirects para
+    páginas HTML fixas, que do lado do cliente consultam `/auth/status`
+    ou `/auth/me` via fetch para decidir o próximo passo.
+
+    Retorno:
+        Redirect para `login.html` com erro se o usuário não existir
+        ou estiver inativo; redirect para `pos-login.html` em sucesso.
+    """
     token = oauth.google.authorize_access_token()
     userinfo = token["userinfo"]
 
     email = userinfo["email"]
     google_sub = userinfo["sub"]
 
-    # o usuário TEM que já existir (cadastrado pelo admin).
-    # Google aqui só serve para provar "esta pessoa é dona deste email" —
-    # ele NUNCA cria conta nova sozinho.
     usuario = Usuario.query.filter_by(email=email).first()
     if not usuario:
-        
-        # Bion só responde JSON — mas esta rota é alcançada por
-        # NAVEGAÇÃO REAL do navegador (redirect do Google), não por
-        # fetch. Por isso redireciona para uma página fixa que, do
-        # lado do cliente, faz um fetch em /auth/me e trata o erro.
         return redirect("/paginas/login.html?erro=usuario_nao_cadastrado")
 
     if not usuario.ativo:
         return redirect("/paginas/login.html?erro=conta_inativa")
 
-    # Vincula o google_sub na primeira vez (próximos logins via Google
-    # poderiam usar direto o sub, mas o e-mail já cumpre o papel aqui)
     if not usuario.google_sub:
         usuario.google_sub = google_sub
         db.session.commit()
@@ -58,17 +80,10 @@ def google_callback():
     session["id_usuario"] = usuario.id_usuario
 
     if usuario.onboarding_pendente:
-        # Ainda não definiu senha nem cadastrou WebAuthn.
-        # Sessão fica restrita só às rotas de onboarding.
         session["onboarding_pendente"] = True
         session.permanent = True
     else:
-        # Onboarding já concluído: login por Google recorrente ainda
-        # assim respeita a política de 2FA obrigatório (WebAuthn)
         session["mfa_pendente"] = True
         session.permanent = True
 
-    # A sessão (cookie httpOnly) já está gravada neste ponto — a página
-    # de destino descobre o status via fetch em /auth/me (JSON), não
-    # por este redirect carregar dados. O redirect aqui é só navegação.
     return redirect("/paginas/pos-login.html")

@@ -1,12 +1,10 @@
+"""WebAuthn como segundo fator de autenticação.
 
-# auth/webauthn_2fa.py
-#
-# WebAuthn como SEGUNDO FATOR: diferente da versão anterior (WebAuthn como
-# login primário), aqui ele só CONFIRMA uma sessão que já está pendente
-# depois do login por senha ou Google.
-#
-# O cadastro do dispositivo (registro) continua igual ao arquivo anterior
-# (auth_webauthn.py) — só as rotas de LOGIN mudam de comportamento.
+Diferente de um WebAuthn usado como login primário, aqui ele apenas
+confirma uma sessão que já está pendente após o login por senha ou
+Google. As rotas de registro do dispositivo seguem o mesmo mecanismo;
+somente as rotas de confirmação de login mudam de comportamento.
+"""
 
 import base64
 from flask import Blueprint, request, jsonify, session
@@ -16,7 +14,6 @@ from webauthn import (
     options_to_json,
     generate_registration_options,
     verify_registration_response,
-    
 )
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
 
@@ -32,12 +29,20 @@ RP_ID = "bion.com.br"
 @bp_webauthn_2fa.route("/webauthn/2fa/iniciar", methods=["POST"])
 @mfa_pendente_required
 def segundo_fator_iniciar():
-    """Chamado depois do login por senha/Google, quando a sessão está pendente."""
-    id_usuario = session["id_usuario"]  # já validado pelo decorator
+    """Gera o desafio WebAuthn para confirmar o segundo fator.
+
+    Chamado após o login por senha/Google, quando a sessão está pendente
+    de confirmação (`mfa_pendente=True`).
+
+    Retorno:
+        200 com as opções de autenticação em JSON.
+        400 se o usuário não tiver nenhuma credencial cadastrada (não
+        deveria ocorrer se o login já checou a existência de 2FA).
+    """
+    id_usuario = session["id_usuario"]
 
     credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
     if not credenciais:
-        # Não deveria chegar aqui se o login já checou tem_2fa, mas por segurança:
         return jsonify({"erro": "sem_credencial_cadastrada"}), 400
 
     permitir = [
@@ -59,7 +64,14 @@ def segundo_fator_iniciar():
 @bp_webauthn_2fa.route("/webauthn/2fa/confirmar", methods=["POST"])
 @mfa_pendente_required
 def segundo_fator_confirmar():
-    """Valida a assinatura e PROMOVE a sessão pendente para sessão completa."""
+    """Valida a assinatura WebAuthn e promove a sessão a completa.
+
+    Corpo esperado (JSON): resposta de autenticação do WebAuthn.
+
+    Retorno:
+        200 com os dados de usuário/empresa se a assinatura for válida.
+        401 se a credencial não for encontrada ou a assinatura for inválida.
+    """
     id_usuario = session["id_usuario"]
     challenge_esperado = base64.b64decode(session.get("webauthn_challenge", ""))
     resposta_credencial = request.get_json()
@@ -88,7 +100,6 @@ def segundo_fator_confirmar():
 
     usuario = Usuario.query.get(id_usuario)
 
-    # PROMOÇÃO: sessão deixa de ser pendente e vira sessão completa
     session.pop("mfa_pendente", None)
     session.pop("webauthn_challenge", None)
     session["id_empresa"] = usuario.id_empresa

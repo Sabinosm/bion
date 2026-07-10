@@ -1,12 +1,13 @@
-# auth/step_up.py
-#
-# Step-up authentication: reconfirma a identidade via WebAuthn antes de
-# ações perigosas (excluir prontuário, alterar prescrição, dar acesso
-# admin), mesmo com a sessão já totalmente autenticada.
-#
-# Mecanismo: gera um token de curta duração, vinculado ao id_usuario e à
-# ação específica, guardado na tabela stepup_token (ver src/database/stepup.py).
-# A rota perigosa exige esse token. 
+"""Step-up authentication.
+
+Reconfirma a identidade via WebAuthn antes de ações sensíveis (excluir
+prontuário, alterar prescrição, conceder acesso admin), mesmo com a
+sessão já totalmente autenticada.
+
+Mecanismo: gera um token de curta duração vinculado ao `id_usuario` e à
+ação específica, guardado na tabela `stepup_token`. A rota sensível
+exige esse token via decorator `requer_confirmacao_recente`.
+"""
 
 import base64
 import secrets
@@ -25,15 +26,20 @@ from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerifica
 bp_step_up = Blueprint("step_up", __name__)
 
 RP_ID = "bion.com.br"
-DURACAO_TOKEN_SEGUNDOS = 180  # 3 minutos, curto de propósito
+DURACAO_TOKEN_SEGUNDOS = 180
 
 
 @bp_step_up.route("/stepup/iniciar", methods=["POST"])
 @requer_login
 def stepup_iniciar():
-    """
-    Chamado pelo frontend quando uma rota perigosa responde 403
-    'confirmacao_requerida'. Gera o desafio WebAuthn de novo.
+    """Gera um novo desafio WebAuthn para reconfirmação de identidade.
+
+    Chamado pelo frontend quando uma rota sensível responde 403 com
+    `confirmacao_requerida`.
+
+    Retorno:
+        200 com as opções de autenticação em JSON.
+        400 se o usuário não tiver nenhuma credencial cadastrada.
     """
     id_usuario = session["id_usuario"]
 
@@ -49,7 +55,7 @@ def stepup_iniciar():
     opcoes = generate_authentication_options(
         rp_id=RP_ID,
         allow_credentials=permitir,
-        user_verification=UserVerificationRequirement.REQUIRED,  # mais rígido aqui
+        user_verification=UserVerificationRequirement.REQUIRED,
     )
 
     session["stepup_challenge"] = base64.b64encode(opcoes.challenge).decode()
@@ -60,10 +66,19 @@ def stepup_iniciar():
 @bp_step_up.route("/stepup/confirmar", methods=["POST"])
 @requer_login
 def stepup_confirmar():
-    """
-    Valida a assinatura WebAuthn e emite um token de confirmação de
-    curta duração, vinculado à AÇÃO específica que o frontend informa
-    (ex: 'excluir_prontuario'). O token não serve para outra ação.
+    """Valida a assinatura WebAuthn e emite um token de confirmação.
+
+    O token é de uso único, curto e vinculado à ação específica
+    informada pelo frontend (ex.: `excluir_prontuario`) -- não serve
+    para confirmar nenhuma outra ação. Qualquer token anterior da mesma
+    combinação (usuário, ação) é removido antes de emitir o novo.
+
+    Corpo esperado (JSON): `acao` e `credencial` (resposta WebAuthn).
+
+    Retorno:
+        200 com o token de confirmação e seu tempo de expiração.
+        400 se a ação não for especificada.
+        401 se a credencial não for encontrada ou a assinatura for inválida.
     """
     id_usuario = session["id_usuario"]
     dados = request.get_json()
@@ -97,10 +112,6 @@ def stepup_confirmar():
     credencial.sign_count = verificacao.new_sign_count
     session.pop("stepup_challenge", None)
 
-    # Gera um token de uso único, curto, vinculado a essa ação específica.
-    # Remove qualquer token antigo da mesma (usuario, acao) antes de criar
-    # o novo, pra não acumular linhas velhas caso o usuário chame de novo
-    # sem confirmar a anterior.
     StepUpToken.query.filter_by(id_usuario=id_usuario, acao=acao).delete()
 
     token = secrets.token_urlsafe(32)
@@ -120,16 +131,26 @@ def stepup_confirmar():
 
 
 def requer_confirmacao_recente(acao):
-    """
-    Decorator para rotas perigosas. Uso:
+    """Decorator que exige um token de step-up recente para a rota.
 
+    O frontend deve enviar o token no header `X-Stepup-Token`. O token
+    é consumido (apagado) assim que validado, mesmo que a ação decorada
+    falhe depois por outro motivo -- evitando reuso.
+
+    Uso:
         @app.route("/prontuarios/<id>", methods=["DELETE"])
         @requer_login
         @requer_confirmacao_recente("excluir_prontuario")
         def excluir_prontuario(id):
             ...
 
-    O frontend deve mandar o token no header X-Stepup-Token.
+    Parâmetros:
+        acao: identificador da ação sensível protegida.
+
+    Retorno:
+        Decorator que envolve a view protegida, retornando 403 com
+        `confirmacao_requerida` caso o token esteja ausente, incorreto
+        ou expirado.
     """
     def decorator(f):
         @wraps(f)
@@ -147,8 +168,6 @@ def requer_confirmacao_recente(acao):
             if not registro or registro.expirado():
                 return jsonify({"erro": "confirmacao_requerida", "acao": acao}), 403
 
-            # Uso único: apaga o token assim que validado, mesmo que a
-            # ação falhe depois por outro motivo — evita reuso do token
             db.session.delete(registro)
             db.session.commit()
 
