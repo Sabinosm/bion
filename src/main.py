@@ -41,8 +41,8 @@ def _registrar_blueprints(app: Flask):
     from src.domains.empresa.controller import bp as empresa_bp
     from src.domains.regiao.controller import bp as regiao_bp
     from src.domains.configuracao.controller import bp as configuracao_bp
-    from src.domains.catalogo.controller import bp_exames as catalogo_exames_bp
-    from src.domains.catalogo.controller import bp_medicamentos as catalogo_medicamentos_bp
+    from src.domains.exames.controller import bp_exames as catalogo_exames_bp
+    from src.domains.medicamentos.controller import bp_medicamentos as catalogo_medicamentos_bp
     
 
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
