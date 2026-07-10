@@ -5,7 +5,7 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, id_empresa_sessao
-from .service import UsuarioService
+from .services.service import UsuarioService
 from flask import Blueprint, request, g
 
 bp = Blueprint("usuario", __name__)

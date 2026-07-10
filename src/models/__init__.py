@@ -15,7 +15,7 @@ from src.models.catalogos import (
     CatalogoExames,
     CatalogoMedicamentos,
     InteracoesMedicamentos,
-    PrescricaoExame,
+
 )
 
 # Clínico
@@ -28,6 +28,7 @@ from src.models.clinico import (
     Prescricao,
     ResultadoPrescricao,
     SinalVital,
+    PrescricaoExame,
 )
 
 # Corporativo

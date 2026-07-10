@@ -4,7 +4,7 @@ from src.models.corp.empresa import Empresa
 from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
 from typing import Tuple
 from src.models import db  # objeto de sessao/conexao (SQLAlchemy, etc)
-from src.domains.usuario.service import UsuarioService
+from src.domains.usuario.services.service import UsuarioService
 
 
 class EmpresaService:

@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.corp.empresa import RegiaoGeografica
+from src.models.corp import RegiaoGeografica
 
 
 class RegiaoRepository(IRepository[RegiaoGeografica]):

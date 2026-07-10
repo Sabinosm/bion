@@ -15,7 +15,7 @@ from src.models.clinico import (
     ResultadoPrescricao, Prescricao, PrescricaoExame,
 )
 
-from src.models.catalogos.prescricao_exame import PrescricaoExame
+from src.models.clinico.prescricao_exame import PrescricaoExame
 
 
 

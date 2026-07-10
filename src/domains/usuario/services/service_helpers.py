@@ -1,14 +1,13 @@
-"""
-Helpers e constantes do dominio Usuario.
+"""Funções puras e constantes de apoio ao domínio Usuario.
 
-Extraido de service.py para reduzir o tamanho do arquivo principal.
-Contem apenas funcoes puras de apoio ao merge/validacao de atributos
-profissionais -- nenhuma delas acessa banco, sessao ou request.
+Nenhuma função deste módulo acessa banco de dados, sessão ou request:
+todas recebem dados e retornam valores, o que facilita testes unitários
+isolados do restante da camada de serviço.
 """
 
 import json
 
-from ...schemas.schema_usuario import CadastroUsuarioSchema
+from src.schemas.schema_usuario import CadastroUsuarioSchema
 
 
 CAMPOS_SIMPLES_ATUALIZAVEIS = (
@@ -18,7 +17,6 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "user_login",
 )
 
-# Só admin pode alterar isso, mesmo no próprio cadastro
 CAMPOS_RESTRITOS_A_ADMIN = (
     "tipo_usuario",
     "numero-crm", "uf-crm", "rqe",
@@ -27,8 +25,15 @@ CAMPOS_RESTRITOS_A_ADMIN = (
 
 
 def atributos_atuais(u) -> dict:
-    """Decodifica o JSON de atributos profissionais salvo no banco.
-    Sem isso, o merge de 'dados atuais' fica sempre vazio."""
+    """Decodifica o JSON de atributos profissionais salvo no usuário.
+
+    Parâmetros:
+        u: instância de Usuario contendo o campo `atributos_profissionais_json`.
+
+    Retorno:
+        dict com os atributos decodificados, ou `{}` se o campo estiver
+        vazio ou contiver um JSON inválido.
+    """
     if not u.atributos_profissionais_json:
         return {}
     try:
@@ -38,6 +43,18 @@ def atributos_atuais(u) -> dict:
 
 
 def monta_atributos_json(schema: CadastroUsuarioSchema):
+    """Monta o JSON de atributos profissionais a partir do schema validado.
+
+    O conjunto de campos incluídos depende de `schema.tipo_usuario`:
+    médico usa CRM/UF/RQE; enfermeiro usa COREN/UF/especialidade.
+
+    Parâmetros:
+        schema: instância validada de CadastroUsuarioSchema.
+
+    Retorno:
+        str contendo o JSON serializado, ou None se o tipo de usuário
+        não exigir atributos profissionais.
+    """
     atributos_dict = {}
     if schema.tipo_usuario == "medico":
         atributos_dict = {

@@ -6,6 +6,7 @@ from .input_protocolo_execucao import InputProtocoloExecucao
 from .prescricao import Prescricao
 from .resultado_prescricao import ResultadoPrescricao
 from .sinal_vital import SinalVital
+from .prescricao_exame import PrescricaoExame
 
 __all__ = [
     "Atendimento",
@@ -15,5 +16,6 @@ __all__ = [
     "InputProtocoloExecucao",
     "Prescricao",
     "ResultadoPrescricao",
-    "SinalVital"
+    "SinalVital",
+    "PrescricaoExame"
 ]
