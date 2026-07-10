@@ -80,7 +80,7 @@ __all__ = [
     "CatalogoExames",
     "CatalogoMedicamentos",
     "InteracoesMedicamentos",
-    "PrescricaoExame",
+    
     
     # Clínico
     "Atendimento",
@@ -91,6 +91,7 @@ __all__ = [
     "Prescricao",
     "ResultadoPrescricao",
     "SinalVital",
+    "PrescricaoExame",
     
     # Corporativo
     "Empresa",

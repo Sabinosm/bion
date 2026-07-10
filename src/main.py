@@ -45,10 +45,11 @@ def _registrar_blueprints(app: Flask):
     from src.domains.catalogo.controller import bp_medicamentos as catalogo_medicamentos_bp
     from src.domains.protocolos_ia.controller import bp_protocolo as protocolo_bp
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
-    from src.domains.atendimento.controller import bp_consulta as consulta_bp
+    from src.domains.consulta.controller import bp_consulta as consulta_bp
     from src.domains.atendimento.controller import bp_atendimento as atendimento_bp
-    from src.domains.atendimento.controller import bp_prescricao as prescricao_bp
+    from src.domains.prescricao.controller import bp_prescricao as prescricao_bp
     from src.domains.auditoria.controller import bp as auditoria_bp
+    from src.domains.dados_clinicos.controller import bp_dados_clinicos
     from src.domains.paciente.controllers import pessoal_bp, clinico_bp, lgpd_bp
     from src.domains.auth.oauth import bp_oauth
     from src.domains.auth.onboarding import bp_onboarding
@@ -62,6 +63,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(bp_onboarding, url_prefix="/v1/api/auth")
     app.register_blueprint(bp_step_up, url_prefix="/v1/api")
     app.register_blueprint(bp_webauthn_2fa, url_prefix="/v1/api")
+    app.register_blueprint(bp_dados_clinicos, url_prefix="/v1/api/dadosClinicos")    
     app.register_blueprint(usuario_bp, url_prefix="/v1/api/usuarios")
     app.register_blueprint(empresa_bp, url_prefix="/v1/api/empresas")
     app.register_blueprint(regiao_bp, url_prefix="/v1/api/regioes")
