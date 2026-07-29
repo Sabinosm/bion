@@ -1,6 +1,16 @@
 """
 Regras de negócio do registro de dados clínicos durante um Atendimento:
 sinais vitais, coleta clínica e input de protocolo.
+
+ALTERADO: registrar_sinais_vitais() agora valida tipo_parametro contra
+a tabela loinc_sinal_vital ANTES do insert. SinalVital.tipo_parametro
+virou FK para essa tabela (05_sinal_vital_migration.sql) -- sem essa
+checagem explícita, um tipo_parametro não populado na tabela de
+referência estouraria um erro de FK genérico do banco em vez de uma
+DadosInvalidosError clara, na hora do commit.
+
+ColetaClinica e InputProtocolo NÃO mudaram -- são parte do domínio
+Protocolo/IA, que ficou fora do escopo FHIR por decisão consciente.
 """
 
 from datetime import datetime, timezone
@@ -22,24 +32,31 @@ class DadosClinicosService:
         self.input_repo = InputProtocoloRepository()
 
     def _buscar_atendimento(self, uuid_atendimento: str):
-        """Busca um Atendimento pelo UUID ou lança RecursoNaoEncontradoError."""
         atendimento = self.atendimento_repo.find_by_uuid(uuid_atendimento)
         if not atendimento:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
         return atendimento
 
+    def _validar_tipo_parametro(self, tipo_parametro: str):
+        """NOVO: confirma que o tipo_parametro existe na tabela de
+        referência LOINC antes de tentar o insert -- transforma um
+        possível erro de FK (genérico, difícil de interpretar pro
+        cliente da API) numa DadosInvalidosError clara."""
+        from src.models.clinico import LoincSinalVital
+        existe = LoincSinalVital.query.filter_by(tipo_parametro=tipo_parametro).first()
+        if not existe:
+            raise DadosInvalidosError(
+                f"tipo_parametro inválido ou não mapeado: '{tipo_parametro}'."
+            )
+
     def registrar_sinais_vitais(self, uuid_atendimento: str, lista_sinais: list, id_usuario: int):
         """
         Registra um ou mais sinais vitais para um Atendimento.
 
-        Args:
-            uuid_atendimento: UUID do Atendimento.
-            lista_sinais: lista de dicts com tipo_parametro, valor_numerico e unidade.
-            id_usuario: ID de quem está coletando.
-
         Raises:
             RecursoNaoEncontradoError: se o Atendimento não existir.
-            DadosInvalidosError: se a lista estiver vazia ou faltar campo obrigatório.
+            DadosInvalidosError: se a lista estiver vazia, faltar campo
+                obrigatório, ou tipo_parametro não for reconhecido.
         """
         from src.models.clinico import SinalVital
         atendimento = self._buscar_atendimento(uuid_atendimento)
@@ -53,6 +70,9 @@ class DadosClinicosService:
                 raise DadosInvalidosError(
                     f"Campos obrigatórios ausentes em sinal vital: {', '.join(faltando)}"
                 )
+
+            self._validar_tipo_parametro(s["tipo_parametro"])
+
             sv = SinalVital(
                 id_atendimento=atendimento.id,
                 tipo_parametro=s["tipo_parametro"],
@@ -69,12 +89,8 @@ class DadosClinicosService:
         return registrados
 
     def registrar_coleta_clinica(self, uuid_atendimento: str, dados: dict):
-        """
-        Cria uma ColetaClinica vinculada a um Atendimento.
-
-        Raises:
-            RecursoNaoEncontradoError: se o Atendimento não existir.
-        """
+        """SEM ALTERAÇÃO -- ColetaClinica é parte do domínio Protocolo/IA,
+        fora do escopo FHIR."""
         from src.models.clinico import ColetaClinica
         atendimento = self._buscar_atendimento(uuid_atendimento)
         coleta = ColetaClinica(
@@ -84,14 +100,8 @@ class DadosClinicosService:
         return self.coleta_repo.save(coleta)
 
     def registrar_input_protocolo(self, uuid_coleta: str, dados: dict):
-        """
-        Registra os dados de entrada (queixa, sinais, respostas de
-        fluxograma) que serão usados pelo motor de protocolo
-        (POST /api/ia/analisar) para gerar o resultado da triagem/consulta.
-
-        Raises:
-            RecursoNaoEncontradoError: se a ColetaClinica não existir.
-        """
+        """SEM ALTERAÇÃO -- InputProtocolo é parte do domínio Protocolo/IA,
+        fora do escopo FHIR."""
         from src.models.clinico import InputProtocolo
 
         coleta = self.coleta_repo.find_by_uuid(uuid_coleta)

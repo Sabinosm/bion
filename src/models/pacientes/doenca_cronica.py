@@ -1,10 +1,10 @@
 """
 Dominio Paciente.
 
-Paciente e PacientePessoal ja estavam quase completos no projeto original.
-Alergia, DoencaCronica e MedicamentoEmUso nao existiam como classes
-proprias (so eram citadas em relationship() sem definicao) -- criadas
-aqui. Consentimento era stub; completado.
+SEM ALTERAÇÃO -- confirmado no SQL (07_doenca_cronica_migration.sql):
+esta tabela já estava bem modelada, mapeamento para Condition é quase
+1:1. Incluído aqui apenas para deixar o domínio completo, idêntico ao
+original.
 """
 
 from datetime import datetime, timezone

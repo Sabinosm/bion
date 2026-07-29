@@ -1,10 +1,11 @@
 """
 Dominio Paciente.
 
-Paciente e PacientePessoal ja estavam quase completos no projeto original.
-Alergia, DoencaCronica e MedicamentoEmUso nao existiam como classes
-proprias (so eram citadas em relationship() sem definicao) -- criadas
-aqui. Consentimento era stub; completado.
+ALTERADO: tipo_reacao, gravidade e descricao_reacao SAÍRAM como colunas
+diretas -- viram ReacaoAlergia (lista, permite múltiplas reações por
+alergia). Propriedades de compatibilidade abaixo leem a reação MAIS
+RECENTE, para que to_dict() e código existente continuem funcionando
+sem alteração perceptível (mesmo padrão usado nos domínios anteriores).
 """
 
 from datetime import datetime, timezone
@@ -23,18 +24,46 @@ class Alergia(db.Model):
     id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
     substancia = db.Column(db.String(255), nullable=False)
     codigo_substancia = db.Column(db.String(100))
-    tipo_reacao = db.Column(
-        db.Enum("cutanea", "respiratoria", "anafilaxia", "gastrointestinal",
-                "cardiovascular", "sistemica"),
-        nullable=False)
-    gravidade = db.Column(db.Enum("leve", "moderada", "grave", "anafilaxia"),
-                           nullable=False)
-    descricao_reacao = db.Column(db.Text)
+    sistema_codigo_substancia = db.Column(db.String(50), default="http://snomed.info/sct")
+    # tipo_reacao, gravidade, descricao_reacao REMOVIDOS como colunas -- ver ReacaoAlergia
     flag_confirmado = db.Column(db.Boolean, nullable=False, default=False)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     paciente = db.relationship("Paciente", back_populates="alergias")
+    reacoes = db.relationship("ReacaoAlergia", back_populates="alergia",
+                               cascade="all, delete-orphan")
+
+    @property
+    def tipo_reacao(self):
+        """Compatibilidade: retorna a manifestação da reação mais recente."""
+        return self.reacoes[-1].manifestacao if self.reacoes else None
+
+    @property
+    def gravidade(self):
+        """Compatibilidade: retorna a gravidade da reação mais recente."""
+        return self.reacoes[-1].gravidade if self.reacoes else None
+
+    @property
+    def descricao_reacao(self):
+        """Compatibilidade: retorna a descrição da reação mais recente."""
+        return self.reacoes[-1].descricao if self.reacoes else None
+
+    def registrar_reacao(self, manifestacao: str, gravidade: str, descricao: str = None,
+                          data_ocorrencia=None):
+        """Adiciona uma nova reação ao histórico desta alergia.
+
+        Substitui a antiga forma de sobrescrever tipo_reacao/gravidade
+        direto -- agora cada ocorrência fica registrada, sem perder o
+        histórico anterior.
+        """
+        from src.models.pacientes.reacao_alergia import ReacaoAlergia
+        self.reacoes.append(ReacaoAlergia(
+            manifestacao=manifestacao,
+            gravidade=gravidade,
+            descricao=descricao,
+            data_ocorrencia=data_ocorrencia,
+        ))
 
     def to_dict(self):
         return {
@@ -44,6 +73,7 @@ class Alergia(db.Model):
             "gravidade": self.gravidade,
             "descricao_reacao": self.descricao_reacao,
             "flag_confirmado": self.flag_confirmado,
+            "reacoes": [r.to_dict() for r in self.reacoes],  # histórico completo, se o front quiser
         }
 
     def __repr__(self):

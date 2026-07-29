@@ -3,6 +3,13 @@
 O usuário precisa já existir (cadastrado por um admin). O Google aqui
 serve apenas para provar posse do e-mail cadastrado -- nunca cria conta
 automaticamente.
+
+CORRIGIDO (bugs pré-existentes, sem relação com a migração FHIR):
+1. `usuario.ativo` não existe no model -- o campo real é `status`
+   (enum 'ativo'/'inativo'/'suspenso'). Corrigido para status == "ativo".
+2. `usuario.id_usuario` não existe como atributo Python -- o model
+   mapeia a coluna `id_usuario` do banco para o atributo `.id`.
+   Corrigido para usuario.id.
 """
 
 from flask import Blueprint, session, redirect, url_for
@@ -15,12 +22,6 @@ bp_oauth = Blueprint("oauth", __name__)
 
 
 def init_oauth(app):
-    """Registra o provedor Google no cliente OAuth da aplicação.
-
-    Parâmetros:
-        app: instância da aplicação Flask, de onde são lidas as
-            credenciais `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
-    """
     oauth.init_app(app)
     oauth.register(
         name="google",
@@ -33,11 +34,6 @@ def init_oauth(app):
 
 @bp_oauth.route("/auth/google/login")
 def google_login():
-    """Inicia o fluxo OAuth redirecionando o navegador para o Google.
-
-    Retorno:
-        Redirect HTTP para a tela de autorização do Google.
-    """
     redirect_uri = url_for("oauth.google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
@@ -49,11 +45,6 @@ def google_callback():
     Vincula o `google_sub` na primeira vez que o usuário loga via Google.
     Define o próximo estado da sessão conforme o usuário já tenha
     concluído o onboarding (senha + WebAuthn) ou não.
-
-    Esta rota é alcançada por navegação real do navegador (redirect do
-    Google), não por fetch -- por isso responde com redirects para
-    páginas HTML fixas, que do lado do cliente consultam `/auth/status`
-    ou `/auth/me` via fetch para decidir o próximo passo.
 
     Retorno:
         Redirect para `login.html` com erro se o usuário não existir
@@ -69,7 +60,8 @@ def google_callback():
     if not usuario:
         return redirect("/paginas/login.html?erro=usuario_nao_cadastrado")
 
-    if not usuario.ativo:
+    # CORRIGIDO: era usuario.ativo (atributo inexistente) -> usuario.status
+    if usuario.status != "ativo":
         return redirect("/paginas/login.html?erro=conta_inativa")
 
     if not usuario.google_sub:
@@ -77,7 +69,8 @@ def google_callback():
         db.session.commit()
 
     session.clear()
-    session["id_usuario"] = usuario.id_usuario
+    # CORRIGIDO: era usuario.id_usuario (atributo inexistente) -> usuario.id
+    session["id_usuario"] = usuario.id
 
     if usuario.onboarding_pendente:
         session["onboarding_pendente"] = True

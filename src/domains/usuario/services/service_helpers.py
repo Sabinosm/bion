@@ -1,14 +1,12 @@
 """Funções puras e constantes de apoio ao domínio Usuario.
 
-Nenhuma função deste módulo acessa banco de dados, sessão ou request:
-todas recebem dados e retornam valores, o que facilita testes unitários
-isolados do restante da camada de serviço.
+ALTERADO: monta_atributos_json() e atributos_atuais() trabalhavam com
+JSON solto (atributos_profissionais_json). Agora que isso virou a tabela
+PapelProfissional, essas funções mudam de "montar/ler JSON" para
+"montar/ler dict de campos do papel" — mas os NOMES das funções e o
+formato do dict retornado foram mantidos iguais de propósito, para que
+quem já chama essas funções precise mudar o mínimo possível.
 """
-
-import json
-
-from src.schemas.schema_usuario import CadastroUsuarioSchema
-
 
 CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "nome_completo",
@@ -17,6 +15,11 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "user_login",
 )
 
+# CAMPOS_RESTRITOS_A_ADMIN: as chaves com hífen (numero-crm etc) eram o
+# formato do JSON antigo. Mantidas aqui porque o payload de ENTRADA da
+# API (o que o cliente HTTP manda) não muda — só a forma de PERSISTIR
+# muda. Isso é o núcleo do que discutimos: FHIR/reestruturação interna
+# não obriga a mudar contrato de API já em uso pelo front.
 CAMPOS_RESTRITOS_A_ADMIN = (
     "tipo_usuario",
     "numero-crm", "uf-crm", "rqe",
@@ -25,47 +28,61 @@ CAMPOS_RESTRITOS_A_ADMIN = (
 
 
 def atributos_atuais(u) -> dict:
-    """Decodifica o JSON de atributos profissionais salvo no usuário.
+    """Retorna os atributos profissionais do papel ATIVO do usuário.
 
     Parâmetros:
-        u: instância de Usuario contendo o campo `atributos_profissionais_json`.
+        u: instância de Usuario.
 
     Retorno:
-        dict com os atributos decodificados, ou `{}` se o campo estiver
-        vazio ou contiver um JSON inválido.
+        dict no formato antigo (chaves com hífen), ou {} se não houver
+        papel ativo.
     """
-    if not u.atributos_profissionais_json:
-        return {}
-    try:
-        return json.loads(u.atributos_profissionais_json)
-    except (json.JSONDecodeError, TypeError):
+    papel = u.papel_ativo()
+    if not papel:
         return {}
 
+    if papel.tipo_papel == "medico":
+        return {
+            "numero-crm": papel.numero_conselho,
+            "uf-crm": papel.uf_conselho,
+            "rqe": papel.rqe,
+        }
+    elif papel.tipo_papel == "enfermeiro":
+        return {
+            "numero-coren": papel.numero_conselho,
+            "uf-coren": papel.uf_conselho,
+            "especialidade": papel.especialidade,
+        }
+    return {}
 
-def monta_atributos_json(schema: CadastroUsuarioSchema):
-    """Monta o JSON de atributos profissionais a partir do schema validado.
 
-    O conjunto de campos incluídos depende de `schema.tipo_usuario`:
-    médico usa CRM/UF/RQE; enfermeiro usa COREN/UF/especialidade.
+def monta_dados_papel(schema) -> dict | None:
+    """Monta um dict pronto para criar/atualizar um PapelProfissional,
+    a partir do schema validado.
 
     Parâmetros:
-        schema: instância validada de CadastroUsuarioSchema.
+        schema: instância validada de CadastroUsuarioSchema (ou
+            AtualizacaoUsuarioSchema).
 
     Retorno:
-        str contendo o JSON serializado, ou None se o tipo de usuário
-        não exigir atributos profissionais.
+        dict com os campos prontos para PapelProfissional(**dict), ou
+        None se o tipo de usuário não exigir papel profissional (admin).
     """
-    atributos_dict = {}
     if schema.tipo_usuario == "medico":
-        atributos_dict = {
-            "numero-crm": schema.numero_crm,
-            "uf-crm": schema.uf_crm,
-            "rqe": (schema.rqe or "").strip(),
+        return {
+            "tipo_papel": "medico",
+            "numero_conselho": schema.numero_crm,
+            "uf_conselho": schema.uf_crm,
+            "rqe": (schema.rqe or "").strip() or None,
+            "especialidade": None,
         }
     elif schema.tipo_usuario == "enfermeiro":
-        atributos_dict = {
-            "numero-coren": schema.numero_coren,
-            "uf-coren": schema.uf_coren,
+        return {
+            "tipo_papel": "enfermeiro",
+            "numero_conselho": schema.numero_coren,
+            "uf_conselho": schema.uf_coren,
             "especialidade": schema.especialidade,
+            "rqe": None,
         }
-    return json.dumps(atributos_dict) if atributos_dict else None
+    return None
+

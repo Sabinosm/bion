@@ -41,7 +41,7 @@ from src.models.pacientes import (
     DoencaCronica,
     MedicamentoEmUso,
     Paciente,
-    PacientePessoal,
+    PacienteDadosPessoais,
 )
 
 # Protocolo

@@ -13,20 +13,22 @@ from .service_helpers import (
     CAMPOS_SIMPLES_ATUALIZAVEIS,
     CAMPOS_RESTRITOS_A_ADMIN,
     atributos_atuais,
-    monta_atributos_json,
+    monta_dados_papel,
 )
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin
 from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema
 from src.models.usuarios import Usuario
-from .service_validacoes  import _checar_duplicidade, _valida_permissao_edicao, _valida_troca_tipo
+from src.models.usuarios.papel_profissional import PapelProfissional
+from src.models import db
+from .service_validacoes import _checar_duplicidade, _valida_permissao_edicao, _valida_troca_tipo
 
 class UsuarioService(ResetCredenciaisMixin):
     """Serviço de domínio para o CRUD de usuários e regras associadas."""
-
+ 
     def __init__(self):
         self.repo = UsuarioRepository()
-
+ 
     def buscar_por_uuid(self, uuid: str):
         """Busca um usuário pelo UUID.
 
@@ -43,7 +45,7 @@ class UsuarioService(ResetCredenciaisMixin):
         if not u:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
-
+ 
     def listar(self, id_empresa):
         """Lista todos os usuários de uma empresa.
 
@@ -54,20 +56,20 @@ class UsuarioService(ResetCredenciaisMixin):
             Lista de instâncias de Usuario.
         """
         return self.repo.find_all(id_empresa)
-
-
+ 
     def criar(self, id_empresa, dados: dict, commitar: bool = True):
         """Cria um novo usuário para a empresa informada.
-
+ 
         Parâmetros:
             id_empresa: identificador da empresa dona do cadastro.
             dados: dicionário bruto de entrada, validado internamente
                 via CadastroUsuarioSchema.
             commitar: se True, persiste e comita a transação imediatamente.
-
+ 
         Retorno:
-            Instância de Usuario criada e salva.
-
+            Instância de Usuario criada e salva (com .papeis já populado
+            se aplicável).
+ 
         Levanta:
             DadosInvalidosError: se `dados` não passar na validação do schema.
             ConflictoError: se CPF, e-mail ou login já existirem.
@@ -76,10 +78,10 @@ class UsuarioService(ResetCredenciaisMixin):
             schema = CadastroUsuarioSchema(**dados)
         except Exception as e:
             raise DadosInvalidosError(f"Erro de validação: {e}") from e
-
+ 
         cpf_hash = hmac_sha256(schema.cpf)
         _checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
-
+ 
         u = Usuario(
             id_empresa=id_empresa,
             nome_completo=schema.nome_completo,
@@ -88,13 +90,19 @@ class UsuarioService(ResetCredenciaisMixin):
             email=schema.email,
             telefone=schema.telefone,
             user_login=schema.user_login,
-            tipo_usuario=schema.tipo_usuario,
-            atributos_profissionais_json=monta_atributos_json(schema),
+            is_admin_flag=(schema.tipo_usuario == "admin"),
         )
+ 
+        dados_papel = monta_dados_papel(schema)
+        if dados_papel:
+            # Associa via relationship, não via FK manual — o SQLAlchemy
+            # resolve o id_usuario sozinho no flush/commit, mesmo que
+            # 'u' ainda não tenha id definitivo neste ponto (útil
+            # justamente no caso commitar=False citado acima).
+            u.papeis.append(PapelProfissional(**dados_papel))
+ 
         return self.repo.save(u, commitar)
-
-   
-
+ 
     def desativar(self, uuid: str):
         """Desativa um usuário, definindo seu status como 'inativo'.
 
@@ -103,11 +111,12 @@ class UsuarioService(ResetCredenciaisMixin):
 
         Retorno:
             Instância de Usuario atualizada e salva.
-        """
+        """    
+        
         u = self.buscar_por_uuid(uuid)
         u.status = "inativo"
         return self.repo.save(u)
-
+ 
     def ativar(self, uuid: str):
         """Reativa um usuário, definindo seu status como 'ativo'.
 
@@ -120,6 +129,7 @@ class UsuarioService(ResetCredenciaisMixin):
         u = self.buscar_por_uuid(uuid)
         u.status = "ativo"
         return self.repo.save(u)
-    
+ 
     def atualizar(self, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
-        return att(self, uuid , dados , solicitante_eh_admin , solicitante_uuid )
+        return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid)
+ 

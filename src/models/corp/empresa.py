@@ -1,14 +1,16 @@
 """
 Dominio Corporativo / Regional.
 
-Empresa e o tenant (instituicao/cliente) em um sistema multi-tenant.
-RegiaoGeografica e a hierarquia territorial (pais > estado > ... > distrito
-sanitario) usada para localizar empresas e pacientes para fins
-epidemiologicos.
+ALTERADO: cnpj deixou de ser coluna direta -- agora vive em
+EmpresaIdentificador (tipo_identificador='cnpj'), abrindo espaço para
+CNES no futuro sem nova migração.
 
-Os models originais (app/empresa/model.py, app/regiao/model.py) eram
-stubs com apenas id/uuid/criado_em. Completados aqui com os campos
-mapeados no schema do projeto (analise.md / UML).
+Mantida uma @property `cnpj` para que código existente que lê
+`empresa.cnpj` continue funcionando sem alteração (mesmo padrão usado
+em Usuario.tipo_usuario). ATENÇÃO: diferente de lá, aqui NÃO dá para
+usar um setter de property com a mesma simplicidade porque criar/trocar
+identificador envolve checar duplicidade -- por isso a ESCRITA de CNPJ
+tem um método explícito (`definir_cnpj`), não um `empresa.cnpj = valor`.
 """
 
 from datetime import datetime, timezone
@@ -26,7 +28,7 @@ class Empresa(db.Model):
                       default=lambda: str(_uuid.uuid4()))
     nome_fantasia = db.Column(db.String(255), nullable=False)
     razao_social = db.Column(db.String(255))
-    cnpj = db.Column(db.String(20), unique=True, nullable=False)
+    # cnpj REMOVIDO como coluna direta -- ver EmpresaIdentificador
     numero = db.Column(db.String(50))
     bairro = db.Column(db.String(100))
     complemento = db.Column(db.String(150))
@@ -39,6 +41,33 @@ class Empresa(db.Model):
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="empresas")
     usuarios = db.relationship("Usuario", back_populates="empresa",
                                 cascade="all, delete-orphan")
+    identificadores = db.relationship("EmpresaIdentificador", back_populates="empresa",
+                                       cascade="all, delete-orphan")
+
+    @property
+    def cnpj(self):
+        """Leitura de compatibilidade: `empresa.cnpj` continua funcionando
+        como antes, sem parênteses, para todo código já existente."""
+        ident = next((i for i in self.identificadores if i.tipo_identificador == "cnpj"), None)
+        return ident.valor if ident else None
+
+    def definir_cnpj(self, valor: str):
+        """Cria ou atualiza o identificador de CNPJ desta empresa.
+
+        Não é feito via `empresa.cnpj = valor` de propósito: diferente
+        de uma coluna simples, isso é uma linha de outra tabela, e o
+        service (não o model) é responsável por checar duplicidade
+        contra outras empresas ANTES de chamar este método -- o model
+        só grava, não decide se pode.
+        """
+        ident = next((i for i in self.identificadores if i.tipo_identificador == "cnpj"), None)
+        if ident:
+            ident.valor = valor
+        else:
+            from src.models.corp.empresa_identificador import EmpresaIdentificador
+            self.identificadores.append(
+                EmpresaIdentificador(tipo_identificador="cnpj", valor=valor)
+            )
 
     def to_dict(self):
         return {
@@ -51,5 +80,4 @@ class Empresa(db.Model):
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
 
-    def __repr__(self):
-        return f"<Empresa {self.uuid} [{self.nome_fantasia}]>"
+    

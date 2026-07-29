@@ -5,7 +5,6 @@ from .service_helpers import (
     CAMPOS_SIMPLES_ATUALIZAVEIS,
     CAMPOS_RESTRITOS_A_ADMIN,
     atributos_atuais,
-    monta_atributos_json,
 )
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin

@@ -1,9 +1,14 @@
 """
 Dominio de Usuarios (profissionais de saude, admins).
 
-Usuario ja estava quase completo no projeto original; mantido. Configuracao
-era um stub no original; completado com vinculo 1-para-1 com Usuario e um
-JSON livre de preferencias/overrides de protocolo.
+ALTERADO (migração FHIR, Opção B confirmada):
+- tipo_usuario e atributos_profissionais_json SAÍRAM daqui.
+- is_admin (bool) entra no lugar de tipo_usuario == 'admin'.
+- papel_ativo() é o novo ponto central de acesso ao papel profissional
+  (substitui a leitura direta de tipo_usuario em toda a aplicação).
+- is_medico()/is_enfermeiro()/is_admin() MANTIDOS como método, mas agora
+  delegam para papel_ativo() — qualquer código que já chamava esses
+  métodos continua funcionando sem alteração.
 """
 
 from datetime import datetime, timezone
@@ -26,10 +31,13 @@ class Usuario(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     telefone = db.Column(db.String(50))
     user_login = db.Column(db.String(100), unique=True)
-    tipo_usuario = db.Column(db.Enum("medico", "enfermeiro", "admin"), nullable=False)
+
+    # tipo_usuario REMOVIDO — ver papel_ativo() abaixo
+    is_admin_flag = db.Column("is_admin", db.Boolean, nullable=False, default=False)
+
     status = db.Column(db.Enum("ativo", "inativo", "suspenso"),
                         nullable=False, default="ativo")
-    atributos_profissionais_json = db.Column(db.JSON)
+    # atributos_profissionais_json REMOVIDO — ver PapelProfissional
     hash_senha = db.Column(db.String(255), nullable=True)  # Argon2id
     onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
     ultimo_acesso = db.Column(db.DateTime(timezone=True))
@@ -40,34 +48,67 @@ class Usuario(db.Model):
     empresa = db.relationship("Empresa", back_populates="usuarios")
     configuracao = db.relationship("Configuracao", back_populates="usuario",
                                     uselist=False, cascade="all, delete-orphan")
+    papeis = db.relationship("PapelProfissional", back_populates="usuario",
+                              cascade="all, delete-orphan")
+
+    # -----------------------------------------------------------------
+    # Ponto central de acesso ao papel — substitui a leitura direta de
+    # tipo_usuario em todo o resto do código. Usuário só tem 1 papel
+    # profissional ativo por vez (garantido pela UNIQUE KEY no banco:
+    # um médico OU um enfermeiro, nunca os dois — ajustar se isso mudar).
+    # -----------------------------------------------------------------
+    def papel_ativo(self):
+        """Retorna a instância de PapelProfissional ativa, ou None (ex: admin puro)."""
+        return next((p for p in self.papeis if p.ativo), None)
+
+    @property
+    def tipo_usuario(self):
+        """
+        Recria o valor que antes vinha da coluna tipo_usuario, agora como
+        @property — qualquer código existente que faça
+        `usuario.tipo_usuario == "medico"` (sem parênteses) continua
+        funcionando exatamente como antes, sem precisar de nenhuma
+        alteração nos arquivos que já leem esse atributo.
+
+        Atenção (só isso muda de verdade): não é mais uma coluna do
+        banco, então NÃO pode aparecer em filtros de query, tipo
+        `Usuario.query.filter_by(tipo_usuario="medico")` — isso quebra,
+        porque o SQLAlchemy não sabe fazer isso virar SQL sozinho.
+        Ver repository.py para o substituto (find_by_tipo_papel).
+        """
+        if self.is_admin_flag:
+            return "admin"
+        papel = self.papel_ativo()
+        return papel.tipo_papel if papel else None
 
     def is_medico(self):
-        return self.tipo_usuario == "medico"
+        papel = self.papel_ativo()
+        return bool(papel and papel.tipo_papel == "medico")
 
     def is_enfermeiro(self):
-        return self.tipo_usuario == "enfermeiro"
+        papel = self.papel_ativo()
+        return bool(papel and papel.tipo_papel == "enfermeiro")
 
     def is_admin(self):
-        return self.tipo_usuario == "admin"
+        return self.is_admin_flag
 
-    #TODO verificar se todos os dados aqui são utilizaveis no momento em que são entregues 
     def to_dict(self, incluir_sensiveis=False):
+        papel = self.papel_ativo()
         d = {
             "uuid": self.uuid,
             "nome_completo": self.nome_completo,
             "email": self.email,
             "telefone": self.telefone,
             "user_login": self.user_login,
-            "tipo_usuario": self.tipo_usuario,
+            "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
             "status": self.status,
             "ultimo_acesso": self.ultimo_acesso.isoformat() if self.ultimo_acesso else None,
-            "id_empresa" : self.id_empresa
+            "id_empresa": self.id_empresa,
         }
         if incluir_sensiveis:
             from src.core.security import aes_decrypt
             d["cpf"] = aes_decrypt(self.cpf)
-            d["atributos_profissionais"] = self.atributos_profissionais_json
+            d["atributos_profissionais"] = papel.to_dict() if papel else None
         return d
 
-    def __repr__(self):
-        return f"<Usuario {self.uuid} [{self.tipo_usuario}]>"
+  

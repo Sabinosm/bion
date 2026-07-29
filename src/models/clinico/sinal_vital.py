@@ -1,10 +1,13 @@
 """
-Dominio Clinico (nucleo do ciclo de vida do atendimento/visita).
+Dominio Clinico.
 
-Consulta, Atendimento e SinalVital ja estavam completos no projeto
-original. ColetaClinica, ResultadoPrescricao, InputProtocolo,
-InputProtocoloExecucao, Prescricao e PrescricaoExame eram stubs ou nem
-existiam como classe -- completados aqui com os campos do schema.
+ALTERADO (conforme 05_sinal_vital_migration.sql): tipo_parametro
+continua sendo o mesmo enum (nenhuma mudança no valor/formato que a
+API já usa) -- mas agora tem uma FK correspondente na tabela de
+referência loinc_sinal_vital, usada para tradução FHIR (código LOINC
++ unidade UCUM oficiais). O campo `unidade` daqui (mmHg, bpm, °C etc)
+é sua representação interna/de exibição; a tradução FHIR usa sempre
+loinc_sinal_vital.unidade_ucum, não este campo.
 """
 
 from datetime import datetime, timezone
@@ -17,13 +20,14 @@ from src.models.types import BigIntPK
 class SinalVital(db.Model):
     __tablename__ = "sinal_vital"
 
-    id = db.Column("id_sinal_vital",BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_sinal_vital",db.String(36), unique=True, nullable=False,
+    id = db.Column("id_sinal_vital", BigIntPK, primary_key=True, autoincrement=True)
+    uuid = db.Column("uuid_sinal_vital", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id_atendimento"), nullable=False)
     tipo_parametro = db.Column(
         db.Enum("frequencia-respiratoria", "spo2", "pa-sistolica", "pa-diastolica",
                 "frequencia-cardiaca", "temperatura", "glicemia-capilar"),
+        db.ForeignKey("loinc_sinal_vital.tipo_parametro"),
         nullable=False)
     valor_numerico = db.Column(db.Numeric(10, 2), nullable=False)
     unidade = db.Column(
@@ -41,6 +45,7 @@ class SinalVital(db.Model):
 
     atendimento = db.relationship("Atendimento", back_populates="sinais_vitais")
     usuario = db.relationship("Usuario")
+    loinc_ref = db.relationship("LoincSinalVital")
 
     def to_dict(self):
         return {
@@ -52,6 +57,7 @@ class SinalVital(db.Model):
             "data_hora_medicao": self.data_hora_medicao.isoformat() if self.data_hora_medicao else None,
             "flag_validacao_faixa": self.flag_validacao_faixa,
         }
+
 
     def __repr__(self):
         return f"<SinalVital {self.uuid} [{self.tipo_parametro}={self.valor_numerico}]>"

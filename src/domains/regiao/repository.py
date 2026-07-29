@@ -1,8 +1,16 @@
+"""
+ALTERADO: find_por_tipo não pode mais usar filter_by(tipo_regiao=...)
+direto, já que tipo_regiao virou @property. Precisa de JOIN explícito
+com TipoJurisdicao, filtrando pelo campo `codigo` (que guarda o mesmo
+valor de string que o enum antigo usava: 'municipio', 'estado' etc).
+"""
+
 from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.corp import RegiaoGeografica
+from src.models.corp.tipo_jurisdicao import TipoJurisdicao
 
 
 class RegiaoRepository(IRepository[RegiaoGeografica]):
@@ -17,7 +25,14 @@ class RegiaoRepository(IRepository[RegiaoGeografica]):
         return RegiaoGeografica.query.filter_by(codigo_ibge=codigo).first()
 
     def find_por_tipo(self, tipo: str) -> List[RegiaoGeografica]:
-        return RegiaoGeografica.query.filter_by(tipo_regiao=tipo).all()
+        """`tipo` continua sendo a mesma string de antes (ex: 'municipio'),
+        só a busca por baixo dos panos agora passa por TipoJurisdicao."""
+        return (
+            RegiaoGeografica.query
+            .join(TipoJurisdicao, TipoJurisdicao.id == RegiaoGeografica.id_tipo_jurisdicao)
+            .filter(TipoJurisdicao.codigo == tipo)
+            .all()
+        )
 
     def save(self, entity: RegiaoGeografica) -> RegiaoGeografica:
         db.session.add(entity)
