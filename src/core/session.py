@@ -134,17 +134,11 @@ def mfa_pendente_required(f):
 # ---------------------------------------------------------------------------
 
 
-# def _ja_logado():
-#     def decorator(f):
-#         @wraps(f)
-#         def wrapper(*args, **kwargs):
-#            if session.get("id_usuario"):
-#                 return jsonify({"status": "error", "message": "Usuario já logado."}), 409
-#            else :
-#                return f(*args, **kwargs)
-#         return wrapper
-#     return decorator
-        
+def ja_logado() -> bool:
+    if session.get("id_usuario"):
+        return True
+    else :
+        return False
 
 def requer_papel(*papeis_permitidos):
     """
