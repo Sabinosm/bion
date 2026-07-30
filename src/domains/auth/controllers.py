@@ -30,52 +30,49 @@ def login():
     Retorno:
         200 com dados de usuário e configurações se autenticado sem 2FA.
         200 com `status: mfa_requerido` se autenticado mas pendente de 2FA.
-        200 com status: já logado
         400 se o usuário só tiver login via Google (sem senha).
         401 se as credenciais forem inválidas.
         422 se login ou senha não forem enviados.
     """
     
-    if not ja_logado():
-        data = request.get_json(silent=True) or request.form.to_dict()
-        login_val = (data.get("user_login") or "").strip()
-        senha = data.get("senha") or ""
+    
+    data = request.get_json(silent=True) or request.form.to_dict()
+    login_val = (data.get("user_login") or "").strip()
+    senha = data.get("senha") or ""
 
-        if not login_val or not senha:
-            return json_error("Login e senha são obrigatórios.", 422)
-        
-        usuario, motivo = _svc.autenticar(login_val, senha)
-        if motivo == "sem_senha":
-            return json_error("Usuário sem senha, faça login pelo Google.", 400)
-        if not usuario:
-            return json_error("Credenciais inválidas.", 401)
+    if not login_val or not senha:
+        return json_error("Login e senha são obrigatórios.", 422)
+    
+    usuario, motivo = _svc.autenticar(login_val, senha)
+    if motivo == "sem_senha":
+        return json_error("Usuário sem senha, faça login pelo Google.", 400)
+    if not usuario:
+        return json_error("Credenciais inválidas.", 401)
 
-        tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
+    tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
 
-        session.clear()
-        session.permanent = True
-        session["id_usuario"] = usuario.id
-        session["tipo_usuario"] = usuario.tipo_usuario
-        session["uuid_usuario"] = usuario.uuid
+    session.clear()
+    session.permanent = True
+    session["id_usuario"] = usuario.id
+    session["tipo_usuario"] = usuario.tipo_usuario
+    session["uuid_usuario"] = usuario.uuid
 
-        if tem_2fa:
-            session["mfa_pendente"] = True
-            return json_success(
-                data={"status": "mfa_requerido", "metodo": "webauthn"},
-                message="Confirmação adicional necessária.",
-            )
-
-        session["id_empresa"] = usuario.id_empresa
-
-        cfg_service = ConfiguracaoService()
-        cfg = cfg_service.obter_ou_criar(session["id_usuario"])
-
+    if tem_2fa:
+        session["mfa_pendente"] = True
         return json_success(
-            data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
-            message="Login realizado com sucesso.",
+            data={"status": "mfa_requerido", "metodo": "webauthn"},
+            message="Confirmação adicional necessária.",
         )
-    else:
-        return jsonify({"status": "success", "message": "Usuario já logado."}), 200
+
+    session["id_empresa"] = usuario.id_empresa
+
+    cfg_service = ConfiguracaoService()
+    cfg = cfg_service.obter_ou_criar(session["id_usuario"])
+
+    return json_success(
+        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
+        message="Login realizado com sucesso.",
+    )
 
 
 @bp.get("/me")
@@ -95,6 +92,18 @@ def me():
         return json_error("Sessão inválida.", 401)
     return json_success(data={"usuario": usuario.to_dict()})
 
+
+@bp.get("/check-session")
+def ck_session():
+    """Verifica se já existe uma sessão ativa
+
+    
+        Retorno:
+            200 Se já existe
+            401 Se não existe
+            
+        """
+    return ja_logado()
 
 @bp.post("/logout")
 def logout():

@@ -136,9 +136,8 @@ def mfa_pendente_required(f):
 
 def ja_logado() -> bool:
     if session.get("id_usuario"):
-        return True
-    else :
-        return False
+       return {'authenticated': True}, 200
+    return {'authenticated': False}, 401
 
 def requer_papel(*papeis_permitidos):
     """
