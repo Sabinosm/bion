@@ -7,6 +7,7 @@ from .prescricao import Prescricao
 from .resultado_prescricao import ResultadoPrescricao
 from .sinal_vital import SinalVital
 from .prescricao_exame import PrescricaoExame
+from .loinc_sinal_vital import LoincSinalVital
 
 __all__ = [
     "Atendimento",
@@ -17,5 +18,6 @@ __all__ = [
     "Prescricao",
     "ResultadoPrescricao",
     "SinalVital",
+    "LoincSinalVital",
     "PrescricaoExame"
 ]

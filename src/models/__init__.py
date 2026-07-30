@@ -32,16 +32,19 @@ from src.models.clinico import (
 )
 
 # Corporativo
-from src.models.corp import Empresa, RegiaoGeografica
+from src.models.corp import Empresa, RegiaoGeografica, EmpresaIdentificador, TipoJurisdicao
 
 # Paciente
 from src.models.pacientes import (
     Alergia,
+    ReacaoAlergia,
+    ObservacaoTipoSanguineo,
     Consentimento,
     DoencaCronica,
     MedicamentoEmUso,
     Paciente,
     PacienteDadosPessoais,
+    
 )
 
 # Protocolo
@@ -91,11 +94,14 @@ __all__ = [
     "Prescricao",
     "ResultadoPrescricao",
     "SinalVital",
+    "LoincSinalVital",
     "PrescricaoExame",
     
     # Corporativo
     "Empresa",
     "RegiaoGeografica",
+    "EmpresaIdentificicador",
+    "TipoJurisdicao",
     
     # Paciente
     "Alergia",
@@ -104,6 +110,8 @@ __all__ = [
     "MedicamentoEmUso",
     "Paciente",
     "PacientePessoal",
+    "ObservacaoTipoSanguineo",
+    "ReacaoAlergia",
     
     # Protocolo
     "CatalogoFluxogramasMts",
@@ -118,4 +126,5 @@ __all__ = [
     "ConfiguracaoProtocolo",
     "CredencialWebAuthn",
     "Usuario",
+    "PapelProfissional",
 ]

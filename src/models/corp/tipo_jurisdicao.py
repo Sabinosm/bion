@@ -16,7 +16,11 @@ class TipoJurisdicao(db.Model):
     display = db.Column(db.String(100), nullable=False)
     fhir_jurisdiction_level = db.Column(db.String(30), nullable=False)
 
-    regioes = db.relationship("RegiaoGeografica", back_populates="tipo_jurisdicao")
+    regioes = db.relationship(
+        "RegiaoGeografica",
+        primaryjoin="TipoJurisdicao.id == RegiaoGeografica.id_tipo_jurisdicao",
+        back_populates="tipo_jurisdicao_ref",
+    )
 
     def to_dict(self):
         return {"codigo": self.codigo, "display": self.display}
