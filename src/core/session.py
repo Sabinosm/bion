@@ -135,6 +135,14 @@ def mfa_pendente_required(f):
 
 
 def ja_logado() -> bool:
+    """
+    Verifica se o usuário já possui uma sessão ativa
+    
+    Retorno:
+        200 se já tiver uma sessão
+        401 se não tiver uma sessão
+    """
+    
     if session.get("id_usuario"):
        return {'authenticated': True}, 200
     return {'authenticated': False}, 401
