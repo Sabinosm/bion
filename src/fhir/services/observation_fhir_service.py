@@ -30,7 +30,7 @@ UNIDADE_INTERNA_POR_TIPO_PARAMETRO = {
 
 class ObservationFhirService:
     def __init__(self):
-        from src.domains.clinico.repository import SinalVitalRepository
+        from src.domains.dados_clinicos.repository import SinalVitalRepository
         self.repo = SinalVitalRepository()
 
     def buscar_por_id(self, id_fhir: str, elements: list[str] | None = None) -> dict:
@@ -71,7 +71,7 @@ class ObservationFhirService:
         aqui para não duplicar essa lógica de negócio.
         """
         from src.domains.atendimento.repository import AtendimentoRepository
-        from src.domains.clinico.service import DadosClinicosService
+        from src.domains.dados_clinicos.service import DadosClinicosService
 
         try:
             dados = fhir_observation_to_dados(obs, self._resolver_loinc)
