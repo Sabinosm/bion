@@ -70,10 +70,10 @@ def _requer_papeis(*papeis_permitidos):
                 return _nao_autenticado()
 
             if session.get("onboarding_pendente"):
-                return jsonify({"erro": "onboarding_requerido"}), 403
+                return jsonify({"erro": "onboarding_pendente"}), 403
 
             if session.get("mfa_pendente"):
-                return jsonify({"erro": "mfa_requerido"}), 401
+                return jsonify({"erro": "mfa_pendente"}), 401
 
             if papeis_permitidos and session.get("tipo_usuario") not in papeis_permitidos:
                 rotulo = " ou ".join(papeis_permitidos)

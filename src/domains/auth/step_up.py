@@ -25,7 +25,7 @@ from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerifica
 
 bp_step_up = Blueprint("step_up", __name__)
 
-RP_ID = "bion.com.br"
+RP_ID = "http://127.0.0.1:5500"
 DURACAO_TOKEN_SEGUNDOS = 180
 
 

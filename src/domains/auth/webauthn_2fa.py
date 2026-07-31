@@ -23,7 +23,7 @@ from src.core.session import mfa_pendente_required
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
 
-RP_ID = "bion.com.br"
+RP_ID = "http://127.0.0.1:5500"
 
 
 @bp_webauthn_2fa.route("/webauthn/2fa/iniciar", methods=["POST"])

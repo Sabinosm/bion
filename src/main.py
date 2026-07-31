@@ -60,7 +60,8 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auth.step_up import bp_step_up
     from src.domains.auth.webauthn_2fa import bp_webauthn_2fa
     from src.domains.auth.status import bp_status
-
+    from src.fhir import bp_fhir
+    
     app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")       
     app.register_blueprint(bp_status, url_prefix="/v1/api/auth")                                       # /v1/api/authc
     app.register_blueprint(bp_oauth, url_prefix="/v1/api/auth")
@@ -85,7 +86,8 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(pessoal_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(clinico_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes")
-
+    app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
+    
     @app.get("/v1/api/health")
     def health():
         return jsonify({"status": "success", "message": "Bion API no ar."})

@@ -17,17 +17,17 @@ def status_sessao():
     """Retorna o estado atual da sessão sem exigir autenticação completa.
 
     Retorno:
-        200 com `status: autenticado`, `onboarding_requerido` ou
-        `mfa_requerido`, conforme o estado da sessão.
+        200 com `status: autenticado`, `onboarding_pendente` ou
+        `mfa_pendente`, conforme o estado da sessão.
         401 com `status: nao_autenticado` se não houver sessão iniciada.
     """
     if not session.get("usuario_id") and not session.get("id_usuario"):
         return jsonify({"status": "nao_autenticado"}), 401
 
     if session.get("onboarding_pendente"):
-        return jsonify({"status": "onboarding_requerido"}), 200
+        return jsonify({"status": "onboarding_pendente"}), 200
 
     if session.get("mfa_pendente"):
-        return jsonify({"status": "mfa_requerido", "metodo": "webauthn"}), 200
+        return jsonify({"status": "mfa_pendente", "metodo": "webauthn"}), 200
 
     return jsonify({"status": "autenticado"}), 200

@@ -12,7 +12,7 @@ from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.core.responses import json_success, json_error
 from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService
-from src.core.session import requer_login, ja_logado
+from src.core.session import requer_login
 
 bp = Blueprint("auth", __name__)
 _svc = AuthService()
@@ -29,12 +29,11 @@ def login():
 
     Retorno:
         200 com dados de usuário e configurações se autenticado sem 2FA.
-        200 com `status: mfa_requerido` se autenticado mas pendente de 2FA.
+        200 com `status: mfa_pendente` se autenticado mas pendente de 2FA.
         400 se o usuário só tiver login via Google (sem senha).
         401 se as credenciais forem inválidas.
         422 se login ou senha não forem enviados.
     """
-    
     
     data = request.get_json(silent=True) or request.form.to_dict()
     login_val = (data.get("user_login") or "").strip()
@@ -60,7 +59,7 @@ def login():
     if tem_2fa:
         session["mfa_pendente"] = True
         return json_success(
-            data={"status": "mfa_requerido", "metodo": "webauthn"},
+            data={"status": "mfa_pendente", "metodo": "webauthn"},
             message="Confirmação adicional necessária.",
         )
 
@@ -95,6 +94,7 @@ def me():
 
 @bp.get("/check-session")
 def ck_session():
+    from src.core.session import ja_logado
     """Verifica se já existe uma sessão ativa
 
     
