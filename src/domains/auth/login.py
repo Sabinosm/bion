@@ -56,6 +56,13 @@ def login():
     session["tipo_usuario"] = usuario.tipo_usuario
     session["uuid_usuario"] = usuario.uuid
 
+    if usuario.onboarding_pendente:
+        session["onboarding_pendente"] = True
+        return json_success(
+            data={"status": "onboarding_pendente"},
+            message="Cadastro incompleto, finalize o onboarding.",
+        )
+
     if tem_2fa:
         session["mfa_pendente"] = True
         return json_success(

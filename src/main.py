@@ -36,7 +36,7 @@ def create_app(config_name: str = "development") -> Flask:
 
 
 def _registrar_blueprints(app: Flask):
-    from src.domains.auth.controllers import bp as auth_bp
+    from src.domains.auth.login import bp as auth_bp
     from src.domains.usuario.controller import bp as usuario_bp
     from src.domains.empresa.controller import bp as empresa_bp
     from src.domains.regiao.controller import bp as regiao_bp

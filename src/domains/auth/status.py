@@ -14,18 +14,24 @@ bp_status = Blueprint("status", __name__)
 
 @bp_status.route("/status", methods=["GET"])
 def status_sessao():
+    from src.models.usuarios import Usuario
     """Retorna o estado atual da sessão sem exigir autenticação completa.
 
     Retorno:
-        200 com `status: autenticado`, `onboarding_pendente` ou
-        `mfa_pendente`, conforme o estado da sessão.
+        200 com `status: autenticado`, `onboarding_pendente` (incluindo
+        `senha_definida: bool` para o frontend saber se pode pular a
+        etapa de senha) ou `mfa_pendente`.
         401 com `status: nao_autenticado` se não houver sessão iniciada.
     """
-    if not session.get("usuario_id") and not session.get("id_usuario"):
+    if not session.get("id_usuario"):
         return jsonify({"status": "nao_autenticado"}), 401
 
     if session.get("onboarding_pendente"):
-        return jsonify({"status": "onboarding_pendente"}), 200
+        usuario = Usuario.query.get(session["id_usuario"])
+        return jsonify({
+            "status": "onboarding_pendente",
+            "senha_definida": usuario.hash_senha is not None,
+        }), 200
 
     if session.get("mfa_pendente"):
         return jsonify({"status": "mfa_pendente", "metodo": "webauthn"}), 200

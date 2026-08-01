@@ -28,7 +28,7 @@ from webauthn.helpers.structs import (
 bp_onboarding = Blueprint("onboarding", __name__)
 ph = PasswordHasher()
 
-RP_ID = "bion.com.br"
+RP_ID = "127.0.0.1"
 RP_NAME = "Bion"
 
 
@@ -40,9 +40,17 @@ def definir_senha():
     Corpo esperado (JSON): `senha`.
 
     Retorno:
-        200 com o próximo passo (`cadastrar_webauthn`) se a senha for válida.
+        200 com o próximo passo (`cadastrar_webauthn`) se a senha for válida
+        ou se o usuário já tiver senha definida (idempotente).
         400 com o motivo da invalidação se a senha não passar nas regras.
     """
+    usuario = Usuario.query.get(session["id_usuario"])
+
+    if usuario.hash_senha:
+        # Usuário já tem senha (ex.: cadastrado por admin) -- não
+        # sobrescreve, só confirma que pode avançar.
+        return jsonify({"status": "senha_ja_definida", "proximo_passo": "cadastrar_webauthn"}), 200
+
     dados = request.get_json()
     nova_senha = dados.get("senha")
 
@@ -51,7 +59,6 @@ def definir_senha():
     if senha_valida == False:
         return jsonify(resposta), 400
 
-    usuario = Usuario.query.get(session["id_usuario"])
     usuario.hash_senha = ph.hash(nova_senha)
     db.session.commit()
 
@@ -119,7 +126,7 @@ def onboarding_webauthn_concluir():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="https://bion.com.br",  # TODO: parametrizar por ambiente
+            expected_origin="127.0.0.1",  # TODO: parametrizar por ambiente
         )
     except Exception as erro:
         return jsonify({"erro": "credencial_invalida", "detalhe": str(erro)}), 400

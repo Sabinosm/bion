@@ -23,7 +23,7 @@ from src.core.session import mfa_pendente_required
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
 
-RP_ID = "http://127.0.0.1:5500"
+RP_ID = "127.0.0.1"
 
 
 @bp_webauthn_2fa.route("/webauthn/2fa/iniciar", methods=["POST"])
@@ -88,7 +88,7 @@ def segundo_fator_confirmar():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="https://bion.com.br",
+            expected_origin="127.0.0.1",
             credential_public_key=credencial.public_key,
             credential_current_sign_count=credencial.sign_count,
         )
