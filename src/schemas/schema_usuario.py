@@ -4,11 +4,15 @@ from typing import Optional, Tuple, Literal
  
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from src.core import validacoes as vl
-from src.core.security import aes_encrypt, ph  # vl.validar_cpf, vl.validar_telefone_br, etc.]
-from src.core.exceptions import  DadosInvalidosError
+from src.core.security import aes_encrypt, ph  # vl.validar_cpf, vl.validar_telefone_br, etc.
  
  
-
+# ---------------------------------------------------------------------------
+# Exceção de domínio
+# ---------------------------------------------------------------------------
+class DadosInvalidosError(Exception):
+    """Erro de validação de dados de entrada (camada de negócio)."""
+    pass
  
  
 # ---------------------------------------------------------------------------
@@ -26,6 +30,12 @@ class CadastroUsuarioSchema(BaseModel):
     user_login: str = Field(..., min_length=3, max_length=30)
     tipo_usuario: Literal["medico", "enfermeiro", "admin"]
     telefone: Optional[str] = None
+    # ALTERADO: era Optional[str] = Field(..., ...) -- Optional junto
+    # com obrigatório (...) é contraditório. Senha agora é opcional
+    # aqui no nível de campo; a obrigatoriedade real (admin precisa,
+    # médico/enfermeiro não podem) é regra cruzada, resolvida em
+    # valida_senha_por_profissao logo abaixo.
+    
     senha: Optional[str] = Field(None, min_length=8, max_length=128)
     
     # Campos específicos opcionais no payload geral
@@ -120,6 +130,12 @@ class CadastroUsuarioSchema(BaseModel):
     @field_validator("senha")
     @classmethod
     def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
+        # ALTERADO: essa checagem de força só existia em
+        # AtualizacaoUsuarioSchema -- o cadastro validava só tamanho
+        # (min_length=8), aceitando senha fraca desde que tivesse 8+
+        # caracteres. Reaproveita vl.validar_senha, mesma função já
+        # usada na atualização.
+        
         if v is None:
             return None
         senha_valida, resposta = vl.validar_senha(v)
@@ -138,10 +154,10 @@ class CadastroUsuarioSchema(BaseModel):
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
             if self.senha:
                 raise ValueError(
-                    "Médicos não devem informar 'senha' no cadastro; "
-                    "o acesso é definido em um fluxo de ativação de conta separado."
+                    "Médicos não devem informar 'senha' no cadastro; o acesso "
+                    "é definido em um fluxo de ativação de conta separado."
                 )
-
+ 
         elif tipo == "enfermeiro":
             if not self.numero_coren or not self.uf_coren or not self.especialidade:
                 raise ValueError(
@@ -149,10 +165,10 @@ class CadastroUsuarioSchema(BaseModel):
                 )
             if self.senha:
                 raise ValueError(
-                    "Enfermeiros não devem informar 'senha' no cadastro; "
-                    "o acesso é definido em um fluxo de ativação de conta separado."
+                    "Enfermeiros não devem informar 'senha' no cadastro; o acesso "
+                    "é definido em um fluxo de ativação de conta separado."
                 )
-
+ 
         elif tipo == "admin":
             if not self.senha:
                 raise ValueError("Usuário admin precisa informar 'senha' no cadastro.")
@@ -270,15 +286,6 @@ def validacao_input(self, dados: dict) -> Tuple[dict, Optional[str]]:
         "telefone": schema.telefone,
         "user_login": schema.user_login,
         "tipo_usuario": schema.tipo_usuario,
-        
-        # ALTERADO: senha estava sendo validada pelo schema mas nunca
-        # incluída aqui -- o usuário era criado sem senha persistida de
-        # fato. Só vem preenchida para admin (única profissão que exige
-        # senha no cadastro; para médico/enfermeiro o schema já garante
-        # que schema.senha é None neste ponto). Hash, nunca texto puro,
-        # mesmo padrão já usado para o CPF (ph.hash).
-        
-        "senha_hash": ph.hash(schema.senha) if schema.senha else None,
     }
  
     atributos_dict = {}

@@ -13,7 +13,7 @@ from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 
 
-def att(user: Usuario, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
+def att(user, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
         """Atualiza parcialmente os dados de um usuário existente.
 
         Orquestra a atualização em etapas: valida permissão de edição,
@@ -21,6 +21,11 @@ def att(user: Usuario, uuid: str, dados: dict, solicitante_eh_admin: bool, solic
         enviados com os atuais, revalida como cadastro completo e persiste.
 
         Parâmetros:
+            user: instância de UsuarioService que chamou esta função
+                (não confundir com o model Usuario -- 'user' é o
+                service, de onde vêm self.repo, self._checar_duplicidade
+                etc; o registro do usuário sendo atualizado é a
+                variável local 'u' logo abaixo).
             uuid: identificador do usuário a atualizar.
             dados: dicionário parcial com os campos a alterar.
             solicitante_eh_admin: se True, o solicitante pode alterar
