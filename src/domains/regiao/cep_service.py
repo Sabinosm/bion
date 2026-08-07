@@ -29,12 +29,13 @@ deste módulo.
 import re
 import requests
 from src.models.corp.regiao_geografica import RegiaoGeografica
+from src.core.validacoes import validar_cep
 
 VIACEP_URL = "https://viacep.com.br/ws/{cep}/json/"
 BRASILAPI_CEP_URL = "https://brasilapi.com.br/api/cep/v2/{cep}"
 CEP_TIMEOUT_SEGUNDOS = 5
 
-REGEX_CEP_DIGITOS = re.compile(r"^\d{8}$")
+
 
 # Cache em memória de CEP -> dados já resolvidos, para não bater a API
 # de novo para o mesmo CEP (útil já que muitos pacientes/empresas
@@ -56,18 +57,6 @@ class CepService:
         
         return regiao_service.buscar_ou_criar_por_codigo_ibge(codigo_ibge) if codigo_ibge else None
         
-    
-    def limpar_cep(self, cep: str) -> str | None:
-        """
-        Remove tudo que não for dígito e valida que sobraram exatamente
-        8 dígitos (formato de CEP brasileiro). Devolve None se o valor
-        não for um CEP válido em formato (não confirma se o CEP existe
-        de fato -- isso só a consulta à API resolve).
-        """
-        if not cep:
-            return None
-        digitos = re.sub(r"\D", "", cep)
-        return digitos if REGEX_CEP_DIGITOS.match(digitos) else None
 
     def buscar_endereco_por_cep(self, cep: str) -> dict | None:
         """
@@ -80,7 +69,7 @@ class CepService:
         "não encontrado", para não reconsultar repetidamente um CEP
         que já se sabe inválido/inexistente.
         """
-        cep_limpo = self.limpar_cep(cep)
+        cep_limpo = validar_cep(cep)
         if cep_limpo is None:
             return None
 
@@ -96,7 +85,7 @@ class CepService:
 
     def buscar_bairro_por_cep(self, cep: str) -> str | None:
         """Atalho para quem só precisa do bairro."""
-        endereco = self.buscar_endereco(cep)
+        endereco = self.buscar_endereco_por_cep(cep)
         return endereco["bairro"] if endereco else None
 
     def buscar_codigo_ibge_por_cep(self, cep: str) -> str | None:
@@ -107,7 +96,7 @@ class CepService:
         campo normalmente será None, já que a BrasilAPI (v2) não
         devolve o código IBGE no payload.
         """
-        endereco = self.buscar_endereco(cep)
+        endereco = self.buscar_endereco_por_cep(cep)
         return endereco["codigo_ibge"] if endereco else None
 
     def _consultar_viacep(self, cep_limpo: str) -> dict | None:

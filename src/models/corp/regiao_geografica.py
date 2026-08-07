@@ -16,7 +16,7 @@ class RegiaoGeografica(db.Model):
     __tablename__ = "regiao_geografica"
 
     id = db.Column("id_regiao_geografica", BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column(db.String(36), unique=True, nullable=False,
+    uuid = db.Column("uuid_regiao_geografica",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_regiao = db.Column(db.String(255), nullable=False)
 

@@ -1,19 +1,14 @@
-
 import json
 import re
 from typing import Optional, Tuple, Literal
  
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from src.core import validacoes as vl
-from src.core.security import aes_encrypt, ph  # vl.validar_cpf, vl.validar_telefone_br, etc.
+from src.core.security import aes_encrypt, ph  # vl.validar_cpf, vl.validar_telefone_br, etc.]
+from src.core.exceptions import  DadosInvalidosError
  
  
-# ---------------------------------------------------------------------------
-# Exceção de domínio
-# ---------------------------------------------------------------------------
-class DadosInvalidosError(Exception):
-    """Erro de validação de dados de entrada (camada de negócio)."""
-    pass
+
  
  
 # ---------------------------------------------------------------------------
@@ -31,7 +26,8 @@ class CadastroUsuarioSchema(BaseModel):
     user_login: str = Field(..., min_length=3, max_length=30)
     tipo_usuario: Literal["medico", "enfermeiro", "admin"]
     telefone: Optional[str] = None
- 
+    senha: Optional[str] = Field(None, min_length=8, max_length=128)
+    
     # Campos específicos opcionais no payload geral
     numero_crm: Optional[str] = Field(None, alias="numero-crm")
     uf_crm: Optional[str] = Field(None, alias="uf-crm")
@@ -40,6 +36,7 @@ class CadastroUsuarioSchema(BaseModel):
     numero_coren: Optional[str] = Field(None, alias="numero-coren")
     uf_coren: Optional[str] = Field(None, alias="uf-coren")
     especialidade: Optional[str] = Field(None, max_length=100)
+ 
  
     model_config = {
         "populate_by_name": True,   # aceita tanto 'numero_crm' quanto o alias 'numero-crm'
@@ -119,6 +116,16 @@ class CadastroUsuarioSchema(BaseModel):
         if len(v) < 2:
             raise ValueError("Especialidade inválida.")
         return v
+
+    @field_validator("senha")
+    @classmethod
+    def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        senha_valida, resposta = vl.validar_senha(v)
+        if senha_valida:
+            return v
+        raise ValueError(resposta["erro"])
  
     # -- Validação cruzada entre campos --------------------------------------
  
@@ -129,14 +136,27 @@ class CadastroUsuarioSchema(BaseModel):
         if tipo == "medico":
             if not self.numero_crm or not self.uf_crm:
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
- 
+            if self.senha:
+                raise ValueError(
+                    "Médicos não devem informar 'senha' no cadastro; "
+                    "o acesso é definido em um fluxo de ativação de conta separado."
+                )
+
         elif tipo == "enfermeiro":
             if not self.numero_coren or not self.uf_coren or not self.especialidade:
                 raise ValueError(
                     "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
                 )
- 
+            if self.senha:
+                raise ValueError(
+                    "Enfermeiros não devem informar 'senha' no cadastro; "
+                    "o acesso é definido em um fluxo de ativação de conta separado."
+                )
+
         elif tipo == "admin":
+            if not self.senha:
+                raise ValueError("Usuário admin precisa informar 'senha' no cadastro.")
+
             # Admin não deveria mandar campos de médico/enfermeiro — evita payload inconsistente
             campos_indevidos = [
                 nome
@@ -250,6 +270,15 @@ def validacao_input(self, dados: dict) -> Tuple[dict, Optional[str]]:
         "telefone": schema.telefone,
         "user_login": schema.user_login,
         "tipo_usuario": schema.tipo_usuario,
+        
+        # ALTERADO: senha estava sendo validada pelo schema mas nunca
+        # incluída aqui -- o usuário era criado sem senha persistida de
+        # fato. Só vem preenchida para admin (única profissão que exige
+        # senha no cadastro; para médico/enfermeiro o schema já garante
+        # que schema.senha é None neste ponto). Hash, nunca texto puro,
+        # mesmo padrão já usado para o CPF (ph.hash).
+        
+        "senha_hash": ph.hash(schema.senha) if schema.senha else None,
     }
  
     atributos_dict = {}
@@ -269,4 +298,3 @@ def validacao_input(self, dados: dict) -> Tuple[dict, Optional[str]]:
     atributos_json = json.dumps(atributos_dict) if atributos_dict else None
  
     return dados_tratados, atributos_json
- 

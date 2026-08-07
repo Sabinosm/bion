@@ -81,17 +81,19 @@ class UsuarioService(ResetCredenciaisMixin):
  
         cpf_hash = hmac_sha256(schema.cpf)
         _checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
- 
-        u = Usuario(
-            id_empresa=id_empresa,
-            nome_completo=schema.nome_completo,
-            cpf=aes_encrypt(schema.cpf),
-            cpf_hash=cpf_hash,
-            email=schema.email,
-            telefone=schema.telefone,
-            user_login=schema.user_login,
-            is_admin_flag=(schema.tipo_usuario == "admin"),
-        )
+
+        if schema.tipo_usuario == "admin":
+            u = Usuario(
+                id_empresa=id_empresa,
+                nome_completo=schema.nome_completo,
+                cpf=aes_encrypt(schema.cpf),
+                cpf_hash=cpf_hash,
+                email=schema.email,
+                telefone=schema.telefone,
+                user_login=schema.user_login,
+                is_admin_flag=(schema.tipo_usuario == "admin"),
+                hash_senha=schema.hash_senha,
+            )
  
         dados_papel = monta_dados_papel(schema)
         if dados_papel:
