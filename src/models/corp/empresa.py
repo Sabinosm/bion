@@ -51,6 +51,13 @@ class Empresa(db.Model):
         ident = next((i for i in self.identificadores if i.tipo_identificador == "cnpj"), None)
         return ident.valor if ident else None
 
+    @property
+    def cnes(self):
+        """Leitura do CNES, mesmo padrão da property `cnpj`. Pode ser
+        None, já que CNES é opcional (nem toda empresa tem)."""
+        ident = next((i for i in self.identificadores if i.tipo_identificador == "cnes"), None)
+        return ident.valor if ident else None
+
     def definir_cnpj(self, valor: str):
         """Cria ou atualiza o identificador de CNPJ desta empresa.
 
@@ -69,15 +76,32 @@ class Empresa(db.Model):
                 EmpresaIdentificador(tipo_identificador="cnpj", valor=valor)
             )
 
+    def definir_cnes(self, valor: str):
+        """Cria ou atualiza o identificador de CNES desta empresa.
+
+        Mesma lógica de `definir_cnpj`: o service (não o model) é
+        responsável por checar duplicidade contra outras empresas ANTES
+        de chamar este método -- o model só grava, não decide se pode.
+        Diferente do CNPJ, CNES é opcional -- este método só é chamado
+        quando o valor foi de fato informado no cadastro.
+        """
+        ident = next((i for i in self.identificadores if i.tipo_identificador == "cnes"), None)
+        if ident:
+            ident.valor = valor
+        else:
+            from src.models.corp.empresa_identificador import EmpresaIdentificador
+            self.identificadores.append(
+                EmpresaIdentificador(tipo_identificador="cnes", valor=valor)
+            )
+
     def to_dict(self):
         return {
             "uuid": self.uuid,
             "nome_fantasia": self.nome_fantasia,
             "razao_social": self.razao_social,
             "cnpj": self.cnpj,
+            "cnes": self.cnes,
             "status_plano": self.status_plano,
             "plano": self.plano,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
-
-    

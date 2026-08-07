@@ -31,6 +31,18 @@ class EmpresaRepository(IRepository[Empresa]):
             )
             .first()
         )
+    
+    def find_by_cnes(self, cnes: str) -> Optional[Empresa]:
+        """Busca empresa pelo CNES, agora via join com EmpresaIdentificador."""
+        return (
+            Empresa.query
+            .join(EmpresaIdentificador, EmpresaIdentificador.id_empresa == Empresa.id)
+            .filter(
+                EmpresaIdentificador.tipo_identificador == "cnes",
+                EmpresaIdentificador.valor == cnes,
+            )
+            .first()
+        )
 
     def save(self, entity: Empresa, commit: bool = True) -> Empresa:
         if commit == True:

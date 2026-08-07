@@ -56,7 +56,8 @@ class PacienteService:
         if not p:
             raise RecursoNaoEncontradoError("Paciente não encontrado para este CPF.")
         return p
-
+    
+    #TODO : adicionar bairro utilizando do cep_service, no cadastro do paciente
     def cadastrar(self, dados: dict, id_usuario_cadastro: int):
         from src.models.pacientes import Paciente, PacienteDadosPessoais
 
@@ -84,6 +85,7 @@ class PacienteService:
         # Se o cadastro já veio com tipo_sanguineo (ex: paciente
         # transferido de outro sistema, já com exame feito), registra
         # como primeira observação.
+        
         if dados.get("tipo_sanguineo"):
             paciente.registrar_tipo_sanguineo(dados["tipo_sanguineo"], registrado_por=id_usuario_cadastro)
 
@@ -101,6 +103,7 @@ class PacienteService:
             contato_emergencia_nome=dados.get("contato_emergencia_nome"),
             contato_emergencia_telefone=aes_encrypt(dados.get("contato_emergencia_telefone")),
         )
+        
         from src.models import db
         db.session.add(pessoal)
         db.session.commit()

@@ -28,6 +28,7 @@ class Paciente(db.Model):
     uuid = db.Column("uuid_paciente", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     identificacao_anonima = db.Column(db.String(64))
+    bairro = db.Column(db.String(100))
     sexo_biologico = db.Column(db.Enum("M", "F", "I"), nullable=False)
     # tipo_sanguineo REMOVIDO como coluna -- ver property abaixo
     data_nascimento = db.Column(db.Date)

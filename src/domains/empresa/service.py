@@ -13,7 +13,6 @@ from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, Dados
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
 from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
-from typing import Tuple
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
 
@@ -35,6 +34,9 @@ class EmpresaService:
         if self.repo.find_by_cnpj(schema.cnpj):
             raise ConflictoError("CNPJ já cadastrado.")
 
+        if schema.cnes and self.repo.find_by_cnes(schema.cnes):
+            raise ConflictoError("CNES já cadastrado.")
+
         empresa = Empresa(
             nome_fantasia=schema.nome_fantasia,
             razao_social=schema.razao_social,
@@ -48,14 +50,17 @@ class EmpresaService:
             plano=schema.plano,
         )
         empresa.definir_cnpj(schema.cnpj)
+        if schema.cnes:
+            empresa.definir_cnes(schema.cnes)
         return self.repo.save(empresa)
 
-    def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict) -> tuple:
+    def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict, codigo_ibge: str) -> tuple:
         """
         (Docstring de comportamento igual à versão anterior -- só a
         criação do CNPJ muda de argumento de construtor para chamada
         de método, ver comentário no bloco try abaixo.)
         """
+        
         try:
             schema_empresa = CadastroEmpresaSchema(**dados_empresa)
         except Exception as e:
@@ -66,6 +71,16 @@ class EmpresaService:
         if self.repo.find_by_cnpj(schema_empresa.cnpj):
             raise ConflictoError("CNPJ já cadastrado.")
 
+        if schema_empresa.cnes and self.repo.find_by_cnes(schema_empresa.cnes):
+            raise ConflictoError("CNES já cadastrado.")
+
+        try:
+            from src.domains.regiao.service import RegiaoService
+            regiao_service = RegiaoService()
+            regiao = regiao_service.buscar_por_código(codigo_ibge)
+        except RecursoNaoEncontradoError:
+            raise DadosInvalidosError(f"Região geográfica não encontrada para o código IBGE: {codigo_ibge}")
+        
         try:
             empresa = Empresa(
                 nome_fantasia=schema_empresa.nome_fantasia,
@@ -75,11 +90,14 @@ class EmpresaService:
                 bairro=schema_empresa.bairro,
                 complemento=schema_empresa.complemento,
                 cep=schema_empresa.cep,
-                id_regiao_geografica=schema_empresa.id_regiao_geografica,
+                id_regiao_geografica=regiao.id if regiao else None,
                 status_plano=schema_empresa.status_plano,
                 plano=schema_empresa.plano,
             )
+            
             empresa.definir_cnpj(schema_empresa.cnpj)
+            if schema_empresa.cnes:
+                empresa.definir_cnes(schema_empresa.cnes)
             self.repo.save(empresa, False)
             # empresa.id já existe aqui (flush interno do save com commit=False)
 
@@ -119,3 +137,11 @@ class EmpresaService:
 
         else:
             raise BionException(f"Não é possível alterar outras empresas:")
+    
+    def cnpj_ja_cadastrado(self, cnpj: str) -> bool:
+        """Verifica se o CNPJ já está cadastrado no sistema."""
+        return self.repo.find_by_cnpj(cnpj) is not None
+
+    def cnes_ja_cadastrado(self, cnes: str) -> bool:
+        """Verifica se o CNES já está cadastrado no sistema."""
+        return self.repo.find_by_cnes(cnes) is not None

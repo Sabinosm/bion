@@ -23,11 +23,11 @@ class CadastroEmpresaSchema(BaseModel):
     nome_fantasia: str = Field(..., min_length=2, max_length=150)
     razao_social: Optional[str] = Field(None, max_length=150)
     cnpj: str
+    cnes: Optional[str] = Field(None, max_length=20)
     numero: Optional[str] = Field(None, max_length=10)
     bairro: Optional[str] = Field(None, max_length=100)
     complemento: Optional[str] = Field(None, max_length=100)
     cep: Optional[str] = None
-    id_regiao_geografica: Optional[int] = Field(None, gt=0)
     status_plano: str = "ativo"
     plano: Optional[str] = None
  
@@ -42,6 +42,16 @@ class CadastroEmpresaSchema(BaseModel):
         if not vl.validar_cnpj(v):
             raise ValueError("O CNPJ está incorreto.")
         return re.sub(r"\D", "", v)
+ 
+    @field_validator("cnes")
+    @classmethod
+    def valida_cnes(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        v = re.sub(r"\D", "", v)
+        if len(v) != 7:
+            raise ValueError("CNES deve conter 7 dígitos.")
+        return v
  
     @field_validator("cep")
     @classmethod
