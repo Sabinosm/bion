@@ -42,10 +42,9 @@ def criar():
     dados = request.get_json(silent=True) or {}
     dados_empresa = dados.get('empresa', {})
     dados_admin = dados.get('admin', {})
-    codigo_ibge = dados.get('codigo_ibge')
     
     try:
-        e,a = _svc.cadastrar_com_admin(dados_empresa,dados_admin, codigo_ibge)
+        e,a = _svc.cadastrar_com_admin(dados_empresa,dados_admin)
         return json_success(data={"empresa":e.to_dict(), "admin": a.to_dict()}, message="Empresa e admin criados com sucesso.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

@@ -54,7 +54,7 @@ class EmpresaService:
             empresa.definir_cnes(schema.cnes)
         return self.repo.save(empresa)
 
-    def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict, codigo_ibge: str) -> tuple:
+    def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict) -> tuple:
         """
         (Docstring de comportamento igual à versão anterior -- só a
         criação do CNPJ muda de argumento de construtor para chamada
@@ -75,11 +75,13 @@ class EmpresaService:
             raise ConflictoError("CNES já cadastrado.")
 
         try:
-            from src.domains.regiao.service import RegiaoService
-            regiao_service = RegiaoService()
-            regiao = regiao_service.buscar_por_código(codigo_ibge)
+            from src.domains.regiao.cep_service import CepService
+            
+            cps = CepService()
+            regiao = cps.regiao_por_cep(schema_empresa.cep)
+            
         except RecursoNaoEncontradoError:
-            raise DadosInvalidosError(f"Região geográfica não encontrada para o código IBGE: {codigo_ibge}")
+            raise DadosInvalidosError(f"Região geográfica não encontrada para cep: {schema_empresa.cep}")
         
         try:
             empresa = Empresa(

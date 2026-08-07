@@ -6,6 +6,7 @@ import requests
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from .repository import RegiaoRepository
 
+
 IBGE_MUNICIPIO_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios/{codigo}"
 IBGE_TIMEOUT_SEGUNDOS = 5
 

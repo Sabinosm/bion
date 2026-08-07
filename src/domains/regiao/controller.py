@@ -30,7 +30,6 @@ def detalhe(uuid):
 
 
 @bp.get("/codigo/<codigo_ibge>")
-@requer_login
 def detalhe_por_código(codigo_ibge: str):
     """
     ALTERADO: antes só buscava no banco (404 se não achasse). Agora,
@@ -46,3 +45,26 @@ def detalhe_por_código(codigo_ibge: str):
 
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
+    
+
+@bp.get("/regiao/<cep>")
+def detalhe_por_cep(cep: str):
+    """
+    Consulta a região geográfica correspondente ao CEP informado. 
+    """
+    
+    from src.domains.regiao.cep_service import CepService
+    from src.domains.regiao.service import RegiaoService
+            
+    cps = CepService()
+    codigo_ibge = cps.buscar_codigo_ibge_por_cep(cep)
+            
+    regiao_service = RegiaoService()
+    regiao = regiao_service.buscar_por_código(codigo_ibge) if codigo_ibge else None
+    
+    if regiao:
+        return regiao.to_dict()
+    else:
+        return json_error(f"Região geográfica não encontrada para o CEP: {cep}", 404)
+    
+    
