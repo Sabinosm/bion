@@ -88,7 +88,7 @@ def onboarding_webauthn_iniciar():
         rp_name=RP_NAME,
         user_id=str(usuario.id).encode(),
         user_name=usuario.email,
-        user_display_name=usuario.nome or usuario.email,
+        user_display_name=usuario.email,
         authenticator_selection=AuthenticatorSelectionCriteria(
             user_verification=UserVerificationRequirement.PREFERRED,
             resident_key=ResidentKeyRequirement.PREFERRED,
@@ -102,7 +102,7 @@ def onboarding_webauthn_iniciar():
     # mutuamente exclusivos, manter chaves separadas evita que um
     # challenge sobrescreva o outro caso essa premissa mude no futuro.
     session["onboarding_webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
-
+    
     return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
 
 

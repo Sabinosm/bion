@@ -22,6 +22,6 @@ sempre setadas explicitamente no ambiente do deploy.
 
 import os
 
-RP_ID = os.environ.get("WEBAUTHN_RP_ID", "127.0.0.1")
+RP_ID = os.environ.get("WEBAUTHN_RP_ID", "localhost")
 RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Bion")
-EXPECTED_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "http://127.0.0.1:500")
+EXPECTED_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
