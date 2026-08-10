@@ -19,6 +19,7 @@ from src.core.session import onboarding_pendente_required
 from src.core.validacoes import validar_senha
 
 from src.domains.auth.webauthn_2fa import generate_registration_options, verify_registration_response, options_to_json
+from src.domains.auth.webauthn_config import RP_ID, RP_NAME, EXPECTED_ORIGIN
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
@@ -28,11 +29,8 @@ from webauthn.helpers.structs import (
 bp_onboarding = Blueprint("onboarding", __name__)
 ph = PasswordHasher()
 
-RP_ID = "127.0.0.1"
-RP_NAME = "Bion"
 
-
-@bp_onboarding.route("/onboarding/definir-senha", methods=["POST"])
+@bp_onboarding.route("/definir-senha", methods=["POST"])
 @onboarding_pendente_required
 def definir_senha():
     """Define a senha inicial do usuário durante o onboarding.
@@ -65,7 +63,7 @@ def definir_senha():
     return jsonify({"status": "senha_definida", "proximo_passo": "cadastrar_webauthn"}), 200
 
 
-@bp_onboarding.route("/onboarding/webauthn/iniciar", methods=["POST"])
+@bp_onboarding.route("/webauthn/iniciar", methods=["POST"])
 @onboarding_pendente_required
 def onboarding_webauthn_iniciar():
     """Gera as opções de registro WebAuthn para o onboarding.
@@ -97,12 +95,18 @@ def onboarding_webauthn_iniciar():
         ),
     )
 
-    session["webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
+    # Chave de sessão própria do onboarding -- não reaproveitar
+    # "webauthn_challenge" genérico, que também é usado pelo fluxo de
+    # 2FA em webauthn_2fa.py. Embora hoje os decorators de sessão
+    # (onboarding_pendente_required / mfa_pendente_required) sejam
+    # mutuamente exclusivos, manter chaves separadas evita que um
+    # challenge sobrescreva o outro caso essa premissa mude no futuro.
+    session["onboarding_webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
 
     return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
 
 
-@bp_onboarding.route("/onboarding/webauthn/concluir", methods=["POST"])
+@bp_onboarding.route("/webauthn/concluir", methods=["POST"])
 @onboarding_pendente_required
 def onboarding_webauthn_concluir():
     """Confirma o registro WebAuthn e conclui o onboarding.
@@ -118,7 +122,7 @@ def onboarding_webauthn_concluir():
         400 se a credencial recebida for inválida.
     """
     id_usuario = session["id_usuario"]
-    challenge_esperado = base64.b64decode(session.get("webauthn_challenge", ""))
+    challenge_esperado = base64.b64decode(session.get("onboarding_webauthn_challenge", ""))
     resposta_credencial = request.get_json()
 
     try:
@@ -126,7 +130,7 @@ def onboarding_webauthn_concluir():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="127.0.0.1",  # TODO: parametrizar por ambiente
+            expected_origin=EXPECTED_ORIGIN,
         )
     except Exception as erro:
         return jsonify({"erro": "credencial_invalida", "detalhe": str(erro)}), 400
@@ -145,7 +149,7 @@ def onboarding_webauthn_concluir():
     db.session.commit()
 
     session.pop("onboarding_pendente", None)
-    session.pop("webauthn_challenge", None)
+    session.pop("onboarding_webauthn_challenge", None)
     session["id_empresa"] = usuario.id_empresa
 
     return jsonify({

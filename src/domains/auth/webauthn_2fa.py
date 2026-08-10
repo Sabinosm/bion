@@ -20,13 +20,12 @@ from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerifica
 from src.models import db
 from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.core.session import mfa_pendente_required
+from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
 
-RP_ID = "127.0.0.1"
 
-
-@bp_webauthn_2fa.route("/webauthn/2fa/iniciar", methods=["POST"])
+@bp_webauthn_2fa.route("/2fa/iniciar", methods=["POST"])
 @mfa_pendente_required
 def segundo_fator_iniciar():
     """Gera o desafio WebAuthn para confirmar o segundo fator.
@@ -56,12 +55,15 @@ def segundo_fator_iniciar():
         user_verification=UserVerificationRequirement.PREFERRED,
     )
 
-    session["webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
+    # Chave própria deste fluxo -- ver comentário equivalente em
+    # onboarding.py sobre por que não reaproveitar "webauthn_challenge"
+    # genérico entre fluxos diferentes.
+    session["mfa_webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
 
     return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
 
 
-@bp_webauthn_2fa.route("/webauthn/2fa/confirmar", methods=["POST"])
+@bp_webauthn_2fa.route("/2fa/confirmar", methods=["POST"])
 @mfa_pendente_required
 def segundo_fator_confirmar():
     """Valida a assinatura WebAuthn e promove a sessão a completa.
@@ -73,7 +75,7 @@ def segundo_fator_confirmar():
         401 se a credencial não for encontrada ou a assinatura for inválida.
     """
     id_usuario = session["id_usuario"]
-    challenge_esperado = base64.b64decode(session.get("webauthn_challenge", ""))
+    challenge_esperado = base64.b64decode(session.get("mfa_webauthn_challenge", ""))
     resposta_credencial = request.get_json()
 
     credencial = CredencialWebAuthn.query.filter_by(
@@ -88,7 +90,7 @@ def segundo_fator_confirmar():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="127.0.0.1",
+            expected_origin=EXPECTED_ORIGIN,
             credential_public_key=credencial.public_key,
             credential_current_sign_count=credencial.sign_count,
         )
@@ -101,7 +103,7 @@ def segundo_fator_confirmar():
     usuario = Usuario.query.get(id_usuario)
 
     session.pop("mfa_pendente", None)
-    session.pop("webauthn_challenge", None)
+    session.pop("mfa_webauthn_challenge", None)
     session["id_empresa"] = usuario.id_empresa
 
     return jsonify({

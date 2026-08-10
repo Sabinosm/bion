@@ -64,10 +64,10 @@ def _registrar_blueprints(app: Flask):
     
     app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")       
     app.register_blueprint(bp_status, url_prefix="/v1/api/auth")                                       # /v1/api/authc
-    app.register_blueprint(bp_oauth, url_prefix="/v1/api/auth")
-    app.register_blueprint(bp_onboarding, url_prefix="/v1/api/auth")
-    app.register_blueprint(bp_step_up, url_prefix="/v1/api")
-    app.register_blueprint(bp_webauthn_2fa, url_prefix="/v1/api")
+    app.register_blueprint(bp_oauth, url_prefix="/v1/api/auth/google")
+    app.register_blueprint(bp_onboarding, url_prefix="/v1/api/auth/onboarding")
+    app.register_blueprint(bp_step_up, url_prefix="/v1/api/stepup")
+    app.register_blueprint(bp_webauthn_2fa, url_prefix="/v1/api/webauthn")
     app.register_blueprint(bp_dados_clinicos, url_prefix="/v1/api/dadosClinicos")    
     app.register_blueprint(usuario_bp, url_prefix="/v1/api/usuarios")
     app.register_blueprint(empresa_bp, url_prefix="/v1/api/empresas")

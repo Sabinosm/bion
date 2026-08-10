@@ -32,13 +32,13 @@ def init_oauth(app):
     )
 
 
-@bp_oauth.route("/auth/google/login")
+@bp_oauth.route("/login")
 def google_login():
     redirect_uri = url_for("oauth.google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
 
-@bp_oauth.route("/auth/google/callback")
+@bp_oauth.route("/callback")
 def google_callback():
     """Recebe o callback do Google e autentica o usuário existente.
 

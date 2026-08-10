@@ -19,17 +19,17 @@ from src.models import db
 from src.models.usuarios import CredencialWebAuthn
 from src.models.auditoria import StepUpToken
 from src.core.session import requer_login
+from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
 
 bp_step_up = Blueprint("step_up", __name__)
 
-RP_ID = "127.0.0.1"
 DURACAO_TOKEN_SEGUNDOS = 180
 
 
-@bp_step_up.route("/stepup/iniciar", methods=["POST"])
+@bp_step_up.route("/iniciar", methods=["POST"])
 @requer_login
 def stepup_iniciar():
     """Gera um novo desafio WebAuthn para reconfirmação de identidade.
@@ -37,11 +37,25 @@ def stepup_iniciar():
     Chamado pelo frontend quando uma rota sensível responde 403 com
     `confirmacao_requerida`.
 
+    A `acao` é exigida já aqui (não só na confirmação) e fica vinculada
+    ao challenge gerado na sessão. Isso impede que alguém inicie um
+    step-up para uma ação e confirme com `acao` diferente na segunda
+    chamada -- sem esse vínculo, o challenge por si só não amarra qual
+    ação está sendo autorizada, só confirma posse da credencial.
+
+    Corpo esperado (JSON): `acao`.
+
     Retorno:
         200 com as opções de autenticação em JSON.
-        400 se o usuário não tiver nenhuma credencial cadastrada.
+        400 se `acao` não for informada ou se o usuário não tiver
+        nenhuma credencial cadastrada.
     """
     id_usuario = session["id_usuario"]
+
+    dados = request.get_json(silent=True) or {}
+    acao = dados.get("acao")
+    if not acao:
+        return jsonify({"erro": "acao_nao_especificada"}), 400
 
     credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
     if not credenciais:
@@ -58,27 +72,37 @@ def stepup_iniciar():
         user_verification=UserVerificationRequirement.REQUIRED,
     )
 
-    session["stepup_challenge"] = base64.b64encode(opcoes.challenge).decode()
+    session["stepup_challenge"] = {
+        "challenge": base64.b64encode(opcoes.challenge).decode(),
+        "acao": acao,
+    }
 
     return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
 
 
-@bp_step_up.route("/stepup/confirmar", methods=["POST"])
+@bp_step_up.route("/confirmar", methods=["POST"])
 @requer_login
 def stepup_confirmar():
     """Valida a assinatura WebAuthn e emite um token de confirmação.
 
     O token é de uso único, curto e vinculado à ação específica
-    informada pelo frontend (ex.: `excluir_prontuario`) -- não serve
-    para confirmar nenhuma outra ação. Qualquer token anterior da mesma
-    combinação (usuário, ação) é removido antes de emitir o novo.
+    definida em `/stepup/iniciar` -- não serve para confirmar nenhuma
+    outra ação. Qualquer token anterior da mesma combinação (usuário,
+    ação) é removido antes de emitir o novo.
+
+    A `acao` enviada aqui pelo frontend é só conferência: a fonte de
+    verdade é a `acao` vinculada ao challenge na sessão, gravada em
+    `/stepup/iniciar`. Se não baterem, a confirmação é rejeitada --
+    isso impede iniciar o desafio para uma ação e confirmar outra.
 
     Corpo esperado (JSON): `acao` e `credencial` (resposta WebAuthn).
 
     Retorno:
         200 com o token de confirmação e seu tempo de expiração.
-        400 se a ação não for especificada.
-        401 se a credencial não for encontrada ou a assinatura for inválida.
+        400 se a ação não for especificada ou não houver um desafio
+        pendente na sessão.
+        401 se a credencial não for encontrada, a assinatura for
+        inválida, ou a ação não bater com a do desafio iniciado.
     """
     id_usuario = session["id_usuario"]
     dados = request.get_json()
@@ -87,7 +111,17 @@ def stepup_confirmar():
     if not acao:
         return jsonify({"erro": "acao_nao_especificada"}), 400
 
-    challenge_esperado = base64.b64decode(session.get("stepup_challenge", ""))
+    pendente = session.get("stepup_challenge")
+    if not pendente:
+        return jsonify({"erro": "desafio_nao_iniciado"}), 400
+
+    if acao != pendente.get("acao"):
+        # A ação confirmada não é a mesma para a qual o desafio foi
+        # gerado -- não deixa o token sair vinculado a algo diferente
+        # do que o usuário efetivamente assinou.
+        return jsonify({"erro": "acao_nao_corresponde_ao_desafio"}), 401
+
+    challenge_esperado = base64.b64decode(pendente["challenge"])
     resposta_credencial = dados.get("credencial")
 
     credencial = CredencialWebAuthn.query.filter_by(
@@ -102,7 +136,7 @@ def stepup_confirmar():
             credential=resposta_credencial,
             expected_challenge=challenge_esperado,
             expected_rp_id=RP_ID,
-            expected_origin="127.0.0.1",
+            expected_origin=EXPECTED_ORIGIN,
             credential_public_key=credencial.public_key,
             credential_current_sign_count=credencial.sign_count,
         )
