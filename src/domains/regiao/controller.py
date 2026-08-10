@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login
 from .service import RegiaoService
 
 bp = Blueprint("regiao", __name__)
@@ -19,9 +19,12 @@ def lista():
     return json_success(data=[r.to_dict() for r in itens])
 
 
-@bp.get("/<uuid>")
+@bp.get("/uuid/<uuid>")
 @requer_login
 def detalhe(uuid):
+    """
+    Retorna os detalhes de uma região geográfica pelo UUID.
+    """
     try:
         r = _svc.buscar_por_uuid(uuid)
         return json_success(data=r.to_dict())
@@ -30,6 +33,7 @@ def detalhe(uuid):
 
 
 @bp.get("/codigo/<codigo_ibge>")
+@requer_login
 def detalhe_por_código(codigo_ibge: str):
     """
     ALTERADO: antes só buscava no banco (404 se não achasse). Agora,
@@ -47,20 +51,17 @@ def detalhe_por_código(codigo_ibge: str):
         return json_error(ex.message, ex.status_code)
     
 
-@bp.get("/regiao/<cep>")
+@bp.get("/cep/<cep>")
+@requer_login
 def detalhe_por_cep(cep: str):
     """
     Consulta a região geográfica correspondente ao CEP informado. 
     """
     
     from src.domains.regiao.cep_service import CepService
-    from src.domains.regiao.service import RegiaoService
             
     cps = CepService()
-    codigo_ibge = cps.buscar_codigo_ibge_por_cep(cep)
-            
-    regiao_service = RegiaoService()
-    regiao = regiao_service.buscar_por_código(codigo_ibge) if codigo_ibge else None
+    regiao = cps.regiao_por_cep(cep)
     
     if regiao:
         return regiao.to_dict()

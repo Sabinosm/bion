@@ -71,7 +71,6 @@ class RegiaoService:
         r = RegiaoGeografica(
             nome_regiao=dados["nome_regiao"],
             id_tipo_jurisdicao=tipo_jurisdicao.id,
-            id_regiao_pai=dados.get("id_regiao_pai"),
             codigo_ibge=dados.get("codigo_ibge"),
             uf=dados.get("uf"),
             latitude_centroide=dados.get("latitude_centroide"),
@@ -206,6 +205,7 @@ class RegiaoService:
         vazio) em vez de lançar exceção -- quem chama trata isso como
         "sem centroide disponível", não como erro.
         """
+        
         global _cache_centroides_municipios
 
         if _cache_centroides_municipios is not None:

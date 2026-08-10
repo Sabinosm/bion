@@ -141,11 +141,19 @@ def validar_telefone_br(telefone) -> bool:
 def validar_cep(cep) -> bool:
     """Valida se o CEP tem 8 dígitos numéricos e não é uma sequência óbvia inválida."""
     cep_limpo = _limpar_digitos(cep)
+    
     if len(cep_limpo) != 8:
         return False
     if cep_limpo == cep_limpo[0] * 8:
         return False
     return True
+
+def validar_e_devolver_cep(cep) -> str | None:
+    """
+    Valida o CEP e devolve apenas os dígitos (str) se válido, ou None se inválido.
+    """
+    cep_limpo = _limpar_digitos(cep)
+    return cep_limpo if validar_cep(cep_limpo) else None
 
 def validar_senha(senha: str):
     if not senha:

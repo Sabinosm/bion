@@ -56,9 +56,9 @@ class EmpresaService:
 
     def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict) -> tuple:
         """
-        (Docstring de comportamento igual à versão anterior -- só a
-        criação do CNPJ muda de argumento de construtor para chamada
-        de método, ver comentário no bloco try abaixo.)
+        Cadastra uma empresa e um usuário admin associado a ela, em uma única transação.
+        Validando dados de entrada e retornando erro caso não esteja de acordo.
+        Também já adiciona à empresa o id_regiao através do cep, se não achar tenta procurar se já existe
         """
         
         try:
@@ -76,7 +76,6 @@ class EmpresaService:
 
         try:
             from src.domains.regiao.cep_service import CepService
-            
             cps = CepService()
             regiao = cps.regiao_por_cep(schema_empresa.cep)
             
@@ -87,7 +86,6 @@ class EmpresaService:
             empresa = Empresa(
                 nome_fantasia=schema_empresa.nome_fantasia,
                 razao_social=schema_empresa.razao_social,
-                # cnpj REMOVIDO do construtor
                 numero=schema_empresa.numero,
                 bairro=schema_empresa.bairro,
                 complemento=schema_empresa.complemento,

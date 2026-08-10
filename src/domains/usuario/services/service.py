@@ -6,18 +6,17 @@ puras de apoio em `service_helpers.py`, para manter este arquivo restrito
 à orquestração das regras de criação/atualização de usuário.
 """
 
-from src.core.security import ph, aes_encrypt, hmac_sha256, aes_decrypt
-from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
+from src.core.security import ph, aes_encrypt, hmac_sha256
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repository import UsuarioRepository
 from .service_helpers import (
     monta_dados_papel,
 )
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin
-from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema
+from src.schemas.schema_usuario import CadastroUsuarioSchema
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
-from src.models import db
 from .service_validacoes import _checar_duplicidade, _valida_permissao_edicao, _valida_troca_tipo
 
 class UsuarioService(ResetCredenciaisMixin):

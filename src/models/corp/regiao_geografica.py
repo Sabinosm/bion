@@ -24,8 +24,6 @@ class RegiaoGeografica(db.Model):
     id_tipo_jurisdicao = db.Column(db.SmallInteger, db.ForeignKey("tipo_jurisdicao.id_tipo_jurisdicao"),
                                      nullable=False)
 
-    id_regiao_pai = db.Column("id_regiao_pai", db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
-
     codigo_ibge = db.Column(db.String(20), unique=True)
     uf = db.Column(db.String(2))
     latitude_centroide = db.Column(db.Numeric(10, 8))
@@ -34,11 +32,6 @@ class RegiaoGeografica(db.Model):
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    regioes_filhas = db.relationship(
-        "RegiaoGeografica",
-        primaryjoin="RegiaoGeografica.id == RegiaoGeografica.id_regiao_pai",
-        backref=db.backref("regiao_pai", remote_side="RegiaoGeografica.id"),
-    )
 
     empresas = db.relationship("Empresa", back_populates="regiao_geografica")
     pacientes = db.relationship("Paciente", back_populates="regiao_geografica")
