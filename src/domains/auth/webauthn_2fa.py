@@ -25,6 +25,21 @@ from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
 
 
+def _b64url_decode(valor: str) -> bytes:
+    """Decodifica uma string base64url para bytes, restaurando o
+    padding correto independente de a string já ter (ou não) o
+    padding original.
+
+    O WebAuthn/py_webauthn trabalha com base64url; o `id` devolvido
+    pelo SimpleWebAuthn no browser vem SEM padding (convenção da
+    spec). Por isso credential_id é salvo no banco também sem
+    padding -- aqui é o único lugar que precisa recolocá-lo, porque
+    b64decode exige múltiplo de 4 caracteres.
+    """
+    padding_necessario = -len(valor) % 4
+    return base64.urlsafe_b64decode(valor + ("=" * padding_necessario))
+
+
 @bp_webauthn_2fa.route("/2fa/iniciar", methods=["POST"])
 @mfa_pendente_required
 def segundo_fator_iniciar():
@@ -45,7 +60,7 @@ def segundo_fator_iniciar():
         return jsonify({"erro": "sem_credencial_cadastrada"}), 400
 
     permitir = [
-        PublicKeyCredentialDescriptor(id=base64.urlsafe_b64decode(c.credential_id + "=="))
+        PublicKeyCredentialDescriptor(id=_b64url_decode(c.credential_id))
         for c in credenciais
     ]
 

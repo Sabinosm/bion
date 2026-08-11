@@ -7,12 +7,12 @@ ainda -- a sessão só é promovida a completa após a confirmação via
 `/webauthn/2fa/confirmar` (ver `webauthn_2fa.py`).
 """
 
-from flask import Blueprint, request, session, jsonify, g
-from src.models.usuarios import Usuario, CredencialWebAuthn
+from flask import Blueprint, request, session
+from src.models.usuarios import CredencialWebAuthn
 from src.core.responses import json_success, json_error
 from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService
-from src.core.session import requer_login
+
 
 bp = Blueprint("auth", __name__)
 _svc = AuthService()
@@ -80,37 +80,6 @@ def login():
         message="Login realizado com sucesso.",
     )
 
-
-@bp.get("/me")
-@requer_login
-def me():
-    """Retorna os dados do usuário autenticado na sessão atual.
-
-    Retorno:
-        200 com os dados do usuário.
-        401 se a sessão referenciar um usuário que não existe mais
-        (nesse caso a sessão também é limpa).
-    """
-    from src.domains.usuario.repository import UsuarioRepository
-    usuario = UsuarioRepository().find_by_id(g.id_usuario)
-    if not usuario:
-        session.clear()
-        return json_error("Sessão inválida.", 401)
-    return json_success(data={"usuario": usuario.to_dict()})
-
-
-@bp.get("/check-session")
-def ck_session():
-    from src.core.session import ja_logado
-    """Verifica se já existe uma sessão ativa
-
-    
-        Retorno:
-            200 Se já existe
-            401 Se não existe
-            
-        """
-    return ja_logado()
 
 @bp.post("/logout")
 def logout():

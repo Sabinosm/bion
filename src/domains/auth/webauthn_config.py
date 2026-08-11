@@ -24,4 +24,4 @@ import os
 
 RP_ID = os.environ.get("WEBAUTHN_RP_ID", "localhost")
 RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Bion")
-EXPECTED_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
+EXPECTED_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5500")

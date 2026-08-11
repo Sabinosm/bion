@@ -7,7 +7,9 @@ confirmação de 2FA, ou dashboard. Mantém o contrato de resposta somente
 em JSON, mesmo sendo uma rota de apoio à navegação.
 """
 
-from flask import Blueprint, session, jsonify
+from flask import Blueprint, session, jsonify, g
+from src.core.responses import json_error, json_success
+from src.core.session import requer_login
 
 bp_status = Blueprint("status", __name__)
 
@@ -36,4 +38,35 @@ def status_sessao():
     if session.get("mfa_pendente"):
         return jsonify({"status": "mfa_pendente", "metodo": "webauthn"}), 200
 
-    return jsonify({"status": "autenticado"}), 200
+    return jsonify({"status": "completa"}), 200
+
+@bp_status.get("/me")
+@requer_login
+def me():
+    """Retorna os dados do usuário autenticado na sessão atual.
+
+    Retorno:
+        200 com os dados do usuário.
+        401 se a sessão referenciar um usuário que não existe mais
+        (nesse caso a sessão também é limpa).
+    """
+    from src.domains.usuario.repository import UsuarioRepository
+    usuario = UsuarioRepository().find_by_id(g.id_usuario)
+    if not usuario:
+        session.clear()
+        return json_error("Sessão inválida.", 401)
+    return json_success(data={"usuario": usuario.to_dict()})
+
+
+@bp_status.get("/check-session")
+def ck_session():
+    from src.core.session import ja_logado
+    """Verifica se já existe uma sessão ativa
+
+    
+        Retorno:
+            200 Se já existe
+            401 Se não existe
+            
+        """
+    return ja_logado()

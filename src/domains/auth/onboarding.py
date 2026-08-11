@@ -137,7 +137,7 @@ def onboarding_webauthn_concluir():
 
     nova_credencial = CredencialWebAuthn(
         id_usuario=id_usuario,
-        credential_id=base64.urlsafe_b64encode(verificacao.credential_id).decode(),
+        credential_id=base64.urlsafe_b64encode(verificacao.credential_id).decode().rstrip("="),
         public_key=verificacao.credential_public_key,
         sign_count=verificacao.sign_count,
         apelido_dispositivo=resposta_credencial.get("apelido", "Dispositivo principal"),
