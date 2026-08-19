@@ -8,7 +8,7 @@ migrate = Migrate()
 
 
 # Auditoria
-from src.models.auditoria import LogAcesso, LogAlteracao, StepUpToken
+from src.models.auditoria import LogAcesso, LogAlteracao, StepUpToken, StepUpReautenticacao
 
 # Catálogo
 from src.models.catalogos import (
@@ -78,6 +78,7 @@ __all__ = [
     "LogAcesso",
     "LogAlteracao",
     "StepUpToken",
+    "StepUpReautenticacao",
     
     # Catálogo
     "CatalogoExames",

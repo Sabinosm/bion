@@ -14,3 +14,6 @@ class StepUpToken(db.Model):
     expira_em = db.Column(db.DateTime(timezone=True), nullable=False)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    def expirado(self):
+        return datetime.now(timezone.utc) > self.expira_em

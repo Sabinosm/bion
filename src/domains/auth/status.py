@@ -19,10 +19,18 @@ def status_sessao():
     from src.models.usuarios import Usuario
     """Retorna o estado atual da sessão sem exigir autenticação completa.
 
+    `onboarding_pendente` só cobre a definição de senha (WebAuthn não
+    faz mais parte do onboarding, fica em configurações). `mfa_pendente`
+    só ocorre após login por senha para usuário com WebAuthn já
+    cadastrado -- login via Google nunca entra nesse estado, libera
+    sessão completa direto (ou onboarding_pendente, se faltar senha).
+
     Retorno:
         200 com `status: autenticado`, `onboarding_pendente` (incluindo
         `senha_definida: bool` para o frontend saber se pode pular a
-        etapa de senha) ou `mfa_pendente`.
+        etapa de senha) ou `mfa_pendente` (incluindo `metodo` e
+        `tentativas_restantes`, para o frontend decidir entre tentar de
+        novo ou oferecer reautenticação por senha ou Google).
         401 com `status: nao_autenticado` se não houver sessão iniciada.
     """
     if not session.get("id_usuario"):
@@ -36,14 +44,29 @@ def status_sessao():
         }), 200
 
     if session.get("mfa_pendente"):
-        return jsonify({"status": "mfa_pendente", "metodo": "webauthn"}), 200
+        from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
+
+        tentativas = session.get("mfa_tentativas", 0)
+        tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
+
+        return jsonify({
+            "status": "mfa_pendente",
+            "metodo": "webauthn",
+            "tentativas_restantes": tentativas_restantes,
+            # Quando o limite é atingido, não há mais fallback dentro
+            # da própria sessão de 2FA -- o usuário precisa voltar ao
+            # login e reautenticar do zero, seja por senha (o que
+            # reinicia o contador de tentativas) seja por Google (que
+            # nunca exige WebAuthn).
+            "reautenticar_disponivel": tentativas_restantes == 0,
+        }), 200
 
     return jsonify({"status": "completa"}), 200
 
 @bp_status.get("/me")
 @requer_login
 def me():
-    """Retorna os dados do usuário autenticado na sessão atual.
+    """Retorna os dados do usuário autenticado na sessão atual e suas configurações. 
 
     Retorno:
         200 com os dados do usuário.
@@ -51,11 +74,21 @@ def me():
         (nesse caso a sessão também é limpa).
     """
     from src.domains.usuario.repository import UsuarioRepository
+    from src.domains.configuracao.service import ConfiguracaoService
+    
     usuario = UsuarioRepository().find_by_id(g.id_usuario)
+    
     if not usuario:
         session.clear()
         return json_error("Sessão inválida.", 401)
-    return json_success(data={"usuario": usuario.to_dict()})
+   
+    cfg_service = ConfiguracaoService()
+    cfg = cfg_service.obter_ou_criar(usuario.id)
+    
+    return json_success(
+        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
+        message="Login realizado com sucesso.",
+    )
 
 
 @bp_status.get("/check-session")

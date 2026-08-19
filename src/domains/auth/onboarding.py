@@ -1,30 +1,33 @@
 """Rotas de primeiro acesso (onboarding).
 
-Chamadas depois do login via Google quando `usuario.onboarding_pendente
-== True`. Fluxo: 1) definir senha, 2) cadastrar WebAuthn, 3) sessão
-completa é liberada.
+Chamadas depois do login (via senha ou Google) quando
+`usuario.onboarding_pendente == True`. Fluxo: 1) definir senha, 2)
+sessão completa é liberada.
 
-O cadastro de WebAuthn em si reutiliza as mesmas funções usadas no
-segundo fator (`webauthn_2fa.py`); aqui muda apenas o decorator de
-autorização, de `mfa_pendente_required` para `onboarding_pendente_required`.
+WebAuthn não faz mais parte do onboarding
+-------------------------------------------
+O cadastro de credencial WebAuthn foi movido para fora deste fluxo --
+passa a ser feito depois, nas configurações da conta, com o usuário
+já em sessão completa. Isso reduz o atrito do primeiro acesso: só a
+senha é exigida para liberar a sessão. Quem quiser usar WebAuthn
+como segundo fator no login por senha pode cadastrá-lo quando
+quiser, nas configurações; até lá, login por senha simplesmente não
+pede 2FA (sem credencial cadastrada, não há o que confirmar -- ver
+login.py).
+
+A rota de cadastro de WebAuthn em si (reaproveitando as mesmas
+funções do fluxo antigo) deve ser implementada no domínio de
+configurações, usando `requer_login` no lugar de
+`onboarding_pendente_required`.
 """
 
-import base64
 from flask import Blueprint, request, jsonify, session
 from argon2 import PasswordHasher
 
 from src.models import db
-from src.models.usuarios import Usuario, CredencialWebAuthn
+from src.models.usuarios import Usuario
 from src.core.session import onboarding_pendente_required
 from src.core.validacoes import validar_senha
-
-from src.domains.auth.webauthn_2fa import generate_registration_options, verify_registration_response, options_to_json
-from src.domains.auth.webauthn_config import RP_ID, RP_NAME, EXPECTED_ORIGIN
-from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    UserVerificationRequirement,
-    ResidentKeyRequirement,
-)
 
 bp_onboarding = Blueprint("onboarding", __name__)
 ph = PasswordHasher()
@@ -33,123 +36,38 @@ ph = PasswordHasher()
 @bp_onboarding.route("/definir-senha", methods=["POST"])
 @onboarding_pendente_required
 def definir_senha():
-    """Define a senha inicial do usuário durante o onboarding.
+    """Define a senha inicial do usuário e conclui o onboarding.
+
+    Único passo do onboarding: ao definir a senha com sucesso, marca
+    `onboarding_pendente = False` e libera a sessão completa (define
+    `id_empresa`). O cadastro de WebAuthn não é mais parte deste
+    fluxo -- fica disponível depois, nas configurações da conta.
 
     Corpo esperado (JSON): `senha`.
 
     Retorno:
-        200 com o próximo passo (`cadastrar_webauthn`) se a senha for válida
-        ou se o usuário já tiver senha definida (idempotente).
+        200 com status `onboarding_concluido` e os IDs de usuário/empresa,
+        tanto se a senha acabou de ser definida quanto se o usuário já
+        tinha senha definida (idempotente, ex.: cadastrado por admin).
         400 com o motivo da invalidação se a senha não passar nas regras.
     """
     usuario = Usuario.query.get(session["id_usuario"])
 
-    if usuario.hash_senha:
-        # Usuário já tem senha (ex.: cadastrado por admin) -- não
-        # sobrescreve, só confirma que pode avançar.
-        return jsonify({"status": "senha_ja_definida", "proximo_passo": "cadastrar_webauthn"}), 200
-
-    dados = request.get_json()
-    nova_senha = dados.get("senha")
-
-    senha_valida, resposta = validar_senha(nova_senha)
-
-    if senha_valida == False:
-        return jsonify(resposta), 400
-
-    usuario.hash_senha = ph.hash(nova_senha)
-    db.session.commit()
-
-    return jsonify({"status": "senha_definida", "proximo_passo": "cadastrar_webauthn"}), 200
-
-
-@bp_onboarding.route("/webauthn/iniciar", methods=["POST"])
-@onboarding_pendente_required
-def onboarding_webauthn_iniciar():
-    """Gera as opções de registro WebAuthn para o onboarding.
-
-    Exige que a senha já tenha sido definida antes (ordem forçada do fluxo).
-
-    O `authenticator_attachment` é deixado sem especificar de propósito,
-    permitindo tanto autenticadores de plataforma (Face ID, Windows Hello)
-    quanto autenticadores remotos via QR code (passkey cross-device).
-
-    Retorno:
-        200 com as opções de registro em JSON.
-        400 se o usuário ainda não tiver definido senha.
-    """
-    usuario = Usuario.query.get(session["id_usuario"])
-
     if not usuario.hash_senha:
-        return jsonify({"erro": "defina_senha_primeiro"}), 400
+        dados = request.get_json()
+        nova_senha = dados.get("senha")
 
-    opcoes = generate_registration_options(
-        rp_id=RP_ID,
-        rp_name=RP_NAME,
-        user_id=str(usuario.id).encode(),
-        user_name=usuario.email,
-        user_display_name=usuario.email,
-        authenticator_selection=AuthenticatorSelectionCriteria(
-            user_verification=UserVerificationRequirement.PREFERRED,
-            resident_key=ResidentKeyRequirement.PREFERRED,
-        ),
-    )
+        senha_valida, resposta = validar_senha(nova_senha)
 
-    # Chave de sessão própria do onboarding -- não reaproveitar
-    # "webauthn_challenge" genérico, que também é usado pelo fluxo de
-    # 2FA em webauthn_2fa.py. Embora hoje os decorators de sessão
-    # (onboarding_pendente_required / mfa_pendente_required) sejam
-    # mutuamente exclusivos, manter chaves separadas evita que um
-    # challenge sobrescreva o outro caso essa premissa mude no futuro.
-    session["onboarding_webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
-    
-    return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
+        if senha_valida == False:
+            return jsonify(resposta), 400
 
+        usuario.hash_senha = ph.hash(nova_senha)
 
-@bp_onboarding.route("/webauthn/concluir", methods=["POST"])
-@onboarding_pendente_required
-def onboarding_webauthn_concluir():
-    """Confirma o registro WebAuthn e conclui o onboarding.
-
-    Ao validar a credencial, marca `onboarding_pendente = False` e libera
-    a sessão completa (define `id_empresa`).
-
-    Corpo esperado (JSON): resposta de credencial do WebAuthn, incluindo
-    opcionalmente `apelido` para o dispositivo.
-
-    Retorno:
-        200 com status `onboarding_concluido` e os IDs de usuário/empresa.
-        400 se a credencial recebida for inválida.
-    """
-    id_usuario = session["id_usuario"]
-    challenge_esperado = base64.b64decode(session.get("onboarding_webauthn_challenge", ""))
-    resposta_credencial = request.get_json()
-
-    try:
-        verificacao = verify_registration_response(
-            credential=resposta_credencial,
-            expected_challenge=challenge_esperado,
-            expected_rp_id=RP_ID,
-            expected_origin=EXPECTED_ORIGIN,
-        )
-    except Exception as erro:
-        return jsonify({"erro": "credencial_invalida", "detalhe": str(erro)}), 400
-
-    nova_credencial = CredencialWebAuthn(
-        id_usuario=id_usuario,
-        credential_id=base64.urlsafe_b64encode(verificacao.credential_id).decode().rstrip("="),
-        public_key=verificacao.credential_public_key,
-        sign_count=verificacao.sign_count,
-        apelido_dispositivo=resposta_credencial.get("apelido", "Dispositivo principal"),
-    )
-    db.session.add(nova_credencial)
-
-    usuario = Usuario.query.get(id_usuario)
     usuario.onboarding_pendente = False
     db.session.commit()
 
     session.pop("onboarding_pendente", None)
-    session.pop("onboarding_webauthn_challenge", None)
     session["id_empresa"] = usuario.id_empresa
 
     return jsonify({

@@ -2,8 +2,10 @@
 
 from argon2.exceptions import VerifyMismatchError
 from flask import jsonify
+from src.core.exceptions import BionException
 from src.core.security import ph
 from src.domains.usuario.repository import UsuarioRepository
+from src.models.usuarios import Usuario
 
 
 class AuthService:
@@ -45,3 +47,19 @@ class AuthService:
             self.repo.save(usuario)
 
         return usuario, None
+    
+    def load(self, usuario: Usuario):
+        """Carrega o usuário da sessão atual."""
+        from src.domains.configuracao.service import ConfiguracaoService
+        from flask import session
+        
+        
+        session["id_empresa"] = usuario.id_empresa
+        cfg_service = ConfiguracaoService()
+        cfg = cfg_service.obter_ou_criar(session["id_usuario"])
+        
+        data = {"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()}
+            
+        return data
+    
+        

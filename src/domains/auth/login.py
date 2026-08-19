@@ -10,7 +10,6 @@ ainda -- a sessão só é promovida a completa após a confirmação via
 from flask import Blueprint, request, session
 from src.models.usuarios import CredencialWebAuthn
 from src.core.responses import json_success, json_error
-from src.domains.configuracao.service import ConfiguracaoService
 from .services import AuthService
 
 
@@ -55,6 +54,7 @@ def login():
     session["id_usuario"] = usuario.id
     session["tipo_usuario"] = usuario.tipo_usuario
     session["uuid_usuario"] = usuario.uuid
+    
 
     if usuario.onboarding_pendente:
         session["onboarding_pendente"] = True
@@ -69,16 +69,11 @@ def login():
             data={"status": "mfa_pendente", "metodo": "webauthn"},
             message="Confirmação adicional necessária.",
         )
+    
+    _svc.load(usuario)
+        
 
-    session["id_empresa"] = usuario.id_empresa
-
-    cfg_service = ConfiguracaoService()
-    cfg = cfg_service.obter_ou_criar(session["id_usuario"])
-
-    return json_success(
-        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
-        message="Login realizado com sucesso.",
-    )
+    
 
 
 @bp.post("/logout")
@@ -90,3 +85,5 @@ def logout():
     """
     session.clear()
     return json_success(message="Sessão encerrada.")
+
+
