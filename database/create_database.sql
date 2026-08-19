@@ -638,3 +638,17 @@ CREATE TABLE `usuarios` (
   KEY `id_empresa` (`id_empresa`),
   CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`id_empresa`) REFERENCES `empresa` (`id_empresa`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE stepup_reautenticacao (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario BIGINT NOT NULL,
+    acao VARCHAR(100) NOT NULL,
+    senha_confirmada BOOLEAN NOT NULL DEFAULT FALSE,
+    state VARCHAR(64) NOT NULL UNIQUE,
+    expira_em DATETIME NOT NULL,
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX ix_stepup_reautenticacao_id_usuario (id_usuario),
+    CONSTRAINT fk_stepup_reautenticacao_usuario 
+        FOREIGN KEY (id_usuario) 
+        REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
