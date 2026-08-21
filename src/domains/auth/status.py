@@ -9,7 +9,7 @@ em JSON, mesmo sendo uma rota de apoio à navegação.
 
 from flask import Blueprint, session, jsonify, g
 from src.core.responses import json_error, json_success
-from src.core.session import requer_login
+from src.core.session import requer_login, get_usuario_sessao
 
 bp_status = Blueprint("status", __name__)
 
@@ -37,7 +37,7 @@ def status_sessao():
         return jsonify({"status": "nao_autenticado"}), 401
 
     if session.get("onboarding_pendente"):
-        usuario = Usuario.query.get(session["id_usuario"])
+        usuario = get_usuario_sessao()
         return jsonify({
             "status": "onboarding_pendente",
             "senha_definida": usuario.hash_senha is not None,
@@ -75,6 +75,7 @@ def me():
     """
     from src.domains.usuario.repository import UsuarioRepository
     from src.domains.configuracao.service import ConfiguracaoService
+    from .webauthn_2fa import carregar_configuracoes
     
     usuario = UsuarioRepository().find_by_id(g.id_usuario)
     
@@ -85,8 +86,10 @@ def me():
     cfg_service = ConfiguracaoService()
     cfg = cfg_service.obter_ou_criar(usuario.id)
     
+    
+    
     return json_success(
-        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()},
+        data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict(), "webauthn": carregar_configuracoes()},
         message="Login realizado com sucesso.",
     )
 

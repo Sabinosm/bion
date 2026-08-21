@@ -41,7 +41,7 @@ from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerifica
 
 from src.models import db
 from src.models.usuarios import Usuario, CredencialWebAuthn
-from src.core.session import mfa_pendente_required
+from src.core.session import mfa_pendente_required, get_id_usuario_sessao, requer_login, get_usuario_sessao
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
@@ -67,6 +67,15 @@ def _resposta_opcoes_com_tentativas(opcoes, tentativas_usadas):
     corpo["tentativas_restantes"] = max(0, MAX_TENTATIVAS_MFA - tentativas_usadas)
     return jsonify(corpo), 200
 
+@bp_webauthn_2fa.get("/configuracoes")
+@requer_login
+def configuracoes():
+    # Pega apenas a lista limpa
+    lista_webauthn = carregar_configuracoes()
+    
+    # Agora sim você monta o JSON final perfeitamente
+    return jsonify({"webauthn":lista_webauthn})
+    
 
 @bp_webauthn_2fa.post("/2fa/iniciar")
 @mfa_pendente_required
@@ -93,7 +102,7 @@ def segundo_fator_iniciar():
         deveria ocorrer se o login já checou a existência de 2FA).
         429 se o limite de tentativas já tiver sido atingido.
     """
-    id_usuario = session["id_usuario"]
+    id_usuario = get_id_usuario_sessao()
 
     tentativas = session.get("mfa_tentativas", 0)
     if tentativas >= MAX_TENTATIVAS_MFA:
@@ -139,7 +148,7 @@ def segundo_fator_confirmar():
         200 com os dados de usuário/empresa se a assinatura for válida.
         401 se a credencial não for encontrada ou a assinatura for inválida.
     """
-    id_usuario = session["id_usuario"]
+    id_usuario = get_id_usuario_sessao()
     challenge_esperado = base64.b64decode(session.get("mfa_webauthn_challenge", ""))
     resposta_credencial = request.get_json()
 
@@ -165,7 +174,7 @@ def segundo_fator_confirmar():
     credencial.sign_count = verificacao.new_sign_count
     db.session.commit()
 
-    usuario = Usuario.query.get(id_usuario)
+    usuario = get_id_usuario_sessao
 
     session.pop("mfa_pendente", None)
     session.pop("mfa_webauthn_challenge", None)
@@ -177,3 +186,11 @@ def segundo_fator_confirmar():
         "email": usuario.email,
         "id_empresa": usuario.id_empresa,
     }), 200
+    
+
+def carregar_configuracoes():
+    id_usuario = get_id_usuario_sessao()
+    credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
+    
+    # Retorna uma lista do Python (com itens ou vazia)
+    return [c.to_dict() for c in credenciais] if credenciais else []

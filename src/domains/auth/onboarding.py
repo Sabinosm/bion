@@ -26,7 +26,7 @@ from argon2 import PasswordHasher
 
 from src.models import db
 from src.models.usuarios import Usuario
-from src.core.session import onboarding_pendente_required
+from src.core.session import onboarding_pendente_required, get_usuario_sessao
 from src.core.validacoes import validar_senha
 
 bp_onboarding = Blueprint("onboarding", __name__)
@@ -51,7 +51,7 @@ def definir_senha():
         tinha senha definida (idempotente, ex.: cadastrado por admin).
         400 com o motivo da invalidação se a senha não passar nas regras.
     """
-    usuario = Usuario.query.get(session["id_usuario"])
+    usuario = get_usuario_sessao()
 
     if not usuario.hash_senha:
         dados = request.get_json()

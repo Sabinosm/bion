@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
 from .service import ConsultaService
 
 bp_consulta = Blueprint("consulta", __name__)
@@ -49,7 +49,7 @@ def abrir_consulta(uuid_paciente):
     """Abre uma nova Consulta para o paciente informado."""
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc.abrir(uuid_paciente, dados, session["id_usuario"])
+        c = _svc.abrir(uuid_paciente, dados, get_id_usuario_sessao())
         return json_success(data=c.to_dict(), message="Consulta aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -61,7 +61,7 @@ def encerrar_consulta(uuid):
     """Encerra uma Consulta em aberto com o desfecho final informado."""
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc.encerrar(uuid, dados.get("desfecho_final"), session["id_usuario"])
+        c = _svc.encerrar(uuid, dados.get("desfecho_final"), get_id_usuario_sessao())
         return json_success(data=c.to_dict(), message="Consulta encerrada.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

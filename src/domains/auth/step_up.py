@@ -47,14 +47,14 @@ from src.models.usuarios import CredencialWebAuthn, Usuario
 from src.models.auditoria.stepup import StepUpToken
 from src.models.auditoria.stepup_reautenticacao import StepUpReautenticacao
 from src.core.security import ph
-from src.core.session import requer_login
+from src.core.session import requer_login, get_usuario_sessao, get_id_usuario_sessao
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 from src.domains.auth.frontend_config import FRONTEND_URL
 from src.domains.auth.oauth import oauth
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
-
+from src.domains.usuario.repository import UsuarioRepository as ur
 bp_step_up = Blueprint("step_up", __name__)
 
 DURACAO_TOKEN_SEGUNDOS = 180
@@ -108,7 +108,7 @@ def stepup_iniciar():
         `/stepup/senha/confirmar`.
         400 se `acao` não for informada.
     """
-    id_usuario = session["id_usuario"]
+    id_usuario = get_id_usuario_sessao()
 
     dados = request.get_json(silent=True) or {}
     acao = dados.get("acao")
@@ -170,7 +170,7 @@ def stepup_confirmar():
         401 se a credencial não for encontrada, a assinatura for
         inválida, ou a ação não bater com a do desafio iniciado.
     """
-    id_usuario = session["id_usuario"]
+    id_usuario = get_id_usuario_sessao()
     dados = request.get_json()
     acao = dados.get("acao")
 
@@ -245,7 +245,7 @@ def stepup_senha_confirmar():
         400 se `acao` ou `senha` não forem informadas.
         401 se a senha estiver incorreta.
     """
-    id_usuario = session["id_usuario"]
+    id_usuario = get_id_usuario_sessao()
     dados = request.get_json(silent=True) or {}
     acao = dados.get("acao")
     senha = dados.get("senha")
@@ -253,7 +253,7 @@ def stepup_senha_confirmar():
     if not acao or not senha:
         return jsonify({"erro": "dados_incompletos"}), 400
 
-    usuario = Usuario.query.get(id_usuario)
+    usuario = get_usuario_sessao()
 
     if not usuario or not usuario.hash_senha:
         # Usuário sem senha definida (só login via Google) não tem
@@ -358,7 +358,7 @@ def stepup_google_callback():
     token_google = oauth.google.authorize_access_token()
     userinfo = token_google["userinfo"]
 
-    usuario = Usuario.query.get(pendente.id_usuario)
+    usuario = ur.find_by_id(pendente.id_usuario)
 
     # O e-mail que voltou do Google precisa ser o mesmo do usuário que
     # iniciou o fluxo (confirmou a senha na etapa anterior) -- sem

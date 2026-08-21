@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_papel, session
+from src.core.session import requer_papel, get_id_usuario_sessao
 from .service import DadosClinicosService
 
 bp_dados_clinicos = Blueprint("dados_clinicos", __name__)
@@ -18,7 +18,7 @@ def registrar_sinais_vitais(uuid_atendimento):
     dados = request.get_json(silent=True) or {}
     try:
         registrados = _svc_dados_clinicos.registrar_sinais_vitais(
-            uuid_atendimento, dados.get("sinais", []), session["id_usuario"]
+            uuid_atendimento, dados.get("sinais", []), get_id_usuario_sessao()
         )
         return json_success(
             data=[s.to_dict() for s in registrados],

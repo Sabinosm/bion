@@ -15,7 +15,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
 from src.domains.paciente.services import PacienteService
 
 bp = Blueprint("paciente_pessoal", __name__)
@@ -53,7 +53,7 @@ def detalhe(uuid):
 def cadastrar():
     dados = request.get_json(silent=True) or {}
     try:
-        p = _svc.cadastrar(dados, session["id_usuario"])
+        p = _svc.cadastrar(dados, get_id_usuario_sessao())
         return json_success(data=_serializar(p, True), message="Paciente cadastrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -78,7 +78,7 @@ def registrar_tipo_sanguineo(uuid):
     if not dados.get("tipo_sanguineo"):
         return json_error("tipo_sanguineo é obrigatório.", 422)
     try:
-        p = _svc.registrar_tipo_sanguineo(uuid, dados["tipo_sanguineo"], session["id_usuario"])
+        p = _svc.registrar_tipo_sanguineo(uuid, dados["tipo_sanguineo"], get_id_usuario_sessao())
         return json_success(data=_serializar(p, True), message="Tipo sanguíneo registrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

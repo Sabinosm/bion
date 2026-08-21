@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
 from .service import PrescricaoService
 
 bp_prescricao = Blueprint("prescricao", __name__)
@@ -17,7 +17,7 @@ def registrar_resultado(uuid_atendimento):
     """Registra o diagnóstico (CID-10) e desfecho de um Atendimento."""
     dados = request.get_json(silent=True) or {}
     try:
-        r = _svc_prescricao.registrar_resultado(uuid_atendimento, dados, session["id_usuario"])
+        r = _svc_prescricao.registrar_resultado(uuid_atendimento, dados, get_id_usuario_sessao())
         return json_success(data=r.to_dict(), message="Resultado de prescrição registrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

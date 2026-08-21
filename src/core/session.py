@@ -36,6 +36,27 @@ def _usuario_sessao():
     from src.domains.usuario.repository import UsuarioRepository
     return UsuarioRepository().find_by_id(uid)
 
+def get_id_usuario_sessao():
+    """
+    Retorna o id do Usuario logado ou None.
+    
+    Útil quando você precisa do id do Usuario
+    """
+    id = session.get("id_usuario")
+    if not id:
+        return None
+    return id
+
+def get_uuid_usuario_sessao():
+    """
+    Retorna o uuid do Usuario logado ou None.
+    
+    Útil quando você precisa do uuid do Usuario
+    """
+    uuid = session.get("uuid_usuario")
+    if not uuid:
+        return None
+    return uuid
 
 def get_usuario_sessao():
     return _usuario_sessao()
@@ -79,7 +100,7 @@ def _requer_papeis(*papeis_permitidos):
                 rotulo = " ou ".join(papeis_permitidos)
                 return _sem_permissao(rotulo)
 
-            g.id_usuario = session["id_usuario"]
+            g.id_usuario = get_id_usuario_sessao()
             g.uuid_usuario = session.get("uuid_usuario")
             g.id_empresa = session.get("id_empresa")
             g.tipo_usuario = session.get("tipo_usuario")

@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
 from .service import AtendimentoService
 
 bp_atendimento = Blueprint("atendimento", __name__)
@@ -46,7 +46,7 @@ def atendimentos_da_consulta(uuid_consulta):
 def abrir_triagem(uuid_consulta):
     """Abre um Atendimento do tipo triagem para a Consulta informada."""
     try:
-        a = _svc.abrir_triagem(uuid_consulta, session["id_usuario"])
+        a = _svc.abrir_triagem(uuid_consulta, get_id_usuario_sessao())
         return json_success(data=a.to_dict(), message="Triagem aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -57,7 +57,7 @@ def abrir_triagem(uuid_consulta):
 def abrir_avaliacao_medica(uuid_consulta):
     """Abre um Atendimento do tipo avaliação médica para a Consulta informada."""
     try:
-        a = _svc.abrir_avaliacao_medica(uuid_consulta, session["id_usuario"])
+        a = _svc.abrir_avaliacao_medica(uuid_consulta, get_id_usuario_sessao())
         return json_success(data=a.to_dict(), message="Avaliação médica aberta.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

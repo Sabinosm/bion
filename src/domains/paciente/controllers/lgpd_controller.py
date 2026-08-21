@@ -6,7 +6,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
 from src.domains.paciente.services import ConsentimentoService, PacienteService
 
 bp = Blueprint("paciente_lgpd", __name__)
@@ -29,7 +29,7 @@ def listar(uuid_paciente):
 def registrar(uuid_paciente):
     dados = request.get_json(silent=True) or {}
     try:
-        c = _svc.registrar(uuid_paciente, dados, session["id_usuario"])
+        c = _svc.registrar(uuid_paciente, dados, get_id_usuario_sessao())
         return json_success(data=c.to_dict(), message="Consentimento registrado.", status=201)
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

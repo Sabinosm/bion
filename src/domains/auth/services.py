@@ -56,7 +56,7 @@ class AuthService:
         
         session["id_empresa"] = usuario.id_empresa
         cfg_service = ConfiguracaoService()
-        cfg = cfg_service.obter_ou_criar(session["id_usuario"])
+        cfg = cfg_service.obter_ou_criar(get_id_usuario_sessao())
         
         data = {"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict()}
             
