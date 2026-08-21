@@ -73,6 +73,8 @@ def id_empresa_sessao():
     """
     return session.get("id_empresa")
 
+def get_uuid_empresa_sessao():
+    return session.get("uuid_empresa")
 
 def _nao_autenticado():
     return jsonify({"status": "error", "message": "Autenticação necessária."}), 401

@@ -1,6 +1,7 @@
 """Mixin com as rotinas de reset de credenciais do domínio Usuario."""
 
 from flask import jsonify, session
+from src.core.session import get_uuid_empresa_sessao
 
 
 class ResetCredenciaisMixin:
@@ -32,7 +33,7 @@ class ResetCredenciaisMixin:
         if not usuario:
             return jsonify({"erro": "usuario_nao_encontrado"}), 404
 
-        if usuario.uuid_empresa != session.get("uuid_empresa"):
+        if usuario.uuid_empresa != get_uuid_empresa_sessao():
             return jsonify({"erro": "acesso_negado"}), 403
 
         CredencialWebAuthn.query.filter_by(uuid_usuario=uuid).delete()
@@ -63,7 +64,7 @@ class ResetCredenciaisMixin:
         if not usuario:
             return jsonify({"erro": "usuario_nao_encontrado"}), 404
 
-        if usuario.uuid_empresa != session.get("uuid_empresa"):
+        if usuario.uuid_empresa != get_uuid_empresa_sessao():
             return jsonify({"erro": "acesso_negado"}), 403
 
         CredencialWebAuthn.query.filter_by(uuid_usuario=uuid).delete()

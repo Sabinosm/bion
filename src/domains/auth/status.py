@@ -33,7 +33,7 @@ def status_sessao():
         novo ou oferecer reautenticação por senha ou Google).
         401 com `status: nao_autenticado` se não houver sessão iniciada.
     """
-    if not session.get("id_usuario"):
+    if not get_usuario_sessao():
         return jsonify({"status": "nao_autenticado"}), 401
 
     if session.get("onboarding_pendente"):

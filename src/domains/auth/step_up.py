@@ -410,7 +410,7 @@ def requer_confirmacao_recente(acao):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            id_usuario = session.get("id_usuario")
+            id_usuario = get_id_usuario_sessao()
             token_recebido = request.headers.get("X-Stepup-Token")
 
             if not token_recebido:
