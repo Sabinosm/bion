@@ -8,6 +8,7 @@ from src.domains.usuario.repository import UsuarioRepository
 from src.models.usuarios import Usuario
 
 
+
 class AuthService:
     """Serviço responsável por validar credenciais de login/senha."""
 
@@ -51,6 +52,7 @@ class AuthService:
     def load(self, usuario: Usuario):
         """Carrega o usuário da sessão atual."""
         from src.domains.configuracao.service import ConfiguracaoService
+        from src.core.session import get_id_usuario_sessao
         from flask import session
         
         
