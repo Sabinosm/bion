@@ -122,6 +122,8 @@ def google_callback():
     session.clear()
     # CORRIGIDO: era usuario.id_usuario (atributo inexistente) -> usuario.id
     session["id_usuario"] = usuario.id
+    session["tipo_usuario"] = usuario.tipo_usuario
+    session["uuid_usuario"] = usuario.uuid
     session.permanent = True
 
     if usuario.onboarding_pendente:
