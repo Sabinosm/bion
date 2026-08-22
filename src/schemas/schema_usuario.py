@@ -30,6 +30,7 @@ class CadastroUsuarioSchema(BaseModel):
     user_login: str = Field(..., min_length=3, max_length=30)
     tipo_usuario: Literal["medico", "enfermeiro", "admin"]
     telefone: Optional[str] = None
+    
     # ALTERADO: era Optional[str] = Field(..., ...) -- Optional junto
     # com obrigatório (...) é contraditório. Senha agora é opcional
     # aqui no nível de campo; a obrigatoriedade real (admin precisa,
