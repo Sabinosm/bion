@@ -71,6 +71,12 @@ def login():
         )
     
     _svc.load(usuario)
+      
+    return json_success(
+        data={"status": "sucess"},
+        message="Login realizado com sucesso.",
+    )
+  
         
 
     

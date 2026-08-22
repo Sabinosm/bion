@@ -96,12 +96,19 @@ class Empresa(db.Model):
 
     def to_dict(self):
         return {
-            "uuid": self.uuid,
-            "nome_fantasia": self.nome_fantasia,
-            "razao_social": self.razao_social,
-            "cnpj": self.cnpj,
-            "cnes": self.cnes,
-            "status_plano": self.status_plano,
-            "plano": self.plano,
-            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
-        }
+               "uuid": self.uuid,
+               "nome_fantasia": self.nome_fantasia,
+               "razao_social": self.razao_social,
+               # Agrupando os dados de endereço/região local
+               "endereco": {
+                   "cep": self.cep,
+                   "bairro": self.bairro,
+                   "numero": self.numero,
+                   "complemento": self.complemento,
+                   },
+                   "cnpj": self.cnpj,
+                   "cnes": self.cnes,
+                   "status_plano": self.status_plano,
+                   "plano": self.plano,
+                   "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+               }

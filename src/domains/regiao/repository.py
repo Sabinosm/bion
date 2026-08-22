@@ -33,7 +33,8 @@ class RegiaoRepository(IRepository[RegiaoGeografica]):
             .filter(TipoJurisdicao.codigo == tipo)
             .all()
         )
-
+        
+        
     def save(self, entity: RegiaoGeografica) -> RegiaoGeografica:
         db.session.add(entity)
         db.session.commit()

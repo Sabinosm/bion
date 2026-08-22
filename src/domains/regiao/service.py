@@ -39,6 +39,12 @@ class RegiaoService:
     def __init__(self):
         self.repo = RegiaoRepository()
 
+    def buscar_por_id(self, id:int):
+        r = self.repo.find_by_id(id)
+        if not r:
+            raise RecursoNaoEncontradoError(f"Região geográfica não encontrada: {id}")
+        return r
+    
     def buscar_por_uuid(self, uuid: str):
         r = self.repo.find_by_uuid(uuid)
         if not r:
@@ -242,3 +248,4 @@ class RegiaoService:
         """
         centroides = self._carregar_centroides_municipios()
         return centroides.get(codigo_ibge)
+        

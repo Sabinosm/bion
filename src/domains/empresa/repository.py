@@ -60,3 +60,11 @@ class EmpresaRepository(IRepository[Empresa]):
         db.session.delete(e)
         db.session.commit()
         return True
+    
+    def find_regiao_geografica(self, id: int):
+        from src.domains.regiao.service import RegiaoService
+        e = self.find_by_id(id)
+        
+        return RegiaoService.buscar_por_id(e.id_regiao_geografica)
+        
+        
