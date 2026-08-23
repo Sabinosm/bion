@@ -89,3 +89,7 @@ class UsuarioRepository(IRepository[Usuario]):
 
     def find_all(self, id_empresa: int) -> List[Usuario]:
         return Usuario.query.filter_by(id_empresa=id_empresa).all()
+    
+    def find_all_no_admin(self, id_empresa):
+        return Usuario.query.filter_by(id_empresa=id_empresa, is_admin_flag=False).all()
+        pass

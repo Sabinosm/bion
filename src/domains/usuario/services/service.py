@@ -66,7 +66,7 @@ class UsuarioService(ResetCredenciaisMixin):
         Retorno:
             Lista de instâncias de Usuario.
         """
-        return self.repo.find_all(id_empresa)
+        return self.repo.find_all_no_admin(id_empresa)
  
     def criar(self, id_empresa, dados: dict, commitar: bool = True):
         """Cria um novo usuário para a empresa informada.
