@@ -26,6 +26,3 @@ GOOGLE_CLIENT_SECRET =
 
 RP_ID =
 RP_NAME =
-
-
-
