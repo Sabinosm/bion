@@ -35,8 +35,8 @@ class Usuario(db.Model):
     # tipo_usuario REMOVIDO — ver papel_ativo() abaixo
     is_admin_flag = db.Column("is_admin", db.Boolean, nullable=False, default=False)
 
-    status = db.Column(db.Enum("ativo", "inativo", "suspenso"),
-                        nullable=False, default="ativo")
+    status = db.Column(db.Enum("ativo", "inativo", "pendente"),
+                        nullable=False, default="pendente")
     # atributos_profissionais_json REMOVIDO — ver PapelProfissional
     hash_senha = db.Column(db.String(255), nullable=True)  # Argon2id
     onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
@@ -110,5 +110,14 @@ class Usuario(db.Model):
             d["cpf"] = aes_decrypt(self.cpf)
             d["atributos_profissionais"] = papel.to_dict() if papel else None
         return d
-
+    
+    def to_dict_few(self):
+        d = {
+                    "uuid": self.uuid,
+                    "nome_completo": self.nome_completo,
+                    "email": self.email,
+                    "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
+                    "status": self.status,
+             }
+        return d
   

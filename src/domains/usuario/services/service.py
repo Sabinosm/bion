@@ -57,7 +57,7 @@ class UsuarioService(ResetCredenciaisMixin):
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
  
-    def listar(self, id_empresa):
+    def listar(self, id_empresa, offset:int = 0, especialidade:str = 0, status:str = 0):
         """Lista todos os usuários de uma empresa.
 
         Parâmetros:
@@ -66,8 +66,9 @@ class UsuarioService(ResetCredenciaisMixin):
         Retorno:
             Lista de instâncias de Usuario.
         """
-        return self.repo.find_all_no_admin(id_empresa)
- 
+        return self.repo.find_all_param(id_empresa=id_empresa, offset=offset, especialidade=especialidade,status=status)
+    
+    
     def criar(self, id_empresa, dados: dict, commitar: bool = True):
         """Cria um novo usuário para a empresa informada.
  

@@ -15,8 +15,13 @@ _svc = UsuarioService()
 @bp.get("/")
 @requer_papel("admin")
 def lista():
-    usuarios = _svc.listar(id_empresa_sessao())
-    return json_success(data=[u.to_dict() for u in usuarios])
+    especialidade = request.args.get('especialidade') # 
+    status = request.args.get('status', type=str) # Pendente - Ativo - inativo
+    pagina = request.args.get('pagina', default=0, type=int)
+
+    usuarios = _svc.listar(id_empresa_sessao(),offset=int(pagina*8),status=status,especialidade=especialidade)
+    return json_success(data=[u.to_dict_few() for u in usuarios])
+
 
 
 @bp.get("/<uuid>")

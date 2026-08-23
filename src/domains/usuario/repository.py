@@ -90,6 +90,26 @@ class UsuarioRepository(IRepository[Usuario]):
     def find_all(self, id_empresa: int) -> List[Usuario]:
         return Usuario.query.filter_by(id_empresa=id_empresa).all()
     
-    def find_all_no_admin(self, id_empresa):
-        return Usuario.query.filter_by(id_empresa=id_empresa, is_admin_flag=False).all()
-        pass
+     
+    def find_all_param(self, id_empresa, offset: int = 0, especialidade: str = None, status: str = None, nome:str=None, email:str=None,cpf:str=None):
+        filtros = {
+            "id_empresa": id_empresa,
+            "is_admin_flag": False
+                  }
+
+        if especialidade:
+            filtros["especialidade"] = especialidade
+        if status:
+            filtros["status"] = status
+        
+        # TODO 
+       # if cpf:
+          #          filtros["cpf"] = cpf
+             #   if email:
+               #     filtros["email"] = email
+        
+        # if nome:
+          #  Usuario.query.filter(Usuario.nome_completo.ilike(f"%{nome}%")).offset(offset).limit(8)
+        
+        
+        return Usuario.query.filter_by(**filtros).offset(offset).limit(8)

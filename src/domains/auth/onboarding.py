@@ -65,6 +65,7 @@ def definir_senha():
         usuario.hash_senha = ph.hash(nova_senha)
 
     usuario.onboarding_pendente = False
+    usuario.status="ativo"
     db.session.commit()
 
     session.pop("onboarding_pendente", None)
