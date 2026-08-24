@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -59,6 +59,7 @@ class AtendimentoRepository(IRepository[Atendimento]):
         return Atendimento.query.all()
 
     # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
+    # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
     def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:
         """Duração média de Atendimentos finalizados, agrupado por tipo.
 
@@ -77,10 +78,9 @@ class AtendimentoRepository(IRepository[Atendimento]):
 
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
 
-        # EXTRACT(EPOCH FROM ...) é Postgres-específico; se o projeto
-        # rodar em outro banco, trocar por func apropriada.
-        duracao_segundos = func.extract(
-            "epoch", Atendimento.data_hora_fim - Atendimento.data_hora_inicio
+        # MySQL: TIMESTAMPDIFF(SECOND, inicio, fim) -- não existe EXTRACT(EPOCH)
+        duracao_segundos = func.timestampdiff(
+            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
         )
 
         linhas = (
