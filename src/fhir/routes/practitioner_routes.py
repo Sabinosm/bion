@@ -19,7 +19,7 @@ from fhir.resources.R4B.practitioner import Practitioner
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, id_empresa_sessao
+from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
 from ..services.practitioner_fhir_service import PractitionerFhirService
 
 bp = Blueprint("fhir_practitioner", __name__)
@@ -93,7 +93,7 @@ def create():
         return json_error(f"Recurso Practitioner inválido: {e}", 422)
 
     try:
-        recurso = _svc.criar_a_partir_de_fhir(practitioner, id_empresa_sessao(), tipo_usuario, user_login)
+        recurso = _svc.criar_a_partir_de_fhir(practitioner, get_id_empresa_sessao(), tipo_usuario, user_login)
         return json_success(data=recurso, message="Practitioner criado.", status=201)
     except (BionException, ValueError) as ex:
         message = ex.message if isinstance(ex, BionException) else str(ex)

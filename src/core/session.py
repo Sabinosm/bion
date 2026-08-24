@@ -62,7 +62,7 @@ def get_usuario_sessao():
     return _usuario_sessao()
 
 
-def id_empresa_sessao():
+def get_id_empresa_sessao():
     """
     Retorna id_empresa direto da sessão, sem tocar o banco.
 

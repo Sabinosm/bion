@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, id_empresa_sessao
+from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
 from .services.service import UsuarioService
 from flask import Blueprint, request, g
 
@@ -19,7 +19,7 @@ def lista():
     status = request.args.get('status', type=str) # Pendente - Ativo - inativo
     pagina = request.args.get('pagina', default=0, type=int)
 
-    usuarios = _svc.listar(id_empresa_sessao(),offset=int(pagina*8),status=status,especialidade=especialidade)
+    usuarios = _svc.listar(get_id_empresa_sessao(),offset=int(pagina*8),status=status,especialidade=especialidade)
     return json_success(data=[u.to_dict_few() for u in usuarios])
 
 
@@ -40,7 +40,7 @@ def criar():
     
     dados = request.get_json(silent=True) or {}
     try:
-        u = _svc.criar(id_empresa=id_empresa_sessao(),dados=dados, commitar=True)
+        u = _svc.criar(id_empresa=get_id_empresa_sessao(),dados=dados, commitar=True)
         return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
     except BionException as e:
         return json_error(e.message, e.status_code)

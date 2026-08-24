@@ -5,7 +5,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_uuid_empresa_sessao, id_empresa_sessao
+from src.core.session import requer_login, requer_papel, get_uuid_empresa_sessao, get_id_empresa_sessao
 from .service import EmpresaService
 
 bp = Blueprint("empresa", __name__)
@@ -16,7 +16,7 @@ _svc = EmpresaService()
 @requer_papel("admin")
 def detalhe():
     try:
-        e = _svc.repo.find_by_id(id_empresa_sessao())
+        e = _svc.repo.find_by_id(get_id_empresa_sessao())
         return json_success(data=e.to_dict())
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
@@ -28,7 +28,7 @@ def atualizar():
     uuid = get_uuid_empresa_sessao()
     dados = request.get_json(silent=True) or {}
     try:
-        e = _svc.atualizar(id_empresa_sessao(), dados, uuid)
+        e = _svc.atualizar(get_id_empresa_sessao(), dados, uuid)
         return json_success(data=e.to_dict(), message="Empresa atualizada.")
     except BionException as ex:
         return json_error(ex.message, ex.status_code)

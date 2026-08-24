@@ -55,7 +55,7 @@ def _registrar_blueprints(app: Flask):
     from src.domains.configuracao.controller import bp as configuracao_bp
     from src.domains.exames.controller import bp_exames as catalogo_exames_bp
     from src.domains.medicamentos.controller import bp_medicamentos as catalogo_medicamentos_bp
-    
+    from src.domains.estatisticas.controller import bp as bp_estatisticas
 
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
     from src.domains.protocolo.controller import bp_protocolo as protocolo_bp
@@ -99,6 +99,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(clinico_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
+    app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")
     
     @app.get("/v1/api/health")
     def health():
