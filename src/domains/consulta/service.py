@@ -89,3 +89,16 @@ class ConsultaService:
 
     def contar_consultas_dia(self,id_empresa):
         return self.repo.contar_consultas_hoje(id_empresa=id_empresa)
+    
+    # --- A1: Volume de atendimentos (consultas) por dia ---
+    def consultas_por_dia(self, id_empresa: int, dias: int = 30):
+        """Repassa a agregação bruta do repository. Sem lógica de negócio
+        aqui -- formatação/leitura fica na camada de estatística."""
+        return self.repo.contar_consultas_por_dia(id_empresa=id_empresa, dias=dias)
+
+    # --- A3: Taxa de conclusão vs. abandono ---
+    def consultas_por_status(self, id_empresa: int, dias: int = 30):
+        """Repassa a contagem bruta por status_consulta. O cálculo de %
+        (concluídas / total) fica na camada de estatística, não aqui --
+        o service de domínio só sabe buscar dado, não interpretar métrica."""
+        return self.repo.contar_consultas_por_status(id_empresa=id_empresa, dias=dias)

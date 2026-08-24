@@ -1,6 +1,6 @@
 """Repositório de acesso a dados da entidade Consulta."""
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional, List
 
 from sqlalchemy import func
@@ -68,3 +68,52 @@ class ConsultaRepository(IRepository[Consulta]):
             .filter(Consulta.data_hora_inicio <= fim_dia)
             .scalar() or 0
     )
+        
+    # --- A1: Volume de atendimentos (consultas) por dia ---
+    def contar_consultas_por_dia(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """Volume de Consultas iniciadas por dia, nos últimos N dias.
+
+        Retorna lista de dicts [{"data": date, "total": int}, ...]
+        ordenada do dia mais antigo para o mais recente.
+        """
+        from src.models.usuarios.usuario import Usuario
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+        dia = func.date(Consulta.data_hora_inicio)
+
+        linhas = (
+            db.session.query(dia.label("data"), func.count(Consulta.id).label("total"))
+            .join(Usuario, Consulta.iniciada_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.data_hora_inicio >= limite)
+            .group_by(dia)
+            .order_by(dia.asc())
+            .all()
+        )
+        return [{"data": linha.data, "total": linha.total} for linha in linhas]
+
+    # --- A3: Taxa de conclusão vs. abandono ---
+    def contar_consultas_por_status(self, id_empresa: int, dias: int = 30) -> dict:
+        """Contagem de Consultas por status_consulta, nos últimos N dias.
+
+        Retorna dict {status_consulta: total}, ex:
+        {"encerrada": 130, "em-atendimento": 8, "evasao": 4, ...}
+        Base para calcular a taxa de conclusão no service (contagem
+        pura aqui; % é responsabilidade da camada de estatística).
+        """
+        from src.models.usuarios.usuario import Usuario
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+
+        linhas = (
+            db.session.query(
+                Consulta.status_consulta.label("status"),
+                func.count(Consulta.id).label("total"),
+            )
+            .join(Usuario, Consulta.iniciada_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.data_hora_inicio >= limite)
+            .group_by(Consulta.status_consulta)
+            .all()
+        )
+        return {linha.status: linha.total for linha in linhas}
