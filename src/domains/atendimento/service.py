@@ -100,3 +100,14 @@ class AtendimentoService:
         if observacoes:
             atendimento.observacoes_profissional = observacoes
         return self.repo.save(atendimento)
+
+    # --- A2: Tempo médio de atendimento, por tipo ---
+    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30):
+        """Repassa a agregação bruta do repository (segundos, por tipo).
+        Conversão para 'Xmin Ys' e variação % vs. período anterior ficam
+        na camada de estatística."""
+        return self.repo.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
+
+    # --- auxiliar: status no nível de etapa (não usado na Fase 1, mas pronto) ---
+    def atendimentos_por_status(self, id_empresa: int, dias: int = 30):
+        return self.repo.contar_atendimentos_por_status(id_empresa=id_empresa, dias=dias)

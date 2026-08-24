@@ -1,6 +1,9 @@
 """Repositório de acesso a dados da entidade Atendimento."""
 
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
+
+from sqlalchemy import func
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -54,3 +57,75 @@ class AtendimentoRepository(IRepository[Atendimento]):
     def find_all(self) -> List[Atendimento]:
         """Lista todos os Atendimentos cadastrados, sem filtro."""
         return Atendimento.query.all()
+
+    # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
+    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """Duração média de Atendimentos finalizados, agrupado por tipo.
+
+        Só considera atendimentos com data_hora_fim preenchida (senão a
+        duração não existe ainda). Filtra por empresa via o usuário que
+        realizou o atendimento (realizado_por).
+
+        Retorna lista de dicts:
+        [{"tipo_atendimento": "triagem", "media_segundos": 512.3, "total": 42}, ...]
+
+        A conversão para "8min32s" e o cálculo de variação % vs. período
+        anterior ficam na camada de estatística (EstatisticasAtendimento),
+        não aqui -- este método só agrega o dado bruto.
+        """
+        from src.models.usuarios.usuario import Usuario
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+
+        # EXTRACT(EPOCH FROM ...) é Postgres-específico; se o projeto
+        # rodar em outro banco, trocar por func apropriada.
+        duracao_segundos = func.extract(
+            "epoch", Atendimento.data_hora_fim - Atendimento.data_hora_inicio
+        )
+
+        linhas = (
+            db.session.query(
+                Atendimento.tipo_atendimento.label("tipo_atendimento"),
+                func.avg(duracao_segundos).label("media_segundos"),
+                func.count(Atendimento.id).label("total"),
+            )
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= limite)
+            .filter(Atendimento.data_hora_fim.isnot(None))
+            .group_by(Atendimento.tipo_atendimento)
+            .all()
+        )
+        return [
+            {
+                "tipo_atendimento": linha.tipo_atendimento,
+                "media_segundos": float(linha.media_segundos) if linha.media_segundos else 0.0,
+                "total": linha.total,
+            }
+            for linha in linhas
+        ]
+
+    # --- Auxiliar para A3-equivalente no nível de Atendimento, se precisar ---
+    def contar_atendimentos_por_status(self, id_empresa: int, dias: int = 30) -> dict:
+        """Contagem de Atendimentos por status ('em-andamento', 'finalizado',
+        'cancelado'), nos últimos N dias. Mesmo padrão de
+        ConsultaRepository.contar_consultas_por_status, mas no nível de
+        Atendimento -- útil se algum dia quiserem taxa de conclusão por
+        etapa, não só por consulta inteira.
+        """
+        from src.models.usuarios.usuario import Usuario
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+
+        linhas = (
+            db.session.query(
+                Atendimento.status.label("status"),
+                func.count(Atendimento.id).label("total"),
+            )
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= limite)
+            .group_by(Atendimento.status)
+            .all()
+        )
+        return {linha.status: linha.total for linha in linhas}
