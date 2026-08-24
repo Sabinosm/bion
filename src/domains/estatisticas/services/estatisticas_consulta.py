@@ -1,4 +1,6 @@
-from src.domains.consulta.service import ConsultaService as cs
+from src.domains.consulta.service import ConsultaService
+
+cs = ConsultaService()
 
 
 class EstatisticasConsulta:

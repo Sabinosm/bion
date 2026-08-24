@@ -110,7 +110,7 @@ class UsuarioService(ResetCredenciaisMixin):
             email=schema.email,
             telefone=schema.telefone,
             user_login=schema.user_login,
-            is_admin_flag=(schema.tipo_usuario == "admin"),
+            is_admin=(schema.tipo_usuario == "admin"),
             # ALTERADO: schema.hash_senha não existe -- o schema expõe
             # 'senha' em texto puro (validada, não hasheada); o hash é
             # responsabilidade de quem consome o schema, mesmo padrão

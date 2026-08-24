@@ -33,7 +33,7 @@ class Usuario(db.Model):
     user_login = db.Column(db.String(100), unique=True)
 
     # tipo_usuario REMOVIDO — ver papel_ativo() abaixo
-    is_admin_flag = db.Column("is_admin", db.Boolean, nullable=False, default=False)
+    is_admin = db.Column("is_admin", db.Boolean, nullable=False, default=False)
 
     status = db.Column(db.Enum("ativo", "inativo", "pendente"),
                         nullable=False, default="pendente")
@@ -76,7 +76,7 @@ class Usuario(db.Model):
         porque o SQLAlchemy não sabe fazer isso virar SQL sozinho.
         Ver repository.py para o substituto (find_by_tipo_papel).
         """
-        if self.is_admin_flag:
+        if self.is_admin:
             return "admin"
         papel = self.papel_ativo()
         return papel.tipo_papel if papel else None
@@ -88,9 +88,6 @@ class Usuario(db.Model):
     def is_enfermeiro(self):
         papel = self.papel_ativo()
         return bool(papel and papel.tipo_papel == "enfermeiro")
-
-    def is_admin(self):
-        return self.is_admin_flag
 
     def to_dict(self, incluir_sensiveis=False):
         papel = self.papel_ativo()

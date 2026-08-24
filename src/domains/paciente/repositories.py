@@ -17,7 +17,7 @@ from src.models.pacientes import (
     Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
     DoencaCronica, MedicamentoEmUso, Consentimento, ObservacaoTipoSanguineo,
 )
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, time, timezone, timedelta
 from sqlalchemy import func
 
 class PacienteRepository(IRepository[Paciente]):
@@ -49,6 +49,32 @@ class PacienteRepository(IRepository[Paciente]):
 
     def find_all(self) -> List[Paciente]:
         return Paciente.query.all()
+    
+    def count_pacientes_hoje(self, id_empresa: int) -> int:
+            from src.models.usuarios import Usuario
+            hoje = datetime.now(timezone.utc).date()
+            inicio_dia = datetime.combine(hoje, time.min, tzinfo=timezone.utc)
+            fim_dia = datetime.combine(hoje, time.max, tzinfo=timezone.utc)
+    
+            return (
+                db.session.query(func.count(Paciente.id))
+                .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+                .filter(Usuario.id_empresa == id_empresa)
+                .filter(Paciente.criado_em >= inicio_dia)
+                .filter(Paciente.criado_em < fim_dia)
+                .scalar()
+            )
+            
+    
+    def count_pacientes(self, id_empresa: int) -> int:
+        from src.models.usuarios import Usuario
+            
+        return (
+                db.session.query(func.count(Paciente.id))
+                .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+                .filter(Usuario.id_empresa == id_empresa)
+                .scalar()
+            )
 
 
 class AlergiaRepository(IRepository[Alergia]):
@@ -275,29 +301,4 @@ class ConsentimentoRepository(IRepository[Consentimento]):
     
 
 
-    def count_pacientes_hoje(self, id_empresa: int) -> int:
-        from src.models.usuarios import Usuario
-        
-        agora = datetime.now(timezone.utc)
-        inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0)
-        fim_dia = inicio_dia + timedelta(days=1)
-
-        return (
-            Paciente.query(func.count(Paciente.id))
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(Paciente.criado_em >= inicio_dia)
-            .filter(Paciente.criado_em < fim_dia)
-            .scalar()
-        )
-        
-
-    def count_pacientes(self, id_empresa: int) -> int:
-        from src.models.usuarios import Usuario
-        
-        return (
-            Paciente.query(func.count(Paciente.id))
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .scalar()
-        )
+    

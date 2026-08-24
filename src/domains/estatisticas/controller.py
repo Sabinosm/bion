@@ -11,5 +11,5 @@ _svc = EstatisticasService()
 @bp.get("/geral")
 @requer_papel("admin")
 def estatisticas_geral():
-    
-    pass
+    return _svc.estatisticas_geral(get_id_empresa_sessao())
+

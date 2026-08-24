@@ -123,7 +123,7 @@ def att(user, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uu
         )
     
         if tipo_mudou or campos_papel_mudaram:
-            u.is_admin_flag = (schema_completo.tipo_usuario == "admin")
+            u.is_admin = (schema_completo.tipo_usuario == "admin")
     
             papel_atual = u.papel_ativo()
     

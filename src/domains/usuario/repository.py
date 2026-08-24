@@ -64,8 +64,8 @@ class UsuarioRepository(IRepository[Usuario]):
         )
 
     def find_admins(self, id_empresa: int) -> List[Usuario]:
-        """Lista usuários administradores de uma empresa (is_admin_flag)."""
-        return Usuario.query.filter_by(id_empresa=id_empresa, is_admin_flag=True).all()
+        """Lista usuários administradores de uma empresa (is_admin)."""
+        return Usuario.query.filter_by(id_empresa=id_empresa, is_admin=True).all()
 
     def save(self, entity: Usuario, commit: bool = True) -> Usuario:
         if commit == True:
@@ -91,10 +91,10 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.filter_by(id_empresa=id_empresa).all()
     
      
-    def find_all_param(self, id_empresa, offset: int = 0, especialidade: str = None, status: str = None, nome:str=None, email:str=None,cpf:str=None):
+    def find_all_param(self, id_empresa:int, offset: int = 0, especialidade: str = None, status: str = None, nome:str=None, email:str=None,cpf:str=None):
         filtros = {
             "id_empresa": id_empresa,
-            "is_admin_flag": False
+            "is_admin": 0
                   }
 
         if especialidade:
@@ -111,19 +111,14 @@ class UsuarioRepository(IRepository[Usuario]):
         # if nome:
           #  Usuario.query.filter(Usuario.nome_completo.ilike(f"%{nome}%")).offset(offset).limit(8)
         
-        
         return Usuario.query.filter_by(**filtros).offset(offset).limit(8)
     
     def count_no_admin_users(self, id_empresa):
-        return Usuario.query.filter_by(
-            is_admin_flag=False, 
-            id_empresa=id_empresa
-        ).count()
-    
+        return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa).count()
+        
+
+
     def count_status_users(self,id_empresa,status):
-        return Usuario.query.filter_by(
-            is_admin_flag=False, 
-            id_empresa=id_empresa,
-            status=status
-        ).count()
-    
+        return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa,Usuario.status==status).count()
+        
+      

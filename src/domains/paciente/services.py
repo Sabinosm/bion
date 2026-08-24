@@ -110,10 +110,10 @@ class PacienteService:
 
         return paciente
     
-    def contar_pacientes_hoje(self, id_empresa):
+    def count_pacientes_hoje(self, id_empresa):
         return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
     
-    def contar_total_pacientes(self,id_empresa):
+    def count_pacientes(self,id_empresa):
         return self.repo.count_pacientes(id_empresa=id_empresa)
     
 
