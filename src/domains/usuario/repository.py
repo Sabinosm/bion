@@ -10,7 +10,10 @@ adicionei find_by_tipo_papel() como o substituto correto, para uso
 futuro caso precise (ex: "listar todos os médicos da empresa").
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
+
+from sqlalchemy import func
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -117,8 +120,66 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa).count()
         
 
-
     def count_status_users(self,id_empresa,status):
         return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa,Usuario.status==status).count()
         
+    # --- A4: Efetivo ativo por papel ---
+    def contar_ativos_por_papel(self, id_empresa: int) -> dict:
+        """Contagem de usuários com status='ativo', agrupados por papel
+        profissional (medico/enfermeiro), mais admins à parte.
+
+        Diferente de find_by_tipo_papel (que retorna instâncias), este
+        método já devolve a contagem agregada -- é o que a estatística
+        precisa, sem carregar objetos Usuario inteiros na memória.
+
+        Retorna dict, ex: {"medico": 12, "enfermeiro": 8, "admin": 2}
+        """
+        from src.models.usuarios.papel_profissional import PapelProfissional
+
+        # Profissionais (médico/enfermeiro) via PapelProfissional ativo
+        linhas = (
+            db.session.query(
+                PapelProfissional.tipo_papel.label("tipo_papel"),
+                func.count(Usuario.id).label("total"),
+            )
+            .join(Usuario, PapelProfissional.id_usuario == Usuario.id)
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Usuario.status == "ativo",
+                PapelProfissional.ativo == True,
+            )
+            .group_by(PapelProfissional.tipo_papel)
+            .all()
+        )
+        resultado = {linha.tipo_papel: linha.total for linha in linhas}
+
+        # Admins não têm PapelProfissional, contam à parte
+        total_admins = (
+            Usuario.query
+            .filter_by(id_empresa=id_empresa, status="ativo", is_admin=True)
+            .count()
+        )
+        if total_admins:
+            resultado["admin"] = total_admins
+
+        return resultado
+
+    # --- A5 (fase futura): Engajamento/atividade da equipe ---
+    def find_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> List[Usuario]:
+        """Usuários (não-admin) sem acesso há mais de N dias, ou que
+        nunca acessaram (ultimo_acesso is None). Já deixo pronto porque
+        é praticamente 'de graça' junto com A4, mas A5 em si é fase 1
+        'nice to have' -- confirmar com o time se entra agora.
+        """
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+        return (
+            Usuario.query
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Usuario.is_admin == False,
+                Usuario.status == "ativo",
+                db.or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
+            )
+            .all()
+        )
       

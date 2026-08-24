@@ -169,3 +169,10 @@ class UsuarioService(ResetCredenciaisMixin):
     
     def contagem_profissionais_por_status(self, id_empresa, status):
         return self.repo.count_status_users(id_empresa=id_empresa, status=status)
+
+    # --- A4: Efetivo ativo por papel ---
+    def efetivo_por_papel(self, id_empresa: int):
+        """Repassa a contagem bruta por papel (medico/enfermeiro/admin).
+        Sem lógica de negócio aqui -- a leitura/texto fica na camada de
+        estatística."""
+        return self.repo.contar_ativos_por_papel(id_empresa=id_empresa)
