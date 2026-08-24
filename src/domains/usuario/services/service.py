@@ -163,3 +163,9 @@ class UsuarioService(ResetCredenciaisMixin):
  
     def atualizar(self, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
         return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid)
+    
+    def contagem_profissionais(self, id_empresa):
+        return self.repo.count_no_admin_users(id_empresa=id_empresa)
+    
+    def contagem_profissionais_por_status(self, id_empresa, status):
+        return self.repo.count_status_users(id_empresa=id_empresa, status=status)

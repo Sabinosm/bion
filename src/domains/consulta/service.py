@@ -86,3 +86,6 @@ class ConsultaService:
         c.data_hora_fim = datetime.now(timezone.utc)
         c.finalizada_por = id_usuario
         return self.repo.save(c)
+
+    def contar_consultas_dia(self,id_empresa):
+        return self.repo.contar_consultas_hoje(id_empresa=id_empresa)

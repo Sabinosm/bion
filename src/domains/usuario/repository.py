@@ -113,3 +113,17 @@ class UsuarioRepository(IRepository[Usuario]):
         
         
         return Usuario.query.filter_by(**filtros).offset(offset).limit(8)
+    
+    def count_no_admin_users(self, id_empresa):
+        return Usuario.query.filter_by(
+            is_admin_flag=False, 
+            id_empresa=id_empresa
+        ).count()
+    
+    def count_status_users(self,id_empresa,status):
+        return Usuario.query.filter_by(
+            is_admin_flag=False, 
+            id_empresa=id_empresa,
+            status=status
+        ).count()
+    

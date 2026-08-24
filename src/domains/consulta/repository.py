@@ -1,10 +1,14 @@
 """Repositório de acesso a dados da entidade Consulta."""
 
+from datetime import datetime, timezone
 from typing import Optional, List
+
+from sqlalchemy import func
 
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.clinico import Consulta
+
 
 
 class ConsultaRepository(IRepository[Consulta]):
@@ -49,3 +53,15 @@ class ConsultaRepository(IRepository[Consulta]):
     def find_all(self) -> List[Consulta]:
         """Lista todas as Consultas cadastradas, sem filtro."""
         return Consulta.query.all()
+    
+    def contar_consultas_hoje(id_empresa: int) -> int:
+        from src.models.usuarios.usuario import Usuario
+        hoje = datetime.now(timezone.utc).date()
+
+        return (
+            Consulta.query(func.count(Consulta.id))
+            .join(Usuario, Consulta.iniciada_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(func.date(Consulta.data_hora_inicio) == hoje)
+            .scalar()
+        )

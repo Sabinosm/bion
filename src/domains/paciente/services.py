@@ -109,6 +109,13 @@ class PacienteService:
         db.session.commit()
 
         return paciente
+    
+    def contar_pacientes_hoje(self, id_empresa):
+        return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
+    
+    def contar_total_pacientes(self,id_empresa):
+        return self.repo.count_pacientes(id_empresa=id_empresa)
+    
 
     def atualizar(self, uuid: str, dados: dict):
         """ALTERADO: tipo_sanguineo SAIU daqui -- ver
@@ -362,3 +369,4 @@ class ConsentimentoService:
         ativo.data_revogacao = datetime.now(timezone.utc)
         ativo.motivo_revogacao = motivo or "Revogado a pedido do titular."
         return self.repo.save(ativo)
+    
