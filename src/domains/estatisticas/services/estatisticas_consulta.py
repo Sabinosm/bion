@@ -75,4 +75,4 @@ class EstatisticasConsulta:
             "leitura": f"{percentual}% dos atendimentos iniciados foram concluídos",
             "interpretacao": interpretacao,
         }
- 
+        

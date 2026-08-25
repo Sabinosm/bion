@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta, timezone
+
 from src.domains.atendimento.service import AtendimentoService
+from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel
 
 ats = AtendimentoService()
 
@@ -15,49 +18,66 @@ class EstatisticasAtendimento:
     def tempo_medio_por_tipo(self, id_empresa, dias=30):
         """Duração média por tipo_atendimento (triagem, avaliacao-medica, etc).
  
-        Retorna: {"por_tipo": [{"tipo_atendimento", "media_segundos",
-                  "media_formatada", "total"}, ...], "leitura": str}
+        Grupo 2 -- sem nivel (o que é "rápido" varia por tipo de
+        atendimento, não tem threshold universal), mas direcao=alto_ruim
+        (menor tempo é melhor) + comparacao com o período anterior.
  
-        Nota: variação % vs. período anterior (mencionada na leitura do
-        .md) fica pendente -- precisaria de uma segunda chamada com
-        dias*2 e comparar as duas janelas. Deixei de fora por ora pra
-        não assumir a regra de "período anterior" sem confirmar com
-        vocês (dias anteriores consecutivos? mesmo período do mês
-        passado?).
+        Retorna: {"por_tipo": [{"tipo_atendimento", "media_segundos",
+                  "media_formatada", "total"}, ...], "leitura": str,
+                  "interpretacao": {...}|None}
         """
         bruto = ats.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
  
         por_tipo = [
-            {
-                **item,
-                "media_formatada": _formatar_duracao(item["media_segundos"]),
-            }
+            {**item, "media_formatada": _formatar_duracao(item["media_segundos"])}
             for item in bruto
         ]
  
-        leitura = None
-        if por_tipo:
-            principal = max(por_tipo, key=lambda item: item["total"])
-            leitura = (
-                f"Tempo médio de atendimento ({principal['tipo_atendimento']}): "
-                f"{principal['media_formatada']}"
-            )
+        if not por_tipo:
+            return {"por_tipo": por_tipo, "leitura": None, "interpretacao": None}
  
-        return {"por_tipo": por_tipo, "leitura": leitura}
+        # média geral ponderada, para a comparação de período (não por tipo)
+        def media_geral(lista):
+            total_seg = sum(item["media_segundos"] * item["total"] for item in lista)
+            total_n = sum(item["total"] for item in lista)
+            return (total_seg / total_n) if total_n else None
+ 
+        media_atual = media_geral(por_tipo)
+ 
+        agora = datetime.now(timezone.utc)
+        inicio_atual = agora - timedelta(days=dias)
+        inicio_anterior = agora - timedelta(days=dias * 2)
+        bruto_anterior = ats.tempo_medio_por_tipo_periodo(
+            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
+        )
+        media_anterior = media_geral(bruto_anterior)
+ 
+        principal = max(por_tipo, key=lambda item: item["total"])
+        leitura = f"Tempo médio de atendimento ({principal['tipo_atendimento']}): {principal['media_formatada']}"
+ 
+        interpretacao = interpretacao_sem_nivel(
+            texto="Quanto menor o tempo, melhor -- indica agilidade no fluxo. O tempo 'ideal' varia por tipo de atendimento, então avalie a tendência, não um valor fixo",
+            direcao="alto_ruim",
+            comparacao=calcular_comparacao(media_atual, media_anterior, unidade="s"),
+        )
+ 
+        return {"por_tipo": por_tipo, "leitura": leitura, "interpretacao": interpretacao}
  
     # --- E2: Tendência de eficiência acumulada ---
     def tendencia_eficiencia(self, id_empresa, dias=30):
         """Compara o tempo médio de atendimento em dois períodos
-        CONSECUTIVOS e EXCLUSIVOS de `dias` dias cada (ex: dias=30 ->
-        "últimos 30 dias" vs. "os 30 dias antes desses") -- corrigido
-        para não sobrepor janelas (versão anterior comparava 'últimos 60'
-        com 'últimos 30', que se sobrepunham e distorciam a variação %).
+        CONSECUTIVOS e EXCLUSIVOS de `dias` dias cada.
+ 
+        Caso especial -- esta rota JÁ É a comparação (não faz sentido
+        comparar a comparação com um "período anterior" dela mesma).
+        nivel fica None (variação %, sem threshold absoluto tipo
+        "85% otimo"); direcao e o texto de comparacao vêm da própria
+        variação calculada.
  
         Retorna: {"periodo_atual": [...], "periodo_anterior": [...],
-                  "variacao_percentual": float|None, "leitura": str}
+                  "variacao_percentual": float|None, "leitura": str,
+                  "interpretacao": {...}|None}
         """
-        from datetime import datetime, timedelta, timezone
- 
         agora = datetime.now(timezone.utc)
         inicio_atual = agora - timedelta(days=dias)
         inicio_anterior = agora - timedelta(days=dias * 2)
@@ -77,22 +97,38 @@ class EstatisticasAtendimento:
         media_atual = media_geral(periodo_atual)
         media_anterior = media_geral(periodo_anterior)
  
-        variacao = None
-        leitura = None
-        if media_atual is not None and media_anterior:
-            variacao = round(((media_atual - media_anterior) / media_anterior) * 100, 1)
-            direcao = "mais rápida" if variacao < 0 else "mais lenta"
-            leitura = (
-                f"A equipe está {abs(variacao)}% {direcao} nos últimos {dias} dias, "
-                f"comparado aos {dias} dias anteriores"
-            )
-        elif media_atual is not None and media_anterior is None:
-            leitura = "Sem dados suficientes no período anterior para comparação"
+        if media_atual is None:
+            return {
+                "periodo_atual": periodo_atual, "periodo_anterior": periodo_anterior,
+                "variacao_percentual": None, "leitura": None, "interpretacao": None,
+            }
+ 
+        if not media_anterior:
+            return {
+                "periodo_atual": periodo_atual, "periodo_anterior": periodo_anterior,
+                "variacao_percentual": None,
+                "leitura": "Sem dados suficientes no período anterior para comparação",
+                "interpretacao": None,
+            }
+ 
+        variacao = round(((media_atual - media_anterior) / media_anterior) * 100, 1)
+        direcao_texto = "mais rápida" if variacao < 0 else "mais lenta"
+        leitura = (
+            f"A equipe está {abs(variacao)}% {direcao_texto} nos últimos {dias} dias, "
+            f"comparado aos {dias} dias anteriores"
+        )
+ 
+        interpretacao = interpretacao_sem_nivel(
+            texto="Queda no tempo médio indica ganho de eficiência; alta sustentada pode indicar sobrecarga da equipe ou casos mais complexos",
+            direcao="alto_ruim",
+            comparacao=calcular_comparacao(media_atual, media_anterior, unidade="s"),
+        )
  
         return {
             "periodo_atual": periodo_atual,
             "periodo_anterior": periodo_anterior,
             "variacao_percentual": variacao,
             "leitura": leitura,
+            "interpretacao": interpretacao,
         }
  

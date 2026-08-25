@@ -11,6 +11,10 @@ Localização sugerida: src/domains/estatisticas/interpretacao.py
 def nivel_por_percentual(valor: float) -> str:
     """Classifica um valor 0-100 em nivel, conforme thresholds definidos:
     85+ otimo, 70+ bom, 60+ ok, 50+ medio, 40+ medio_ruim, <40 ruim.
+
+    Uso: métricas onde valor ALTO é bom (ex: taxa_conclusao, confianca_ia).
+    Para métricas onde valor ALTO é ruim (ex: % de casos graves), usar
+    nivel_por_percentual_invertido.
     """
     if valor >= 85:
         return "otimo"
@@ -25,18 +29,29 @@ def nivel_por_percentual(valor: float) -> str:
     return "ruim"
 
 
+def nivel_por_percentual_invertido(valor: float) -> str:
+    """Mesmos thresholds de nivel_por_percentual, mas com a escala
+    invertida -- para métricas onde valor ALTO é ruim (ex: % de reações
+    alérgicas graves, % de abandono). Um valor de 5% aqui é "otimo",
+    um valor de 90% é "ruim".
+    """
+    return nivel_por_percentual(100 - valor)
+
+
 def interpretacao_percentual(valor: float, texto: str, direcao: str = "alto_bom", comparacao: str = None) -> dict:
     """Monta o dict de interpretação completo para métricas 0-100 com
     threshold conhecido (Grupo 1: taxa_conclusao, confianca_ia,
     completude_ia, gravidade %, etc).
 
-    direcao: "alto_bom" (padrão -- mais % é melhor) ou "alto_ruim"
-    (raro nesse grupo, mas existe -- ex: % de casos graves).
+    direcao: "alto_bom" (mais % é melhor, usa nivel_por_percentual) ou
+    "alto_ruim" (mais % é pior, usa nivel_por_percentual_invertido --
+    ex: % de casos graves, % de abandono).
     """
+    nivel = nivel_por_percentual_invertido(valor) if direcao == "alto_ruim" else nivel_por_percentual(valor)
     return {
         "direcao": direcao,
         "texto": texto,
-        "nivel": nivel_por_percentual(valor),
+        "nivel": nivel,
         "comparacao": comparacao,
     }
 
