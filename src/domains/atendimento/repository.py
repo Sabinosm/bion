@@ -103,7 +103,26 @@ class AtendimentoRepository(IRepository[Atendimento]):
             }
             for linha in linhas
         ]
- 
+    
+    # --- A1: Volume de atendimentos (consultas) por dia ---
+    def consultas_por_dia(self, id_empresa: int, dias: int = 30):
+        """Repassa a agregação bruta do repository. Sem lógica de negócio
+        aqui -- formatação/leitura fica na camada de estatística."""
+        return self.repo.contar_consultas_por_dia(id_empresa=id_empresa, dias=dias)
+
+    # --- A3: Taxa de conclusão vs. abandono ---
+    def consultas_por_status(self, id_empresa: int, dias: int = 30):
+        """Repassa a contagem bruta por status_consulta. O cálculo de %
+        (concluídas / total) fica na camada de estatística, não aqui --
+        o service de domínio só sabe buscar dado, não interpretar métrica."""
+        return self.repo.contar_consultas_por_status(id_empresa=id_empresa, dias=dias)
+
+    # --- A3 (comparação): consultas por status, com janela explícita ---
+    def consultas_por_status_periodo(self, id_empresa: int, data_inicio, data_fim):
+        return self.repo.contar_consultas_por_status_periodo(
+            id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
+        )
+        
     # --- Auxiliar para A3-equivalente no nível de Atendimento, se precisar ---
     def contar_atendimentos_por_status(self, id_empresa: int, dias: int = 30) -> dict:
         """Contagem de Atendimentos por status ('em-andamento', 'finalizado',

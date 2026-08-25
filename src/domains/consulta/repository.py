@@ -117,3 +117,26 @@ class ConsultaRepository(IRepository[Consulta]):
             .all()
         )
         return {linha.status: linha.total for linha in linhas}
+
+     # --- A3 (comparação): consultas por status, com janela explícita ---
+    def contar_consultas_por_status_periodo(self, id_empresa: int, data_inicio, data_fim) -> dict:
+        """Mesma agregação de contar_consultas_por_status, mas com
+        data_inicio/data_fim explícitos -- usado para calcular o
+        percentual do período ANTERIOR, sem sobrepor com o período atual
+        (mesmo padrão de tempo_medio_por_tipo_periodo, criado para E2).
+        """
+        from src.models.usuarios.usuario import Usuario
+ 
+        linhas = (
+            db.session.query(
+                Consulta.status_consulta.label("status"),
+                func.count(Consulta.id).label("total"),
+            )
+            .join(Usuario, Consulta.iniciada_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.data_hora_inicio >= data_inicio)
+            .filter(Consulta.data_hora_inicio < data_fim)
+            .group_by(Consulta.status_consulta)
+            .all()
+        )
+        return {linha.status: linha.total for linha in linhas}
