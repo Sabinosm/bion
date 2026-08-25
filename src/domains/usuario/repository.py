@@ -182,4 +182,26 @@ class UsuarioRepository(IRepository[Usuario]):
             )
             .all()
         )
+        
+# --- A5: Engajamento/atividade da equipe (contagem) ---
+    def contar_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> int:
+        """Conta usuários (não-admin, status ativo) sem acesso há mais de
+        N dias, ou que nunca acessaram. Par de find_inativos_ha_dias
+        (que retorna a lista completa) -- este devolve só o número, mais
+        barato quando o card só precisa do total.
+        """
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import or_
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+        return (
+            Usuario.query
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Usuario.is_admin == False,
+                Usuario.status == "ativo",
+                or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
+            )
+            .count()
+        )    
       

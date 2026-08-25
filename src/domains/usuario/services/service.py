@@ -176,3 +176,10 @@ class UsuarioService(ResetCredenciaisMixin):
         Sem lógica de negócio aqui -- a leitura/texto fica na camada de
         estatística."""
         return self.repo.contar_ativos_por_papel(id_empresa=id_empresa)
+    
+        # --- A5: Engajamento/atividade da equipe ---
+    def inativos_ha_dias(self, id_empresa: int, dias: int = 7):
+        return self.repo.contar_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
+ 
+    def lista_inativos_ha_dias(self, id_empresa: int, dias: int = 7):
+        return self.repo.find_inativos_ha_dias(id_empresa=id_empresa, dias=dias)

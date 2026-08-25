@@ -86,3 +86,52 @@ def alergia_gravidade_por_substancia(substancia):
         return json_success(dados)
     except Exception as e:
         return json_error(str(e))
+
+
+# --- A5: Engajamento/atividade da equipe ---
+@bp.get("/equipe/engajamento")
+@requer_papel("admin")
+def engajamento_equipe():
+    try:
+        dias = request.args.get("dias", default=7, type=int)
+        dados = _svc.engajamento_equipe(get_id_empresa_sessao(), dias=dias)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))
+
+
+# --- D3: Urgência de exames -- IA vs. profissional ---
+@bp.get("/exames/urgencia-por-origem")
+@requer_papel("admin")
+def urgencia_exames_por_origem():
+    try:
+        dias = request.args.get("dias", default=30, type=int)
+        dados = _svc.urgencia_exames_por_origem(get_id_empresa_sessao(), dias=dias)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))
+
+
+# --- C1: Doenças mais comuns por região ---
+@bp.get("/epidemiologico/top-cid-regiao")
+@requer_papel("admin")
+def top_cid_por_regiao():
+    try:
+        dias = request.args.get("dias", default=14, type=int)
+        limite = request.args.get("limite", default=10, type=int)
+        dados = _svc.top_cid_por_regiao(get_id_empresa_sessao(), dias=dias, limite=limite)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))
+
+
+# --- C3: Incidência por 100 mil habitantes ---
+@bp.get("/epidemiologico/incidencia-regiao")
+@requer_papel("admin")
+def incidencia_por_regiao():
+    try:
+        dias = request.args.get("dias", default=14, type=int)
+        dados = _svc.incidencia_por_regiao(get_id_empresa_sessao(), dias=dias)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))

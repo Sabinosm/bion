@@ -3,12 +3,16 @@ from .estatisticas_paciente import EstatisticasPaciente
 from .estatisticas_consulta import EstatisticasConsulta
 from .estatisticas_atendimento import EstatisticasAtendimento
 from .estatisticas_alergia import EstatisticasAlergia
+from .estatisticas_prescricao_exame import EstatisticasPrescricaoExame
+from .estatisticas_resultado_prescricao import EstatisticasResultadoPrescricao
 
 eu = EstatisticasUsuario()
 ep = EstatisticasPaciente()
 ec = EstatisticasConsulta()
 ea = EstatisticasAtendimento()
 eal = EstatisticasAlergia()
+epe = EstatisticasPrescricaoExame()
+erp = EstatisticasResultadoPrescricao()
 
 
 class EstatisticasService:
@@ -39,9 +43,25 @@ class EstatisticasService:
     def efetivo_ativo(self, id_empresa):
         return eu.efetivo_ativo(id_empresa=id_empresa)
 
+    # --- A5: Engajamento/atividade da equipe ---
+    def engajamento_equipe(self, id_empresa, dias=7):
+        return eu.engajamento_equipe(id_empresa=id_empresa, dias=dias)
+
     # --- D2: Alergias mais reportadas ---
     def alergias_top_substancias(self, id_empresa, limite=10):
         return eal.top_substancias(id_empresa=id_empresa, limite=limite)
 
     def alergia_gravidade_por_substancia(self, id_empresa, substancia):
         return eal.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+
+    # --- D3: Urgência de exames -- IA vs. profissional ---
+    def urgencia_exames_por_origem(self, id_empresa, dias=30):
+        return epe.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
+
+    # --- C1: Doenças mais comuns por região ---
+    def top_cid_por_regiao(self, id_empresa, dias=14, limite=10):
+        return erp.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
+
+    # --- C3: Incidência por 100 mil habitantes ---
+    def incidencia_por_regiao(self, id_empresa, dias=14):
+        return erp.incidencia_por_regiao(id_empresa=id_empresa, dias=dias)
