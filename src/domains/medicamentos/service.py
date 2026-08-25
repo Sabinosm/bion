@@ -1,5 +1,5 @@
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .repository import CatalogoMedicamentosRepository
+from .repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
 
 
 class CatalogoMedicamentosService:
@@ -33,3 +33,14 @@ class CatalogoMedicamentosService:
             nomes_comerciais_json=dados.get("nomes_comerciais"),
         )
         return self.repo.save(m)
+
+
+
+class InteracoesMedicamentosService:
+    
+    def __init__(self):
+        self.repo = InteracoesMedicamentosRepository()
+
+    # --- D1: Interações medicamentosas cadastradas por gravidade ---
+    def contar_por_gravidade(self):
+        return self.repo.contar_por_gravidade()

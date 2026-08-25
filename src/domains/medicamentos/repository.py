@@ -41,3 +41,63 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
 
     def find_all(self) -> List[CatalogoMedicamentos]:
         return CatalogoMedicamentos.query.all()
+
+class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
+
+    def find_by_id(self, id: int) -> Optional[InteracoesMedicamentos]:
+        return db.session.get(InteracoesMedicamentos, id)
+
+    def find_by_uuid(self, uuid: str) -> Optional[InteracoesMedicamentos]:
+        return InteracoesMedicamentos.query.filter_by(uuid=uuid).first()
+
+    def find_por_medicamento(self, id_catalogo: int) -> List[InteracoesMedicamentos]:
+        """Todas as interações que envolvem um medicamento, seja como A ou B."""
+        from sqlalchemy import or_
+        return (
+            InteracoesMedicamentos.query
+            .filter(or_(
+                InteracoesMedicamentos.id_medicamento_a == id_catalogo,
+                InteracoesMedicamentos.id_medicamento_b == id_catalogo,
+            ))
+            .all()
+        )
+
+    def save(self, entity: InteracoesMedicamentos) -> InteracoesMedicamentos:
+        db.session.add(entity)
+        db.session.commit()
+        return entity
+
+    def delete(self, id: int) -> bool:
+        e = self.find_by_id(id)
+        if not e:
+            return False
+        db.session.delete(e)
+        db.session.commit()
+        return True
+
+    def find_all(self) -> List[InteracoesMedicamentos]:
+        return InteracoesMedicamentos.query.all()
+
+    # --- D1: Interações medicamentosas cadastradas por gravidade ---
+    def contar_por_gravidade(self) -> dict:
+        """Contagem de interações cadastradas no catálogo, por
+        gravidade. Não filtra por empresa nem cruza com pacientes reais
+        -- é dado de catálogo/base de conhecimento, igual pra todas as
+        empresas (equivalente a uma tabela de referência médica).
+
+        Retorna: {"grave": 12, "moderada": 30, "leve": 8, ...}
+        (chaves exatamente como cadastradas em InteracoesMedicamentos.gravidade,
+        que é string livre, não enum -- então normalizar minúsculo pode
+        ser necessário se houver inconsistência de cadastro)
+        """
+        from sqlalchemy import func
+
+        linhas = (
+            db.session.query(
+                InteracoesMedicamentos.gravidade.label("gravidade"),
+                func.count(InteracoesMedicamentos.id).label("total"),
+            )
+            .group_by(InteracoesMedicamentos.gravidade)
+            .all()
+        )
+        return {linha.gravidade: linha.total for linha in linhas}
