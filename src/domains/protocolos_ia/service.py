@@ -87,3 +87,20 @@ class OutputBionService:
             indice_confianca=getattr(resultado, "indice_confianca", None),
         )
         return self.repo.save(output)
+    
+    # --- B1: Confiança média da IA ---
+    def media_confianca(self, id_empresa: int, dias: int = 30):
+        return self.repo.media_confianca(id_empresa=id_empresa, dias=dias)
+ 
+    # --- B2: Completude média dos dados de entrada ---
+    def media_completude(self, id_empresa: int, dias: int = 30):
+        return self.repo.media_completude(id_empresa=id_empresa, dias=dias)
+ 
+    # --- B4: Versão do modelo de IA em uso ---
+    def versoes_em_uso(self, id_empresa: int, dias: int = 30):
+        return self.repo.versoes_em_uso(id_empresa=id_empresa, dias=dias)
+ 
+    # --- E3: pares completude/confiança para correlação ---
+    def pares_completude_confianca(self, id_empresa: int, dias: int = 30):
+        return self.repo.pares_completude_confianca(id_empresa=id_empresa, dias=dias)
+ 
