@@ -76,6 +76,37 @@ class AlergiaRepository(IRepository[Alergia]):
         )
         return [{"substancia": linha.substancia, "total": linha.total} for linha in linhas]
  
+        # --- D2: Alergias mais reportadas (por substância) ---
+    def top_substancias(self, id_empresa: int, limite: int = 10) -> List[dict]:
+        """Substâncias alergênicas mais reportadas entre os pacientes da
+        empresa, com contagem de casos.
+ 
+        Filtra por empresa via Paciente.cadastrado_por -> Usuario, mesmo
+        padrão usado em PacienteRepository.count_pacientes.
+ 
+        Retorna lista de dicts, ordenada do mais frequente pro menos:
+        [{"substancia": "Dipirona", "total": 18}, ...]
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+ 
+        linhas = (
+            db.session.query(
+                Alergia.substancia.label("substancia"),
+                func.count(Alergia.id).label("total"),
+            )
+            .join(Paciente, Alergia.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .group_by(Alergia.substancia)
+            .order_by(func.count(Alergia.id).desc())
+            .limit(limite)
+            .all()
+        )
+        return [{"substancia": linha.substancia, "total": linha.total} for linha in linhas]
+ 
     # --- D2 (detalhe): gravidade das reações por substância ---
     def gravidade_por_substancia(self, id_empresa: int, substancia: str) -> dict:
         """Distribuição de gravidade (leve/moderada/grave) das reações
@@ -105,3 +136,28 @@ class AlergiaRepository(IRepository[Alergia]):
         )
         return {linha.gravidade: linha.total for linha in linhas}
  
+    # --- F4: Gravidade geral das reações alérgicas (sem filtro por substância) ---
+    def gravidade_geral(self, id_empresa: int) -> dict:
+        """Mesma lógica de gravidade_por_substancia, mas sem o filtro
+        WHERE substancia=... -- visão agregada de todas as reações da
+        empresa, não drill-down de 1 substância específica.
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+        from src.models.pacientes.reacao_alergia import ReacaoAlergia
+ 
+        linhas = (
+            db.session.query(
+                ReacaoAlergia.gravidade.label("gravidade"),
+                func.count(ReacaoAlergia.id).label("total"),
+            )
+            .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
+            .join(Paciente, Alergia.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .group_by(ReacaoAlergia.gravidade)
+            .all()
+        )
+        return {linha.gravidade: linha.total for linha in linhas}

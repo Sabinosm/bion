@@ -34,3 +34,35 @@ class MedicamentoEmUsoRepository(IRepository[MedicamentoEmUso]):
         db.session.delete(e)
         db.session.commit()
         return True
+    
+     # --- F2: Pacientes em uso contínuo de medicação (%) ---
+    def percentual_pacientes_em_uso_continuo(self, id_empresa: int) -> dict:
+        """% de pacientes (distintos) da empresa com status_uso='ativo'
+        em pelo menos 1 medicamento, sobre o total de pacientes cadastrados.
+ 
+        Retorna: {"total_pacientes": int, "em_uso_continuo": int, "percentual": float}
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+ 
+        total_pacientes = (
+            db.session.query(func.count(Paciente.id))
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .scalar() or 0
+        )
+ 
+        em_uso = (
+            db.session.query(func.count(func.distinct(MedicamentoEmUso.id_paciente)))
+            .join(Paciente, MedicamentoEmUso.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(MedicamentoEmUso.status_uso == "ativo")
+            .scalar() or 0
+        )
+ 
+        percentual = round((em_uso / total_pacientes) * 100, 1) if total_pacientes else 0.0
+ 
+        return {"total_pacientes": total_pacientes, "em_uso_continuo": em_uso, "percentual": percentual}

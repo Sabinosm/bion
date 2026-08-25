@@ -66,3 +66,35 @@ class PacienteRepository(IRepository[Paciente]):
                 .filter(Usuario.id_empresa == id_empresa)
                 .scalar()
             )
+     # --- F1: Doenças crônicas mais comuns na base ---
+    def top_cid_ativas(self, id_empresa: int, limite: int = 10) -> list:
+        """Ranking de codigo_cid10 com status='ativa', entre os pacientes
+        da empresa. Não filtra por período -- é o estado atual da base,
+        não um evento pontual.
+ 
+        Retorna: [{"codigo_cid10": "I10", "descricao_cid10": "Hipertensão", "total": 214}, ...]
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+ 
+        linhas = (
+            db.session.query(
+                DoencaCronica.codigo_cid10.label("codigo"),
+                DoencaCronica.descricao_cid10.label("descricao"),
+                func.count(DoencaCronica.id).label("total"),
+            )
+            .join(Paciente, DoencaCronica.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(DoencaCronica.status == "ativa")
+            .group_by(DoencaCronica.codigo_cid10, DoencaCronica.descricao_cid10)
+            .order_by(func.count(DoencaCronica.id).desc())
+            .limit(limite)
+            .all()
+        )
+        return [
+            {"codigo_cid10": linha.codigo, "descricao_cid10": linha.descricao, "total": linha.total}
+            for linha in linhas
+        ]

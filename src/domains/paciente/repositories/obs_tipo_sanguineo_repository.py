@@ -77,3 +77,48 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         db.session.delete(e)
         db.session.commit()
         return True
+    
+    # --- F3: Distribuição de tipo sanguíneo na base ---
+    def distribuicao_tipo_sanguineo(self, id_empresa: int) -> dict:
+        """Distribuição por tipo_sanguineo, usando só a observação MAIS
+        RECENTE de cada paciente (não conta duplicado se o paciente tem
+        várias observações no histórico).
+ 
+        Usa uma subquery de MAX(data_registro) por paciente, depois
+        junta de volta pra pegar o tipo_sanguineo daquela observação
+        específica -- evita trazer todo o histórico pra agregar em Python.
+ 
+        Retorna: {"O+": 120, "A+": 95, ...}
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+ 
+        # subquery: data da observação mais recente por paciente
+        subq = (
+            db.session.query(
+                ObservacaoTipoSanguineo.id_paciente.label("id_paciente"),
+                func.max(ObservacaoTipoSanguineo.data_registro).label("max_data"),
+            )
+            .group_by(ObservacaoTipoSanguineo.id_paciente)
+            .subquery()
+        )
+ 
+        linhas = (
+            db.session.query(
+                ObservacaoTipoSanguineo.tipo_sanguineo.label("tipo"),
+                func.count(ObservacaoTipoSanguineo.id).label("total"),
+            )
+            .join(
+                subq,
+                (ObservacaoTipoSanguineo.id_paciente == subq.c.id_paciente)
+                & (ObservacaoTipoSanguineo.data_registro == subq.c.max_data),
+            )
+            .join(Paciente, ObservacaoTipoSanguineo.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .group_by(ObservacaoTipoSanguineo.tipo_sanguineo)
+            .all()
+        )
+        return {linha.tipo: linha.total for linha in linhas}

@@ -140,3 +140,14 @@ class DadosClinicosService:
             status_uso=dados.get("status_uso", "ativo" if dados.get("flag_em_uso", True) else "interrompido"),
         )
         return self.medicamento_repo.save(m)
+    
+    # --- D2: Alergias mais reportadas ---
+    def top_substancias(self, id_empresa: int, limite: int = 10):
+        return self.repo.top_substancias(id_empresa=id_empresa, limite=limite)
+ 
+    def gravidade_por_substancia(self, id_empresa: int, substancia: str):
+        return self.repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+ 
+    # --- F4: Gravidade geral das reações alérgicas ---
+    def gravidade_geral(self, id_empresa: int):
+        return self.repo.gravidade_geral(id_empresa=id_empresa)
