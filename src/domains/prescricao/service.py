@@ -108,9 +108,17 @@ class PrescricaoService:
     def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
         return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
  
+    # --- C1: Doenças mais comuns por região ---
+    def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
+        return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
+ 
     # --- C3 (bônus): base para incidência por 100 mil ---
     def total_casos_por_regiao(self, id_empresa: int, dias: int = 14):
-        return self.repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)    
+        return self.repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
+ 
+    # --- C2: Evolução temporal de um CID específico ---
+    def evolucao_cid(self, id_empresa: int, codigo_cid10: str, dias: int = 30):
+        return self.repo.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)    
     
      # --- D3: Urgência de exames -- IA vs. profissional ---
     def urgencia_por_origem(self, id_empresa: int, dias: int = 30):
