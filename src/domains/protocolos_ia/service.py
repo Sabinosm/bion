@@ -103,4 +103,8 @@ class OutputBionService:
     # --- E3: pares completude/confiança para correlação ---
     def pares_completude_confianca(self, id_empresa: int, dias: int = 30):
         return self.repo.pares_completude_confianca(id_empresa=id_empresa, dias=dias)
+
+        # --- C5: Queixas principais mais frequentes ---
+    def queixas_recentes(self, id_empresa: int, dias: int = 30, limite: int = 200):
+        return self.repo.queixas_recentes(id_empresa=id_empresa, dias=dias, limite=limite)
  
