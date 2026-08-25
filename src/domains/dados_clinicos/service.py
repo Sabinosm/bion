@@ -117,3 +117,7 @@ class DadosClinicosService:
             dados_criticos_ausentes_json=dados.get("dados_criticos_ausentes"),
         )
         return self.input_repo.save(ip)
+    
+      # --- C4: Tempo até busca por atendimento ---
+    def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30):
+        return self.repo.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)

@@ -84,6 +84,33 @@ class SinalVitalRepository(IRepository[SinalVital]):
         """Lista todos os SinalVital cadastrados, sem filtro."""
         return SinalVital.query.all()
 
+    # --- C4: Tempo até busca por atendimento (sintoma -> consulta) ---
+    def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30) -> Optional[float]:
+        """Média de desde_quando_sintomas (em horas) no período --
+        quanto tempo o paciente demora, em média, entre o início dos
+        sintomas e a busca por atendimento.
+ 
+        Filtra só valores preenchidos (campo é opcional/nullable no
+        model). None se não houver dados suficientes.
+        """
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.clinico import Atendimento
+ 
+        limite_data = datetime.now(timezone.utc) - timedelta(days=dias)
+ 
+        media = (
+            db.session.query(func.avg(ColetaClinica.desde_quando_sintomas))
+            .join(Atendimento, ColetaClinica.id_atendimento == Atendimento.id)
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= limite_data)
+            .filter(ColetaClinica.desde_quando_sintomas.isnot(None))
+            .scalar()
+        )
+        return float(media) if media is not None else None
+ 
 
 class InputProtocoloRepository(IRepository[InputProtocolo]):
     """Encapsula todo acesso a dados de InputProtocolo via SQLAlchemy."""
