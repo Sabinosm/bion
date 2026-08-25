@@ -59,30 +59,29 @@ class AtendimentoRepository(IRepository[Atendimento]):
         return Atendimento.query.all()
 
     # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
-    # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
     def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:
         """Duração média de Atendimentos finalizados, agrupado por tipo.
-
+ 
         Só considera atendimentos com data_hora_fim preenchida (senão a
         duração não existe ainda). Filtra por empresa via o usuário que
         realizou o atendimento (realizado_por).
-
+ 
         Retorna lista de dicts:
         [{"tipo_atendimento": "triagem", "media_segundos": 512.3, "total": 42}, ...]
-
+ 
         A conversão para "8min32s" e o cálculo de variação % vs. período
         anterior ficam na camada de estatística (EstatisticasAtendimento),
         não aqui -- este método só agrega o dado bruto.
         """
         from src.models.usuarios.usuario import Usuario
-
+ 
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
-
+ 
         # MySQL: TIMESTAMPDIFF(SECOND, inicio, fim) -- não existe EXTRACT(EPOCH)
         duracao_segundos = func.timestampdiff(
             text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
         )
-
+ 
         linhas = (
             db.session.query(
                 Atendimento.tipo_atendimento.label("tipo_atendimento"),
@@ -104,7 +103,7 @@ class AtendimentoRepository(IRepository[Atendimento]):
             }
             for linha in linhas
         ]
-
+ 
     # --- Auxiliar para A3-equivalente no nível de Atendimento, se precisar ---
     def contar_atendimentos_por_status(self, id_empresa: int, dias: int = 30) -> dict:
         """Contagem de Atendimentos por status ('em-andamento', 'finalizado',
@@ -114,9 +113,9 @@ class AtendimentoRepository(IRepository[Atendimento]):
         etapa, não só por consulta inteira.
         """
         from src.models.usuarios.usuario import Usuario
-
+ 
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
-
+ 
         linhas = (
             db.session.query(
                 Atendimento.status.label("status"),
@@ -129,3 +128,40 @@ class AtendimentoRepository(IRepository[Atendimento]):
             .all()
         )
         return {linha.status: linha.total for linha in linhas}
+ 
+    # --- E2: tempo médio por tipo, com janela explícita (sem sobreposição) ---
+    def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
+        """Mesma agregação de tempo_medio_por_tipo, mas com data_inicio/
+        data_fim explícitos em vez de 'últimos N dias corridos' -- usado
+        por E2 para comparar dois períodos que NÃO se sobrepõem (ex:
+        mês passado vs. este mês). tempo_medio_por_tipo continua existindo
+        para A2, que não precisa dessa precisão de janela.
+        """
+        from src.models.usuarios.usuario import Usuario
+ 
+        duracao_segundos = func.timestampdiff(
+            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
+        )
+ 
+        linhas = (
+            db.session.query(
+                Atendimento.tipo_atendimento.label("tipo_atendimento"),
+                func.avg(duracao_segundos).label("media_segundos"),
+                func.count(Atendimento.id).label("total"),
+            )
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= data_inicio)
+            .filter(Atendimento.data_hora_inicio < data_fim)
+            .filter(Atendimento.data_hora_fim.isnot(None))
+            .group_by(Atendimento.tipo_atendimento)
+            .all()
+        )
+        return [
+            {
+                "tipo_atendimento": linha.tipo_atendimento,
+                "media_segundos": float(linha.media_segundos) if linha.media_segundos else 0.0,
+                "total": linha.total,
+            }
+            for linha in linhas
+        ]

@@ -84,20 +84,28 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
         gravidade. Não filtra por empresa nem cruza com pacientes reais
         -- é dado de catálogo/base de conhecimento, igual pra todas as
         empresas (equivalente a uma tabela de referência médica).
-
+ 
+        `gravidade` é String(50) livre no schema (não Enum), então
+        normaliza para minúsculo/sem espaços nas pontas antes de
+        agrupar -- evita fragmentar o resultado por inconsistência de
+        cadastro (ex: "Grave" e "grave " contando como categorias
+        diferentes). Isso reduz o risco, mas não resolve de vez: se o
+        cadastro usar sinônimos distintos ("grave" vs "alta"), ainda
+        aparecem como grupos separados -- resolve de verdade só
+        convertendo a coluna para Enum no schema.
+ 
         Retorna: {"grave": 12, "moderada": 30, "leve": 8, ...}
-        (chaves exatamente como cadastradas em InteracoesMedicamentos.gravidade,
-        que é string livre, não enum -- então normalizar minúsculo pode
-        ser necessário se houver inconsistência de cadastro)
         """
         from sqlalchemy import func
-
+ 
+        gravidade_normalizada = func.lower(func.trim(InteracoesMedicamentos.gravidade))
+ 
         linhas = (
             db.session.query(
-                InteracoesMedicamentos.gravidade.label("gravidade"),
+                gravidade_normalizada.label("gravidade"),
                 func.count(InteracoesMedicamentos.id).label("total"),
             )
-            .group_by(InteracoesMedicamentos.gravidade)
+            .group_by(gravidade_normalizada)
             .all()
         )
         return {linha.gravidade: linha.total for linha in linhas}

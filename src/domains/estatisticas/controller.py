@@ -85,7 +85,7 @@ def engajamento_equipe():
 @requer_papel("admin")
 def tendencia_eficiencia():
     try:
-        dias = request.args.get("dias", default=60, type=int)
+        dias = request.args.get("dias", default=30, type=int)
         dados = _svc.tendencia_eficiencia(get_id_empresa_sessao(), dias=dias)
         return json_success(dados)
     except Exception as e:
