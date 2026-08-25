@@ -1,6 +1,6 @@
-from src.domains.dados_clinicos.service import ColetaClinicaService
+from src.domains.dados_clinicos.service import DadosClinicosService
 
-cc_svc = ColetaClinicaService()
+dcs = DadosClinicosService()
 
 
 class EstatisticasColetaClinica:
@@ -8,7 +8,7 @@ class EstatisticasColetaClinica:
     # --- C4: Tempo até busca por atendimento (sintoma -> consulta) ---
     def tempo_ate_atendimento(self, id_empresa, dias=30):
         """Retorna: {"media_horas": float|None, "leitura": str}"""
-        media = cc_svc.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
+        media = dcs.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
 
         leitura = None
         if media is not None:
