@@ -1,0 +1,3 @@
+from consentimento_service import ConsentimentoService
+from dados_clinicos_service import DadosClinicosService
+from paciente_service import PacienteService

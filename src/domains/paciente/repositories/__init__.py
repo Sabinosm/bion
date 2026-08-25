@@ -1,0 +1,7 @@
+from .alergia_repository import AlergiaRepository
+from .consentimento_repository import ConsentimentoRepository
+from .doenca_cronica_repository import DoencaCronicaRepository
+from .medicamento_em_uso_repository import MedicamentoEmUsoRepository
+from .obs_tipo_sanguineo_repository import ObservacaoTipoSanguineoRepository
+from .reacao_alergia_repository import ReacaoAlergiaRepository
+from .paciente_repository import PacienteRepository
