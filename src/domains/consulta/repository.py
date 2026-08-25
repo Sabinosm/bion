@@ -92,6 +92,28 @@ class ConsultaRepository(IRepository[Consulta]):
         )
         return [{"data": linha.data, "total": linha.total} for linha in linhas]
 
+    # --- A1 (comparação): consultas por dia, com janela explícita ---
+    def contar_consultas_por_dia_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
+        """Mesma agregação de contar_consultas_por_dia, mas com
+        data_inicio/data_fim explícitos -- usado para o total do
+        período ANTERIOR na comparação de A1.
+        """
+        from src.models.usuarios.usuario import Usuario
+
+        dia = func.date(Consulta.data_hora_inicio)
+
+        linhas = (
+            db.session.query(dia.label("data"), func.count(Consulta.id).label("total"))
+            .join(Usuario, Consulta.iniciada_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.data_hora_inicio >= data_inicio)
+            .filter(Consulta.data_hora_inicio < data_fim)
+            .group_by(dia)
+            .order_by(dia.asc())
+            .all()
+        )
+        return [{"data": linha.data, "total": linha.total} for linha in linhas]
+
     # --- A3: Taxa de conclusão vs. abandono ---
     def contar_consultas_por_status(self, id_empresa: int, dias: int = 30) -> dict:
         """Contagem de Consultas por status_consulta, nos últimos N dias.
@@ -118,15 +140,14 @@ class ConsultaRepository(IRepository[Consulta]):
         )
         return {linha.status: linha.total for linha in linhas}
 
-     # --- A3 (comparação): consultas por status, com janela explícita ---
+    # --- A3 (comparação): consultas por status, com janela explícita ---
     def contar_consultas_por_status_periodo(self, id_empresa: int, data_inicio, data_fim) -> dict:
         """Mesma agregação de contar_consultas_por_status, mas com
         data_inicio/data_fim explícitos -- usado para calcular o
-        percentual do período ANTERIOR, sem sobrepor com o período atual
-        (mesmo padrão de tempo_medio_por_tipo_periodo, criado para E2).
+        percentual do período ANTERIOR (comparação de A3).
         """
         from src.models.usuarios.usuario import Usuario
- 
+
         linhas = (
             db.session.query(
                 Consulta.status_consulta.label("status"),

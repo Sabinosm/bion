@@ -87,14 +87,20 @@ class ConsultaService:
         c.finalizada_por = id_usuario
         return self.repo.save(c)
 
-    def contar_consultas_dia(self,id_empresa):
+    def contar_consultas_hoje(self,id_empresa):
         return self.repo.contar_consultas_hoje(id_empresa=id_empresa)
     
-        # --- A1: Volume de atendimentos (consultas) por dia ---
+# --- A1: Volume de atendimentos (consultas) por dia ---
     def consultas_por_dia(self, id_empresa: int, dias: int = 30):
         """Repassa a agregação bruta do repository. Sem lógica de negócio
         aqui -- formatação/leitura fica na camada de estatística."""
         return self.repo.contar_consultas_por_dia(id_empresa=id_empresa, dias=dias)
+ 
+    # --- A1 (comparação): consultas por dia, com janela explícita ---
+    def consultas_por_dia_periodo(self, id_empresa: int, data_inicio, data_fim):
+        return self.repo.contar_consultas_por_dia_periodo(
+            id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
+        )
  
     # --- A3: Taxa de conclusão vs. abandono ---
     def consultas_por_status(self, id_empresa: int, dias: int = 30):

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao
+from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel
 from src.domains.consulta.service import ConsultaService
 
 cs = ConsultaService()
@@ -13,24 +13,40 @@ _STATUS_CONCLUIDO = "encerrada"
 class EstatisticasConsulta:
  
     def consultas_hoje(self, id_empresa):
-        return cs.contar_consultas_dia(id_empresa=id_empresa)
+        return cs.contar_consultas_hoje(id_empresa=id_empresa)
  
     # --- A1: Volume de atendimentos ---
     def volume_por_dia(self, id_empresa, dias=30):
         """Série diária de consultas iniciadas, para gráfico de linha/barra.
  
-        Grupo 2 -- sem interpretação estruturada. Volume absoluto não
-        tem "certo/errado" sem contexto de demanda; fica só o "leitura"
-        textual, como já estava.
+        Grupo 2 -- sem nivel (volume "certo" depende da capacidade da
+        equipe, sem threshold universal), direcao neutro, com comparacao
+        vs. período anterior.
  
-        Retorna: {"serie": [{"data": ..., "total": ...}, ...], "total_periodo": int}
+        Retorna: {"serie": [...], "total_periodo": int, "leitura": str, "interpretacao": {...}}
         """
         serie = cs.consultas_por_dia(id_empresa=id_empresa, dias=dias)
         total_periodo = sum(item["total"] for item in serie)
+ 
+        agora = datetime.now(timezone.utc)
+        inicio_atual = agora - timedelta(days=dias)
+        inicio_anterior = agora - timedelta(days=dias * 2)
+        serie_anterior = cs.consultas_por_dia_periodo(
+            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
+        )
+        total_anterior = sum(item["total"] for item in serie_anterior)
+ 
+        interpretacao = interpretacao_sem_nivel(
+            texto="Volume alto ou baixo não é bom nem ruim isoladamente -- avalie junto com o efetivo disponível (A4) e o tempo médio de atendimento (A2) para saber se a equipe está sobrecarregada",
+            direcao="neutro",
+            comparacao=calcular_comparacao(total_periodo, total_anterior, unidade=""),
+        )
+ 
         return {
             "serie": serie,
             "total_periodo": total_periodo,
             "leitura": f"Foram realizados {total_periodo} atendimentos nos últimos {dias} dias",
+            "interpretacao": interpretacao,
         }
  
     # --- A3: Taxa de conclusão vs. abandono ---

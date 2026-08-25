@@ -49,7 +49,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
      
     
-    # --- C1: Doenças mais comuns por região ---
+     # --- C1: Doenças mais comuns por região ---
     def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10) -> List[dict]:
         """Ranking de CID10 mais diagnosticados, agrupado por região
         geográfica do PACIENTE (não da empresa -- pacientes de uma
@@ -168,6 +168,32 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .filter(Usuario.id_empresa == id_empresa)
             .filter(ResultadoPrescricao.codigo_cid10_principal == codigo_cid10)
             .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
+            .group_by(dia)
+            .order_by(dia.asc())
+            .all()
+        )
+        return [{"data": linha.data, "total": linha.total} for linha in linhas]
+ 
+    # --- C2 (comparação): evolução de 1 CID, com janela explícita ---
+    def evolucao_cid_periodo(self, id_empresa: int, codigo_cid10: str, data_inicio, data_fim) -> List[dict]:
+        """Mesma agregação de evolucao_cid, mas com data_inicio/data_fim
+        explícitos -- usado para o total do período ANTERIOR na
+        comparação de C2.
+        """
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.clinico import Atendimento
+ 
+        dia = func.date(ResultadoPrescricao.data_hora_formulacao)
+ 
+        linhas = (
+            db.session.query(dia.label("data"), func.count(ResultadoPrescricao.id).label("total"))
+            .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(ResultadoPrescricao.codigo_cid10_principal == codigo_cid10)
+            .filter(ResultadoPrescricao.data_hora_formulacao >= data_inicio)
+            .filter(ResultadoPrescricao.data_hora_formulacao < data_fim)
             .group_by(dia)
             .order_by(dia.asc())
             .all()
