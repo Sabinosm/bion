@@ -104,3 +104,14 @@ class PrescricaoService:
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid}")
         return r
+    
+    def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
+        return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
+ 
+    # --- C3 (bônus): base para incidência por 100 mil ---
+    def total_casos_por_regiao(self, id_empresa: int, dias: int = 14):
+        return self.repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)    
+    
+     # --- D3: Urgência de exames -- IA vs. profissional ---
+    def urgencia_por_origem(self, id_empresa: int, dias: int = 30):
+        return self.repo.urgencia_por_origem(id_empresa=id_empresa, dias=dias)

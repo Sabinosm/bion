@@ -44,6 +44,13 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
     def find_all(self) -> List[ResultadoPrescricao]:
         """Lista todos os ResultadoPrescricao cadastrados, sem filtro."""
         return ResultadoPrescricao.query.all()
+    
+    def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
+            return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
+     
+        # --- C3 (bônus): base para incidência por 100 mil ---
+    def total_casos_por_regiao(self, id_empresa: int, dias: int = 14):
+        return self.repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
 
 
 class PrescricaoRepository(IRepository[Prescricao]):
@@ -119,3 +126,38 @@ class PrescricaoExameRepository(IRepository[PrescricaoExame]):
     def find_all(self) -> List[PrescricaoExame]:
         """Lista todos os PrescricaoExame cadastrados, sem filtro."""
         return PrescricaoExame.query.all()
+    
+    # --- D3: Urgência de exames -- IA vs. profissional ---
+    def urgencia_por_origem(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """Contagem de PrescricaoExame cruzando urgencia x origem_sugestao,
+        filtrado por empresa (via ResultadoPrescricao -> Atendimento ->
+        realizado_por -> Usuario) e por janela de tempo.
+ 
+        Retorna lista de dicts:
+        [{"urgencia": "urgente", "origem_sugestao": "bion_ia", "total": 26}, ...]
+        """
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.clinico import ResultadoPrescricao, Atendimento
+ 
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+ 
+        linhas = (
+            db.session.query(
+                PrescricaoExame.urgencia.label("urgencia"),
+                PrescricaoExame.origem_sugestao.label("origem_sugestao"),
+                func.count(PrescricaoExame.id).label("total"),
+            )
+            .join(ResultadoPrescricao, PrescricaoExame.id_resultado == ResultadoPrescricao.id)
+            .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(PrescricaoExame.criado_em >= limite)
+            .group_by(PrescricaoExame.urgencia, PrescricaoExame.origem_sugestao)
+            .all()
+        )
+        return [
+            {"urgencia": linha.urgencia, "origem_sugestao": linha.origem_sugestao, "total": linha.total}
+            for linha in linhas
+        ]
