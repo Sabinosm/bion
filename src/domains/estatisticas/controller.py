@@ -8,6 +8,10 @@ bp = Blueprint("estatisticas", __name__)
 _svc = EstatisticasService()
 
 
+# ============================================================
+# ADMIN — Gerenciamento operacional (volume, tempo, equipe)
+# ============================================================
+
 @bp.get("/geral")
 @requer_papel("admin")
 def estatisticas_geral():
@@ -16,11 +20,6 @@ def estatisticas_geral():
         return json_success(dados)
     except Exception as e:
         return json_error(str(e))
-
-
-# ============================================================
-# ADMIN — Gerenciamento operacional (volume, tempo, equipe)
-# ============================================================
 
 # --- A1: Volume de atendimentos ---
 @bp.get("/atendimentos/volume")
