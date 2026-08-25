@@ -115,3 +115,12 @@ class PrescricaoService:
      # --- D3: Urgência de exames -- IA vs. profissional ---
     def urgencia_por_origem(self, id_empresa: int, dias: int = 30):
         return self.repo.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
+    
+    # --- D4: Medicamentos mais prescritos por classe ---
+    def top_por_classe(self, id_empresa: int, dias: int = 30, limite: int = 10):
+        return self.repo.top_por_classe(id_empresa=id_empresa, dias=dias, limite=limite)
+ 
+    def top_principios_ativos_por_classe(self, id_empresa: int, classe: str, dias: int = 30, limite: int = 10):
+        return self.repo.top_principios_ativos_por_classe(
+            id_empresa=id_empresa, classe=classe, dias=dias, limite=limite
+        )
