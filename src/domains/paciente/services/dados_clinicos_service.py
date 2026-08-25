@@ -38,6 +38,12 @@ class DadosClinicosService:
         p = self._paciente_ou_404(uuid_paciente)
         return self.alergia_repo.find_por_paciente(p.id)
 
+    def top_substancias(self, id_empresa: int, limite: int = 10):
+        return self.repo.top_substancias(id_empresa=id_empresa, limite=limite)
+ 
+    def gravidade_por_substancia(self, id_empresa: int, substancia: str):
+        return self.repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+    
     def adicionar_alergia(self, uuid_paciente: str, dados: dict):
         """ALTERADO: Alergia não recebe mais tipo_reacao/gravidade no
         construtor -- esses campos agora criam a PRIMEIRA ReacaoAlergia

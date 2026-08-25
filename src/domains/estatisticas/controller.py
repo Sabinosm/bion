@@ -63,3 +63,26 @@ def efetivo_ativo():
         return json_success(dados)
     except Exception as e:
         return json_error(str(e))
+
+
+# --- D2: Alergias mais reportadas ---
+@bp.get("/alergias/top-substancias")
+@requer_papel("admin")
+def alergias_top_substancias():
+    try:
+        limite = request.args.get("limite", default=10, type=int)
+        dados = _svc.alergias_top_substancias(get_id_empresa_sessao(), limite=limite)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))
+
+
+# --- D2 (detalhe): gravidade por substância ---
+@bp.get("/alergias/<string:substancia>/gravidade")
+@requer_papel("admin")
+def alergia_gravidade_por_substancia(substancia):
+    try:
+        dados = _svc.alergia_gravidade_por_substancia(get_id_empresa_sessao(), substancia=substancia)
+        return json_success(dados)
+    except Exception as e:
+        return json_error(str(e))

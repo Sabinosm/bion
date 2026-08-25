@@ -2,18 +2,17 @@ from .estatisticas_usuario import EstatisticasUsuario
 from .estatisticas_paciente import EstatisticasPaciente
 from .estatisticas_consulta import EstatisticasConsulta
 from .estatisticas_atendimento import EstatisticasAtendimento
+from .estatisticas_alergia import EstatisticasAlergia
 
 eu = EstatisticasUsuario()
 ep = EstatisticasPaciente()
 ec = EstatisticasConsulta()
 ea = EstatisticasAtendimento()
+eal = EstatisticasAlergia()
 
 
 class EstatisticasService:
 
-    # Mantido para compatibilidade com quem já usa /geral (ex: primeiro
-    # carregamento do dashboard). Continua leve -- só chama os métodos
-    # 🟢 instantâneos, sem os cards mais pesados/detalhados.
     def estatisticas_geral(self, id_empresa):
         estatisticas = {
             "total_profissionais": eu.contagem_profissionais(id_empresa=id_empresa),
@@ -39,3 +38,10 @@ class EstatisticasService:
     # --- A4: Efetivo ativo por papel ---
     def efetivo_ativo(self, id_empresa):
         return eu.efetivo_ativo(id_empresa=id_empresa)
+
+    # --- D2: Alergias mais reportadas ---
+    def alergias_top_substancias(self, id_empresa, limite=10):
+        return eal.top_substancias(id_empresa=id_empresa, limite=limite)
+
+    def alergia_gravidade_por_substancia(self, id_empresa, substancia):
+        return eal.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
