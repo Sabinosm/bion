@@ -57,3 +57,31 @@ class AlergiaRepository(IRepository[Alergia]):
         return self.repo.tempo_medio_por_tipo_periodo(
             id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
+        
+    # --- F4: Gravidade geral das reações alérgicas (sem filtro por substância) ---
+    def gravidade_geral(self, id_empresa: int) -> dict:
+        """Mesma lógica de gravidade_por_substancia, mas sem o filtro
+        WHERE substancia=... -- visão agregada de todas as reações da
+        empresa, não drill-down de 1 substância específica.
+
+        Retorna: {"leve": 30, "moderada": 45, "grave": 9}
+        """
+        from src.models import db
+        from sqlalchemy import func
+        from src.models.usuarios import Usuario
+        from src.models.pacientes import Paciente
+        from src.models.pacientes.reacao_alergia import ReacaoAlergia
+
+        linhas = (
+            db.session.query(
+                ReacaoAlergia.gravidade.label("gravidade"),
+                func.count(ReacaoAlergia.id).label("total"),
+            )
+            .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
+            .join(Paciente, Alergia.id_paciente == Paciente.id)
+            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .group_by(ReacaoAlergia.gravidade)
+            .all()
+        )
+        return {linha.gravidade: linha.total for linha in linhas}
