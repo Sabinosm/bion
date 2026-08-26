@@ -22,7 +22,7 @@ class DoencaCronicaService:
     """Alergias, doenças crônicas e medicamentos em uso do paciente."""
 
     def __init__(self):
-        self._repo = DoencaCronicaRepository()
+        self.repo = DoencaCronicaRepository()
         self.paciente_repo = PacienteRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str):
@@ -33,7 +33,7 @@ class DoencaCronicaService:
 
     def listar_doencas(self, uuid_paciente: str):
         p = self._paciente_ou_404(uuid_paciente)
-        return self._repo.find_por_paciente(p.id)
+        return self.repo.find_por_paciente(p.id)
 
     def adicionar_doenca(self, uuid_paciente: str, dados: dict):
         from src.models.pacientes import DoencaCronica
@@ -50,6 +50,6 @@ class DoencaCronicaService:
             status=dados["status"],
             observacoes=dados.get("observacoes"),
         )
-        return self._repo.save(d)
+        return self.repo.save(d)
 
     

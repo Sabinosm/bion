@@ -131,4 +131,3 @@ class EstatisticasAtendimento:
             "leitura": leitura,
             "interpretacao": interpretacao,
         }
- 

@@ -1,13 +1,8 @@
 
-from datetime import datetime, timezone, date
+from datetime import datetime, date
 
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
-from src.core.security import aes_encrypt, aes_decrypt, hmac_sha256
-from ..repositories import (
-    PacienteRepository, AlergiaRepository, ReacaoAlergiaRepository,
-    DoencaCronicaRepository, MedicamentoEmUsoRepository, ConsentimentoRepository,
-    ObservacaoTipoSanguineoRepository,
-)
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
+from ..repositories import (PacienteRepository, AlergiaRepository,)
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -22,7 +17,7 @@ class AlergiaService:
     """Alergias, doenças crônicas e medicamentos em uso do paciente."""
 
     def __init__(self):
-        self._repo = AlergiaRepository()
+        self.repo = AlergiaRepository()
         self._paciente_repo = PacienteRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str):
@@ -33,13 +28,10 @@ class AlergiaService:
 
     def listar_alergias(self, uuid_paciente: str):
         p = self._paciente_ou_404(uuid_paciente)
-        return self._repo.find_por_paciente(p.id)
-
-    def top_substancias(self, id_empresa: int, limite: int = 10):
-        return self._repo.top_substancias(id_empresa=id_empresa, limite=limite)
+        return self.repo.find_por_paciente(p.id)
  
     def gravidade_por_substancia(self, id_empresa: int, substancia: str):
-        return self._repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+        return self.repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
     
     def adicionar_alergia(self, uuid_paciente: str, dados: dict):
         """ALTERADO: Alergia não recebe mais tipo_reacao/gravidade no
@@ -62,13 +54,13 @@ class AlergiaService:
             gravidade=dados["gravidade"],
             descricao=dados.get("descricao_reacao"),
         )
-        return self._repo.save(a)
+        return self.repo.save(a)
 
     def adicionar_reacao(self, uuid_alergia: str, dados: dict):
         """NOVO: registra reação adicional numa alergia já existente
         (histórico de ocorrências) -- caminho que não existia antes,
         já que o schema antigo só suportava uma reação por alergia."""
-        alergia = self._repo.find_by_uuid(uuid_alergia)
+        alergia = self.repo.find_by_uuid(uuid_alergia)
         if not alergia:
             raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
         if not dados.get("manifestacao") or not dados.get("gravidade"):
@@ -79,12 +71,12 @@ class AlergiaService:
             descricao=dados.get("descricao"),
             data_ocorrencia=_parse_data(dados.get("data_ocorrencia")),
         )
-        return self._repo.save(alergia)
+        return self.repo.save(alergia)
 
     def remover_alergia(self, uuid_alergia: str):
         """Remove a alergia inteira, incluindo todo o histórico de
         reações associadas (cascade já configurado no model)."""
-        removido = self._repo.delete_by_uuid(uuid_alergia)
+        removido = self.repo.delete_by_uuid(uuid_alergia)
         if not removido:
             raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
         return removido
@@ -101,11 +93,11 @@ class AlergiaService:
     
     # --- D2: Alergias mais reportadas ---
     def top_substancias(self, id_empresa: int, limite: int = 10):
-        return self._repo.top_substancias(id_empresa=id_empresa, limite=limite)
+        return self.repo.top_substancias(id_empresa=id_empresa, limite=limite)
  
     def gravidade_por_substancia(self, id_empresa: int, substancia: str):
-        return self._repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+        return self.repo.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
  
     # --- F4: Gravidade geral das reações alérgicas ---
     def gravidade_geral(self, id_empresa: int):
-        return self._repo.gravidade_geral(id_empresa=id_empresa)
+        return self.repo.gravidade_geral(id_empresa=id_empresa)

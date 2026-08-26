@@ -22,7 +22,7 @@ class MedicamentoEmUsoService:
     """Alergias, doenças crônicas e medicamentos em uso do paciente."""
 
     def __init__(self):
-        self._repo = MedicamentoEmUsoRepository()
+        self.repo = MedicamentoEmUsoRepository()
         self.paciente_repo = PacienteRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str):
@@ -33,7 +33,7 @@ class MedicamentoEmUsoService:
     
     def listar_medicamentos_em_uso(self, uuid_paciente: str):
         p = self._paciente_ou_404(uuid_paciente)
-        return self._repo.find_por_paciente(p.id)
+        return self.repo.find_por_paciente(p.id)
 
     def adicionar_medicamento_em_uso(self, uuid_paciente: str, dados: dict):
         from src.models.pacientes import MedicamentoEmUso
@@ -48,5 +48,5 @@ class MedicamentoEmUsoService:
             flag_em_uso=bool(dados.get("flag_em_uso", True)),
             status_uso=dados.get("status_uso", "ativo" if dados.get("flag_em_uso", True) else "interrompido"),
         )
-        return self._repo.save(m)
+        return self.repo.save(m)
     

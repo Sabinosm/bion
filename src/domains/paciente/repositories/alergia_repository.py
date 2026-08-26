@@ -2,12 +2,8 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.pacientes import (
-    Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
-    DoencaCronica, MedicamentoEmUso, Consentimento, ObservacaoTipoSanguineo,
-)
-from datetime import datetime, time, timezone, timedelta
-from sqlalchemy import func
+from src.models.pacientes import (Alergia)
+
 
 
 class AlergiaRepository(IRepository[Alergia]):

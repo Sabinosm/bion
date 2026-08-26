@@ -10,7 +10,7 @@ from src.core.interfaces import IRepository
 from src.models.clinico import Atendimento
 
 
-class AtendimentoRepository(IRepository[Atendimento]):
+class  AtendimentoRepository(IRepository[Atendimento]):
     """Encapsula todo acesso a dados de Atendimento via SQLAlchemy."""
 
     def find_by_id(self, id: int) -> Optional[Atendimento]:

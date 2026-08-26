@@ -22,7 +22,7 @@ class ReacaoAlergiaService:
     """Alergias, doenças crônicas e medicamentos em uso do paciente."""
 
     def __init__(self):
-        self._repo = ReacaoAlergiaRepository()
+        self.repo = ReacaoAlergiaRepository()
         self._alergia_repo = AlergiaRepository()
 
     def adicionar_reacao(self, uuid_alergia: str, dados: dict):
@@ -46,7 +46,7 @@ class ReacaoAlergiaService:
         """Remove APENAS uma reação específica do histórico, mantendo a
         Alergia e as demais reações intactas -- uso: reação registrada
         por engano, diferente de remover a alergia toda."""
-        removido = self._repo.delete_by_uuid(uuid_reacao)
+        removido = self.repo.delete_by_uuid(uuid_reacao)
         if not removido:
             raise RecursoNaoEncontradoError(f"Reação não encontrada: {uuid_reacao}")
         return removido

@@ -14,8 +14,8 @@ class ObservacaoTipoSanguineoService:
     """Alergias, doenças crônicas e medicamentos em uso do paciente."""
 
     def __init__(self):
-        self._repo = ObservacaoTipoSanguineoRepository()
+        self.repo = ObservacaoTipoSanguineoRepository()
      
     # --- F3: Distribuição de tipo sanguíneo na base ---
     def distribuicao_tipo_sanguineo(self, id_empresa: int):
-        return self._repo.distribuicao_tipo_sanguineo(id_empresa=id_empresa)
+        return self.repo.distribuicao_tipo_sanguineo(id_empresa=id_empresa)
