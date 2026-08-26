@@ -64,11 +64,7 @@ bp_oauth = Blueprint("oauth", __name__)
 CAMINHO_APOS_LOGIN = "/html/pages/auth/oauth_callback.html"
 CAMINHO_LOGIN = "/html/pages/auth/login.html"
 
-
-class Oauth():
-
-    @staticmethod
-    def init_oauth(app):
+def init_oauth(app):
         oauth.init_app(app)
         oauth.register(
             name="google",
@@ -77,6 +73,9 @@ class Oauth():
             server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
             client_kwargs={"scope": "openid email profile"},
         )
+
+class Oauth():
+
 
 
     @staticmethod
