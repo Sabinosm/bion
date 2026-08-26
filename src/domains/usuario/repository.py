@@ -12,7 +12,7 @@ futuro caso precise (ex: "listar todos os médicos da empresa").
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-
+from sqlalchemy import or_
 from sqlalchemy import func
 
 from src.models import db
@@ -30,7 +30,10 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.filter_by(uuid=uuid).first()
 
     def find_by_login(self, login: str) -> Optional[Usuario]:
-        return Usuario.query.filter_by(user_login=login, status="ativo").first()
+        return Usuario.query.filter(
+    Usuario.user_login == login,
+        or_(Usuario.status == "ativo", Usuario.status == "pendente"),
+    ).first()
 
     def find_by_cpf_hash(self, cpf_hash: str) -> Optional[Usuario]:
         """Busca por HMAC-SHA256 do CPF (índice determinístico); ver nota em

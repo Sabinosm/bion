@@ -32,7 +32,7 @@ class AuthService:
             usuário não existir/estiver inativo.
         """
         usuario = self.repo.find_by_login(login)
-        if not usuario or usuario.status != "ativo":
+        if not usuario or usuario.status == "inativo":
             return None, None
 
         if usuario.hash_senha is None:
@@ -55,7 +55,7 @@ class AuthService:
         from src.core.session import get_id_usuario_sessao
         from flask import session
         
-        
+        usuario.status="ativo"
         session["id_empresa"] = usuario.id_empresa
         cfg_service = ConfiguracaoService()
         cfg = cfg_service.obter_ou_criar(get_id_usuario_sessao())

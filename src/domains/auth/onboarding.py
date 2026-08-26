@@ -65,9 +65,9 @@ class Onboarding():
                 return jsonify(resposta), 400
 
             usuario.hash_senha = ph.hash(nova_senha)
+            usuario.onboarding_pendente = False
+            usuario.status="ativo"
 
-        usuario.onboarding_pendente = False
-        usuario.status="ativo"
         db.session.commit()
 
         session.pop("onboarding_pendente", None)

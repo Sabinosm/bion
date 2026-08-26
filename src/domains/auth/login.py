@@ -19,7 +19,7 @@ _svc = AuthService()
 
 class Login():
     
-    @staticmethod
+    @staticmethod    
     @bp.post("/login")
     def login():
         """Autentica um usuário por login e senha.
@@ -45,6 +45,7 @@ class Login():
             return json_error("Login e senha são obrigatórios.", 422)
         
         usuario, motivo = _svc.autenticar(login_val, senha)
+        
         if motivo == "sem_senha":
             return json_error("Usuário sem senha, faça login pelo Google.", 400)
         if not usuario:
