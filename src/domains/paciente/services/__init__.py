@@ -2,6 +2,6 @@ from .alergia_service import AlergiaService
 from .consentimento_service import ConsentimentoService
 from .doenca_cronica_service import DoencaCronicaService
 from .medicamento_em_uso_service import MedicamentoEmUsoService
-from .obs_tipo_sanguineo_service import ObservacaoTipoSanguineoservice
+from .obs_tipo_sanguineo_service import ObservacaoTipoSanguineoService
 from .reacao_alergia_service import ReacaoAlergiaService
 from .paciente_service import PacienteService

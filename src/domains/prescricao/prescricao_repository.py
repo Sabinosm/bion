@@ -9,6 +9,9 @@ from src.models.clinico import Prescricao
 
 class PrescricaoRepository(IRepository[Prescricao]):
 
+    def find_by_uuid(self, uuid: str) -> Optional[Prescricao]:
+        return db.session.get(Prescricao, uuid)
+    
     def find_by_id(self, id: int) -> Optional[Prescricao]:
         return db.session.get(Prescricao, id)
 

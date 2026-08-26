@@ -3,8 +3,10 @@
 from datetime import datetime, timezone
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .prescricao_repository import ResultadoPrescricaoRepository, PrescricaoRepository, PrescricaoExameRepository
+from .prescricao_repository import  PrescricaoRepository
+from .prescricao_exame_repository import PrescricaoExameRepository
 from src.domains.atendimento.repository import AtendimentoRepository
+from .resultado_prescricao_repository import ResultadoPrescricaoRepository
 
 CAMPOS_OBRIGATORIOS_RESULTADO = (
     "codigo_cid10_principal", "descricao_cid10_principal", "certeza_diagnostica",
@@ -24,6 +26,8 @@ class PrescricaoService:
         self.exame_repo = PrescricaoExameRepository()
         self.atendimento_repo = AtendimentoRepository()
 
+    def find_by_uuid(self, uuid):
+        return self.repo.find_by_uuid(uuid)
     def registrar_resultado(self, uuid_atendimento: str, dados: dict, id_usuario: int):
         """
         Registra o diagnóstico (CID-10) e desfecho de um Atendimento.

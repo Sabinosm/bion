@@ -11,10 +11,10 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel
-from src.domains.paciente.services import MedicamentoEmUsoservice
+from src.domains.paciente.services import MedicamentoEmUsoService
 
 bp = Blueprint("paciente_clinico", __name__)
-_svc = MedicamentoEmUsoservice()
+_svc = MedicamentoEmUsoService()
 
 
 @bp.get("/<uuid_paciente>/medicamentos-em-uso")

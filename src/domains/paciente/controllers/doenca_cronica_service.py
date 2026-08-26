@@ -11,10 +11,10 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel
-from src.domains.paciente.services import DoencaCronicaservice
+from src.domains.paciente.services import DoencaCronicaService
 
 bp = Blueprint("doencas-cronicas", __name__)
-_svc = DoencaCronicaservice()
+_svc = DoencaCronicaService()
 
 
 
