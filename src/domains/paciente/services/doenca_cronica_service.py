@@ -52,4 +52,6 @@ class DoencaCronicaService:
         )
         return self.repo.save(d)
 
-    
+        # --- F1: Doenças crônicas mais comuns na base ---
+    def top_cid_ativas(self, id_empresa: int, limite: int = 10):
+        return self.repo.top_cid_ativas(id_empresa=id_empresa, limite=limite)

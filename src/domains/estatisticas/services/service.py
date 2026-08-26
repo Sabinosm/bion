@@ -9,7 +9,6 @@ from .estatisticas_outputbion import EstatisticasOutputBion
 from .estatisticas_input_protocolo import EstatisticasInputProtocolo
 from .estatisticas_interacoes_medicamentos import EstatisticasInteracoesMedicamentos
 from .estatisticas_prescricao import EstatisticasPrescricao
-from .estatisticas_coleta_clinica import EstatisticasColetaClinica
 
 eu = EstatisticasUsuario()
 ep = EstatisticasPaciente()
@@ -22,7 +21,6 @@ eob = EstatisticasOutputBion()
 eip = EstatisticasInputProtocolo()
 eim = EstatisticasInteracoesMedicamentos()
 epr = EstatisticasPrescricao()
-ecc = EstatisticasColetaClinica()
 
 
 class EstatisticasService:
@@ -77,7 +75,7 @@ class EstatisticasService:
         return erp.incidencia_por_regiao(id_empresa=id_empresa, dias=dias)
  
     def tempo_ate_atendimento(self, id_empresa, dias=30):
-        return ecc.tempo_ate_atendimento(id_empresa=id_empresa, dias=dias)
+        return ea.tempo_ate_atendimento(id_empresa=id_empresa, dias=dias)
  
     def queixas_mais_frequentes(self, id_empresa, dias=30, top=15):
         return eip.queixas_mais_frequentes(id_empresa=id_empresa, dias=dias, top=top)

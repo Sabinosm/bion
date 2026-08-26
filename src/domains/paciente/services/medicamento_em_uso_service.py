@@ -50,3 +50,6 @@ class MedicamentoEmUsoService:
         )
         return self.repo.save(m)
     
+# --- F2: Pacientes em uso contínuo de medicação (%) ---
+    def percentual_pacientes_em_uso_continuo(self, id_empresa: int):
+        return self.repo.percentual_pacientes_em_uso_continuo(id_empresa=id_empresa)

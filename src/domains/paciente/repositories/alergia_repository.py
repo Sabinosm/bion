@@ -41,119 +41,19 @@ class AlergiaRepository(IRepository[Alergia]):
         db.session.commit()
         return True
 
-    # --- D2: Alergias mais reportadas (por substância) ---
-    def top_substancias(self, id_empresa: int, limite: int = 10) -> List[dict]:
-        """Substâncias alergênicas mais reportadas entre os pacientes da
-        empresa, com contagem de casos.
+     # --- A2: Tempo médio de atendimento, por tipo ---
+    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30):
+        """Repassa a agregação bruta do repository (segundos, por tipo).
+        Conversão para 'Xmin Ys' e variação % vs. período anterior ficam
+        na camada de estatística."""
+        return self.repo.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
  
-        Filtra por empresa via Paciente.cadastrado_por -> Usuario, mesmo
-        padrão usado em PacienteRepository.count_pacientes.
+    # --- auxiliar: status no nível de etapa (não usado na Fase 1, mas pronto) ---
+    def atendimentos_por_status(self, id_empresa: int, dias: int = 30):
+        return self.repo.contar_atendimentos_por_status(id_empresa=id_empresa, dias=dias)
  
-        Retorna lista de dicts, ordenada do mais frequente pro menos:
-        [{"substancia": "Dipirona", "total": 18}, ...]
-        """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.pacientes import Paciente
- 
-        linhas = (
-            db.session.query(
-                Alergia.substancia.label("substancia"),
-                func.count(Alergia.id).label("total"),
-            )
-            .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .group_by(Alergia.substancia)
-            .order_by(func.count(Alergia.id).desc())
-            .limit(limite)
-            .all()
+    # --- E2: tempo médio por tipo, com janela explícita ---
+    def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim):
+        return self.repo.tempo_medio_por_tipo_periodo(
+            id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
-        return [{"substancia": linha.substancia, "total": linha.total} for linha in linhas]
- 
-        # --- D2: Alergias mais reportadas (por substância) ---
-    def top_substancias(self, id_empresa: int, limite: int = 10) -> List[dict]:
-        """Substâncias alergênicas mais reportadas entre os pacientes da
-        empresa, com contagem de casos.
- 
-        Filtra por empresa via Paciente.cadastrado_por -> Usuario, mesmo
-        padrão usado em PacienteRepository.count_pacientes.
- 
-        Retorna lista de dicts, ordenada do mais frequente pro menos:
-        [{"substancia": "Dipirona", "total": 18}, ...]
-        """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.pacientes import Paciente
- 
-        linhas = (
-            db.session.query(
-                Alergia.substancia.label("substancia"),
-                func.count(Alergia.id).label("total"),
-            )
-            .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .group_by(Alergia.substancia)
-            .order_by(func.count(Alergia.id).desc())
-            .limit(limite)
-            .all()
-        )
-        return [{"substancia": linha.substancia, "total": linha.total} for linha in linhas]
- 
-    # --- D2 (detalhe): gravidade das reações por substância ---
-    def gravidade_por_substancia(self, id_empresa: int, substancia: str) -> dict:
-        """Distribuição de gravidade (leve/moderada/grave) das reações
-        registradas para uma substância específica -- usado como
-        drill-down quando o usuário clica numa barra do ranking D2.
- 
-        Retorna dict, ex: {"leve": 5, "moderada": 10, "grave": 3}
-        """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.pacientes import Paciente
-        from src.models.pacientes.reacao_alergia import ReacaoAlergia
- 
-        linhas = (
-            db.session.query(
-                ReacaoAlergia.gravidade.label("gravidade"),
-                func.count(ReacaoAlergia.id).label("total"),
-            )
-            .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
-            .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(Alergia.substancia == substancia)
-            .group_by(ReacaoAlergia.gravidade)
-            .all()
-        )
-        return {linha.gravidade: linha.total for linha in linhas}
- 
-    # --- F4: Gravidade geral das reações alérgicas (sem filtro por substância) ---
-    def gravidade_geral(self, id_empresa: int) -> dict:
-        """Mesma lógica de gravidade_por_substancia, mas sem o filtro
-        WHERE substancia=... -- visão agregada de todas as reações da
-        empresa, não drill-down de 1 substância específica.
-        """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.pacientes import Paciente
-        from src.models.pacientes.reacao_alergia import ReacaoAlergia
- 
-        linhas = (
-            db.session.query(
-                ReacaoAlergia.gravidade.label("gravidade"),
-                func.count(ReacaoAlergia.id).label("total"),
-            )
-            .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
-            .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .group_by(ReacaoAlergia.gravidade)
-            .all()
-        )
-        return {linha.gravidade: linha.total for linha in linhas}

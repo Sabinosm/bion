@@ -1,4 +1,4 @@
-from src.domains.medicamentos.service   import InteracoesMedicamentosService
+from src.domains.medicamentos.service  import InteracoesMedicamentosService
 
 im_svc = InteracoesMedicamentosService()
 

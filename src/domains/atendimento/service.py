@@ -13,7 +13,7 @@ class AtendimentoService:
     def __init__(self):
         self.repo = AtendimentoRepository()
         self.consulta_repo = ConsultaRepository()
-
+        
     def buscar_por_uuid(self, uuid: str):
         """Retorna um Atendimento pelo UUID ou lança RecursoNaoEncontradoError."""
         e = self.repo.find_by_uuid(uuid)
@@ -21,6 +21,10 @@ class AtendimentoService:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid}")
         return e
 
+    # --- C4: Tempo até busca por atendimento ---
+    def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30):
+        return self.repo.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
+    
     def listar(self):
         """Lista todos os Atendimentos cadastrados."""
         return self.repo.find_all()
