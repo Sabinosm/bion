@@ -16,21 +16,24 @@ from .service import CatalogoModulosService
 bp_catalogo_modulos = Blueprint("catalogo_modulos", __name__)
 _svc = CatalogoModulosService()
 
+class CatalogoModulosController():
+    
+    @staticmethod
+    @bp_catalogo_modulos.get("/")
+    @requer_login
+    def lista_modulos():
+        """Lista todos os CatalogoModulos cadastrados."""
+        itens = _svc.listar()
+        return json_success(data=[m.to_dict() for m in itens])
 
-@bp_catalogo_modulos.get("/")
-@requer_login
-def lista_modulos():
-    """Lista todos os CatalogoModulos cadastrados."""
-    itens = _svc.listar()
-    return json_success(data=[m.to_dict() for m in itens])
 
-
-@bp_catalogo_modulos.get("/<uuid>")
-@requer_login
-def detalhe_modulo(uuid):
-    """Retorna os detalhes de um CatalogoModulos pelo UUID."""
-    try:
-        m = _svc.buscar_por_uuid(uuid)
-        return json_success(data=m.to_dict())
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+    @staticmethod
+    @bp_catalogo_modulos.get("/<uuid>")
+    @requer_login
+    def detalhe_modulo(uuid):
+        """Retorna os detalhes de um CatalogoModulos pelo UUID."""
+        try:
+            m = _svc.buscar_por_uuid(uuid)
+            return json_success(data=m.to_dict())
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

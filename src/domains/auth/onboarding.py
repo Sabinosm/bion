@@ -32,47 +32,49 @@ from src.core.validacoes import validar_senha
 bp_onboarding = Blueprint("onboarding", __name__)
 ph = PasswordHasher()
 
+class Onboarding():
+    
+    @staticmethod
+    @bp_onboarding.route("/definir-senha", methods=["POST"])
+    @onboarding_pendente_required
+    def definir_senha():
+        """Define a senha inicial do usuário e conclui o onboarding.
 
-@bp_onboarding.route("/definir-senha", methods=["POST"])
-@onboarding_pendente_required
-def definir_senha():
-    """Define a senha inicial do usuário e conclui o onboarding.
+        Único passo do onboarding: ao definir a senha com sucesso, marca
+        `onboarding_pendente = False` e libera a sessão completa (define
+        `id_empresa`). O cadastro de WebAuthn não é mais parte deste
+        fluxo -- fica disponível depois, nas configurações da conta.
 
-    Único passo do onboarding: ao definir a senha com sucesso, marca
-    `onboarding_pendente = False` e libera a sessão completa (define
-    `id_empresa`). O cadastro de WebAuthn não é mais parte deste
-    fluxo -- fica disponível depois, nas configurações da conta.
+        Corpo esperado (JSON): `senha`.
 
-    Corpo esperado (JSON): `senha`.
+        Retorno:
+            200 com status `onboarding_concluido` e os IDs de usuário/empresa,
+            tanto se a senha acabou de ser definida quanto se o usuário já
+            tinha senha definida (idempotente, ex.: cadastrado por admin).
+            400 com o motivo da invalidação se a senha não passar nas regras.
+        """
+        usuario = get_usuario_sessao()
 
-    Retorno:
-        200 com status `onboarding_concluido` e os IDs de usuário/empresa,
-        tanto se a senha acabou de ser definida quanto se o usuário já
-        tinha senha definida (idempotente, ex.: cadastrado por admin).
-        400 com o motivo da invalidação se a senha não passar nas regras.
-    """
-    usuario = get_usuario_sessao()
+        if not usuario.hash_senha:
+            dados = request.get_json()
+            nova_senha = dados.get("senha")
 
-    if not usuario.hash_senha:
-        dados = request.get_json()
-        nova_senha = dados.get("senha")
+            senha_valida, resposta = validar_senha(nova_senha)
 
-        senha_valida, resposta = validar_senha(nova_senha)
+            if senha_valida == False:
+                return jsonify(resposta), 400
 
-        if senha_valida == False:
-            return jsonify(resposta), 400
+            usuario.hash_senha = ph.hash(nova_senha)
 
-        usuario.hash_senha = ph.hash(nova_senha)
+        usuario.onboarding_pendente = False
+        usuario.status="ativo"
+        db.session.commit()
 
-    usuario.onboarding_pendente = False
-    usuario.status="ativo"
-    db.session.commit()
+        session.pop("onboarding_pendente", None)
+        session["id_empresa"] = usuario.id_empresa
 
-    session.pop("onboarding_pendente", None)
-    session["id_empresa"] = usuario.id_empresa
-
-    return jsonify({
-        "status": "onboarding_concluido",
-        "id_usuario": usuario.id,
-        "id_empresa": usuario.id_empresa,
-    }), 200
+        return jsonify({
+            "status": "onboarding_concluido",
+            "id_usuario": usuario.id,
+            "id_empresa": usuario.id_empresa,
+        }), 200

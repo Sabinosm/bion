@@ -18,24 +18,26 @@ _svc = DoencaCronicaService()
 
 
 
-# ---------------- Doenças crônicas ----------------
+class DoencaCronicaController():
 
-@bp.get("/<uuid_paciente>/doencas-cronicas")
-@requer_login
-def listar_doencas(uuid_paciente):
-    try:
-        itens = _svc.listar_doencas(uuid_paciente)
-        return json_success(data=[d.to_dict() for d in itens])
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+    @staticmethod
+    @bp.get("/<uuid_paciente>/doencas-cronicas")
+    @requer_login
+    def listar_doencas(uuid_paciente):
+        try:
+            itens = _svc.listar_doencas(uuid_paciente)
+            return json_success(data=[d.to_dict() for d in itens])
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
 
 
-@bp.post("/<uuid_paciente>/doencas-cronicas")
-@requer_papel("medico", "enfermeiro")
-def adicionar_doenca(uuid_paciente):
-    dados = request.get_json(silent=True) or {}
-    try:
-        d = _svc.adicionar_doenca(uuid_paciente, dados)
-        return json_success(data=d.to_dict(), message="Doença crônica registrada.", status=201)
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+    @staticmethod
+    @bp.post("/<uuid_paciente>/doencas-cronicas")
+    @requer_papel("medico", "enfermeiro")
+    def adicionar_doenca(uuid_paciente):
+        dados = request.get_json(silent=True) or {}
+        try:
+            d = _svc.adicionar_doenca(uuid_paciente, dados)
+            return json_success(data=d.to_dict(), message="Doença crônica registrada.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

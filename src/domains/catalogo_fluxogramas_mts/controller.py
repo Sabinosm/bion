@@ -16,21 +16,24 @@ from .service import CatalogoFluxogramasMtsService
 bp_catalogo_fluxogramas_mts = Blueprint("catalogo_fluxogramas_mts", __name__)
 _svc = CatalogoFluxogramasMtsService()
 
+class CatalogoFluxogramaMtsController():
+    
+    @staticmethod
+    @bp_catalogo_fluxogramas_mts.get("/")
+    @requer_login
+    def lista_fluxogramas_mts():
+        """Lista todos os CatalogoFluxogramasMts cadastrados."""
+        itens = _svc.listar()
+        return json_success(data=[f.to_dict() for f in itens])
 
-@bp_catalogo_fluxogramas_mts.get("/")
-@requer_login
-def lista_fluxogramas_mts():
-    """Lista todos os CatalogoFluxogramasMts cadastrados."""
-    itens = _svc.listar()
-    return json_success(data=[f.to_dict() for f in itens])
 
-
-@bp_catalogo_fluxogramas_mts.get("/<uuid>")
-@requer_login
-def detalhe_fluxograma_mts(uuid):
-    """Retorna os detalhes de um CatalogoFluxogramasMts pelo UUID."""
-    try:
-        f = _svc.buscar_por_uuid(uuid)
-        return json_success(data=f.to_dict())
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+    @staticmethod
+    @bp_catalogo_fluxogramas_mts.get("/<uuid>")
+    @requer_login
+    def detalhe_fluxograma_mts(uuid):
+        """Retorna os detalhes de um CatalogoFluxogramasMts pelo UUID."""
+        try:
+            f = _svc.buscar_por_uuid(uuid)
+            return json_success(data=f.to_dict())
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

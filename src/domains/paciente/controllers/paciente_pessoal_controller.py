@@ -28,83 +28,91 @@ def _serializar(paciente, com_pii: bool):
         d["pessoal"] = _svc.dados_pessoais_descriptografados(paciente)
     return d
 
-
-@bp.get("/")
-@requer_login
-def lista():
-    com_pii = session.get("tipo_usuario") in ("medico", "enfermeiro")
-    pacientes = _svc.listar()
-    return json_success(data=[_serializar(p, com_pii) for p in pacientes])
-
-
-@bp.get("/<uuid>")
-@requer_login
-def detalhe(uuid):
-    com_pii = session.get("tipo_usuario") in ("medico", "enfermeiro")
-    try:
-        p = _svc.buscar_por_uuid(uuid)
-        return json_success(data=_serializar(p, com_pii))
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-@bp.post("/")
-@requer_papel("medico", "enfermeiro")
-def cadastrar():
-    dados = request.get_json(silent=True) or {}
-    try:
-        p = _svc.cadastrar(dados, get_id_usuario_sessao())
-        return json_success(data=_serializar(p, True), message="Paciente cadastrado.", status=201)
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-@bp.put("/<uuid>")
-@requer_papel("medico", "enfermeiro")
-def atualizar(uuid):
-    dados = request.get_json(silent=True) or {}
-    try:
-        p = _svc.atualizar(uuid, dados)
-        return json_success(data=_serializar(p, True), message="Paciente atualizado.")
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-# NOVO: registra novo exame/resultado de tipo sanguíneo (preserva histórico)
-@bp.post("/<uuid>/tipo-sanguineo")
-@requer_papel("medico", "enfermeiro")
-def registrar_tipo_sanguineo(uuid):
-    dados = request.get_json(silent=True) or {}
-    if not dados.get("tipo_sanguineo"):
-        return json_error("tipo_sanguineo é obrigatório.", 422)
-    try:
-        p = _svc.registrar_tipo_sanguineo(uuid, dados["tipo_sanguineo"], get_id_usuario_sessao())
-        return json_success(data=_serializar(p, True), message="Tipo sanguíneo registrado.", status=201)
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-# NOVO: corrige uma observação específica (erro de digitação, não novo exame)
-@bp.put("/tipo-sanguineo/<uuid_observacao>")
-@requer_papel("medico", "enfermeiro")
-def corrigir_tipo_sanguineo(uuid_observacao):
-    dados = request.get_json(silent=True) or {}
-    if not dados.get("tipo_sanguineo"):
-        return json_error("tipo_sanguineo é obrigatório.", 422)
-    try:
-        obs = _svc.corrigir_tipo_sanguineo(uuid_observacao, dados["tipo_sanguineo"])
-        return json_success(data=obs.to_dict(), message="Tipo sanguíneo corrigido.")
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
-
-
-# NOVO: remove um registro criado por engano (ex: paciente errado, duplicata)
-@bp.delete("/tipo-sanguineo/<uuid_observacao>")
-@requer_papel("admin", "medico")
-def remover_tipo_sanguineo(uuid_observacao):
-    try:
-        _svc.remover_tipo_sanguineo(uuid_observacao)
-        return json_success(message="Observação de tipo sanguíneo removida.")
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+class PacientePessoalController():
     
+    @staticmethod
+    @bp.get("/")
+    @requer_login
+    def lista():
+        com_pii = session.get("tipo_usuario") in ("medico", "enfermeiro")
+        pacientes = _svc.listar()
+        return json_success(data=[_serializar(p, com_pii) for p in pacientes])
+
+
+    @staticmethod
+    @bp.get("/<uuid>")
+    @requer_login
+    def detalhe(uuid):
+        com_pii = session.get("tipo_usuario") in ("medico", "enfermeiro")
+        try:
+            p = _svc.buscar_por_uuid(uuid)
+            return json_success(data=_serializar(p, com_pii))
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    @staticmethod
+    @bp.post("/")
+    @requer_papel("medico", "enfermeiro")
+    def cadastrar():
+        dados = request.get_json(silent=True) or {}
+        try:
+            p = _svc.cadastrar(dados, get_id_usuario_sessao())
+            return json_success(data=_serializar(p, True), message="Paciente cadastrado.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    @staticmethod
+    @bp.put("/<uuid>")
+    @requer_papel("medico", "enfermeiro")
+    def atualizar(uuid):
+        dados = request.get_json(silent=True) or {}
+        try:
+            p = _svc.atualizar(uuid, dados)
+            return json_success(data=_serializar(p, True), message="Paciente atualizado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: registra novo exame/resultado de tipo sanguíneo (preserva histórico)
+    @staticmethod
+    @bp.post("/<uuid>/tipo-sanguineo")
+    @requer_papel("medico", "enfermeiro")
+    def registrar_tipo_sanguineo(uuid):
+        dados = request.get_json(silent=True) or {}
+        if not dados.get("tipo_sanguineo"):
+            return json_error("tipo_sanguineo é obrigatório.", 422)
+        try:
+            p = _svc.registrar_tipo_sanguineo(uuid, dados["tipo_sanguineo"], get_id_usuario_sessao())
+            return json_success(data=_serializar(p, True), message="Tipo sanguíneo registrado.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: corrige uma observação específica (erro de digitação, não novo exame)
+    @staticmethod
+    @bp.put("/tipo-sanguineo/<uuid_observacao>")
+    @requer_papel("medico", "enfermeiro")
+    def corrigir_tipo_sanguineo(uuid_observacao):
+        dados = request.get_json(silent=True) or {}
+        if not dados.get("tipo_sanguineo"):
+            return json_error("tipo_sanguineo é obrigatório.", 422)
+        try:
+            obs = _svc.corrigir_tipo_sanguineo(uuid_observacao, dados["tipo_sanguineo"])
+            return json_success(data=obs.to_dict(), message="Tipo sanguíneo corrigido.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: remove um registro criado por engano (ex: paciente errado, duplicata)
+    @staticmethod
+    @bp.delete("/tipo-sanguineo/<uuid_observacao>")
+    @requer_papel("admin", "medico")
+    def remover_tipo_sanguineo(uuid_observacao):
+        try:
+            _svc.remover_tipo_sanguineo(uuid_observacao)
+            return json_success(message="Observação de tipo sanguíneo removida.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+        

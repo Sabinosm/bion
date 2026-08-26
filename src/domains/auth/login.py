@@ -17,79 +17,79 @@ bp = Blueprint("auth", __name__)
 _svc = AuthService()
 
 
-@bp.post("/login")
-def login():
-    """Autentica um usuário por login e senha.
-
-    Se o usuário tiver WebAuthn cadastrado, deixa a sessão em estado
-    pendente de segundo fator em vez de liberá-la por completo.
-
-    Corpo esperado (JSON ou form): `user_login`, `senha`.
-
-    Retorno:
-        200 com dados de usuário e configurações se autenticado sem 2FA.
-        200 com `status: mfa_pendente` se autenticado mas pendente de 2FA.
-        400 se o usuário só tiver login via Google (sem senha).
-        401 se as credenciais forem inválidas.
-        422 se login ou senha não forem enviados.
-    """
+class Login():
     
-    data = request.get_json(silent=True) or request.form.to_dict()
-    login_val = (data.get("user_login") or "").strip()
-    senha = data.get("senha") or ""
+    @staticmethod
+    @bp.post("/login")
+    def login():
+        """Autentica um usuário por login e senha.
 
-    if not login_val or not senha:
-        return json_error("Login e senha são obrigatórios.", 422)
-    
-    usuario, motivo = _svc.autenticar(login_val, senha)
-    if motivo == "sem_senha":
-        return json_error("Usuário sem senha, faça login pelo Google.", 400)
-    if not usuario:
-        return json_error("Credenciais inválidas.", 401)
+        Se o usuário tiver WebAuthn cadastrado, deixa a sessão em estado
+        pendente de segundo fator em vez de liberá-la por completo.
 
-    tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
+        Corpo esperado (JSON ou form): `user_login`, `senha`.
 
-    session.clear()
-    session.permanent = True
-    session["id_usuario"] = usuario.id
-    session["tipo_usuario"] = usuario.tipo_usuario
-    session["uuid_usuario"] = usuario.uuid
-    
+        Retorno:
+            200 com dados de usuário e configurações se autenticado sem 2FA.
+            200 com `status: mfa_pendente` se autenticado mas pendente de 2FA.
+            400 se o usuário só tiver login via Google (sem senha).
+            401 se as credenciais forem inválidas.
+            422 se login ou senha não forem enviados.
+        """
+        
+        data = request.get_json(silent=True) or request.form.to_dict()
+        login_val = (data.get("user_login") or "").strip()
+        senha = data.get("senha") or ""
 
-    if usuario.onboarding_pendente:
-        session["onboarding_pendente"] = True
-        return json_success(
-            data={"status": "onboarding_pendente"},
-            message="Cadastro incompleto, finalize o onboarding.",
-        )
+        if not login_val or not senha:
+            return json_error("Login e senha são obrigatórios.", 422)
+        
+        usuario, motivo = _svc.autenticar(login_val, senha)
+        if motivo == "sem_senha":
+            return json_error("Usuário sem senha, faça login pelo Google.", 400)
+        if not usuario:
+            return json_error("Credenciais inválidas.", 401)
 
-    if tem_2fa:
-        session["mfa_pendente"] = True
-        return json_success(
-            data={"status": "mfa_pendente", "metodo": "webauthn"},
-            message="Confirmação adicional necessária.",
-        )
-    
-    _svc.load(usuario)
-      
-    return json_success(
-        data={"status": "sucess"},
-        message="Login realizado com sucesso.",
-    )
-  
+        tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
+
+        session.clear()
+        session.permanent = True
+        session["id_usuario"] = usuario.id
+        session["tipo_usuario"] = usuario.tipo_usuario
+        session["uuid_usuario"] = usuario.uuid
         
 
+        if usuario.onboarding_pendente:
+            session["onboarding_pendente"] = True
+            return json_success(
+                data={"status": "onboarding_pendente"},
+                message="Cadastro incompleto, finalize o onboarding.",
+            )
+
+        if tem_2fa:
+            session["mfa_pendente"] = True
+            return json_success(
+                data={"status": "mfa_pendente", "metodo": "webauthn"},
+                message="Confirmação adicional necessária.",
+            )
+        
+        _svc.load(usuario)
+        
+        return json_success(
+            data={"status": "sucess"},
+            message="Login realizado com sucesso.",
+        )
     
+            
+    @staticmethod
+    @bp.post("/logout")
+    def logout():
+        """Encerra a sessão atual.
 
-
-@bp.post("/logout")
-def logout():
-    """Encerra a sessão atual.
-
-    Retorno:
-        200 confirmando o encerramento.
-    """
-    session.clear()
-    return json_success(message="Sessão encerrada.")
+        Retorno:
+            200 confirmando o encerramento.
+        """
+        session.clear()
+        return json_success(message="Sessão encerrada.")
 
 

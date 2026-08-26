@@ -65,76 +65,81 @@ CAMINHO_APOS_LOGIN = "/html/pages/auth/oauth_callback.html"
 CAMINHO_LOGIN = "/html/pages/auth/login.html"
 
 
-def init_oauth(app):
-    oauth.init_app(app)
-    oauth.register(
-        name="google",
-        client_id=app.config["GOOGLE_CLIENT_ID"],
-        client_secret=app.config["GOOGLE_CLIENT_SECRET"],
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
+class Oauth():
+
+    @staticmethod
+    def init_oauth(app):
+        oauth.init_app(app)
+        oauth.register(
+            name="google",
+            client_id=app.config["GOOGLE_CLIENT_ID"],
+            client_secret=app.config["GOOGLE_CLIENT_SECRET"],
+            server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+            client_kwargs={"scope": "openid email profile"},
+        )
 
 
-@bp_oauth.route("/login")
-def google_login():
-    redirect_uri = url_for("oauth.google_callback", _external=True)
-    return oauth.google.authorize_redirect(redirect_uri)
+    @staticmethod
+    @bp_oauth.route("/login")
+    def google_login():
+        redirect_uri = url_for("oauth.google_callback", _external=True)
+        return oauth.google.authorize_redirect(redirect_uri)
 
 
-@bp_oauth.route("/callback")
-def google_callback():
-    """Recebe o callback do Google e autentica o usuário existente.
+    @staticmethod
+    @bp_oauth.route("/callback")
+    def google_callback():
+        """Recebe o callback do Google e autentica o usuário existente.
 
-    Vincula o `google_sub` na primeira vez que o usuário loga via Google.
-    Define o próximo estado da sessão conforme o usuário já tenha
-    concluído o onboarding (senha definida) ou não.
+        Vincula o `google_sub` na primeira vez que o usuário loga via Google.
+        Define o próximo estado da sessão conforme o usuário já tenha
+        concluído o onboarding (senha definida) ou não.
 
-    Não passa por `mfa_pendente` em nenhum caso -- login via Google
-    libera a sessão como completa direto (exceto onboarding pendente),
-    mesmo que o usuário tenha WebAuthn cadastrado. Ver docstring do
-    módulo para o racional.
+        Não passa por `mfa_pendente` em nenhum caso -- login via Google
+        libera a sessão como completa direto (exceto onboarding pendente),
+        mesmo que o usuário tenha WebAuthn cadastrado. Ver docstring do
+        módulo para o racional.
 
-    Retorno:
-        Redirect para login.html com erro se o usuário não existir
-        ou estiver inativo; redirect para afterLogin.html em sucesso
-        -- ambos na origem do frontend (FRONTEND_URL), não na origem
-        do Flask.
-    """
-    token = oauth.google.authorize_access_token()
-    userinfo = token["userinfo"]
+        Retorno:
+            Redirect para login.html com erro se o usuário não existir
+            ou estiver inativo; redirect para afterLogin.html em sucesso
+            -- ambos na origem do frontend (FRONTEND_URL), não na origem
+            do Flask.
+        """
+        token = oauth.google.authorize_access_token()
+        userinfo = token["userinfo"]
 
-    email = userinfo["email"]
-    google_sub = userinfo["sub"]
+        email = userinfo["email"]
+        google_sub = userinfo["sub"]
 
-    usuario = Usuario.query.filter_by(email=email).first()
-    if not usuario:
-        return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=usuario_nao_cadastrado")
+        usuario = Usuario.query.filter_by(email=email).first()
+        if not usuario:
+            return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=usuario_nao_cadastrado")
 
-    # CORRIGIDO: era usuario.ativo (atributo inexistente) -> usuario.status
-    if usuario.status != "ativo":
-        return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=conta_inativa")
+        # CORRIGIDO: era usuario.ativo (atributo inexistente) -> usuario.status
+        if usuario.status != "ativo":
+            return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=conta_inativa")
 
-    if not usuario.google_sub:
-        usuario.google_sub = google_sub
-        db.session.commit()
+        if not usuario.google_sub:
+            usuario.google_sub = google_sub
+            db.session.commit()
 
-    session.clear()
-    # CORRIGIDO: era usuario.id_usuario (atributo inexistente) -> usuario.id
-    session["id_usuario"] = usuario.id
-    session["tipo_usuario"] = usuario.tipo_usuario
-    session["uuid_usuario"] = usuario.uuid
-    session.permanent = True
+        session.clear()
+        # CORRIGIDO: era usuario.id_usuario (atributo inexistente) -> usuario.id
+        session["id_usuario"] = usuario.id
+        session["tipo_usuario"] = usuario.tipo_usuario
+        session["uuid_usuario"] = usuario.uuid
+        session.permanent = True
 
-    if usuario.onboarding_pendente:
-        # Único bloqueio possível para login via Google: falta definir
-        # senha. WebAuthn não faz mais parte do onboarding (ver
-        # onboarding.py), então não há mais nada além da senha
-        # pendente aqui.
-        session["onboarding_pendente"] = True
-    else:
-        # Login via Google sempre libera sessão completa, mesmo que o
-        # usuário tenha WebAuthn cadastrado -- ver docstring do módulo.
-        session["id_empresa"] = usuario.id_empresa
+        if usuario.onboarding_pendente:
+            # Único bloqueio possível para login via Google: falta definir
+            # senha. WebAuthn não faz mais parte do onboarding (ver
+            # onboarding.py), então não há mais nada além da senha
+            # pendente aqui.
+            session["onboarding_pendente"] = True
+        else:
+            # Login via Google sempre libera sessão completa, mesmo que o
+            # usuário tenha WebAuthn cadastrado -- ver docstring do módulo.
+            session["id_empresa"] = usuario.id_empresa
 
-    return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_LOGIN}")
+        return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_LOGIN}")

@@ -9,32 +9,36 @@ from .service import CatalogoExamesService
 bp_exames = Blueprint("catalogo_exames", __name__)
 _svc = CatalogoExamesService()
 
-
-@bp_exames.get("/")
-@requer_login
-def lista_exames():
-    termo = request.args.get("q")
-    itens = _svc.buscar(termo) if termo else _svc.listar()
-    return json_success(data=[e.to_dict() for e in itens])
-
-
-@bp_exames.get("/<uuid>")
-@requer_login
-def detalhe_exame(uuid):
-    try:
-        e = _svc.buscar_por_uuid(uuid)
-        return json_success(data=e.to_dict())
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+class ExamesController():
+    
+    @staticmethod
+    @bp_exames.get("/")
+    @requer_login
+    def lista_exames():
+        termo = request.args.get("q")
+        itens = _svc.buscar(termo) if termo else _svc.listar()
+        return json_success(data=[e.to_dict() for e in itens])
 
 
-@bp_exames.post("/")
-@requer_papel("medico")
-def criar_exame():
-    dados = request.get_json(silent=True) or {}
-    try:
-        e = _svc.criar(dados)
-        return json_success(data=e.to_dict(), message="Exame cadastrado.", status=201)
-    except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+    @staticmethod
+    @bp_exames.get("/<uuid>")
+    @requer_login
+    def detalhe_exame(uuid):
+        try:
+            e = _svc.buscar_por_uuid(uuid)
+            return json_success(data=e.to_dict())
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    @staticmethod
+    @bp_exames.post("/")
+    @requer_papel("medico")
+    def criar_exame():
+        dados = request.get_json(silent=True) or {}
+        try:
+            e = _svc.criar(dados)
+            return json_success(data=e.to_dict(), message="Exame cadastrado.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
 
