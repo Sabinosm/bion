@@ -66,6 +66,8 @@ class PacienteRepository(IRepository[Paciente]):
                 .filter(Usuario.id_empresa == id_empresa)
                 .scalar()
             )
+        
+        
      # --- F1: Doenças crônicas mais comuns na base ---
     def top_cid_ativas(self, id_empresa: int, limite: int = 10) -> list:
         """Ranking de codigo_cid10 com status='ativa', entre os pacientes

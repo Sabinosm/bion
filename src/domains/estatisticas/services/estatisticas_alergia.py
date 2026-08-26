@@ -1,7 +1,7 @@
-from src.domains.paciente.services import DadosClinicosService
+from src.domains.paciente.services.alergia_service import AlergiaService
 from ..interpretacao_helper import interpretacao_percentual
 
-dcs = DadosClinicosService()
+als = AlergiaService()
 
 class EstatisticasAlergia:
  
@@ -12,7 +12,7 @@ class EstatisticasAlergia:
  
         Retorna: {"ranking": [{"substancia", "total"}, ...], "leitura": str}
         """
-        ranking = dcs.top_substancias(id_empresa=id_empresa, limite=limite)
+        ranking = als.top_substancias(id_empresa=id_empresa, limite=limite)
  
         leitura = None
         if ranking:
@@ -33,7 +33,7 @@ class EstatisticasAlergia:
  
         Retorna: {"substancia": str, "por_gravidade": {...}, "leitura": str, "interpretacao": {...}}
         """
-        por_gravidade = dcs.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+        por_gravidade = als.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
         total = sum(por_gravidade.values())
         graves = por_gravidade.get("grave", 0)
  
@@ -64,7 +64,7 @@ class EstatisticasAlergia:
  
         Retorna: {"por_gravidade": {...}, "leitura": str, "interpretacao": {...}}
         """
-        por_gravidade = dcs.gravidade_geral(id_empresa=id_empresa)
+        por_gravidade = als.gravidade_geral(id_empresa=id_empresa)
         total = sum(por_gravidade.values())
         graves = por_gravidade.get("grave", 0)
  

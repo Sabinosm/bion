@@ -66,7 +66,9 @@ def _registrar_blueprints(app: Flask):
     from src.domains.prescricao.controller import bp_prescricao as prescricao_bp
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.dados_clinicos.controller import bp_dados_clinicos
-    from src.domains.paciente.controllers import pessoal_bp, clinico_bp, lgpd_bp
+    
+    from src.domains.paciente.controllers import pessoal_bp, bp_alergia, bp_doenca_cronica, lgpd_bp, bp_med_em_uso
+    
     from src.domains.auth.oauth import bp_oauth
     from src.domains.auth.onboarding import bp_onboarding
     from src.domains.auth.step_up import bp_step_up
@@ -96,7 +98,9 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")
     app.register_blueprint(auditoria_bp, url_prefix="/v1/api/auditoria")
     app.register_blueprint(pessoal_bp, url_prefix="/v1/api/pacientes")
-    app.register_blueprint(clinico_bp, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(bp_alergia, url_prefix="/v1/api/dados_clinicos")
+    app.register_blueprint(bp_doenca_cronica, url_prefix="/v1/api/dados_clinicos")
+    app.register_blueprint(bp_med_em_uso, url_prefix="/v1/api/dados_clinicos")
     app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
     app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")

@@ -178,3 +178,5 @@ class PacienteService:
         from src.models import db
         db.session.commit()
         return paciente
+    
+    
