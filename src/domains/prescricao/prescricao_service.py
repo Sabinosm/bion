@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .repository import ResultadoPrescricaoRepository, PrescricaoRepository, PrescricaoExameRepository
+from .prescricao_repository import ResultadoPrescricaoRepository, PrescricaoRepository, PrescricaoExameRepository
 from src.domains.atendimento.repository import AtendimentoRepository
 
 CAMPOS_OBRIGATORIOS_RESULTADO = (
@@ -19,7 +19,7 @@ class PrescricaoService:
     """
 
     def __init__(self):
-        self.resultado_repo = ResultadoPrescricaoRepository()
+        self.repo = ResultadoPrescricaoRepository()
         self.prescricao_repo = PrescricaoRepository()
         self.exame_repo = PrescricaoExameRepository()
         self.atendimento_repo = AtendimentoRepository()
@@ -52,7 +52,7 @@ class PrescricaoService:
             formulado_por=id_usuario,
             data_hora_formulacao=datetime.now(timezone.utc),
         )
-        return self.resultado_repo.save(resultado)
+        return self.repo.save(resultado)
 
     def adicionar_medicamento(self, uuid_resultado: str, dados: dict):
         """
@@ -62,7 +62,7 @@ class PrescricaoService:
             RecursoNaoEncontradoError: se o ResultadoPrescricao não existir.
         """
         from src.models.clinico import Prescricao
-        resultado = self.resultado_repo.find_by_uuid(uuid_resultado)
+        resultado = self.repo.find_by_uuid(uuid_resultado)
         if not resultado:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
 
@@ -76,31 +76,10 @@ class PrescricaoService:
         )
         return self.prescricao_repo.save(p)
 
-    def adicionar_exame(self, uuid_resultado: str, dados: dict):
-        """
-        Adiciona um exame prescrito a um ResultadoPrescricao.
-
-        Raises:
-            RecursoNaoEncontradoError: se o ResultadoPrescricao não existir.
-        """
-        from src.models.clinico import PrescricaoExame
-        resultado = self.resultado_repo.find_by_uuid(uuid_resultado)
-        if not resultado:
-            raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
-
-        pe = PrescricaoExame(
-            id_resultado=resultado.id,
-            id_exame=dados.get("id_exame"),
-            urgencia=dados.get("urgencia", "rotina"),
-            justificativa=dados.get("justificativa"),
-            origem_sugestao=dados.get("origem_sugestao", "medico"),
-            id_output_origem=dados.get("id_output_origem"),
-        )
-        return self.exame_repo.save(pe)
 
     def buscar_resultado_por_uuid(self, uuid: str):
         """Retorna um ResultadoPrescricao pelo UUID ou lança RecursoNaoEncontradoError."""
-        r = self.resultado_repo.find_by_uuid(uuid)
+        r = self.repo.find_by_uuid(uuid)
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid}")
         return r
@@ -108,28 +87,6 @@ class PrescricaoService:
     def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
         return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
  
-    # --- C1: Doenças mais comuns por região ---
-    def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
-        return self.repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
- 
-    # --- C3 (bônus): base para incidência por 100 mil ---
-    def total_casos_por_regiao(self, id_empresa: int, dias: int = 14):
-        return self.repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
- 
-    # --- C2: Evolução temporal de um CID específico ---
-    def evolucao_cid(self, id_empresa: int, codigo_cid10: str, dias: int = 30):
-        return self.repo.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
- 
-    # --- C2 (comparação): evolução de 1 CID, com janela explícita ---
-    def evolucao_cid_periodo(self, id_empresa: int, codigo_cid10: str, data_inicio, data_fim):
-        return self.repo.evolucao_cid_periodo(
-            id_empresa=id_empresa, codigo_cid10=codigo_cid10, data_inicio=data_inicio, data_fim=data_fim
-        )    
-    
-     # --- D3: Urgência de exames -- IA vs. profissional ---
-    def urgencia_por_origem(self, id_empresa: int, dias: int = 30):
-        return self.repo.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
-    
     # --- D4: Medicamentos mais prescritos por classe ---
     def top_por_classe(self, id_empresa: int, dias: int = 30, limite: int = 10):
         return self.repo.top_por_classe(id_empresa=id_empresa, dias=dias, limite=limite)

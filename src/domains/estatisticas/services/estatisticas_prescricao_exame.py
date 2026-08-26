@@ -1,7 +1,7 @@
 from src.domains.estatisticas.interpretacao_helper import interpretacao_sem_nivel
-from src.domains.prescricao.service import PrescricaoService
+from src.domains.prescricao.prescricao_exame_service import PrescricaoExameService
 
-ps = PrescricaoService()
+pes = PrescricaoExameService()
 
 
 class EstatisticasPrescricaoExame:
@@ -18,7 +18,7 @@ class EstatisticasPrescricaoExame:
  
         Retorna: {"matriz": [...], "leitura": str, "interpretacao": {...}}
         """
-        bruto = ps.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
+        bruto = pes.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
  
         total_por_urgencia = {}
         for item in bruto:

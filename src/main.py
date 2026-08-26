@@ -63,7 +63,9 @@ def _registrar_blueprints(app: Flask):
     from src.domains.catalogo_fluxogramas_mts.controller import bp_catalogo_fluxogramas_mts as bp_mts
     from src.domains.consulta.controller import bp_consulta as consulta_bp
     from src.domains.atendimento.controller import bp_atendimento as atendimento_bp
-    from src.domains.prescricao.controller import bp_prescricao as prescricao_bp
+    from src.domains.prescricao.prescricao_controller import bp_prescricao as prescricao_bp
+    from src.domains.prescricao.prescricao_exame_controller import bp_prescricao_exame
+    from src.domains.prescricao.resultado_prescricao_controller import bp_resultado_prescricao
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.dados_clinicos.controller import bp_dados_clinicos
     
@@ -96,6 +98,8 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")
+    app.register_blueprint(bp_resultado_prescricao, url_prefix="/v1/api/prescricoes")
+    app.register_blueprint(bp_prescricao_exame, url_prefix="/v1/api/prescricoes")
     app.register_blueprint(auditoria_bp, url_prefix="/v1/api/auditoria")
     app.register_blueprint(pessoal_bp, url_prefix="/v1/api/pacientes")
     app.register_blueprint(bp_alergia, url_prefix="/v1/api/dados_clinicos")

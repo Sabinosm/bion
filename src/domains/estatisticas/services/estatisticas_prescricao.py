@@ -1,5 +1,5 @@
 from src.domains.estatisticas.interpretacao_helper import interpretacao_sem_nivel
-from src.domains.prescricao.service import PrescricaoService
+from src.domains.prescricao.prescricao_service import PrescricaoService
 
 p_svc = PrescricaoService()
 
