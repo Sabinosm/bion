@@ -40,6 +40,7 @@ class AuthService:
 
         try:
             ph.verify(usuario.hash_senha, senha)
+            usuario.onboarding_pendente = False
         except VerifyMismatchError:
             return None, None
 

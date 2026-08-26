@@ -59,7 +59,7 @@ class Login():
         session["tipo_usuario"] = usuario.tipo_usuario
         session["uuid_usuario"] = usuario.uuid
         
-
+        
         if usuario.onboarding_pendente:
             session["onboarding_pendente"] = True
             return json_success(
