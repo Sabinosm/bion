@@ -158,8 +158,11 @@ class UsuarioService(ResetCredenciaisMixin):
             Instância de Usuario atualizada e salva.
         """
         u = self.buscar_por_uuid(uuid)
-        u.status = "ativo"
-        return self.repo.save(u)
+        if u.status !="pendente":
+            u.status = "ativo"
+            return self.repo.save(u)
+        return None
+        
  
     def atualizar(self, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
         return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid)

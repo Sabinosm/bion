@@ -86,7 +86,10 @@ class UsuarioController():
     def ativar(uuid):
         try:
             u = _svc.ativar(uuid)
-            return json_success(data=u.to_dict(), message="Usuário ativado.")
+            if u:
+                return json_success(data=u.to_dict(), message="Usuário ativado.")
+            else:
+                return json_error("Usuário pendente não pode ser ativado manualmente", 422)
         except BionException as e:
             return json_error(e.message, e.status_code)
 
