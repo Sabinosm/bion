@@ -247,7 +247,7 @@ class UsuarioService(ResetCredenciaisMixin):
         return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid, solicitante_eh_super_admin)
     
     def contagem_profissionais(self, id_empresa):
-        return self.repo.count_no_admin_users(id_empresa=id_empresa)
+        return self.repo.count_no_super_admin_users(id_empresa=id_empresa)
     
     def contagem_profissionais_por_status(self, id_empresa, status):
         return self.repo.count_status_users(id_empresa=id_empresa, status=status)

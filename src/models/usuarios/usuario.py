@@ -9,6 +9,20 @@ ALTERADO (migração FHIR, Opção B confirmada):
 - is_medico()/is_enfermeiro()/is_admin() MANTIDOS como método, mas agora
   delegam para papel_ativo() — qualquer código que já chamava esses
   métodos continua funcionando sem alteração.
+
+ALTERADO (múltiplos admins por empresa):
+- Antes só existia 1 admin por empresa (o criado junto com a empresa em
+  Empresa.cadastrar_com_admin). Agora uma empresa pode ter vários admins.
+- is_super_admin (bool) foi adicionado para distinguir o admin "fundador"
+  (criado junto com a empresa) dos demais admins criados depois por ele.
+  Só o super admin pode criar novos admins e só ele pode alterar
+  (editar/desativar/ativar) outro admin -- um admin comum não pode
+  mexer em nenhum admin, nem nele mesmo nesse sentido, nem em outro.
+  O super admin em si nunca pode ser rebaixado/desativado, por ninguém,
+  nem por ele mesmo. Ver service.py, service_atualizar.py e
+  service_validacoes.py para as regras completas.
+- Default False: só nasce True dentro de Empresa.cadastrar_com_admin,
+  que é o único fluxo que cria o primeiro admin de uma empresa nova.
 """
 
 from datetime import datetime, timezone
@@ -31,11 +45,17 @@ class Usuario(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     telefone = db.Column(db.String(50))
     user_login = db.Column(db.String(100), unique=True)
-    
 
     # tipo_usuario REMOVIDO — ver papel_ativo() abaixo
     is_admin = db.Column("is_admin", db.Boolean, nullable=False, default=False)
+
+    # ADICIONADO: distingue o admin fundador (único com poder de criar/
+    # alterar outros admins) dos demais admins de uma mesma empresa.
+    # Só é True quando setado explicitamente em Empresa.cadastrar_com_admin;
+    # todo outro fluxo de criação (inclusive criar outro admin) deixa
+    # False por default.
     is_super_admin = db.Column("is_super_admin", db.Boolean, nullable=False, default=False)
+
     status = db.Column(db.Enum("ativo", "inativo", "pendente"),
                         nullable=False, default="pendente")
     # atributos_profissionais_json REMOVIDO — ver PapelProfissional
@@ -99,6 +119,7 @@ class Usuario(db.Model):
             "telefone": self.telefone,
             "user_login": self.user_login,
             "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
+            "is_super_admin": self.is_super_admin,
             "status": self.status,
             "ultimo_acesso": self.ultimo_acesso.isoformat() if self.ultimo_acesso else None,
             "id_empresa": self.id_empresa,
@@ -116,6 +137,14 @@ class Usuario(db.Model):
                     "email": self.email,
                     "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
                     "status": self.status,
+                    # ADICIONADO (múltiplos admins por empresa): a listagem
+                    # agora pode incluir admins comuns (ver
+                    # repository.find_all_param) -- o front precisa saber
+                    # que o item é admin para desenhar o card certo e para
+                    # decidir se mostra ações de gerenciamento (só o super
+                    # admin pode agir sobre outro admin). is_super_admin
+                    # nunca aparece aqui porque find_all_param já exclui
+                    # o super admin da listagem.
+                    "is_admin": self.is_admin,
              }
         return d
-  

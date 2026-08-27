@@ -100,7 +100,7 @@ class UsuarioRepository(IRepository[Usuario]):
     def find_all_param(self, id_empresa:int, offset: int = 0, especialidade: str = None, status: str = None, nome:str=None, email:str=None,cpf:str=None):
         filtros = {
             "id_empresa": id_empresa,
-            "is_admin": 0
+            "is_super_admin": 0
                   }
 
         if especialidade:
@@ -119,12 +119,12 @@ class UsuarioRepository(IRepository[Usuario]):
         
         return Usuario.query.filter_by(**filtros).offset(offset).limit(8)
     
-    def count_no_admin_users(self, id_empresa):
-        return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa).count()
+    def count_no_super_admin_users(self, id_empresa):
+        return Usuario.query.where(Usuario.is_super_admin==False, Usuario.id_empresa==id_empresa).count()
         
 
     def count_status_users(self,id_empresa,status):
-        return Usuario.query.where(Usuario.is_admin==False, Usuario.id_empresa==id_empresa,Usuario.status==status).count()
+        return Usuario.query.where(Usuario.is_super_admin==False, Usuario.id_empresa==id_empresa,Usuario.status==status).count()
         
     # --- A4: Efetivo ativo por papel ---
     def contar_ativos_por_papel(self, id_empresa: int) -> dict:
@@ -159,7 +159,7 @@ class UsuarioRepository(IRepository[Usuario]):
         # Admins não têm PapelProfissional, contam à parte
         total_admins = (
             Usuario.query
-            .filter_by(id_empresa=id_empresa, status="ativo", is_admin=True)
+            .filter_by(id_empresa=id_empresa, status="ativo", is_super_admin=False, is_admin=True)
             .count()
         )
         if total_admins:
@@ -169,7 +169,7 @@ class UsuarioRepository(IRepository[Usuario]):
 
     # --- A5 (fase futura): Engajamento/atividade da equipe ---
     def find_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> List[Usuario]:
-        """Usuários (não-admin) sem acesso há mais de N dias, ou que
+        """Usuários (não-super-admin) sem acesso há mais de N dias, ou que
         nunca acessaram (ultimo_acesso is None). Já deixo pronto porque
         é praticamente 'de graça' junto com A4, mas A5 em si é fase 1
         'nice to have' -- confirmar com o time se entra agora.
@@ -179,8 +179,8 @@ class UsuarioRepository(IRepository[Usuario]):
             Usuario.query
             .filter(
                 Usuario.id_empresa == id_empresa,
-                Usuario.is_admin == False,
                 Usuario.status == "ativo",
+                Usuario.is_super_admin == False,
                 db.or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
             )
             .all()
@@ -188,7 +188,7 @@ class UsuarioRepository(IRepository[Usuario]):
         
 # --- A5: Engajamento/atividade da equipe (contagem) ---
     def contar_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> int:
-        """Conta usuários (não-admin, status ativo) sem acesso há mais de
+        """Conta usuários (não-super-admin, status ativo) sem acesso há mais de
         N dias, ou que nunca acessaram. Par de find_inativos_ha_dias
         (que retorna a lista completa) -- este devolve só o número, mais
         barato quando o card só precisa do total.
@@ -201,8 +201,8 @@ class UsuarioRepository(IRepository[Usuario]):
             Usuario.query
             .filter(
                 Usuario.id_empresa == id_empresa,
-                Usuario.is_admin == False,
                 Usuario.status == "ativo",
+                Usuario.is_super_admin == False,
                 or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
             )
             .count()
