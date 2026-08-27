@@ -15,6 +15,13 @@ cookie de sessão está presente nas duas pontas (aba diferente,
 navegador limpando cookie de terceiros durante o redirect, etc.).
 Persistir no banco, como já é feito para StepUpToken, torna o fluxo
 robusto a isso e mantém auditável quando cada etapa foi confirmada.
+
+Pelo mesmo motivo, `state` e `nonce` não podem ser confiados à sessão
+Flask nem ao mecanismo de correlação automático do Authlib (que
+guardaria os dois na sessão via authorize_redirect()) -- o callback
+usa oauth.google.fetch_access_token() + parse_id_token() passando
+ambos explicitamente a partir desta tabela, não authorize_access_token().
+Ver step_up.py (stepup_senha_confirmar / stepup_google_callback).
 """
 
 from datetime import datetime, timezone
@@ -52,6 +59,17 @@ class StepUpReautenticacao(db.Model):
     # iniciou o redirect (equivalente ao `state` padrão do OAuth,
     # aqui usado para amarrar o registro certo, não só CSRF genérico).
     state = db.Column(db.String(64), unique=True, nullable=False)
+
+    # Nonce OpenID Connect (parâmetro `nonce` do id_token, não o mesmo
+    # conceito que `state` acima apesar do nome parecido) -- gerado
+    # junto com `state` em /stepup/senha/confirmar e conferido em
+    # parse_id_token() no callback. Protege contra reuso/replay do
+    # id_token devolvido pelo Google; sem ele, um id_token válido
+    # capturado em outro contexto poderia ser reapresentado aqui.
+    # Precisa ser persistido pelo mesmo motivo que `state`: o Authlib
+    # normalmente guardaria isso na sessão Flask, mas essa sessão não
+    # é garantida entre o request que inicia o redirect e o callback.
+    nonce = db.Column(db.String(64), nullable=False)
 
     expira_em = db.Column(db.DateTime(timezone=True), nullable=False)
     criado_em = db.Column(db.DateTime(timezone=True),

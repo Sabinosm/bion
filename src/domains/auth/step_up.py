@@ -277,41 +277,35 @@ class StepUp():
         StepUpReautenticacao.query.filter_by(id_usuario=id_usuario, acao=acao).delete()
 
         state = secrets.token_urlsafe(32)
+        nonce = secrets.token_urlsafe(32)
         db.session.add(StepUpReautenticacao(
             id_usuario=id_usuario,
             acao=acao,
             senha_confirmada=True,
             state=state,
+            nonce=nonce,
             expira_em=datetime.now(timezone.utc) + timedelta(seconds=DURACAO_REAUTENTICACAO_SEGUNDOS),
         ))
         db.session.commit()
 
         redirect_uri = url_for("step_up.stepup_google_callback", _external=True)
 
-        # TODO: confirmar o método exato do Authlib para gerar a URL de
-        # autorização SEM disparar um redirect 302 (diferente de
-        # oauth.google.authorize_redirect(), usado em oauth.py, que já
-        # retorna uma Response 302 pronta -- não serve aqui porque esta
-        # rota é chamada via fetch() e precisa devolver JSON para o
-        # frontend decidir a navegação, não uma resposta HTTP de redirect).
+        # create_authorization_url() (API de baixo nível) NÃO grava state
+        # nem nonce na sessão Flask -- diferente de authorize_redirect(),
+        # que grava e é o que authorize_access_token() espera encontrar
+        # depois. Isso é proposital aqui: o usuário pode voltar do Google
+        # numa aba/sessão diferente da que iniciou (ver docstring do
+        # módulo), então a sessão Flask não é uma correlação confiável
+        # entre as duas pontas -- state e nonce vivem em
+        # StepUpReautenticacao (banco), não na sessão.
         #
-        # `create_authorization_url` é o nome no client OAuth2 puro do
-        # Authlib (authlib.integrations.requests_client / httpx_client),
-        # mas o objeto `oauth.google` aqui é o wrapper Flask
-        # (FlaskOAuth2App) -- a API pode não ser idêntica. Para confirmar
-        # na versão instalada:
-        #
-        #   python3 -c "
-        #   from authlib.integrations.flask_client import OAuth
-        #   import inspect
-        #   print([m for m in dir(OAuth) if 'author' in m.lower()])
-        #   "
-        #
-        # ou inspecionar diretamente a classe de oauth.google (FlaskOAuth2App)
-        # no ambiente do projeto. Se o nome for outro, só trocar a chamada
-        # abaixo -- o resto do fluxo (state, prompt=login, callback) não muda.
+        # Consequência direta: o callback (stepup_google_callback) NÃO
+        # pode usar oauth.google.authorize_access_token() -- esse método
+        # tenta ler o state de volta da sessão e sempre falharia aqui.
+        # Ele precisa usar oauth.google.fetch_access_token(), passando
+        # code/state explicitamente da query string (ver callback abaixo).
         autorizacao = oauth.google.create_authorization_url(
-            redirect_uri, state=state, prompt="login"
+            redirect_uri, state=state, nonce=nonce, prompt="login"
         )
 
         return jsonify({"redirect_url": autorizacao["url"]}), 200
@@ -341,27 +335,45 @@ class StepUp():
             sucesso, ou `erro` em caso de falha.
         """
         state = request.args.get("state")
+        code = request.args.get("code")
+        erro_google = request.args.get("error")
 
         pendente = StepUpReautenticacao.query.filter_by(state=state).first()
 
-        if not pendente or not pendente.senha_confirmada or pendente.expirado():
+        if erro_google or not pendente or not pendente.senha_confirmada or pendente.expirado():
             db.session.delete(pendente) if pendente else None
             db.session.commit()
             return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_REAUTENTICACAO}?erro=reautenticacao_expirada")
 
-        # TODO: authorize_access_token() normalmente valida o `state` de
-        # volta contra um valor que o próprio Authlib gravou na sessão
-        # Flask durante authorize_redirect()/create_authorization_url().
-        # Como o redirect original foi gerado sem passar pela sessão deste
-        # navegador de forma garantida (ver TODO em stepup_senha_confirmar),
-        # essa validação interna do Authlib pode falhar mesmo com o state
-        # já conferido manualmente acima contra StepUpReautenticacao.
-        # Se authorize_access_token() lançar erro de state/CSRF em teste,
-        # a correção provável é usar fetch_access_token() ou o client
-        # OAuth2 de baixo nível diretamente, passando o `code` e `state`
-        # da query string explicitamente, sem depender da sessão.
-        token_google = oauth.google.authorize_access_token()
-        userinfo = token_google["userinfo"]
+        redirect_uri = url_for("step_up.stepup_google_callback", _external=True)
+
+        # fetch_access_token() (não authorize_access_token()) porque o
+        # state/nonce foram gerados sem passar pela sessão Flask deste
+        # navegador (ver stepup_senha_confirmar) -- passamos code/state
+        # explicitamente da query string, sem depender de nada gravado
+        # em sessão. authorize_access_token() sempre falharia aqui: ele
+        # tenta localizar o state de volta na sessão via
+        # self.framework.get_state_data(session, state), que nunca foi
+        # populada por create_authorization_url().
+        try:
+            token_google = oauth.google.fetch_access_token(
+                redirect_uri=redirect_uri,
+                code=code,
+            )
+        except Exception:
+            db.session.delete(pendente)
+            db.session.commit()
+            return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_REAUTENTICACAO}?erro=falha_google")
+
+        # parse_id_token exige o nonce que geramos e persistimos na etapa
+        # anterior -- protege contra reuso do id_token (replay), separado
+        # da proteção de CSRF que o state já cobre.
+        try:
+            userinfo = oauth.google.parse_id_token(token_google, nonce=pendente.nonce)
+        except Exception:
+            db.session.delete(pendente)
+            db.session.commit()
+            return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_REAUTENTICACAO}?erro=falha_google")
 
         usuario = ur.find_by_id(pendente.id_usuario)
 
