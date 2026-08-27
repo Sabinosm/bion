@@ -399,7 +399,7 @@ class StepUp():
             f"?token_confirmacao={token}&acao={acao}&expira_em_segundos={DURACAO_TOKEN_SEGUNDOS}"
         )
 
-
+    @staticmethod
     def requer_confirmacao_recente(acao):
         """Decorator que exige um token de step-up recente para a rota.
 

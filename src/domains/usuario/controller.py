@@ -7,7 +7,7 @@ from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
 from .services.service import UsuarioService
 from flask import Blueprint, request, g
-
+from src.domains.auth.step_up import StepUp
 bp = Blueprint("usuario", __name__)
 _svc = UsuarioService()
 
@@ -70,6 +70,7 @@ class UsuarioController():
     @staticmethod
     @bp.post("/<uuid>/desativar")
     @requer_papel("admin")
+    @StepUp.requer_confirmacao_recente("desativar_profissional")
     def desativar(uuid):
         try:
             u = _svc.desativar(uuid)
@@ -81,6 +82,7 @@ class UsuarioController():
     @staticmethod
     @bp.post("/<uuid>/ativar")
     @requer_papel("admin")
+    @StepUp.requer_confirmacao_recente("desativar_profissional")
     def ativar(uuid):
         try:
             u = _svc.ativar(uuid)
