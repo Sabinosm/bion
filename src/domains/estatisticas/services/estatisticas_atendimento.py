@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from src.domains.atendimento.service import AtendimentoService
-from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel
+from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 
 ats = AtendimentoService()
 
@@ -44,13 +44,9 @@ class EstatisticasAtendimento:
  
         media_atual = media_geral(por_tipo)
  
-        agora = datetime.now(timezone.utc)
-        inicio_atual = agora - timedelta(days=dias)
-        inicio_anterior = agora - timedelta(days=dias * 2)
-        bruto_anterior = ats.tempo_medio_por_tipo_periodo(
-            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
-        )
+        bruto_anterior = valor_periodo_anterior(ats.tempo_medio_por_tipo_periodo, id_empresa, dias)
         media_anterior = media_geral(bruto_anterior)
+        
  
         principal = max(por_tipo, key=lambda item: item["total"])
         leitura = f"Tempo médio de atendimento ({principal['tipo_atendimento']}): {principal['media_formatada']}"
@@ -80,14 +76,11 @@ class EstatisticasAtendimento:
         """
         agora = datetime.now(timezone.utc)
         inicio_atual = agora - timedelta(days=dias)
-        inicio_anterior = agora - timedelta(days=dias * 2)
- 
+
         periodo_atual = ats.tempo_medio_por_tipo_periodo(
             id_empresa=id_empresa, data_inicio=inicio_atual, data_fim=agora
         )
-        periodo_anterior = ats.tempo_medio_por_tipo_periodo(
-            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
-        )
+        periodo_anterior = valor_periodo_anterior(ats.tempo_medio_por_tipo_periodo, id_empresa, dias)
  
         def media_geral(lista):
             total_seg = sum(item["media_segundos"] * item["total"] for item in lista)

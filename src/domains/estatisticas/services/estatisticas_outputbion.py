@@ -1,19 +1,11 @@
-from datetime import datetime, timedelta, timezone
-
 from src.domains.protocolos_ia.service import OutputBionService
-from src.domains.estatisticas.interpretacao_helper import interpretacao_percentual, calcular_comparacao
+from src.domains.estatisticas.interpretacao_helper import (
+    interpretacao_percentual, calcular_comparacao, valor_periodo_anterior,
+)
 
 ob_svc = OutputBionService()
 
 
-def _media_periodo_anterior(metodo_periodo, id_empresa, dias):
-    """Helper local: busca a média do período anterior (mesma duração,
-    sem sobreposição) usando o método de repository/service passado.
-    """
-    agora = datetime.now(timezone.utc)
-    inicio_atual = agora - timedelta(days=dias)
-    inicio_anterior = agora - timedelta(days=dias * 2)
-    return metodo_periodo(id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual)
  
  
 class EstatisticasOutputBion:
@@ -29,7 +21,7 @@ class EstatisticasOutputBion:
         if media is None:
             return {"media": None, "dias": dias, "leitura": "Sem execuções da IA no período", "interpretacao": None}
  
-        media_anterior = _media_periodo_anterior(ob_svc.media_confianca_periodo, id_empresa, dias)
+        media_anterior = valor_periodo_anterior(ob_svc.media_confianca_periodo, id_empresa, dias)
  
         interpretacao = interpretacao_percentual(
             valor=media,
@@ -56,7 +48,7 @@ class EstatisticasOutputBion:
         if media is None:
             return {"media": None, "dias": dias, "leitura": "Sem execuções da IA no período", "interpretacao": None}
  
-        media_anterior = _media_periodo_anterior(ob_svc.media_completude_periodo, id_empresa, dias)
+        media_anterior = valor_periodo_anterior(ob_svc.media_completude_periodo, id_empresa, dias)
  
         interpretacao = interpretacao_percentual(
             valor=media,

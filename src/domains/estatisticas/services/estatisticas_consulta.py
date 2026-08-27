@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel
+from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel, periodo_anterior, valor_periodo_anterior
 from src.domains.consulta.service import ConsultaService
 
 cs = ConsultaService()
@@ -28,12 +28,8 @@ class EstatisticasConsulta:
         serie = cs.consultas_por_dia(id_empresa=id_empresa, dias=dias)
         total_periodo = sum(item["total"] for item in serie)
  
-        agora = datetime.now(timezone.utc)
-        inicio_atual = agora - timedelta(days=dias)
-        inicio_anterior = agora - timedelta(days=dias * 2)
-        serie_anterior = cs.consultas_por_dia_periodo(
-            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
-        )
+        serie_anterior = valor_periodo_anterior(cs.consultas_por_dia_periodo, id_empresa, dias)
+        
         total_anterior = sum(item["total"] for item in serie_anterior)
  
         interpretacao = interpretacao_sem_nivel(
@@ -66,12 +62,9 @@ class EstatisticasConsulta:
         percentual = round((concluidas / total) * 100, 1) if total else 0.0
  
         # período anterior, mesma duração, sem sobreposição
-        agora = datetime.now(timezone.utc)
-        inicio_atual = agora - timedelta(days=dias)
-        inicio_anterior = agora - timedelta(days=dias * 2)
-        por_status_anterior = cs.consultas_por_status_periodo(
-            id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual
-        )
+        
+        por_status_anterior = valor_periodo_anterior(cs.consultas_por_status_periodo, id_empresa, dias)
+                
         total_anterior = sum(por_status_anterior.values())
         concluidas_anterior = por_status_anterior.get(_STATUS_CONCLUIDO, 0)
         percentual_anterior = round((concluidas_anterior / total_anterior) * 100, 1) if total_anterior else None

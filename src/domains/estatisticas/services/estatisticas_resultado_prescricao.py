@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel
+from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 from src.domains.prescricao.resultado_prescricao_service import ResultadoPrescricaoService
 from src.models.corp.regiao_geografica import RegiaoGeografica
 
@@ -40,6 +40,7 @@ class EstatisticasResultadoPrescricao:
  
     # --- C3 (bônus): incidência por 100 mil habitantes ---
     def incidencia_por_regiao(self, id_empresa, dias=14):
+        
         """Casos totais por região, normalizados pela população estimada.
  
         Grupo 2 -- sem nivel (incidência "normal" varia por doença/CID,
@@ -51,17 +52,23 @@ class EstatisticasResultadoPrescricao:
         Regiões sem populacao_estimada cadastrada ficam com
         incidencia_por_100mil=None (não dá pra assumir 0, seria enganoso).
         """
+         # 1 única query pra todas as regiões envolvidas
+         
         casos_por_regiao = ps.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
- 
+        ids_regiao = [item["id_regiao"] for item in casos_por_regiao]
+        regioes = {
+            r.id: r for r in RegiaoGeografica.query.filter(RegiaoGeografica.id.in_(ids_regiao))
+        }
+
         ranking = []
         for item in casos_por_regiao:
-            regiao = RegiaoGeografica.query.get(item["id_regiao"])
+            regiao = regioes.get(item["id_regiao"])
             populacao = regiao.populacao_estimada if regiao else None
- 
+
             incidencia = None
             if populacao:
                 incidencia = round((item["total"] / populacao) * 100_000, 1)
- 
+
             ranking.append({
                 "regiao": item["regiao"],
                 "total_casos": item["total"],
@@ -103,11 +110,8 @@ class EstatisticasResultadoPrescricao:
         serie = ps.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
         total = sum(item["total"] for item in serie)
  
-        agora = datetime.now(timezone.utc)
-        inicio_atual = agora - timedelta(days=dias)
-        inicio_anterior = agora - timedelta(days=dias * 2)
-        serie_anterior = ps.evolucao_cid_periodo(
-            id_empresa=id_empresa, codigo_cid10=codigo_cid10, data_inicio=inicio_anterior, data_fim=inicio_atual
+        serie_anterior = valor_periodo_anterior(
+            ps.evolucao_cid_periodo, id_empresa, dias, codigo_cid10=codigo_cid10
         )
         total_anterior = sum(item["total"] for item in serie_anterior)
  

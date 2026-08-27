@@ -21,6 +21,10 @@ from src.models.types import BigIntPK
 
 class OutputBion(db.Model):
     __tablename__ = "output_bion"
+    
+    __table_args__ = (
+        db.Index('ix_output_bion_criado_input', 'criado_em', 'id_input'),
+    )
 
     id = db.Column("id_output", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_output", db.String(36), unique=True, nullable=False,

@@ -7,6 +7,7 @@ Localização sugerida: src/domains/estatisticas/interpretacao.py
 (ajustar conforme estrutura real do projeto)
 """
 
+from datetime import datetime, timedelta, timezone
 
 def nivel_por_percentual(valor: float) -> str:
     """Classifica um valor 0-100 em nivel, conforme thresholds definidos:
@@ -86,3 +87,16 @@ def calcular_comparacao(valor_atual: float, valor_anterior: float, unidade: str 
 
     direcao_texto = "Aumento" if variacao > 0 else "Queda"
     return f"{direcao_texto} de {abs(variacao)}% em comparação com o período anterior"
+
+
+
+def valor_periodo_anterior(metodo_periodo, id_empresa, dias, **kwargs):
+    """Busca o valor do período anterior (mesma duração, sem
+    sobreposição) usando o método de repository/service passado.
+    Aceita kwargs extras para métodos que precisam de parâmetros
+    além de id_empresa/data_inicio/data_fim (ex: codigo_cid10).
+    """
+    agora = datetime.now(timezone.utc)
+    inicio_atual = agora - timedelta(days=dias)
+    inicio_anterior = agora - timedelta(days=dias * 2)
+    return metodo_periodo(id_empresa=id_empresa, data_inicio=inicio_anterior, data_fim=inicio_atual, **kwargs)
