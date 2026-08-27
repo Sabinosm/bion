@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel, periodo_anterior, valor_periodo_anterior
+from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel,  valor_periodo_anterior
 from src.domains.consulta.service import ConsultaService
 
 cs = ConsultaService()
