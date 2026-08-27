@@ -20,15 +20,21 @@ from typing import Optional, List
 from pydantic import BaseModel, ValidationError, field_validator
 
 
-# Ajustar estes conjuntos conforme as opções reais oferecidas no
-# painel de Preferências (settingsModal.html / settings.js).
-TEMAS_PERMITIDOS = {"light", "dark", "teal", "teal-light", "blue", "blue-light", "burgundy", "burgundy-light"}
+# Valores reais definidos em settingsModal.html
+# (.theme-option[data-theme-option]).
+TEMAS_PERMITIDOS = {
+    "dark", "light",
+    "blue", "blue-light",
+    "burgundy", "burgundy-light",
+    "teal", "teal-light",
+}
 TAMANHOS_FONTE_PERMITIDOS = {"pequeno", "medio", "grande"}
 
-# Idiomas no formato IETF BCP 47 (pt-BR, en-US, es-ES, ...). Se a lista
-# de idiomas suportados pela UI for fixa, troque por um `set` fechado
-# igual aos dois acima e valide contra ele.
-_ID_LINGUAGEM_PATTERN = r"^[a-z]{2}(-[A-Z]{2})?$"
+# Idiomas suportados hoje pelo <select id="f-idioma"> em
+# settingsModal.html. Setar fechado (em vez de regex genérico) porque
+# a UI só oferece estas duas opções -- qualquer outro valor não tem
+# como ter vindo do formulário legítimo.
+IDIOMAS_PERMITIDOS = {"pt-BR", "en-US"}
 
 
 class DesignSchema(BaseModel):
@@ -68,12 +74,11 @@ class PreferenciasSchema(BaseModel):
             return v
         if len(v) == 0:
             raise ValueError("linguagem não pode ser uma lista vazia.")
-        import re
         for item in v:
-            if not isinstance(item, str) or not re.match(_ID_LINGUAGEM_PATTERN, item):
+            if item not in IDIOMAS_PERMITIDOS:
                 raise ValueError(
                     f"linguagem contém valor inválido: '{item}'. "
-                    "Esperado formato tipo 'pt-BR', 'en-US'."
+                    f"Valores aceitos: {sorted(IDIOMAS_PERMITIDOS)}."
                 )
         return v
 
