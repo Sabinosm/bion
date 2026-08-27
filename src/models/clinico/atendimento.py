@@ -17,6 +17,13 @@ from src.models.types import BigIntPK
 class Atendimento(db.Model):
     __tablename__ = "atendimento"
 
+    __table_args__ = (
+        db.Index('ix_atendimento_realizado_por_status_data',
+                  'realizado_por', 'status', 'data_hora_inicio'),
+        # cobre A1/A3 (status + data) e A2 (join + data), com realizado_por
+        # como primeira coluna já que ele entra em toda query
+    )
+    
     id = db.Column("id_atendimento",BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_atendimento",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))

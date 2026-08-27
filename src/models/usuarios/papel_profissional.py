@@ -22,6 +22,12 @@ from src.models.types import BigIntPK
 class PapelProfissional(db.Model):
     __tablename__ = "papel_profissional"
 
+    __table_args__ = (
+        db.Index('ix_papel_usuario_tipo_ativo',
+                  'id_usuario', 'tipo_papel', 'ativo'),
+        # ajuda o JOIN por id_usuario e evita filesort no GROUP BY tipo_papel de A4
+    )
+    
     id = db.Column("id_papel_profissional", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_papel_profissional", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
