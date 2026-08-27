@@ -1,5 +1,6 @@
-from src.core.exceptions import RecursoNaoEncontradoError
+from src.core.exceptions import RecursoNaoEncontradoError, BionException
 from .repository import ConfiguracaoRepository
+from src.schemas.schema_config import validar_configuracoes
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 
 
@@ -56,9 +57,14 @@ class ConfiguracaoService:
         return cfg
 
     def atualizar(self, id_usuario: int, configuracoes: dict):
+        try:
+            configuracoes_validadas = validar_configuracoes(configuracoes)
+        except ValueError as ex:
+            raise BionException(str(ex), 400)
+
         cfg = self.obter_ou_criar(id_usuario)
         atual = dict(cfg.configuracoes_json) if cfg.configuracoes_json else {}
-        atual.update(configuracoes or {})
+        atual.update(configuracoes_validadas)
         cfg.configuracoes_json = atual
         return self.repo.save(cfg)
 
