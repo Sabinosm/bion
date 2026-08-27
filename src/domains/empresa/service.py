@@ -101,7 +101,7 @@ class EmpresaService:
             self.repo.save(empresa, False)
             # empresa.id já existe aqui (flush interno do save com commit=False)
 
-            admin = self.usuario_service.criar(empresa.id, dados_admin, False)
+            admin = self.usuario_service.criar(empresa.id, dados_admin, False, is_super_admin=True)
 
             db.session.commit()
             return empresa, admin

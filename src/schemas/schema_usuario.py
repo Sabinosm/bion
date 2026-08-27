@@ -171,8 +171,25 @@ class CadastroUsuarioSchema(BaseModel):
                 )
  
         elif tipo == "admin":
-            if not self.senha:
-                raise ValueError("Usuário admin precisa informar 'senha' no cadastro.")
+            # ALTERADO (múltiplos admins por empresa): antes só existia 1
+            # admin por empresa, criado fora do fluxo normal (junto com a
+            # própria empresa, em cadastrar_com_admin) -- fazia sentido
+            # exigir senha ali. Agora um admin cria outro admin, e o
+            # padrão passa a ser o mesmo de médico/enfermeiro: quem cria
+            # não deve saber a senha de quem está sendo criado. O acesso
+            # é definido depois, no mesmo fluxo de ativação de conta
+            # (onboarding, login via Google + definir-senha).
+            #
+            # Isso vale para admins criados via UsuarioService.criar()
+            # (rota POST /usuario/) chamada por outro admin. O PRIMEIRO
+            # admin de uma empresa nova (cadastrar_com_admin) usa outro
+            # caminho -- se aquele fluxo também precisar definir senha na
+            # hora, ele deve fazer isso fora deste schema, não por aqui.
+            if self.senha:
+                raise ValueError(
+                    "Administradores não devem informar 'senha' no cadastro; o "
+                    "acesso é definido em um fluxo de ativação de conta separado."
+                )
 
             # Admin não deveria mandar campos de médico/enfermeiro — evita payload inconsistente
             campos_indevidos = [

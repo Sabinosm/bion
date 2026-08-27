@@ -46,6 +46,13 @@ CORRIGIDO (bugs pré-existentes, sem relação com a migração FHIR):
    frontend/oauth-callback.html, que faz o redirect real para onde o
    afterLogin.html estiver hoje. Esse arquivo nunca deveria precisar
    mudar de path.
+
+ALTERADO (múltiplos admins por empresa):
+- `session["is_super_admin"]` passa a ser gravado aqui também, no
+  ramo em que a sessão é liberada por completo (sem onboarding
+  pendente) -- mesmo motivo de login.py. Não é gravado no ramo de
+  onboarding_pendente porque, nesse caso, a sessão ainda não está
+  completa e onboarding.py grava o restante ao concluir; ver nota lá.
 """
 
 from flask import Blueprint, session, redirect, url_for
@@ -128,6 +135,9 @@ class Oauth():
         session["id_usuario"] = usuario.id
         session["tipo_usuario"] = usuario.tipo_usuario
         session["uuid_usuario"] = usuario.uuid
+        # ADICIONADO: mesmo motivo de login.py -- necessário pra
+        # g.is_super_admin e requer_super_admin funcionarem depois.
+        session["is_super_admin"] = usuario.is_super_admin
         session.permanent = True
 
         if usuario.onboarding_pendente:

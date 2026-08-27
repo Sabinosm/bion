@@ -26,6 +26,20 @@ gerar novos desafios e devolve `limite_tentativas_excedido`. Cabe ao
 frontend, nesse caso, redirecionar de volta para a tela de login --
 o usuário pode então reautenticar por senha (nova tentativa de 2FA,
 contador reiniciado) ou por Google (que não exige 2FA).
+
+CORRIGIDO (bug pré-existente, sem relação com múltiplos admins):
+`segundo_fator_confirmar` fazia `usuario = get_id_usuario_sessao`
+(sem parênteses -- pegava a referência da função, não chamava nem
+buscava o Usuario) e depois lia `usuario.id_empresa`/`usuario.id`,
+que quebraria em runtime (função não tem esses atributos). Corrigido
+para buscar o Usuario de verdade via UsuarioRepository.
+
+ALTERADO (múltiplos admins por empresa):
+- `session["is_super_admin"]` é reforçado aqui na confirmação do 2FA,
+  já que a sessão é reconstruída neste ponto (mesmo padrão de
+  `session["id_empresa"]` logo abaixo). Na prática já teria sido
+  gravado em login.py antes deste fluxo começar, mas repetir aqui
+  evita depender dessa ordem implícita entre arquivos.
 """
 
 import base64
@@ -187,18 +201,22 @@ class Webauthn():
         credencial.sign_count = verificacao.new_sign_count
         db.session.commit()
 
-        usuario = get_id_usuario_sessao
+        # CORRIGIDO: era `usuario = get_id_usuario_sessao` (referência da
+        # função, sem chamar) -- usuario.id_empresa/.id quebrariam em
+        # runtime. Busca o Usuario de verdade.
+        from src.domains.usuario.repository import UsuarioRepository
+        usuario = UsuarioRepository().find_by_id(id_usuario)
 
         session.pop("mfa_pendente", None)
         session.pop("mfa_webauthn_challenge", None)
         session.pop("mfa_tentativas", None)
         session["id_empresa"] = usuario.id_empresa
+        # ADICIONADO: reforça o dado já gravado em login.py -- ver
+        # docstring do módulo.
+        session["is_super_admin"] = usuario.is_super_admin
 
         return jsonify({
             "id_usuario": usuario.id,
             "email": usuario.email,
             "id_empresa": usuario.id_empresa,
         }), 200
-        
-
-    

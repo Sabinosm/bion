@@ -31,10 +31,11 @@ class Usuario(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     telefone = db.Column(db.String(50))
     user_login = db.Column(db.String(100), unique=True)
+    
 
     # tipo_usuario REMOVIDO — ver papel_ativo() abaixo
     is_admin = db.Column("is_admin", db.Boolean, nullable=False, default=False)
-
+    is_super_admin = db.Column("is_super_admin", db.Boolean, nullable=False, default=False)
     status = db.Column(db.Enum("ativo", "inativo", "pendente"),
                         nullable=False, default="pendente")
     # atributos_profissionais_json REMOVIDO — ver PapelProfissional

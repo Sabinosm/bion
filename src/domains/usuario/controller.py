@@ -1,4 +1,17 @@
-"""Rotas JSON do dominio Usuario (CRUD administrativo)."""
+"""Rotas JSON do dominio Usuario (CRUD administrativo).
+
+ALTERADO (múltiplos admins por empresa):
+- criar(): quando o payload pede tipo_usuario="admin", a rota exige o
+  super admin -- usa @requer_super_admin em vez de @requer_papel("admin")
+  apenas quando aplicável não dá pra decidir por decorator (o corpo da
+  requisição só é lido dentro da função), então a checagem fina
+  continua sendo feita dentro do service (que já bloqueia se
+  solicitante_eh_super_admin=False e tipo_usuario="admin"). O que muda
+  aqui é repassar g.is_super_admin para o service.
+- atualizar()/desativar()/ativar(): passam g.is_super_admin adiante,
+  necessário para o service decidir se o solicitante pode mexer num
+  usuário que já é admin.
+"""
 
 from flask import Blueprint, request
 
@@ -46,7 +59,12 @@ class UsuarioController():
         
         dados = request.get_json(silent=True) or {}
         try:
-            u = _svc.criar(id_empresa=get_id_empresa_sessao(),dados=dados, commitar=True)
+            u = _svc.criar(
+                id_empresa=get_id_empresa_sessao(),
+                dados=dados,
+                commitar=True,
+                solicitante_eh_super_admin=g.is_super_admin,
+            )
             return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
         except BionException as e:
             return json_error(e.message, e.status_code)
@@ -61,7 +79,13 @@ class UsuarioController():
 
         dados = request.get_json(silent=True) or {}
         try:
-            u = _svc.atualizar(uuid, dados, solicitante_eh_admin=(g.tipo_usuario == "admin"), solicitante_uuid=g.uuid_usuario)
+            u = _svc.atualizar(
+                uuid,
+                dados,
+                solicitante_eh_admin=(g.tipo_usuario == "admin"),
+                solicitante_uuid=g.uuid_usuario,
+                solicitante_eh_super_admin=g.is_super_admin,
+            )
             return json_success(data=u.to_dict(), message="Usuário atualizado.")
         except BionException as e:
             return json_error(e.message, e.status_code)
@@ -73,7 +97,7 @@ class UsuarioController():
     @StepUp.requer_confirmacao_recente("desativar_profissional")
     def desativar(uuid):
         try:
-            u = _svc.desativar(uuid)
+            u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
             return json_success(data=u.to_dict(), message="Usuário desativado.")
         except BionException as e:
             return json_error(e.message, e.status_code)
@@ -85,7 +109,7 @@ class UsuarioController():
     @StepUp.requer_confirmacao_recente("desativar_profissional")
     def ativar(uuid):
         try:
-            u = _svc.ativar(uuid)
+            u = _svc.ativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
             if u:
                 return json_success(data=u.to_dict(), message="Usuário ativado.")
             else:

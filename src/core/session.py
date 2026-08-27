@@ -11,6 +11,21 @@ auth grava `session["id_usuario"] = usuario.id` no login.
 Diferença em relação à versão web: os decorators agora retornam respostas
 JSON (401/403) em vez de redirect + flash, já que não há mais páginas HTML
 para redirecionar o usuário.
+
+ALTERADO (múltiplos admins por empresa):
+- `g.is_super_admin` passa a ser populado em toda rota autenticada, a
+  partir de `session["is_super_admin"]` -- gravado no login (por senha
+  ou Google) e reforçado na confirmação do 2FA. Ver login.py, oauth.py
+  e webauthn_2fa.py.
+- Sessões abertas ANTES deste deploy não têm essa chave -- o default
+  `False` é intencional (fail-closed): o super admin perde o poder de
+  criar/alterar outros admins até relogar, mas nenhum admin comum passa
+  a ter esse poder por engano. Avisar isso no deploy.
+- `requer_super_admin` foi adicionado como decorator dedicado, para
+  rotas onde a exigência é binária (ex: criar admin). Para rotas onde a
+  checagem depende do alvo da operação (atualizar/desativar/ativar um
+  usuário que pode ou não ser admin), continue usando `requer_papel("admin")`
+  e faça a checagem fina no service, usando `g.is_super_admin`.
 """
 
 from functools import wraps
@@ -76,6 +91,18 @@ def get_id_empresa_sessao():
 def get_uuid_empresa_sessao():
     return session.get("uuid_empresa")
 
+
+def get_is_super_admin_sessao() -> bool:
+    """
+    Retorna se o usuário logado é o super admin da empresa.
+
+    Mesma cautela de get_id_empresa_sessao(): só confiável depois de
+    um decorator de sessão já ter rodado. Default False -- sessões
+    antigas (sem a chave gravada) ou usuários comuns caem aqui.
+    """
+    return bool(session.get("is_super_admin", False))
+
+
 def _nao_autenticado():
     return jsonify({"status": "error", "message": "Autenticação necessária."}), 401
 
@@ -106,6 +133,7 @@ def _requer_papeis(*papeis_permitidos):
             g.uuid_usuario = session.get("uuid_usuario")
             g.id_empresa = session.get("id_empresa")
             g.tipo_usuario = session.get("tipo_usuario")
+            g.is_super_admin = get_is_super_admin_sessao()
 
             return f(*args, **kwargs)
         return wrapper
@@ -117,8 +145,8 @@ def requer_login(f):
     Bloqueia qualquer rota clínica/normal a menos que a sessão esteja
     TOTALMENTE liberada: sem onboarding pendente e sem 2FA pendente.
 
-    Também popula g.id_usuario / g.id_empresa / g.tipo_usuario, pra
-    rota não precisar reler a sessão manualmente.
+    Também popula g.id_usuario / g.id_empresa / g.tipo_usuario /
+    g.is_super_admin, pra rota não precisar reler a sessão manualmente.
     """
     return _requer_papeis()(f)
 
@@ -182,3 +210,43 @@ def requer_papel(*papeis_permitidos):
         def rota(): ...
     """
     return _requer_papeis(*papeis_permitidos)
+
+
+def requer_super_admin(f):
+    """
+    Bloqueia a rota a menos que o usuário logado seja o super admin da
+    empresa (o admin fundador -- ver Usuario.is_super_admin).
+
+    Já inclui a checagem completa de sessão (autenticado + onboarding +
+    mfa), igual requer_papel("admin") -- não precisa empilhar com
+    @requer_login nem com @requer_papel("admin").
+
+    Use isto quando a exigência é binária pra rota inteira (ex: criar
+    um novo admin). Quando a checagem depende do ALVO da operação (ex:
+    atualizar/desativar um usuário que pode ou não ser admin), use
+    @requer_papel("admin") na rota e faça a checagem fina dentro do
+    service com g.is_super_admin -- um decorator não tem acesso ao
+    alvo antes da rota rodar.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("id_usuario"):
+            return _nao_autenticado()
+
+        if session.get("onboarding_pendente"):
+            return jsonify({"erro": "onboarding_pendente"}), 403
+
+        if session.get("mfa_pendente"):
+            return jsonify({"erro": "mfa_pendente"}), 401
+
+        if session.get("tipo_usuario") != "admin" or not session.get("is_super_admin"):
+            return _sem_permissao("administrador principal")
+
+        g.id_usuario = get_id_usuario_sessao()
+        g.uuid_usuario = session.get("uuid_usuario")
+        g.id_empresa = session.get("id_empresa")
+        g.tipo_usuario = session.get("tipo_usuario")
+        g.is_super_admin = True
+
+        return f(*args, **kwargs)
+    return wrapper

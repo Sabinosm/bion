@@ -5,6 +5,12 @@ senha, se o usuário tiver credencial WebAuthn cadastrada, a sessão fica
 em estado pendente (`mfa_pendente=True`) e `id_empresa` não é liberado
 ainda -- a sessão só é promovida a completa após a confirmação via
 `/webauthn/2fa/confirmar` (ver `webauthn_2fa.py`).
+
+ALTERADO (múltiplos admins por empresa):
+- `session["is_super_admin"]` passa a ser gravado aqui, junto dos
+  demais dados de sessão -- é o que `g.is_super_admin` (session.py) lê
+  depois em toda rota autenticada. Sem isso, o super admin perderia o
+  poder de criar/alterar outros admins mesmo logado corretamente.
 """
 
 from flask import Blueprint, request, session
@@ -58,6 +64,9 @@ class Login():
         session["id_usuario"] = usuario.id
         session["tipo_usuario"] = usuario.tipo_usuario
         session["uuid_usuario"] = usuario.uuid
+        # ADICIONADO: necessário pra g.is_super_admin (session.py) e
+        # pra requer_super_admin funcionarem em rotas futuras nesta sessão.
+        session["is_super_admin"] = usuario.is_super_admin
         
         
         if usuario.onboarding_pendente:
@@ -92,5 +101,3 @@ class Login():
         """
         session.clear()
         return json_success(message="Sessão encerrada.")
-
-

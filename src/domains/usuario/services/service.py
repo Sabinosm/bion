@@ -4,6 +4,17 @@ Este módulo concentra o CRUD principal (`UsuarioService`). As rotinas de
 reset de credenciais vivem em `service_reset.py` (mixin) e as funções
 puras de apoio em `service_helpers.py`, para manter este arquivo restrito
 à orquestração das regras de criação/atualização de usuário.
+
+ALTERADO (múltiplos admins por empresa):
+- `criar()`: criar um usuário com tipo_usuario="admin" agora exige que o
+  solicitante seja o super admin (ou que a criação já venha marcada como
+  `is_super_admin=True`, único caso sendo o primeiro admin de uma
+  empresa nova -- ver Empresa.cadastrar_com_admin). Sem isso, um admin
+  comum poderia criar outros admins livremente, o que quebraria a
+  hierarquia combinada (só o super admin cria admin).
+- `desativar()`/`ativar()`: um usuário que já é admin só pode ser
+  desativado/ativado pelo super admin; o próprio super admin nunca pode
+  ser desativado, por ninguém.
 """
 
 from src.core.security import ph, aes_encrypt, hmac_sha256
@@ -69,7 +80,14 @@ class UsuarioService(ResetCredenciaisMixin):
         return self.repo.find_all_param(id_empresa=id_empresa, offset=offset, especialidade=especialidade,status=status)
     
     
-    def criar(self, id_empresa, dados: dict, commitar: bool = True):
+    def criar(
+        self,
+        id_empresa,
+        dados: dict,
+        commitar: bool = True,
+        solicitante_eh_super_admin: bool = False,
+        is_super_admin: bool = False,
+    ):
         """Cria um novo usuário para a empresa informada.
  
         Parâmetros:
@@ -77,19 +95,38 @@ class UsuarioService(ResetCredenciaisMixin):
             dados: dicionário bruto de entrada, validado internamente
                 via CadastroUsuarioSchema.
             commitar: se True, persiste e comita a transação imediatamente.
+            solicitante_eh_super_admin: se True, quem está pedindo a
+                criação é o super admin da empresa -- necessário para
+                criar um usuário com tipo_usuario="admin". Ignorado para
+                médico/enfermeiro.
+            is_super_admin: marca o usuário recém-criado como super
+                admin. Só deve ser True vindo de
+                Empresa.cadastrar_com_admin (criação do primeiro admin
+                de uma empresa nova) -- nunca a partir de uma requisição
+                de um admin já autenticado.
  
         Retorno:
             Instância de Usuario criada e salva (com .papeis já populado
             se aplicável).
  
         Levanta:
-            DadosInvalidosError: se `dados` não passar na validação do schema.
+            DadosInvalidosError: se `dados` não passar na validação do
+                schema, ou se um usuário admin estiver sendo criado por
+                quem não é o super admin.
             ConflictoError: se CPF, e-mail ou login já existirem.
         """
         try:
             schema = CadastroUsuarioSchema(**dados)
         except Exception as e:
             raise DadosInvalidosError(f"Erro de validação: {e}") from e
+
+        # ADICIONADO: só o super admin cria outros admins. is_super_admin=True
+        # (fluxo de Empresa.cadastrar_com_admin, sem solicitante autenticado)
+        # também libera -- é a criação do próprio super admin fundador.
+        if schema.tipo_usuario == "admin" and not solicitante_eh_super_admin and not is_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode criar novos administradores."
+            )
  
         cpf_hash = hmac_sha256(schema.cpf)
         self._checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
@@ -111,6 +148,7 @@ class UsuarioService(ResetCredenciaisMixin):
             telefone=schema.telefone,
             user_login=schema.user_login,
             is_admin=(schema.tipo_usuario == "admin"),
+            is_super_admin=is_super_admin,
             # ALTERADO: schema.hash_senha não existe -- o schema expõe
             # 'senha' em texto puro (validada, não hasheada); o hash é
             # responsabilidade de quem consome o schema, mesmo padrão
@@ -134,38 +172,79 @@ class UsuarioService(ResetCredenciaisMixin):
  
         return self.repo.save(u, commitar)
  
-    def desativar(self, uuid: str):
+    def desativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Desativa um usuário, definindo seu status como 'inativo'.
+
+        ALTERADO (múltiplos admins por empresa): um usuário que já é
+        admin (comum ou super) só pode ser desativado pelo super admin;
+        o próprio super admin nunca pode ser desativado, por ninguém.
 
         Parâmetros:
             uuid: identificador do usuário a desativar.
+            solicitante_eh_super_admin: se True, quem está pedindo é o
+                super admin da empresa.
 
         Retorno:
             Instância de Usuario atualizada e salva.
+
+        Levanta:
+            DadosInvalidosError: se o alvo for admin e o solicitante não
+                for o super admin, ou se o alvo for o próprio super admin.
         """    
         
         u = self.buscar_por_uuid(uuid)
+
+        if u.is_super_admin:
+            raise DadosInvalidosError("O administrador principal não pode ser desativado.")
+
+        if u.is_admin and not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode desativar um administrador."
+            )
+
         u.status = "inativo"
         return self.repo.save(u)
  
-    def ativar(self, uuid: str):
+    def ativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Reativa um usuário, definindo seu status como 'ativo'.
+
+        ALTERADO (múltiplos admins por empresa): mesma regra de
+        desativar() -- só o super admin ativa outro admin.
 
         Parâmetros:
             uuid: identificador do usuário a ativar.
+            solicitante_eh_super_admin: se True, quem está pedindo é o
+                super admin da empresa.
 
         Retorno:
             Instância de Usuario atualizada e salva.
+
+        Levanta:
+            DadosInvalidosError: se o alvo for admin e o solicitante não
+                for o super admin.
         """
         u = self.buscar_por_uuid(uuid)
+
+        if u.is_admin and not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode ativar um administrador."
+            )
+
         if u.status !="pendente":
             u.status = "ativo"
             return self.repo.save(u)
         return None
         
- 
-    def atualizar(self, uuid: str, dados: dict, solicitante_eh_admin: bool, solicitante_uuid: str):
-        return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid)
+    
+    def atualizar(
+        self,
+        uuid: str,
+        dados: dict,
+        solicitante_eh_admin: bool,
+        solicitante_uuid: str,
+        solicitante_eh_super_admin: bool = False,
+    ):
+        return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid, solicitante_eh_super_admin)
     
     def contagem_profissionais(self, id_empresa):
         return self.repo.count_no_admin_users(id_empresa=id_empresa)

@@ -12,25 +12,51 @@ from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuario
 from src.models.usuarios import Usuario
 
 
-def _valida_permissao_edicao(self, dados: dict, solicitante_eh_admin: bool, eh_auto_edicao: bool, u: "Usuario"):
+def _valida_permissao_edicao(
+    self,
+    dados: dict,
+    solicitante_eh_admin: bool,
+    solicitante_eh_super_admin: bool,
+    eh_auto_edicao: bool,
+    u: "Usuario",
+):
         """Valida se o solicitante tem permissão para os campos enviados.
 
-        Cobre duas regras de autorização:
-          1. Usuários não-admin não podem alterar campos restritos
+        Cobre estas regras de autorização:
+          1. Ninguém que não seja super admin pode alterar um usuário que
+             já é admin (comum ou super) -- nem outro admin comum, nem o
+             próprio super admin (que de todo modo tem outras proteções
+             específicas contra auto-rebaixamento em service.py e
+             service_atualizar.py). Um admin comum não pode editar nenhum
+             admin, incluindo ele mesmo neste sentido de dados restritos.
+          2. Usuários não-admin não podem alterar campos restritos
              (tipo de usuário, registros profissionais).
-          2. Um admin não pode alterar seu próprio `tipo_usuario`, mesmo
-             que o campo não esteja bloqueado para ele.
+
+        ALTERADO (múltiplos admins por empresa): a regra antiga que
+        bloqueava só a AUTO-edição de tipo_usuario por um admin foi
+        substituída pela checagem mais ampla do item 1 acima -- e pelo
+        bloqueio geral de troca de/para admin em service_atualizar.py,
+        que já cobre esse caso (ninguém troca tipo_usuario de/para
+        "admin" via atualizar(), então a auto-edição de tipo também já
+        fica coberta por lá).
 
         Parâmetros:
             dados: dicionário parcial com os campos a alterar.
-            solicitante_eh_admin: se True, o solicitante pode alterar
-                campos restritos.
+            solicitante_eh_admin: se True, o solicitante é admin (comum
+                ou super).
+            solicitante_eh_super_admin: se True, o solicitante é
+                especificamente o super admin da empresa.
             eh_auto_edicao: se True, o solicitante está editando a si mesmo.
             u: instância atual do Usuario, usada para comparar valores.
 
         Levanta:
             DadosInvalidosError: se alguma das regras de autorização for violada.
         """
+        if u.is_admin and not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode alterar o cadastro de um administrador."
+            )
+
         if not solicitante_eh_admin:
             campos_bloqueados = [c for c in CAMPOS_RESTRITOS_A_ADMIN if c in dados]
             if campos_bloqueados:
@@ -38,17 +64,19 @@ def _valida_permissao_edicao(self, dados: dict, solicitante_eh_admin: bool, eh_a
                     f"Você não tem permissão para alterar: {', '.join(campos_bloqueados)}."
                 )
 
-        if eh_auto_edicao and "tipo_usuario" in dados and dados["tipo_usuario"] != u.tipo_usuario:
-            raise DadosInvalidosError("Você não pode alterar seu próprio tipo de usuário.")
+def _valida_troca_tipo(self, tipo_atual: str, novo_tipo: str, tipo_mudou: bool, dados: dict):
+        """Valida a troca de tipo profissional (médico <-> enfermeiro).
 
-def _valida_troca_tipo(self, novo_tipo: str, tipo_mudou: bool, dados: dict):
-        """Valida se os atributos profissionais exigidos foram enviados.
-
-        Mudar o `tipo_usuario` para médico ou enfermeiro exige que os
-        respectivos atributos profissionais completos venham junto no
-        mesmo payload de atualização.
+        ALTERADO (múltiplos admins por empresa): troca de/para "admin"
+        NUNCA é permitida por aqui -- virar admin só acontece através de
+        criar() (e só o super admin pode fazer isso); um admin existente
+        nunca é rebaixado. Essa checagem já é feita antes desta função
+        ser chamada, em service_atualizar.py (bloqueio incondicional),
+        então aqui só resta validar a troca médico <-> enfermeiro, que é
+        a única troca de tipo ainda permitida via atualizar().
 
         Parâmetros:
+            tipo_atual: tipo de usuário antes da atualização.
             novo_tipo: tipo de usuário resultante da atualização.
             tipo_mudou: se True, o tipo de usuário está sendo alterado.
             dados: dicionário parcial com os campos enviados na requisição.
