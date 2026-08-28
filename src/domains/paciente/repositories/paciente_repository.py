@@ -16,13 +16,25 @@ class PacienteRepository(IRepository[Paciente]):
     def find_by_id(self, id: int) -> Optional[Paciente]:
         return db.session.get(Paciente, id)
 
-    def find_by_uuid(self, uuid: str) -> Optional[Paciente]:
-        return Paciente.query.filter_by(uuid=uuid).first()
+    def find_by_uuid(self, uuid: str, id_empresa: int) -> Optional[Paciente]:
+        """ALTERADO: passou a exigir id_empresa. Sem esse filtro, um
+        usuário autenticado em qualquer empresa poderia acessar/editar
+        o paciente de outra empresa só sabendo (ou adivinhando) o UUID
+        -- isolamento de tenant tem que estar no repository, não
+        confiado à camada de rota."""
+        return Paciente.query.filter_by(uuid=uuid, id_empresa=id_empresa).first()
 
-    def find_por_cpf_hash(self, cpf_hash: str) -> Optional[Paciente]:
+    def find_por_cpf_hash(self, cpf_hash: str, id_empresa: int) -> Optional[Paciente]:
         """Busca por CPF via hash HMAC-SHA256 (determinístico), não pelo
-        valor cifrado com AES-256-GCM (ver nota original mantida)."""
-        pessoal = PacienteDadosPessoais.query.filter_by(cpf_hash=cpf_hash).first()
+        valor cifrado com AES-256-GCM (ver nota original mantida).
+
+        ALTERADO: escopado por id_empresa -- o mesmo CPF pode existir
+        legitimamente como pacientes distintos em empresas diferentes;
+        buscar sem esse filtro vazaria a existência do paciente entre
+        tenants, mesmo sem vazar PII."""
+        pessoal = PacienteDadosPessoais.query.filter_by(
+            cpf_hash=cpf_hash, id_empresa=id_empresa
+        ).first()
         return pessoal.paciente if pessoal else None
 
     def save(self, entity: Paciente) -> Paciente:
@@ -38,34 +50,31 @@ class PacienteRepository(IRepository[Paciente]):
         db.session.commit()
         return True
 
-    def find_all(self) -> List[Paciente]:
-        return Paciente.query.all()
+    def find_all(self, id_empresa: int) -> List[Paciente]:
+        """ALTERADO: escopado por empresa -- sem isso, `listar()` do
+        service devolveria pacientes de TODAS as empresas pra qualquer
+        usuário logado."""
+        return Paciente.query.filter_by(id_empresa=id_empresa).all()
     
     def count_pacientes_hoje(self, id_empresa: int) -> int:
-            from src.models.usuarios import Usuario
-            hoje = datetime.now(timezone.utc).date()
-            inicio_dia = datetime.combine(hoje, time.min, tzinfo=timezone.utc)
-            fim_dia = datetime.combine(hoje, time.max, tzinfo=timezone.utc)
-    
-            return (
-                db.session.query(func.count(Paciente.id))
-                .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-                .filter(Usuario.id_empresa == id_empresa)
-                .filter(Paciente.criado_em >= inicio_dia)
-                .filter(Paciente.criado_em < fim_dia)
-                .scalar()
-            )
-            
-    
-    def count_pacientes(self, id_empresa: int) -> int:
-        from src.models.usuarios import Usuario
-            
+        """SIMPLIFICADO: filtra direto por Paciente.id_empresa, sem JOIN
+        com Usuario -- o JOIN via cadastrado_por era um contorno pro fato
+        de Paciente não ter id_empresa próprio (agora tem)."""
+        hoje = datetime.now(timezone.utc).date()
+        inicio_dia = datetime.combine(hoje, time.min, tzinfo=timezone.utc)
+        fim_dia = datetime.combine(hoje, time.max, tzinfo=timezone.utc)
+
         return (
-                db.session.query(func.count(Paciente.id))
-                .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-                .filter(Usuario.id_empresa == id_empresa)
-                .scalar()
-            )
-        
-        
-     
+            db.session.query(func.count(Paciente.id))
+            .filter(Paciente.id_empresa == id_empresa)
+            .filter(Paciente.criado_em >= inicio_dia)
+            .filter(Paciente.criado_em < fim_dia)
+            .scalar()
+        )
+
+    def count_pacientes(self, id_empresa: int) -> int:
+        return (
+            db.session.query(func.count(Paciente.id))
+            .filter(Paciente.id_empresa == id_empresa)
+            .scalar()
+        )

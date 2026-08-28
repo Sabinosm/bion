@@ -43,7 +43,6 @@ class DoencaCronicaRepository(IRepository[DoencaCronica]):
         """
         from src.models import db
         from sqlalchemy import func
-        from src.models.usuarios import Usuario
         from src.models.pacientes import Paciente
  
         linhas = (
@@ -53,8 +52,7 @@ class DoencaCronicaRepository(IRepository[DoencaCronica]):
                 func.count(DoencaCronica.id).label("total"),
             )
             .join(Paciente, DoencaCronica.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .filter(DoencaCronica.status == "ativa")
             .group_by(DoencaCronica.codigo_cid10, DoencaCronica.descricao_cid10)
             .order_by(func.count(DoencaCronica.id).desc())

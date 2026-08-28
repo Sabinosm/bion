@@ -22,23 +22,23 @@ class PacienteService:
         self.repo = PacienteRepository()
         self.tipo_sanguineo_repo = ObservacaoTipoSanguineoRepository()
 
-    def buscar_por_uuid(self, uuid: str):
-        p = self.repo.find_by_uuid(uuid)
+    def buscar_por_uuid(self, uuid: str, id_empresa: int):
+        p = self.repo.find_by_uuid(uuid, id_empresa)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid}")
         return p
 
-    def listar(self):
-        return self.repo.find_all()
+    def listar(self, id_empresa: int):
+        return self.repo.find_all(id_empresa)
 
-    def buscar_por_cpf(self, cpf_plaintext: str):
-        p = self.repo.find_por_cpf_hash(hmac_sha256(cpf_plaintext))
+    def buscar_por_cpf(self, cpf_plaintext: str, id_empresa: int):
+        p = self.repo.find_por_cpf_hash(hmac_sha256(cpf_plaintext), id_empresa)
         if not p:
             raise RecursoNaoEncontradoError("Paciente não encontrado para este CPF.")
         return p
     
     #TODO : adicionar bairro utilizando do cep_service, no cadastro do paciente
-    def cadastrar(self, dados: dict, id_usuario_cadastro: int):
+    def cadastrar(self, dados: dict, id_usuario_cadastro: int, id_empresa: int):
         from src.models.pacientes import Paciente, PacienteDadosPessoais
 
         obrigatorios = ("sexo_biologico", "data_nascimento", "nome_completo", "cpf")
@@ -48,8 +48,11 @@ class PacienteService:
 
         cpf_cifrado = aes_encrypt(dados["cpf"])
         cpf_hash = hmac_sha256(dados["cpf"])
-        if self.repo.find_por_cpf_hash(cpf_hash):
-            raise ConflictoError("Já existe um paciente cadastrado com este CPF.")
+        # Escopado por empresa: o mesmo CPF pode já existir como paciente
+        # de OUTRA empresa -- isso é normal (mesma pessoa atendida em
+        # clínicas diferentes) e não deve bloquear o cadastro aqui.
+        if self.repo.find_por_cpf_hash(cpf_hash, id_empresa):
+            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.")
 
         paciente = Paciente(
             sexo_biologico=dados["sexo_biologico"],
@@ -59,6 +62,7 @@ class PacienteService:
             data_primeiro_atendimento=_parse_data(dados.get("data_primeiro_atendimento"))
             or datetime.now(timezone.utc).date(),
             cadastrado_por=id_usuario_cadastro,
+            id_empresa=id_empresa,
         )
         self.repo.save(paciente)
 
@@ -71,6 +75,7 @@ class PacienteService:
 
         pessoal = PacienteDadosPessoais(
             id_paciente=paciente.id,
+            id_empresa=id_empresa,
             nome_completo=aes_encrypt(dados["nome_completo"]),
             cpf=cpf_cifrado,
             cpf_hash=cpf_hash,
@@ -97,12 +102,16 @@ class PacienteService:
         return self.repo.count_pacientes(id_empresa=id_empresa)
     
 
-    def atualizar(self, uuid: str, dados: dict):
+    def atualizar(self, uuid: str, dados: dict, id_empresa: int):
         """ALTERADO: tipo_sanguineo SAIU daqui -- ver
         registrar_tipo_sanguineo() e corrigir_tipo_sanguineo() abaixo,
         que são os pontos de entrada corretos agora (a rota decide
-        qual chamar, conforme a intenção: novo exame vs correção)."""
-        paciente = self.buscar_por_uuid(uuid)
+        qual chamar, conforme a intenção: novo exame vs correção).
+
+        ALTERADO: exige id_empresa -- buscar_por_uuid já garante que só
+        se pode atualizar paciente da própria empresa (levanta 404 em
+        vez de vazar que o UUID pertence a outro tenant)."""
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
         if "status" in dados:
             paciente.status = dados["status"]
 
@@ -138,13 +147,15 @@ class PacienteService:
             "contato_emergencia_telefone": aes_decrypt(p.contato_emergencia_telefone),
         }
 
-    def anonimizar(self, uuid: str):
+    def anonimizar(self, uuid: str, id_empresa: int):
         """ALTERADO: delega para paciente.anonimizar() do model (já
         corrigido lá para de fato desligar PacienteDadosPessoais),
         em vez de duplicar essa lógica aqui com um db.session.delete
         manual -- uma só fonte de verdade para o que "anonimizar"
-        significa."""
-        paciente = self.buscar_por_uuid(uuid)
+        significa.
+
+        ALTERADO: exige id_empresa pelo mesmo motivo de atualizar()."""
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
         if not paciente.pessoal:
             raise DadosInvalidosError("Paciente já está anonimizado.")
 
@@ -154,5 +165,3 @@ class PacienteService:
         from src.models import db
         db.session.commit()
         return paciente
-    
-    

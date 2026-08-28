@@ -116,8 +116,7 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
                 & (ObservacaoTipoSanguineo.data_registro == subq.c.max_data),
             )
             .join(Paciente, ObservacaoTipoSanguineo.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .group_by(ObservacaoTipoSanguineo.tipo_sanguineo)
             .all()
         )

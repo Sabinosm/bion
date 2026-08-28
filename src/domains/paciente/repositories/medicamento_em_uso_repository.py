@@ -44,21 +44,18 @@ class MedicamentoEmUsoRepository(IRepository[MedicamentoEmUso]):
         """
         from src.models import db
         from sqlalchemy import func
-        from src.models.usuarios import Usuario
         from src.models.pacientes import Paciente
  
         total_pacientes = (
             db.session.query(func.count(Paciente.id))
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .scalar() or 0
         )
  
         em_uso = (
             db.session.query(func.count(func.distinct(MedicamentoEmUso.id_paciente)))
             .join(Paciente, MedicamentoEmUso.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .filter(MedicamentoEmUso.status_uso == "ativo")
             .scalar() or 0
         )

@@ -68,21 +68,20 @@ class AlergiaRepository(IRepository[Alergia]):
         """
         from src.models import db
         from sqlalchemy import func
-        from src.models.usuarios import Usuario
+
         from src.models.pacientes import Paciente
         from src.models.pacientes.reacao_alergia import ReacaoAlergia
 
         linhas = (
             db.session.query(
-                ReacaoAlergia.gravidade.label("gravidade"),
-                func.count(ReacaoAlergia.id).label("total"),
-            )
-            .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
-            .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .group_by(ReacaoAlergia.gravidade)
-            .all()
+                    ReacaoAlergia.gravidade.label("gravidade"),
+                    func.count(ReacaoAlergia.id).label("total"),
+                )
+                .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
+                .join(Paciente, Alergia.id_paciente == Paciente.id)
+                .filter(Paciente.id_empresa == id_empresa)
+                .group_by(ReacaoAlergia.gravidade)
+                .all()
         )
         return {linha.gravidade: linha.total for linha in linhas}
     
@@ -92,15 +91,11 @@ class AlergiaRepository(IRepository[Alergia]):
         """Substâncias alergênicas mais reportadas entre os pacientes da
         empresa, com contagem de casos.
  
-        Filtra por empresa via Paciente.cadastrado_por -> Usuario, mesmo
-        padrão usado em PacienteRepository.count_pacientes.
- 
         Retorna lista de dicts, ordenada do mais frequente pro menos:
         [{"substancia": "Dipirona", "total": 18}, ...]
         """
         from src.models import db
         from sqlalchemy import func
-        from src.models.usuarios import Usuario
         from src.models.pacientes import Paciente
  
         linhas = (
@@ -109,8 +104,7 @@ class AlergiaRepository(IRepository[Alergia]):
                 func.count(Alergia.id).label("total"),
             )
             .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .group_by(Alergia.substancia)
             .order_by(func.count(Alergia.id).desc())
             .limit(limite)
@@ -128,7 +122,6 @@ class AlergiaRepository(IRepository[Alergia]):
         """
         from src.models import db
         from sqlalchemy import func
-        from src.models.usuarios import Usuario
         from src.models.pacientes import Paciente
         from src.models.pacientes.reacao_alergia import ReacaoAlergia
  
@@ -139,8 +132,7 @@ class AlergiaRepository(IRepository[Alergia]):
             )
             .join(Alergia, ReacaoAlergia.id_alergia == Alergia.id)
             .join(Paciente, Alergia.id_paciente == Paciente.id)
-            .join(Usuario, Paciente.cadastrado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Paciente.id_empresa == id_empresa)
             .filter(Alergia.substancia == substancia)
             .group_by(ReacaoAlergia.gravidade)
             .all()

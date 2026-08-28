@@ -16,6 +16,16 @@ from src.models.types import BigIntPK
 
 class PacienteDadosPessoais(db.Model):
     __tablename__ = "paciente_dados_pessoais"
+    __table_args__ = (
+        # ALTERADO: cpf_hash deixou de ser globalmente único. A mesma
+        # pessoa (mesmo CPF) pode ser paciente em empresas diferentes
+        # que usam o Bion -- isso é isolamento normal de tenant, não
+        # duplicata. id_empresa é desnormalizado aqui (copiado de
+        # Paciente na criação) só para permitir essa constraint composta
+        # no banco -- fonte de verdade de posse continua sendo
+        # Paciente.id_empresa.
+        db.UniqueConstraint("id_empresa", "cpf_hash", name="uq_paciente_pessoal_empresa_cpf"),
+    )
 
     id = db.Column("id_paciente_p", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_paciente_p", db.String(36), unique=True, nullable=False,
@@ -24,7 +34,7 @@ class PacienteDadosPessoais(db.Model):
                              unique=True, nullable=False)
     nome_completo = db.Column(db.String(500), nullable=False)   # AES-256
     cpf = db.Column(db.String(500))                             # AES-256 (valor exibível)
-    cpf_hash = db.Column(db.String(64), unique=True, nullable=False)  # HMAC-SHA256
+    cpf_hash = db.Column(db.String(64), nullable=False, index=True)  # HMAC-SHA256
     rg = db.Column(db.String(100))
     telefone = db.Column(db.String(200))                        # AES-256
     email = db.Column(db.String(500))                           # AES-256

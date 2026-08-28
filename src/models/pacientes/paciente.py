@@ -30,6 +30,11 @@ class Paciente(db.Model):
     identificacao_anonima = db.Column(db.String(64))
     bairro = db.Column(db.String(100))
     sexo_biologico = db.Column(db.Enum("M", "F", "I"), nullable=False)
+
+    # NOVO: posse do paciente. Explícito e imutável após a criação --
+    # não inferido via cadastrado_por -> usuario.id_empresa (frágil:
+    # usuário pode trocar de empresa ou ser removido depois).
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
     # tipo_sanguineo REMOVIDO como coluna -- ver property abaixo
     data_nascimento = db.Column(db.Date)
     id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
@@ -45,6 +50,7 @@ class Paciente(db.Model):
                            default=lambda: datetime.now(timezone.utc), nullable=False)
     cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
 
+    empresa = db.relationship("Empresa", back_populates="pacientes")
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="pacientes")
     pessoal = db.relationship("PacienteDadosPessoais", back_populates="paciente",
                                uselist=False, cascade="all, delete-orphan")
