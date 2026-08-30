@@ -34,7 +34,7 @@ class Paciente(db.Model):
     # NOVO: posse do paciente. Explícito e imutável após a criação --
     # não inferido via cadastrado_por -> usuario.id_empresa (frágil:
     # usuário pode trocar de empresa ou ser removido depois).
-    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id_empresa"), nullable=False)
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
     # tipo_sanguineo REMOVIDO como coluna -- ver property abaixo
     data_nascimento = db.Column(db.Date)
     id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
