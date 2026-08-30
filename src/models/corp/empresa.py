@@ -22,7 +22,7 @@ from src.models.types import BigIntPK
 
 
 class Empresa(db.Model):
-    __tablename__ = "empresa"
+    __tablename__ = "empresas"
  
     id = db.Column("id_empresa", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_empresa", db.String(36), unique=True, nullable=False,

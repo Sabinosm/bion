@@ -10,6 +10,7 @@ class LogAcesso(db.Model):
     id = db.Column("id_log",BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_log",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
     id_usuario = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     recurso_acessado = db.Column(db.String(255), nullable=False)
     operacao = db.Column(
@@ -24,14 +25,34 @@ class LogAcesso(db.Model):
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     usuario = db.relationship("Usuario")
+    empresa = db.relationship("Empresa")
+
+    __table_args__ = (
+        # Filtro 1 (empresa) + Filtro 4 (janela de data deslizante)
+        db.Index("ix_log_acesso_empresa_data", "id_empresa", "data_hora"),
+        # Filtro 2/3 (drill-down por usuario, mais recentes primeiro)
+        db.Index("ix_log_acesso_usuario_data", "id_usuario", "data_hora"),
+    )
 
     def to_dict(self):
+        """Serializacao completa -- usar no drill-down (Filtro 3/4)."""
         return {
             "uuid": self.uuid,
             "recurso_acessado": self.recurso_acessado,
             "operacao": self.operacao,
             "data_hora": self.data_hora.isoformat() if self.data_hora else None,
             "resultado": self.resultado,
+        }
+
+    def to_dict_resumido(self):
+        """Serializacao enxuta -- usar na lista resumida por usuario (Filtro 2:
+        'ultimos 3 acessos', so frase de acao + data). Nome/cargo do usuario
+        vem via join com Usuario no service/repository, nao daqui -- o log
+        so guarda o fato do evento, nao metadado do usuario."""
+        return {
+            "uuid": self.uuid,
+            "frase_acao": f"{self.operacao} em {self.recurso_acessado}",
+            "data_hora": self.data_hora.isoformat() if self.data_hora else None,
         }
 
     def __repr__(self):
