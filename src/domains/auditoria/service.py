@@ -4,6 +4,22 @@ Regras de negocio do dominio Auditoria.
 Os logs sao gravados de forma append-only (sem update/delete, ver
 repository.py) para atender ao requisito de imutabilidade citado nas
 memorias do projeto (trilha de auditoria LGPD).
+
+Sobre transacao e commit
+--------------------------
+`registrar_acesso` e `registrar_alteracao` NAO commitam a transacao --
+so adicionam a entidade a sessao (via repository.save(), que tambem
+nao commita mais). Isso e proposital: para uma acao sensivel, o log
+precisa entrar na MESMA transacao da alteracao que ele descreve, com
+um commit() so no final (ver acao_sensivel.py). Se o log fosse
+commitado sozinho e a alteracao real falhasse depois, ficaria um log
+registrando algo que nunca aconteceu -- o inverso do problema original
+(alteracao sem log), mas igualmente errado para uma trilha de
+auditoria que precisa ser fiel ao que de fato ocorreu.
+
+Quem chamar `registrar_acesso`/`registrar_alteracao` fora do fluxo de
+`acao_sensivel`/`acesso_auditado` (ex: um script avulso) precisa
+lembrar de fazer `db.session.commit()` depois.
 """
 
 from datetime import datetime, timezone

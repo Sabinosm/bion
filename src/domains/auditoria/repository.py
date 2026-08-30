@@ -18,8 +18,13 @@ class LogAcessoRepository(IRepository[LogAcesso]):
             LogAcesso.data_hora.desc()).limit(200).all()
 
     def save(self, entity: LogAcesso) -> LogAcesso:
+        # SEM commit() aqui de proposito. Quem chama (service/decorator)
+        # decide quando commitar -- isso permite que o log entre na MESMA
+        # transacao da acao que ele esta registrando, e um commit() so no
+        # final. Se o log precisar ser gravado isoladamente em algum
+        # outro fluxo, quem chamar precisa fazer db.session.commit() por
+        # conta propria depois de save().
         db.session.add(entity)
-        db.session.commit()
         return entity
 
     def delete(self, id: int) -> bool:
@@ -44,8 +49,10 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
         ).order_by(LogAlteracao.alterado_em.desc()).all()
 
     def save(self, entity: LogAlteracao) -> LogAlteracao:
+        # Mesmo motivo do LogAcessoRepository.save() acima: sem commit()
+        # proprio, para permitir transacao compartilhada com a acao que
+        # gerou o log.
         db.session.add(entity)
-        db.session.commit()
         return entity
 
     def delete(self, id: int) -> bool:
