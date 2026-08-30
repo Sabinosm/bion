@@ -20,9 +20,10 @@ from src.models import db
 from src.models.types import BigIntPK
 
 
+
 class Empresa(db.Model):
     __tablename__ = "empresa"
-
+ 
     id = db.Column("id_empresa", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_empresa", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
@@ -37,13 +38,23 @@ class Empresa(db.Model):
     status_plano = db.Column(db.String(50))
     plano = db.Column(db.String(100))
     criado_em = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-
+ 
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="empresas")
     usuarios = db.relationship("Usuario", back_populates="empresa",
                                 cascade="all, delete-orphan")
     identificadores = db.relationship("EmpresaIdentificador", back_populates="empresa",
                                        cascade="all, delete-orphan")
-
+    # NOVO: contrapartida de Paciente.empresa (back_populates="pacientes").
+    # Sem esse lado declarado aqui, o SQLAlchemy levanta
+    # InvalidRequestError ("Mapper[Empresa] has no property 'pacientes'")
+    # assim que qualquer mapper é configurado, porque Paciente já
+    # referenciava esse nome e o par não existia.
+    #
+    # Sem cascade delete-orphan de propósito: apagar uma Empresa não
+    # deve apagar Paciente em cascata (dado clínico é sensível demais
+    # pra depender de um DELETE de empresa; isso deve ser uma decisão
+    # explícita/auditada, não um efeito colateral do ORM).
+    pacientes = db.relationship("Paciente", back_populates="empresa")
     @property
     def cnpj(self):
         """Leitura de compatibilidade: `empresa.cnpj` continua funcionando

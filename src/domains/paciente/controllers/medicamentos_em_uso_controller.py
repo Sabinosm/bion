@@ -13,7 +13,7 @@ from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel
 from src.domains.paciente.services import MedicamentoEmUsoService
 
-bp = Blueprint("paciente_clinico", __name__)
+bp = Blueprint("medicamentos_em_uso", __name__)
 _svc = MedicamentoEmUsoService()
 
 class MedicamentosEmUsoController():

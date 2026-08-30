@@ -24,7 +24,7 @@ class PacienteDadosPessoais(db.Model):
         # Paciente na criação) só para permitir essa constraint composta
         # no banco -- fonte de verdade de posse continua sendo
         # Paciente.id_empresa.
-        db.UniqueConstraint("id_empresa", "cpf_hash", name="uq_paciente_pessoal_empresa_cpf"),
+        db.UniqueConstraint( "cpf_hash", name="uq_paciente_pessoal_empresa_cpf"),
     )
 
     id = db.Column("id_paciente_p", BigIntPK, primary_key=True, autoincrement=True)

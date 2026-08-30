@@ -55,6 +55,34 @@ class PacienteRepository(IRepository[Paciente]):
         service devolveria pacientes de TODAS as empresas pra qualquer
         usuário logado."""
         return Paciente.query.filter_by(id_empresa=id_empresa).all()
+
+    def find_all_param(self, id_empresa: int, offset: int = 0, status: str = None,
+                        sexo_biologico: str = None):
+        """NOVO: listagem paginada para o endpoint de listagem enxuta
+        (to_dict_few). Segue o mesmo padrão usado em UsuarioRepository.
+
+        Filtro por nome (`nome`) e por cpf ficam de fora por ora: ambos
+        vivem em PacienteDadosPessoais cifrados com AES-256-GCM -- não dá
+        pra fazer ILIKE/igualdade direta no banco sobre coluna cifrada.
+        Nome exigiria busca em memória (descriptografar e comparar) ou
+        um índice cego (blind index) dedicado; CPF já tem esse mecanismo
+        via cpf_hash (ver find_por_cpf_hash) mas ele é busca exata, não
+        paginada por padrão -- se precisar disso no mesmo endpoint,
+        me avisa que desenhamos separado.
+        """
+        filtros = {"id_empresa": id_empresa}
+        if status:
+            filtros["status"] = status
+        if sexo_biologico:
+            filtros["sexo_biologico"] = sexo_biologico
+
+        return (
+            Paciente.query.filter_by(**filtros)
+            .order_by(Paciente.criado_em.desc())
+            .offset(offset)
+            .limit(8)
+            .all()
+        )
     
     def count_pacientes_hoje(self, id_empresa: int) -> int:
         """SIMPLIFICADO: filtra direto por Paciente.id_empresa, sem JOIN

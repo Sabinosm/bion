@@ -34,7 +34,7 @@ class Paciente(db.Model):
     # NOVO: posse do paciente. Explícito e imutável após a criação --
     # não inferido via cadastrado_por -> usuario.id_empresa (frágil:
     # usuário pode trocar de empresa ou ser removido depois).
-    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresa.id_empresa"), nullable=False)
     # tipo_sanguineo REMOVIDO como coluna -- ver property abaixo
     data_nascimento = db.Column(db.Date)
     id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
@@ -51,6 +51,7 @@ class Paciente(db.Model):
     cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
 
     empresa = db.relationship("Empresa", back_populates="pacientes")
+    usuario_cadastro = db.relationship("Usuario", foreign_keys=[cadastrado_por])
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="pacientes")
     pessoal = db.relationship("PacienteDadosPessoais", back_populates="paciente",
                                uselist=False, cascade="all, delete-orphan")
@@ -110,11 +111,35 @@ class Paciente(db.Model):
             "status": self.status,
             "data_primeiro_atendimento": self.data_primeiro_atendimento.isoformat()
             if self.data_primeiro_atendimento else None,
+            # NOVO: quem cadastrou -- nome_completo de Usuario não é
+            # cifrado (confirmado), então pode ir direto sem passar
+            # pelo service para descriptografar.
+            "cadastrado_por": self.usuario_cadastro.nome_completo if self.usuario_cadastro else None,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
         if incluir_pessoal and self.pessoal:
             d["pessoal"] = self.pessoal.to_dict()
         return d
 
+    def to_dict_few(self, nome_completo: str = None, cpf_inicio: str = None):
+        """NOVO: versão enxuta para listagens -- só o suficiente para
+        identificar o paciente numa lista, sem expor PII completo.
+
+        `nome_completo` e `cpf_inicio` vêm de fora já descriptografados:
+        o model nunca chama aes_decrypt sozinho -- isso é responsabilidade
+        do service, que centraliza todo acesso a PII cifrado. Sem esses
+        argumentos (paciente anonimizado, por exemplo), ambos saem None
+        em vez de vazar o valor cifrado ou quebrar.
+        """
+        return {
+            "uuid": self.uuid,
+            "nome_completo": nome_completo,
+            "cpf_inicio": cpf_inicio,
+            "cadastrado_por": self.usuario_cadastro.nome_completo if self.usuario_cadastro else None,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+            "sexo_biologico": self.sexo_biologico,
+            "status": self.status,
+        }
 
     def __repr__(self):
         return f"<Paciente {self.uuid}>"

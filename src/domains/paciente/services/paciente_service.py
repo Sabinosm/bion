@@ -31,6 +31,25 @@ class PacienteService:
     def listar(self, id_empresa: int):
         return self.repo.find_all(id_empresa)
 
+    def listar_resumo(self, id_empresa: int, offset: int = 0, status: str = None,
+                       sexo_biologico: str = None):
+        """NOVO: listagem paginada já no formato enxuto (to_dict_few).
+        Fica aqui e não no controller porque descriptografar nome/CPF
+        é acesso a PII -- centralizado no service, igual o resto do
+        arquivo já faz (ver dados_pessoais_descriptografados)."""
+        pacientes = self.repo.find_all_param(
+            id_empresa=id_empresa, offset=offset, status=status,
+            sexo_biologico=sexo_biologico,
+        )
+        resultado = []
+        for p in pacientes:
+            nome = aes_decrypt(p.pessoal.nome_completo) if p.pessoal else None
+            cpf_inicio = None
+            if p.pessoal and p.pessoal.cpf:
+                cpf_inicio = aes_decrypt(p.pessoal.cpf)[:4]
+            resultado.append(p.to_dict_few(nome_completo=nome, cpf_inicio=cpf_inicio))
+        return resultado
+
     def buscar_por_cpf(self, cpf_plaintext: str, id_empresa: int):
         p = self.repo.find_por_cpf_hash(hmac_sha256(cpf_plaintext), id_empresa)
         if not p:
@@ -102,32 +121,65 @@ class PacienteService:
         return self.repo.count_pacientes(id_empresa=id_empresa)
     
 
-    def atualizar(self, uuid: str, dados: dict, id_empresa: int):
-        """ALTERADO: tipo_sanguineo SAIU daqui -- ver
-        registrar_tipo_sanguineo() e corrigir_tipo_sanguineo() abaixo,
-        que são os pontos de entrada corretos agora (a rota decide
-        qual chamar, conforme a intenção: novo exame vs correção).
-
-        ALTERADO: exige id_empresa -- buscar_por_uuid já garante que só
-        se pode atualizar paciente da própria empresa (levanta 404 em
-        vez de vazar que o UUID pertence a outro tenant)."""
+    def atualizar_pessoal(self, uuid: str, dados: dict, id_empresa: int):
+        """NOVO: separado de atualizar_clinico -- corrigir cadastro
+        (nome, telefone, endereço, etc) é uma ação de gestão de dados,
+        não uma decisão clínica. Médico, enfermeiro e admin podem
+        chamar isso (ver controller); a permissão de sistema é ampla,
+        mas o CONTEÚDO que este método toca é só PacienteDadosPessoais
+        -- ele nunca escreve em campos clínicos, mesmo que o payload
+        contenha uma chave 'status' por engano (é ignorada aqui)."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
-        if "status" in dados:
-            paciente.status = dados["status"]
+        if not paciente.pessoal:
+            raise DadosInvalidosError("Paciente está anonimizado; não há dados pessoais para atualizar.")
 
-        if paciente.pessoal:
-            campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
-                                     "contato_emergencia_telefone")
-            for campo in campos_texto_cifrado:
-                if campo in dados:
-                    setattr(paciente.pessoal, campo, aes_encrypt(dados[campo]))
-            for campo in ("rg", "numero_residencia", "contato_emergencia_nome"):
-                if campo in dados:
-                    setattr(paciente.pessoal, campo, dados[campo])
+        campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
+                                 "contato_emergencia_telefone")
+        for campo in campos_texto_cifrado:
+            if campo in dados:
+                setattr(paciente.pessoal, campo, aes_encrypt(dados[campo]))
+        for campo in ("rg", "numero_residencia", "contato_emergencia_nome"):
+            if campo in dados:
+                setattr(paciente.pessoal, campo, dados[campo])
 
         return self.repo.save(paciente)
 
-    
+    def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int):
+        """NOVO: separado de atualizar_pessoal -- status, falecido e
+        data_obito são decisões clínicas (mudar status pra 'obito',
+        por exemplo, é um registro clínico, não uma correção de
+        cadastro). Reservado por padrão a médico/enfermeiro no
+        controller; admin só entra aqui em caso excepcional, e essa
+        chamada específica fica registrada (ver
+        registrar_escrita_clinica_excepcional)."""
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
+
+        if "status" in dados:
+            paciente.status = dados["status"]
+        if "falecido" in dados:
+            paciente.falecido = bool(dados["falecido"])
+        if "data_obito" in dados:
+            paciente.data_obito = _parse_data(dados["data_obito"])
+
+        return self.repo.save(paciente)
+
+    def registrar_escrita_clinica_excepcional(self, uuid: str, id_usuario: int, acao: str):
+        """NOVO: chamado pelo controller quando um admin (não
+        médico/enfermeiro) grava algo clínico -- caso excepcional
+        previsto (ex: médico responsável pediu apoio do admin), não um
+        fluxo de rotina. Não logamos leitura nem escrita pessoal (ruído
+        alto, sinal baixo); este é o único ponto de log, justamente
+        porque é a única situação em que o papel de quem escreveu
+        diverge do que se espera pra aquele tipo de dado."""
+        from src.models.auditoria import RegistroAuditoria
+        from src.models import db
+        db.session.add(RegistroAuditoria(
+            id_usuario=id_usuario,
+            acao=acao,
+            entidade="paciente",
+            entidade_uuid=uuid,
+        ))
+        db.session.commit()
 
     def dados_pessoais_descriptografados(self, paciente):
         """Usado pelo controller quando o usuário tem permissão de ver PII."""
@@ -147,7 +199,7 @@ class PacienteService:
             "contato_emergencia_telefone": aes_decrypt(p.contato_emergencia_telefone),
         }
 
-    def anonimizar(self, uuid: str, id_empresa: int):
+    def anonimizar(self, uuid: str, id_empresa: int):        
         """ALTERADO: delega para paciente.anonimizar() do model (já
         corrigido lá para de fato desligar PacienteDadosPessoais),
         em vez de duplicar essa lógica aqui com um db.session.delete
