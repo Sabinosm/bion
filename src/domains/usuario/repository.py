@@ -81,7 +81,7 @@ class UsuarioRepository(IRepository[Usuario]):
             db.session.add(entity)
             db.session.flush()
         return entity
-
+    
     def save_sem_commit(self, entity):
         return entity
 

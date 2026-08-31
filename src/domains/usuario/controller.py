@@ -21,6 +21,7 @@ from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
 from .services.service import UsuarioService
 from flask import Blueprint, request, g
 from src.domains.auth.step_up import StepUp
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 bp = Blueprint("usuario", __name__)
 _svc = UsuarioService()
 
@@ -94,7 +95,7 @@ class UsuarioController():
     @staticmethod
     @bp.post("/<uuid>/desativar")
     @requer_papel("admin")
-    @StepUp.requer_confirmacao_recente("desativar_profissional")
+    @acao_sensivel(acao="desativar_profissional",tabela="Usuarios")
     def desativar(uuid):
         try:
             u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin)

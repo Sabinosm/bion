@@ -203,7 +203,7 @@ class UsuarioService(ResetCredenciaisMixin):
             )
 
         u.status = "inativo"
-        return self.repo.save(u)
+        return self.repo.save(u, False) # -> Commit feito via decorator ação sensível
  
     def ativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Reativa um usuário, definindo seu status como 'ativo'.
