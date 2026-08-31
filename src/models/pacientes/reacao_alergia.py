@@ -9,13 +9,19 @@ longo do tempo -- o que o FHIR já modela dessa forma.
 
 from src.models import db
 from src.models.types import BigIntPK
+import uuid as _uuid
 
 
 class ReacaoAlergia(db.Model):
     __tablename__ = "reacao_alergia"
 
     id = db.Column("id_reacao", BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_reacao", db.String(36), unique=True, nullable=False)
+    # ALTERADO: faltava default -- coluna NOT NULL sem valor gerado
+    # automaticamente quebrava (IntegrityError) todo insert de reação,
+    # inclusive o fluxo normal de Alergia.registrar_reacao(), que nunca
+    # passa uuid manualmente. Mesmo padrão dos outros models do domínio.
+    uuid = db.Column("uuid_reacao", db.String(36), unique=True, nullable=False,
+                      default=lambda: str(_uuid.uuid4()))
     id_alergia = db.Column(db.BigInteger, db.ForeignKey("alergia.id_alergia"), nullable=False)
     manifestacao = db.Column(
         db.Enum("cutanea", "respiratoria", "anafilaxia", "gastrointestinal",

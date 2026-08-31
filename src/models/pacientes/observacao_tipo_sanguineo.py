@@ -29,12 +29,19 @@ class ObservacaoTipoSanguineo(db.Model):
     codigo_loinc = db.Column(db.String(20), default="882-1")
 
     paciente = db.relationship("Paciente", back_populates="observacoes_tipo_sanguineo")
+    # NOVO: contrapartida para expor quem registrou no to_dict() --
+    # mesmo padrão usado em Paciente.usuario_cadastro.
+    usuario_registro = db.relationship("Usuario", foreign_keys=[registrado_por])
 
     def to_dict(self):
         return {
             "uuid": self.uuid,
             "tipo_sanguineo": self.tipo_sanguineo,
             "data_registro": self.data_registro.isoformat() if self.data_registro else None,
+            # NOVO: nome de quem registrou -- Usuario.nome_completo não
+            # é cifrado (confirmado na sessão anterior), então pode ir
+            # direto sem passar por aes_decrypt.
+            "registrado_por": self.usuario_registro.nome_completo if self.usuario_registro else None,
         }
 
     def __repr__(self):

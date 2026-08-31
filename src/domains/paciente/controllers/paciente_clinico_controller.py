@@ -65,7 +65,6 @@ class PacienteClinicoController():
     # ALTERADO: detalhe() agora devolve o prontuário completo
     # (paciente + alergias + doenças crônicas + medicamentos em uso +
     # consentimento_ativo como booleano) -- só aqui, nunca em listagem
-    # (custo de N+1 queries por domínio não escala pra lista).
     @staticmethod
     @bp.get("/<uuid>")
     @requer_papel("medico", "enfermeiro")

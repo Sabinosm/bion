@@ -37,18 +37,20 @@ class MedicamentoEmUsoService:
         return self.repo.find_por_paciente(p.id)
 
     def adicionar_medicamento_em_uso(self, uuid_paciente: str, dados: dict, id_empresa: int):
-        """ALTERADO: adicionada validação de obrigatórios -- antes
-        aceitava qualquer payload, mesmo sem 'descricao' (nenhum outro
-        domínio clínico permite cadastro sem o campo que identifica o
-        que está sendo registrado)."""
+        """ALTERADO: adicionada validação de obrigatórios -- 'descricao'
+        e 'id_catalogo' (este último NOT NULL no model; sem essa
+        checagem aqui, um payload sem id_catalogo estourava
+        IntegrityError cru do banco em vez de um 422 tratado)."""
         from src.models.pacientes import MedicamentoEmUso
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
-        if not dados.get("descricao"):
-            raise DadosInvalidosError("descricao é obrigatória.")
+        obrigatorios = ("descricao", "id_catalogo")
+        faltando = [c for c in obrigatorios if not dados.get(c)]
+        if faltando:
+            raise DadosInvalidosError(f"Campos obrigatórios ausentes: {', '.join(faltando)}")
         m = MedicamentoEmUso(
             id_paciente=p.id,
-            id_catalogo=dados.get("id_catalogo"),
-            descricao=dados.get("descricao"),
+            id_catalogo=dados["id_catalogo"],
+            descricao=dados["descricao"],
             dose=dados.get("dose"),
             frequencia=dados.get("frequencia"),
             desde=_parse_data(dados.get("desde")),
