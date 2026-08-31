@@ -236,24 +236,3 @@ produto separada, não resolvida por duplicar o dado aqui.
 `(uuid_registro, alterado_em)`.
 
 ---
-
-# Pontos ainda em aberto
-
-Registrado aqui para não ficar implícito: as decisões abaixo foram
-discutidas mas dependem de código real de cada domínio (prontuário,
-prescrição, usuários) para serem concluídas — este documento descreve o
-mecanismo, não o estado de aplicação em cada rota específica.
-
-- **Nenhuma rota real ainda usa `acao_sensivel`/`acesso_auditado`** — os
-  decorators existem, mas aplicar em cada view (excluir prontuário,
-  alterar prescrição, conceder admin, visualizar prontuário) é trabalho
-  view a view, incluindo trocar `commit=True` por `commit=False` em cada
-  `save()` que a view chama internamente.
-- **Corrida na consumo do token de step-up** — depende de o
-  `step_up.py` consumir o token de forma atômica (ex.: `DELETE`
-  condicional) e não em dois passos (`SELECT` seguido de `DELETE`), para
-  que duas requisições simultâneas com o mesmo token não possam ambas
-  passar. Não confirmado ainda a partir do código.
-- **Paginação e retenção** — `find_all()` hoje usa `LIMIT` fixo (500/200),
-  sem cursor. Filtro por período (funil empresa → usuário → data, com
-  janela deslizante) ainda não tem endpoint implementado.
