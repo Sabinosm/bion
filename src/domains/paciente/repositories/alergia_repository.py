@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.pacientes import (Alergia)
+from src.models.pacientes import (Alergia, Paciente)
 
 
 
@@ -41,23 +41,14 @@ class AlergiaRepository(IRepository[Alergia]):
         db.session.commit()
         return True
 
-     # --- A2: Tempo médio de atendimento, por tipo ---
-    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30):
-        """Repassa a agregação bruta do repository (segundos, por tipo).
-        Conversão para 'Xmin Ys' e variação % vs. período anterior ficam
-        na camada de estatística."""
-        return self.repo.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
- 
-    # --- auxiliar: status no nível de etapa (não usado na Fase 1, mas pronto) ---
-    def atendimentos_por_status(self, id_empresa: int, dias: int = 30):
-        return self.repo.contar_atendimentos_por_status(id_empresa=id_empresa, dias=dias)
- 
-    # --- E2: tempo médio por tipo, com janela explícita ---
-    def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim):
-        return self.repo.tempo_medio_por_tipo_periodo(
-            id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
-        )
-        
+    # --- A2/E2/F4/D2: estatísticas ---
+    # REMOVIDO: tempo_medio_por_tipo, atendimentos_por_status e
+    # tempo_medio_por_tipo_periodo chamavam self.repo.xxx() -- código
+    # de outra camada (service) colado aqui por engano; repository não
+    # tem self.repo. Se essas estatísticas ainda são necessárias,
+    # pertencem a AtendimentoRepository/Service (domínio diferente de
+    # Alergia), não aqui -- me avisa que endereçamos separado.
+
     # --- F4: Gravidade geral das reações alérgicas (sem filtro por substância) ---
     def gravidade_geral(self, id_empresa: int) -> dict:
         """Mesma lógica de gravidade_por_substancia, mas sem o filtro
@@ -66,10 +57,7 @@ class AlergiaRepository(IRepository[Alergia]):
 
         Retorna: {"leve": 30, "moderada": 45, "grave": 9}
         """
-        from src.models import db
         from sqlalchemy import func
-
-        from src.models.pacientes import Paciente
         from src.models.pacientes.reacao_alergia import ReacaoAlergia
 
         linhas = (
@@ -94,9 +82,7 @@ class AlergiaRepository(IRepository[Alergia]):
         Retorna lista de dicts, ordenada do mais frequente pro menos:
         [{"substancia": "Dipirona", "total": 18}, ...]
         """
-        from src.models import db
         from sqlalchemy import func
-        from src.models.pacientes import Paciente
  
         linhas = (
             db.session.query(
@@ -120,9 +106,7 @@ class AlergiaRepository(IRepository[Alergia]):
  
         Retorna dict, ex: {"leve": 5, "moderada": 10, "grave": 3}
         """
-        from src.models import db
         from sqlalchemy import func
-        from src.models.pacientes import Paciente
         from src.models.pacientes.reacao_alergia import ReacaoAlergia
  
         linhas = (

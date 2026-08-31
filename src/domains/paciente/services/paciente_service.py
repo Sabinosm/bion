@@ -3,7 +3,7 @@ from datetime import datetime, timezone, date
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from src.core.security import aes_encrypt, aes_decrypt, hmac_sha256
 from ..repositories import (
-    PacienteRepository, 
+    PacienteRepository,
     ObservacaoTipoSanguineoRepository,
 )
 
@@ -15,7 +15,7 @@ def _parse_data(valor):
         return datetime.strptime(valor, "%Y-%m-%d").date()
     except (ValueError, TypeError):
         raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
-    
+
 class PacienteService:
 
     def __init__(self):
@@ -33,10 +33,9 @@ class PacienteService:
 
     def listar_resumo(self, id_empresa: int, offset: int = 0, status: str = None,
                        sexo_biologico: str = None):
-        """NOVO: listagem paginada já no formato enxuto (to_dict_few).
+        """Listagem paginada já no formato enxuto (to_dict_few).
         Fica aqui e não no controller porque descriptografar nome/CPF
-        é acesso a PII -- centralizado no service, igual o resto do
-        arquivo já faz (ver dados_pessoais_descriptografados)."""
+        é acesso a PII -- centralizado no service."""
         pacientes = self.repo.find_all_param(
             id_empresa=id_empresa, offset=offset, status=status,
             sexo_biologico=sexo_biologico,
@@ -55,7 +54,7 @@ class PacienteService:
         if not p:
             raise RecursoNaoEncontradoError("Paciente não encontrado para este CPF.")
         return p
-    
+
     #TODO : adicionar bairro utilizando do cep_service, no cadastro do paciente
     def cadastrar(self, dados: dict, id_usuario_cadastro: int, id_empresa: int):
         from src.models.pacientes import Paciente, PacienteDadosPessoais
@@ -88,13 +87,12 @@ class PacienteService:
         # Se o cadastro já veio com tipo_sanguineo (ex: paciente
         # transferido de outro sistema, já com exame feito), registra
         # como primeira observação.
-        
+
         if dados.get("tipo_sanguineo"):
             paciente.registrar_tipo_sanguineo(dados["tipo_sanguineo"], registrado_por=id_usuario_cadastro)
 
         pessoal = PacienteDadosPessoais(
             id_paciente=paciente.id,
-            id_empresa=id_empresa,
             nome_completo=aes_encrypt(dados["nome_completo"]),
             cpf=cpf_cifrado,
             cpf_hash=cpf_hash,
@@ -107,28 +105,25 @@ class PacienteService:
             contato_emergencia_nome=dados.get("contato_emergencia_nome"),
             contato_emergencia_telefone=aes_encrypt(dados.get("contato_emergencia_telefone")),
         )
-        
+
         from src.models import db
         db.session.add(pessoal)
         db.session.commit()
 
         return paciente
-    
+
     def count_pacientes_hoje(self, id_empresa):
         return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
-    
-    def count_pacientes(self,id_empresa):
+
+    def count_pacientes(self, id_empresa):
         return self.repo.count_pacientes(id_empresa=id_empresa)
-    
 
     def atualizar_pessoal(self, uuid: str, dados: dict, id_empresa: int):
-        """NOVO: separado de atualizar_clinico -- corrigir cadastro
-        (nome, telefone, endereço, etc) é uma ação de gestão de dados,
-        não uma decisão clínica. Médico, enfermeiro e admin podem
-        chamar isso (ver controller); a permissão de sistema é ampla,
-        mas o CONTEÚDO que este método toca é só PacienteDadosPessoais
-        -- ele nunca escreve em campos clínicos, mesmo que o payload
-        contenha uma chave 'status' por engano (é ignorada aqui)."""
+        """Corrigir cadastro (nome, telefone, endereço, etc) -- ação de
+        gestão de dados, não decisão clínica. Médico, enfermeiro e
+        admin podem chamar isso (ver controller); este método nunca
+        escreve em campos clínicos, mesmo que o payload contenha uma
+        chave 'status' por engano (é ignorada aqui)."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
         if not paciente.pessoal:
             raise DadosInvalidosError("Paciente está anonimizado; não há dados pessoais para atualizar.")
@@ -145,13 +140,10 @@ class PacienteService:
         return self.repo.save(paciente)
 
     def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int):
-        """NOVO: separado de atualizar_pessoal -- status, falecido e
-        data_obito são decisões clínicas (mudar status pra 'obito',
-        por exemplo, é um registro clínico, não uma correção de
-        cadastro). Reservado por padrão a médico/enfermeiro no
-        controller; admin só entra aqui em caso excepcional, e essa
-        chamada específica fica registrada (ver
-        registrar_escrita_clinica_excepcional)."""
+        """Status, falecido e data_obito são decisões clínicas.
+        Reservado por padrão a médico/enfermeiro no controller; admin
+        só entra aqui em caso excepcional, e essa chamada específica
+        fica registrada (ver registrar_escrita_clinica_excepcional)."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
 
         if "status" in dados:
@@ -164,7 +156,7 @@ class PacienteService:
         return self.repo.save(paciente)
 
     def registrar_escrita_clinica_excepcional(self, uuid: str, id_usuario: int, acao: str):
-        """NOVO: chamado pelo controller quando um admin (não
+        """Chamado pelo controller quando um admin (não
         médico/enfermeiro) grava algo clínico -- caso excepcional
         previsto (ex: médico responsável pediu apoio do admin), não um
         fluxo de rotina. Não logamos leitura nem escrita pessoal (ruído
@@ -199,14 +191,11 @@ class PacienteService:
             "contato_emergencia_telefone": aes_decrypt(p.contato_emergencia_telefone),
         }
 
-    def anonimizar(self, uuid: str, id_empresa: int):        
-        """ALTERADO: delega para paciente.anonimizar() do model (já
-        corrigido lá para de fato desligar PacienteDadosPessoais),
-        em vez de duplicar essa lógica aqui com um db.session.delete
-        manual -- uma só fonte de verdade para o que "anonimizar"
-        significa.
-
-        ALTERADO: exige id_empresa pelo mesmo motivo de atualizar()."""
+    def anonimizar(self, uuid: str, id_empresa: int):
+        """Delega para paciente.anonimizar() do model (já corrigido lá
+        para de fato desligar PacienteDadosPessoais), em vez de
+        duplicar essa lógica aqui -- uma só fonte de verdade para o
+        que "anonimizar" significa."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
         if not paciente.pessoal:
             raise DadosInvalidosError("Paciente já está anonimizado.")
@@ -217,3 +206,52 @@ class PacienteService:
         from src.models import db
         db.session.commit()
         return paciente
+
+    def montar_prontuario_completo(self, uuid: str, id_empresa: int):
+        """NOVO: agrega o paciente + todos os domínios clínicos num
+        único dict -- usado SÓ na tela de detalhe (nunca em listagem;
+        cada domínio aqui é uma query própria, custo alto demais para
+        repetir por paciente numa lista).
+
+        Decisões confirmadas:
+        - Consentimento fica FORA do agregado -- é sobre titularidade/
+          LGPD, não é dado clínico. Só entra como um booleano
+          (consentimento_ativo), não a lista de termos/histórico --
+          quem quiser o histórico completo usa a rota própria do
+          LgpdController.
+        - Tipo sanguíneo: só o valor atual (via Paciente.tipo_sanguineo,
+          já incluído em to_dict()). Histórico completo de observações
+          fica de fora, exposto em endpoint separado.
+
+        Import direto dos módulos (não via
+        src.domains.paciente.services, o __init__.py agregador) --
+        este arquivo já é um dos módulos importados por aquele
+        __init__.py, então importar de volta o pacote inteiro criaria
+        dependência circular. Import local (dentro do método, não no
+        topo do arquivo) continua necessário para não carregar todos
+        os services de domínio toda vez que PacienteService for
+        instanciado, quando a maioria das chamadas nem usa o agregador.
+        """
+        from .alergia_service import AlergiaService
+        from .doenca_cronica_service import DoencaCronicaService
+        from .medicamento_em_uso_service import MedicamentoEmUsoService
+        from .consentimento_service import ConsentimentoService
+
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
+
+        alergia_svc = AlergiaService()
+        doenca_svc = DoencaCronicaService()
+        medicamento_svc = MedicamentoEmUsoService()
+        consentimento_svc = ConsentimentoService()
+
+        alergias = alergia_svc.listar_alergias(uuid, id_empresa)
+        doencas = doenca_svc.listar_doencas(uuid, id_empresa)
+        medicamentos = medicamento_svc.listar_medicamentos_em_uso(uuid, id_empresa)
+        consentimento_ativo = consentimento_svc.repo.find_ativo_por_paciente(paciente.id) is not None
+
+        d = paciente.to_dict()
+        d["alergias"] = [a.to_dict() for a in alergias]
+        d["doencas_cronicas"] = [doenca.to_dict() for doenca in doencas]
+        d["medicamentos_em_uso"] = [m.to_dict() for m in medicamentos]
+        d["consentimento_ativo"] = consentimento_ativo
+        return d    

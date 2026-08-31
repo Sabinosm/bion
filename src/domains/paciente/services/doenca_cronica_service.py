@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone, date
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
@@ -25,19 +24,21 @@ class DoencaCronicaService:
         self.repo = DoencaCronicaRepository()
         self.paciente_repo = PacienteRepository()
 
-    def _paciente_ou_404(self, uuid_paciente: str):
-        p = self.paciente_repo.find_by_uuid(uuid_paciente)
+    def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
+        """ALTERADO: exige id_empresa -- ver AlergiaService para o
+        raciocínio completo (mesmo padrão em todos os domínios clínicos)."""
+        p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
         return p
 
-    def listar_doencas(self, uuid_paciente: str):
-        p = self._paciente_ou_404(uuid_paciente)
+    def listar_doencas(self, uuid_paciente: str, id_empresa: int):
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
         return self.repo.find_por_paciente(p.id)
 
-    def adicionar_doenca(self, uuid_paciente: str, dados: dict):
+    def adicionar_doenca(self, uuid_paciente: str, dados: dict, id_empresa: int):
         from src.models.pacientes import DoencaCronica
-        p = self._paciente_ou_404(uuid_paciente)
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
         obrigatorios = ("codigo_cid10", "descricao_cid10", "desde", "status")
         faltando = [c for c in obrigatorios if not dados.get(c)]
         if faltando:

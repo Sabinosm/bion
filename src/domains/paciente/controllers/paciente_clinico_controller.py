@@ -1,6 +1,20 @@
 """
-Rotas JSON de dados clínicos do paciente (Paciente + tipo sanguíneo).
-Registrado sob /v1/api/pacientes/clinico.
+Rotas JSON de dados clínicos do paciente (Paciente + alergias +
+doenças crônicas + medicamentos em uso + tipo sanguíneo). Registrado
+sob /v1/api/pacientes/clinico.
+
+ALTERADO: GET /<uuid> agora devolve o prontuário clínico COMPLETO --
+agrega Paciente.to_dict() + alergias + doenças crônicas + medicamentos
+em uso + um booleano consentimento_ativo (ver PacienteService.
+montar_prontuario_completo). Decisão confirmada: essa agregação só
+acontece aqui, nunca em listagem (lista()/lista_resumo() do controller
+pessoal continuam leves, sem N+1 queries por paciente).
+
+Consentimento fica fora do agregado como objeto completo -- é sobre
+titularidade/LGPD, não dado clínico -- só entra o booleano; o
+histórico de termos vive em LgpdController. Tipo sanguíneo no agregado
+é só o valor atual (via Paciente.tipo_sanguineo); o histórico de
+observações continua em endpoint próprio (tipo-sanguineo/*).
 
 Contrapartida: paciente_pessoal_controller.py, sob
 /v1/api/pacientes/pessoal.
@@ -30,10 +44,11 @@ from flask import Blueprint, request, session
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
-from src.domains.paciente.services import PacienteService
+from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
 
 bp = Blueprint("paciente_clinico", __name__)
 _svc = PacienteService()
+_svc_tipo_sanguineo = ObservacaoTipoSanguineoService()
 
 
 def _pode_ver_clinico() -> bool:
@@ -47,13 +62,17 @@ def _serializar_clinico(paciente):
 
 class PacienteClinicoController():
 
+    # ALTERADO: detalhe() agora devolve o prontuário completo
+    # (paciente + alergias + doenças crônicas + medicamentos em uso +
+    # consentimento_ativo como booleano) -- só aqui, nunca em listagem
+    # (custo de N+1 queries por domínio não escala pra lista).
     @staticmethod
     @bp.get("/<uuid>")
     @requer_papel("medico", "enfermeiro")
     def detalhe(uuid):
         try:
-            p = _svc.buscar_por_uuid(uuid, get_id_empresa_sessao())
-            return json_success(data=_serializar_clinico(p))
+            prontuario = _svc.montar_prontuario_completo(uuid, get_id_empresa_sessao())
+            return json_success(data=prontuario)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
@@ -87,7 +106,9 @@ class PacienteClinicoController():
         if not dados.get("tipo_sanguineo"):
             return json_error("tipo_sanguineo é obrigatório.", 422)
         try:
-            p = _svc.registrar_tipo_sanguineo(uuid, dados["tipo_sanguineo"], get_id_usuario_sessao())
+            p = _svc_tipo_sanguineo.registrar_tipo_sanguineo(
+                uuid, dados["tipo_sanguineo"], get_id_usuario_sessao(), get_id_empresa_sessao()
+            )
             return json_success(data=_serializar_clinico(p), message="Tipo sanguíneo registrado.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -95,14 +116,16 @@ class PacienteClinicoController():
 
     # Corrige uma observação específica (erro de digitação, não novo exame)
     @staticmethod
-    @bp.put("/tipo-sanguineo/<uuid_observacao>")
+    @bp.put("/<uuid>/tipo-sanguineo/<uuid_observacao>")
     @requer_papel("medico", "enfermeiro")
-    def corrigir_tipo_sanguineo(uuid_observacao):
+    def corrigir_tipo_sanguineo(uuid, uuid_observacao):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
             return json_error("tipo_sanguineo é obrigatório.", 422)
         try:
-            obs = _svc.corrigir_tipo_sanguineo(uuid_observacao, dados["tipo_sanguineo"])
+            obs = _svc_tipo_sanguineo.corrigir_tipo_sanguineo(
+                uuid, uuid_observacao, dados["tipo_sanguineo"], get_id_empresa_sessao()
+            )
             return json_success(data=obs.to_dict(), message="Tipo sanguíneo corrigido.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -112,11 +135,11 @@ class PacienteClinicoController():
     # É clínico (histórico de exame), não gestão cadastral -- sem
     # exceção para admin aqui.
     @staticmethod
-    @bp.delete("/tipo-sanguineo/<uuid_observacao>")
+    @bp.delete("/<uuid>/tipo-sanguineo/<uuid_observacao>")
     @requer_papel("medico", "enfermeiro")
-    def remover_tipo_sanguineo(uuid_observacao):
+    def remover_tipo_sanguineo(uuid, uuid_observacao):
         try:
-            _svc.remover_tipo_sanguineo(uuid_observacao)
+            _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao())
             return json_success(message="Observação de tipo sanguíneo removida.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

@@ -2,11 +2,7 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.pacientes import (
-    Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
-    DoencaCronica, MedicamentoEmUso, Consentimento, ObservacaoTipoSanguineo,
-)
-from datetime import datetime, time, timezone, timedelta
+from src.models.pacientes import DoencaCronica, Paciente
 from sqlalchemy import func
 
 class DoencaCronicaRepository(IRepository[DoencaCronica]):
@@ -41,10 +37,6 @@ class DoencaCronicaRepository(IRepository[DoencaCronica]):
  
         Retorna: [{"codigo_cid10": "I10", "descricao_cid10": "Hipertensão", "total": 214}, ...]
         """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.pacientes import Paciente
- 
         linhas = (
             db.session.query(
                 DoencaCronica.codigo_cid10.label("codigo"),
