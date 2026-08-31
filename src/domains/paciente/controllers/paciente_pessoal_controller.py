@@ -31,6 +31,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import PacienteService
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("paciente_pessoal", __name__)
 _svc = PacienteService()
@@ -82,6 +83,7 @@ class PacientePessoalController():
     @staticmethod
     @bp.get("/<uuid>")
     @requer_login
+    @acao_sensivel(acao="vizualizar_paciente", tabela="paciente_dados_pessoais")
     def detalhe(uuid):
         com_pii = _pode_ver_clinico()
         try:

@@ -292,3 +292,99 @@ class PacienteService:
                 "resumo": [m.descricao for m in medicamentos if m.status_uso == "ativo"],
             },
         }
+        
+# Exemplo do json resumo clinico        
+# {
+#   "success": true,
+#   "message": null,
+#   "data": {
+#     "uuid": "8f14e45f-ceea-4e2a-a11e-1a2b3c4d5e6f",
+#     "sexo_biologico": "F",
+#     "tipo_sanguineo": "O+",
+#     "data_nascimento": "1990-04-12",
+#     "status": "ativo",
+#     "data_primeiro_atendimento": "2024-01-15",
+#     "cadastrado_por": "Ana Beatriz Souza",
+#     "criado_em": "2024-01-15T14:32:00+00:00",
+
+#     "resumo_clinico": {
+#       "alergias": {
+#         "total": 2,
+#         "tem_grave": true,
+#         "resumo": ["Penicilina (grave)", "Dipirona (moderada)"]
+#       },
+#       "doencas_cronicas": {
+#         "total": 1,
+#         "ativas": 1,
+#         "resumo": ["Hipertensão essencial"]
+#       },
+#       "medicamentos_em_uso": {
+#         "total": 1,
+#         "em_uso_continuo": 1,
+#         "resumo": ["Losartana 50mg"]
+#       }
+#     },
+
+#     "alergias": [
+#       {
+#         "uuid": "p1p2p3p4-0002-4a1a-9b1b-999999999999",
+#         "substancia": "Penicilina",
+#         "tipo_reacao": "anafilaxia",
+#         "gravidade": "grave",
+#         "descricao_reacao": "Reação anafilática, necessitou epinefrina",
+#         "flag_confirmado": true,
+#         "reacoes": [
+#           {
+#             "uuid": "r9r8r7r6-0002-4a1a-9b1b-101010101010",
+#             "manifestacao": "anafilaxia",
+#             "gravidade": "grave",
+#             "descricao": "Reação anafilática, necessitou epinefrina",
+#             "data_ocorrencia": "2022-03-15"
+#           }
+#         ]
+#       },
+#       {
+#         "uuid": "a1b2c3d4-0001-4a1a-9b1b-111111111111",
+#         "substancia": "Dipirona",
+#         "tipo_reacao": "cutanea",
+#         "gravidade": "moderada",
+#         "descricao_reacao": "Surgiu cerca de 30min após administração",
+#         "flag_confirmado": true,
+#         "reacoes": [
+#           {
+#             "uuid": "r1r2r3r4-0001-4a1a-9b1b-222222222222",
+#             "manifestacao": "cutanea",
+#             "gravidade": "moderada",
+#             "descricao": "Surgiu cerca de 30min após administração",
+#             "data_ocorrencia": "2023-11-02"
+#           }
+#         ]
+#       }
+#     ],
+
+#     "doencas_cronicas": [
+#       {
+#         "uuid": "d1d2d3d4-0001-4a1a-9b1b-333333333333",
+#         "codigo_cid10": "I10",
+#         "descricao_cid10": "Hipertensão essencial",
+#         "desde": "2019-06-01",
+#         "status": "ativa",
+#         "observacoes": "Controlada com medicação"
+#       }
+#     ],
+
+#     "medicamentos_em_uso": [
+#       {
+#         "uuid": "m1m2m3m4-0001-4a1a-9b1b-444444444444",
+#         "descricao": "Losartana 50mg",
+#         "dose": "1 comprimido",
+#         "frequencia": "1x ao dia",
+#         "desde": "2019-06-10",
+#         "flag_em_uso": true,
+#         "status_uso": "ativo"
+#       }
+#     ],
+
+#     "consentimento_ativo": true
+#   }
+# }

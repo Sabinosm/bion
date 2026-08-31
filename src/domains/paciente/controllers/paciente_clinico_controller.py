@@ -45,6 +45,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("paciente_clinico", __name__)
 _svc = PacienteService()
@@ -67,7 +68,8 @@ class PacienteClinicoController():
     # consentimento_ativo como booleano) -- só aqui, nunca em listagem
     @staticmethod
     @bp.get("/<uuid>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel("medico", "enfermeiro", "admin")
+    @acao_sensivel(acao="vizualizar_paciente", tabela="paciente")
     def detalhe(uuid):
         try:
             prontuario = _svc.montar_prontuario_completo(uuid, get_id_empresa_sessao())
