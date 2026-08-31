@@ -222,6 +222,10 @@ class PacienteService:
         - Tipo sanguíneo: só o valor atual (via Paciente.tipo_sanguineo,
           já incluído em to_dict()). Histórico completo de observações
           fica de fora, exposto em endpoint separado.
+        - resumo_clinico: bloco no topo do dict com contagens e alertas
+          de alergia grave, doença crônica ativa e medicamento em uso
+          contínuo -- pensado para leitura rápida (emergência), sem
+          precisar percorrer os arrays completos logo abaixo.
 
         Import direto dos módulos (não via
         src.domains.paciente.services, o __init__.py agregador) --
@@ -249,9 +253,42 @@ class PacienteService:
         medicamentos = medicamento_svc.listar_medicamentos_em_uso(uuid, id_empresa)
         consentimento_ativo = consentimento_svc.repo.find_ativo_por_paciente(paciente.id) is not None
 
+        # ALTERADO: alergias ordenadas por gravidade (grave primeiro),
+        # não por ordem de cadastro -- uma alergia grave cadastrada há
+        # anos não deveria aparecer depois de uma leve cadastrada ontem.
+        ordem_gravidade = {"grave": 0, "moderada": 1, "leve": 2, None: 3}
+        alergias_ordenadas = sorted(alergias, key=lambda a: ordem_gravidade.get(a.gravidade, 3))
+
         d = paciente.to_dict()
-        d["alergias"] = [a.to_dict() for a in alergias]
+        d["resumo_clinico"] = self._montar_resumo_clinico(alergias, doencas, medicamentos)
+        d["alergias"] = [a.to_dict() for a in alergias_ordenadas]
         d["doencas_cronicas"] = [doenca.to_dict() for doenca in doencas]
         d["medicamentos_em_uso"] = [m.to_dict() for m in medicamentos]
         d["consentimento_ativo"] = consentimento_ativo
-        return d    
+        return d
+
+    def _montar_resumo_clinico(self, alergias, doencas, medicamentos):
+        """NOVO: bloco de alerta no TOPO do prontuário -- pensado para
+        ser lido em segundos numa emergência, sem precisar percorrer
+        cada array pra saber se há algo grave. Cada resumo é calculado
+        aqui (não fica salvo em banco) para nunca divergir dos dados
+        reais nas listas completas logo abaixo no mesmo JSON.
+        """
+        alergias_graves = [a.substancia for a in alergias if a.gravidade == "grave"]
+        return {
+            "alergias": {
+                "total": len(alergias),
+                "tem_grave": bool(alergias_graves),
+                "resumo": [f"{a.substancia} ({a.gravidade or 'sem reação registrada'})" for a in alergias],
+            },
+            "doencas_cronicas": {
+                "total": len(doencas),
+                "ativas": sum(1 for d in doencas if d.status == "ativa"),
+                "resumo": [d.descricao_cid10 for d in doencas if d.status == "ativa"],
+            },
+            "medicamentos_em_uso": {
+                "total": len(medicamentos),
+                "em_uso_continuo": sum(1 for m in medicamentos if m.status_uso == "ativo"),
+                "resumo": [m.descricao for m in medicamentos if m.status_uso == "ativo"],
+            },
+        }
