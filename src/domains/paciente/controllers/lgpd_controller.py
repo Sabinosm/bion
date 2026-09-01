@@ -60,3 +60,22 @@ class LgpdController():
             return json_success(data=c.to_dict(), message="Consentimento revogado.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: registra dispensa de consentimento por urgência/emergência
+    # (LGPD art. 11, II, "f" -- tutela da saúde). Não bloqueia nem
+    # desbloqueia nada -- nenhum insert clínico verifica consentimento
+    # hoje -- só deixa rastreável que a coleta normal foi pulada de
+    # propósito, com motivo e responsável registrados.
+    @staticmethod
+    @bp.post("/<uuid_paciente>/consentimentos/dispensar-emergencia")
+    @requer_papel("medico", "enfermeiro")
+    def dispensar_emergencia(uuid_paciente):
+        dados = request.get_json(silent=True) or {}
+        try:
+            c = _svc.dispensar_por_emergencia(
+                uuid_paciente, dados, get_id_usuario_sessao(), get_id_empresa_sessao()
+            )
+            return json_success(data=c.to_dict(), message="Consentimento dispensado por emergência.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

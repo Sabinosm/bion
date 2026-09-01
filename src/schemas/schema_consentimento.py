@@ -28,3 +28,11 @@ class ConsentimentoCreateSchema(BaseModel):
     canal_coleta: Literal["presencial-papel", "presencial-digital", "portal-online", "totem"]
     escopo_consentimento: Optional[dict] = None
     hash_documento: Optional[str] = Field(default=None, max_length=64)
+
+
+class ConsentimentoDispensaEmergenciaSchema(BaseModel):
+    """NOVO: entrada para dispensar consentimento por urgência/
+    emergência -- fluxo separado de ConsentimentoCreateSchema porque
+    os campos exigidos são outros (motivo é obrigatório aqui; não
+    exige canal_coleta/versao_termo, já que não houve coleta de fato)."""
+    motivo: str = Field(min_length=1, max_length=1000)

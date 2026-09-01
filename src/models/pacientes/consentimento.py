@@ -25,13 +25,24 @@ class Consentimento(db.Model):
     versao_termo = db.Column(db.String(50), nullable=False)
     data_consentimento = db.Column(db.DateTime(timezone=True), nullable=False)
     canal_coleta = db.Column(
-        db.Enum("presencial-papel", "presencial-digital", "portal-online", "totem"),
+        db.Enum("presencial-papel", "presencial-digital", "portal-online", "totem",
+                "dispensa-emergencia"),
         nullable=False)
-    status = db.Column(db.Enum("ativo", "revogado", "expirado"),
+    # ALTERADO: status ganhou "dispensado_emergencia" -- registra que o
+    # consentimento foi dispensado por urgência/emergência (base legal
+    # LGPD art. 11, II, f -- tutela da saúde, não depende de
+    # consentimento do titular), diferente de simplesmente não ter
+    # nenhum registro (que é indistinguível de "esqueceram de coletar").
+    status = db.Column(db.Enum("ativo", "revogado", "expirado", "dispensado_emergencia"),
                         nullable=False, default="ativo")
     escopo_consentimento_json = db.Column(db.JSON)
     data_revogacao = db.Column(db.DateTime(timezone=True))
-    motivo_revogacao = db.Column(db.Text)
+    # RENOMEADO: motivo_revogacao -> observacao. Passou a guardar tanto
+    # o motivo de uma revogação quanto o motivo de uma dispensa por
+    # emergência -- "motivo_revogacao" não descrevia bem o segundo caso
+    # (dispensa não é revogação). Nome do atributo Python muda; nome da
+    # coluna no banco também muda via SQL (ver migração em anexo).
+    observacao = db.Column("observacao", db.Text)
     hash_documento = db.Column(db.String(64))
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -47,6 +58,11 @@ class Consentimento(db.Model):
             "canal_coleta": self.canal_coleta,
             "status": self.status,
             "data_revogacao": self.data_revogacao.isoformat() if self.data_revogacao else None,
+            # NOVO: antes motivo_revogacao não era exposto no to_dict();
+            # agora que o campo também carrega o motivo de uma dispensa
+            # por emergência, esconder essa informação faz menos
+            # sentido -- é o único lugar onde o "porquê" fica registrado.
+            "observacao": self.observacao,
         }
 
     def __repr__(self):
