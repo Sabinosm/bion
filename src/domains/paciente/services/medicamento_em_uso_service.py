@@ -1,12 +1,10 @@
 from datetime import datetime, timezone, date
 
+from pydantic import ValidationError
+
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
-from src.core.security import aes_encrypt, aes_decrypt, hmac_sha256
-from ..repositories import (
-    PacienteRepository, AlergiaRepository, ReacaoAlergiaRepository,
-    DoencaCronicaRepository, MedicamentoEmUsoRepository, ConsentimentoRepository,
-    ObservacaoTipoSanguineoRepository,
-)
+from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
+from src.schemas.schema_medicamento_em_uso import MedicamentoEmUsoCreateSchema, _formatar_erros_pydantic
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -18,15 +16,13 @@ def _parse_data(valor):
         raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
     
 class MedicamentoEmUsoService:
-    """Alergias, doenças crônicas e medicamentos em uso do paciente."""
+    """Medicamentos em uso do paciente."""
 
     def __init__(self):
         self.repo = MedicamentoEmUsoRepository()
         self.paciente_repo = PacienteRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
-        """ALTERADO: exige id_empresa -- mesmo padrão dos outros
-        domínios clínicos (ver AlergiaService)."""
         p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
@@ -37,25 +33,33 @@ class MedicamentoEmUsoService:
         return self.repo.find_por_paciente(p.id)
 
     def adicionar_medicamento_em_uso(self, uuid_paciente: str, dados: dict, id_empresa: int):
-        """ALTERADO: adicionada validação de obrigatórios -- 'descricao'
-        e 'id_catalogo' (este último NOT NULL no model; sem essa
-        checagem aqui, um payload sem id_catalogo estourava
-        IntegrityError cru do banco em vez de um 422 tratado)."""
+        """ALTERADO: validação de formato/obrigatórios movida para
+        MedicamentoEmUsoCreateSchema (Pydantic). Adicionada também a
+        checagem de que id_catalogo EXISTE em catalogo_medicamentos --
+        isso é uma FK, não formato, então o Pydantic sozinho não cobre;
+        sem essa query, um id_catalogo inexistente só falhava no
+        commit() como IntegrityError de FK cru."""
         from src.models.pacientes import MedicamentoEmUso
+        from src.models.catalogos import CatalogoMedicamentos
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
-        obrigatorios = ("descricao", "id_catalogo")
-        faltando = [c for c in obrigatorios if not dados.get(c)]
-        if faltando:
-            raise DadosInvalidosError(f"Campos obrigatórios ausentes: {', '.join(faltando)}")
+
+        try:
+            entrada = MedicamentoEmUsoCreateSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        if not CatalogoMedicamentos.query.get(entrada.id_catalogo):
+            raise DadosInvalidosError(f"id_catalogo inválido: {entrada.id_catalogo} não existe no catálogo.")
+
         m = MedicamentoEmUso(
             id_paciente=p.id,
-            id_catalogo=dados["id_catalogo"],
-            descricao=dados["descricao"],
-            dose=dados.get("dose"),
-            frequencia=dados.get("frequencia"),
-            desde=_parse_data(dados.get("desde")),
-            flag_em_uso=bool(dados.get("flag_em_uso", True)),
-            status_uso=dados.get("status_uso", "ativo" if dados.get("flag_em_uso", True) else "interrompido"),
+            id_catalogo=entrada.id_catalogo,
+            descricao=entrada.descricao,
+            dose=entrada.dose,
+            frequencia=entrada.frequencia,
+            desde=entrada.desde,
+            flag_em_uso=entrada.flag_em_uso,
+            status_uso=entrada.status_uso,
         )
         return self.repo.save(m)
     

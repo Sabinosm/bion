@@ -1,7 +1,10 @@
-from src.core.exceptions import RecursoNaoEncontradoError
+from pydantic import ValidationError
+
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repositories import (
     ObservacaoTipoSanguineoRepository, PacienteRepository,
 )
+from src.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, _formatar_erros_pydantic
 
     
 class ObservacaoTipoSanguineoService:
@@ -9,10 +12,6 @@ class ObservacaoTipoSanguineoService:
 
     def __init__(self):
         self.repo = ObservacaoTipoSanguineoRepository()
-        # ALTERADO: faltava esta linha -- registrar_tipo_sanguineo
-        # chamava self.buscar_por_uuid(), método que nunca existiu
-        # nesta classe (é de PacienteService), e este service nem
-        # tinha paciente_repo pra resolver o paciente por conta própria.
         self.paciente_repo = PacienteRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
@@ -29,15 +28,18 @@ class ObservacaoTipoSanguineoService:
         """NOVO exame/resultado -- cria uma observação adicional,
         preserva histórico. Este é o caminho normal de uso clínico.
 
-        ALTERADO: usa self.paciente_repo (não self.buscar_por_uuid, que
-        não existia) e exige id_empresa para checar posse."""
+        ALTERADO: valor agora passa por TipoSanguineoCreateSchema --
+        antes este era o ÚNICO domínio clínico sem NENHUMA validação,
+        nem de obrigatoriedade nem de enum; um valor vazio ou fora do
+        Enum (A+|A-|B+|B-|AB+|AB-|O+|O-|desconhecido) só falhava no
+        commit() do save() abaixo, como erro cru do banco."""
+        try:
+            entrada = TipoSanguineoCreateSchema(tipo_sanguineo=valor)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
         paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
-        paciente.registrar_tipo_sanguineo(valor, registrado_por=id_usuario)
-        # ALTERADO: era self.repo.save(paciente) -- self.repo é
-        # ObservacaoTipoSanguineoRepository, que não sabe salvar um
-        # Paciente. registrar_tipo_sanguineo() do model só monta o
-        # objeto ObservacaoTipoSanguineo em memória e insere na lista
-        # de relacionamento; quem persiste é o PacienteRepository.
+        paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario)
         self.paciente_repo.save(paciente)
         return paciente
 
@@ -46,25 +48,23 @@ class ObservacaoTipoSanguineoService:
         digitação) -- não cria histórico novo, edita o valor no lugar.
         Requer o uuid da observação específica, não do paciente.
 
-        ALTERADO: usava self.tipo_sanguineo_repo, que não existia (é
-        self.repo); passou a exigir uuid_paciente + id_empresa e checar
-        que a observação pertence a esse paciente -- sem isso, alguém
-        com acesso a qualquer paciente da própria empresa conseguiria
-        corrigir observação de paciente de OUTRA empresa, só sabendo o
-        uuid da observação."""
+        ALTERADO: novo_valor também validado via schema, mesmo
+        raciocínio de registrar_tipo_sanguineo."""
+        try:
+            entrada = TipoSanguineoCreateSchema(tipo_sanguineo=novo_valor)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
         paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
         obs = self.repo.find_by_uuid(uuid_observacao)
         if not obs or obs.id_paciente != paciente.id:
             raise RecursoNaoEncontradoError(f"Observação de tipo sanguíneo não encontrada: {uuid_observacao}")
-        return self.repo.corrigir(uuid_observacao, novo_valor)
+        return self.repo.corrigir(uuid_observacao, entrada.tipo_sanguineo)
 
     def remover_tipo_sanguineo(self, uuid_paciente: str, uuid_observacao: str, id_empresa: int):
         """Remove um registro de observação por engano (ex: paciente
         errado, duplicata) -- diferente de corrigir_tipo_sanguineo(),
-        que edita o valor mantendo o registro.
-
-        ALTERADO: mesma correção de tipo_sanguineo_repo -> repo, e
-        mesma checagem de posse de corrigir_tipo_sanguineo()."""
+        que edita o valor mantendo o registro."""
         paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
         obs = self.repo.find_by_uuid(uuid_observacao)
         if not obs or obs.id_paciente != paciente.id:
