@@ -163,6 +163,13 @@ class PacienteService:
     
         return paciente
 
+    
+    def count_pacientes_hoje(self, id_empresa):
+        return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
+
+    def count_pacientes(self, id_empresa):
+        return self.repo.count_pacientes(id_empresa=id_empresa)
+    
     def atualizar_pessoal(self, uuid: str, dados: dict, id_empresa: int):
             """Corrigir cadastro (nome, telefone, endereço, etc) -- ação de
             gestão de dados, não decisão clínica. Médico, enfermeiro e
