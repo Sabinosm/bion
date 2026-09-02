@@ -4,7 +4,9 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
-from src.schemas.schema_medicamento_em_uso import MedicamentoEmUsoCreateSchema, _formatar_erros_pydantic
+from src.schemas.schema_medicamento_em_uso import (
+    MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema, _formatar_erros_pydantic,
+)
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -62,6 +64,26 @@ class MedicamentoEmUsoService:
             status_uso=entrada.status_uso,
         )
         return self.repo.save(m)
+
+    def atualizar_medicamento_em_uso(self, uuid_paciente: str, uuid_medicamento: str, dados: dict, id_empresa: int):
+        """NOVO: atualiza um medicamento em uso já registrado -- caso
+        mais comum na prática: mudar status_uso de 'ativo' para
+        'interrompido' quando o tratamento termina. id_catalogo NÃO é
+        editável aqui (ver MedicamentoEmUsoAtualizarSchema)."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        medicamento = self.repo.find_by_uuid(uuid_medicamento)
+        if not medicamento or medicamento.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Medicamento em uso não encontrado: {uuid_medicamento}")
+
+        try:
+            entrada = MedicamentoEmUsoAtualizarSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        for campo, valor in entrada.campos_informados().items():
+            setattr(medicamento, campo, valor)
+
+        return self.repo.save(medicamento)
     
 # --- F2: Pacientes em uso contínuo de medicação (%) ---
     def percentual_pacientes_em_uso_continuo(self, id_empresa: int):

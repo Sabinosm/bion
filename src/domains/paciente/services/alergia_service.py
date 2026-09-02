@@ -3,8 +3,8 @@ from datetime import datetime, date
 from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from ..repositories import (PacienteRepository, AlergiaRepository, ReacaoAlergiaRepository)
-from src.schemas.schema_alergia import AlergiaCreateSchema, _formatar_erros_pydantic
+from ..repositories import PacienteRepository, AlergiaRepository
+from src.schemas.schema_alergia import AlergiaCreateSchema, AlergiaAtualizarSchema, _formatar_erros_pydantic
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -16,7 +16,15 @@ def _parse_data(valor):
         raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
     
 class AlergiaService:
-    """Alergias, doenças crônicas e medicamentos em uso do paciente."""
+    """Alergias do paciente (criação, listagem, remoção da alergia
+    inteira, estatísticas).
+
+    ALTERADO: adicionar_reacao/remover_reacao SAÍRAM daqui -- eram
+    duplicados com ReacaoAlergiaService, que já cobre exatamente a
+    mesma responsabilidade com o mesmo padrão (id_empresa, checagem de
+    posse, schema Pydantic). Manter reação isolada num service próprio
+    facilita mudar o comportamento de reação sem precisar tocar
+    AlergiaService, e vice-versa."""
 
     def __init__(self):
         self.repo = AlergiaRepository()
@@ -61,12 +69,9 @@ class AlergiaService:
         )
         return self.repo.save(a)
 
-
     def remover_alergia(self, uuid_paciente: str, uuid_alergia: str, id_empresa: int):
         """Remove a alergia inteira, incluindo todo o histórico de
-        reações associadas (cascade já configurado no model).
-
-        ALTERADO: mesma checagem de posse de adicionar_reacao."""
+        reações associadas (cascade já configurado no model)."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         alergia = self.repo.find_by_uuid(uuid_alergia)
         if not alergia or alergia.id_paciente != p.id:
@@ -74,6 +79,25 @@ class AlergiaService:
         self.repo.delete_by_uuid(uuid_alergia)
         return True
 
+    def atualizar_alergia(self, uuid_paciente: str, uuid_alergia: str, dados: dict, id_empresa: int):
+        """NOVO: atualiza codigo_substancia/flag_confirmado de uma
+        alergia já registrada. substancia não é editável aqui (ver
+        AlergiaAtualizarSchema); manifestacao/gravidade/reações também
+        não -- isso é histórico, tratado por ReacaoAlergiaService."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        alergia = self.repo.find_by_uuid(uuid_alergia)
+        if not alergia or alergia.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
+
+        try:
+            entrada = AlergiaAtualizarSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        for campo, valor in entrada.campos_informados().items():
+            setattr(alergia, campo, valor)
+
+        return self.repo.save(alergia)
 
     
     # --- D2: Alergias mais reportadas ---

@@ -35,3 +35,17 @@ class MedicamentosEmUsoController():
             return json_success(data=m.to_dict(), message="Medicamento em uso registrado.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: atualiza um medicamento em uso já registrado (ex: mudar
+    # status_uso para 'interrompido' quando o tratamento termina).
+    @staticmethod
+    @bp.put("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>")
+    @requer_papel("medico", "enfermeiro")
+    def atualizar_medicamento_em_uso(uuid_paciente, uuid_medicamento):
+        dados = request.get_json(silent=True) or {}
+        try:
+            m = _svc.atualizar_medicamento_em_uso(uuid_paciente, uuid_medicamento, dados, get_id_empresa_sessao())
+            return json_success(data=m.to_dict(), message="Medicamento em uso atualizado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

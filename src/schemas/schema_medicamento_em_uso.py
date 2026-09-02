@@ -48,3 +48,24 @@ class MedicamentoEmUsoCreateSchema(BaseModel):
             return v
         flag = info.data.get("flag_em_uso", True)
         return "ativo" if flag else "interrompido"
+
+
+class MedicamentoEmUsoAtualizarSchema(BaseModel):
+    """NOVO: atualização parcial (PATCH-like) -- todo campo é opcional.
+
+    id_catalogo NÃO é editável de propósito: trocar de medicamento é
+    conceitualmente um novo registro (nova prescrição), não uma
+    correção do existente -- diferente de dose/frequencia/status_uso,
+    que mudam ao longo do tratamento do mesmo medicamento. Se o
+    catálogo estiver errado, o caminho é remover e recadastrar, não
+    editar aqui.
+    """
+    descricao: Optional[str] = Field(default=None, min_length=1)
+    dose: Optional[str] = Field(default=None, max_length=100)
+    frequencia: Optional[str] = Field(default=None, max_length=100)
+    desde: Optional[date] = None
+    flag_em_uso: Optional[bool] = None
+    status_uso: Optional[Literal["ativo", "interrompido", "concluido"]] = None
+
+    def campos_informados(self) -> dict:
+        return self.model_dump(exclude_unset=True)

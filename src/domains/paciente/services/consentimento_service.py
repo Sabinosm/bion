@@ -5,7 +5,8 @@ from pydantic import ValidationError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, ConsentimentoRepository
 from src.schemas.schema_consentimento import (
-    ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema, _formatar_erros_pydantic,
+    ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema,
+    ConsentimentoRevogarSchema, _formatar_erros_pydantic,
 )
 
 class ConsentimentoService:
@@ -55,14 +56,25 @@ class ConsentimentoService:
         )
         return self.repo.save(c)
 
-    def revogar(self, uuid_paciente: str, motivo: str, id_empresa: int):
+    def revogar(self, uuid_paciente: str, dados: dict, id_empresa: int):
+        """ALTERADO: recebe dados (dict) em vez de motivo (str) direto
+        -- motivo agora passa por ConsentimentoRevogarSchema e é
+        obrigatório (antes aceitava None com fallback genérico,
+        inconsistente com dispensar_por_emergencia, que já exigia
+        motivo)."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         ativo = self.repo.find_ativo_por_paciente(p.id)
         if not ativo:
             raise RecursoNaoEncontradoError("Não há consentimento ativo para este paciente.")
+
+        try:
+            entrada = ConsentimentoRevogarSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
         ativo.status = "revogado"
         ativo.data_revogacao = datetime.now(timezone.utc)
-        ativo.observacao = motivo or "Revogado a pedido do titular."
+        ativo.observacao = entrada.motivo
         return self.repo.save(ativo)
 
     def dispensar_por_emergencia(self, uuid_paciente: str, dados: dict, id_usuario: int, id_empresa: int):

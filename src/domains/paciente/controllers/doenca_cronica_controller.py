@@ -37,3 +37,16 @@ class DoencaCronicaController():
             return json_success(data=d.to_dict(), message="Doença crônica registrada.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: corrige/atualiza uma doença crônica já registrada.
+    @staticmethod
+    @bp.put("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
+    @requer_papel("medico", "enfermeiro")
+    def atualizar_doenca(uuid_paciente, uuid_doenca):
+        dados = request.get_json(silent=True) or {}
+        try:
+            d = _svc.atualizar_doenca(uuid_paciente, uuid_doenca, dados, get_id_empresa_sessao())
+            return json_success(data=d.to_dict(), message="Doença crônica atualizada.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

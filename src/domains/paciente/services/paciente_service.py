@@ -1,10 +1,15 @@
 from datetime import datetime, timezone, date
 
+from pydantic import ValidationError
+
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from src.core.security import aes_encrypt, aes_decrypt, hmac_sha256
 from ..repositories import (
     PacienteRepository,
     ObservacaoTipoSanguineoRepository,
+)
+from src.schemas.schema_paciente import (
+    PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, _formatar_erros_pydantic,
 )
 
 def _parse_data(valor):
@@ -123,19 +128,29 @@ class PacienteService:
         gestão de dados, não decisão clínica. Médico, enfermeiro e
         admin podem chamar isso (ver controller); este método nunca
         escreve em campos clínicos, mesmo que o payload contenha uma
-        chave 'status' por engano (é ignorada aqui)."""
+        chave 'status' por engano (schema nem aceita esse campo).
+
+        ALTERADO: validação de formato movida para
+        PacienteAtualizarPessoalSchema (Pydantic) -- antes qualquer
+        string era aceita sem checagem para telefone/email/cep."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
         if not paciente.pessoal:
             raise DadosInvalidosError("Paciente está anonimizado; não há dados pessoais para atualizar.")
 
+        try:
+            entrada = PacienteAtualizarPessoalSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        campos = entrada.campos_informados()
         campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
                                  "contato_emergencia_telefone")
         for campo in campos_texto_cifrado:
-            if campo in dados:
-                setattr(paciente.pessoal, campo, aes_encrypt(dados[campo]))
+            if campo in campos:
+                setattr(paciente.pessoal, campo, aes_encrypt(campos[campo]))
         for campo in ("rg", "numero_residencia", "contato_emergencia_nome"):
-            if campo in dados:
-                setattr(paciente.pessoal, campo, dados[campo])
+            if campo in campos:
+                setattr(paciente.pessoal, campo, campos[campo])
 
         return self.repo.save(paciente)
 
@@ -143,15 +158,28 @@ class PacienteService:
         """Status, falecido e data_obito são decisões clínicas.
         Reservado por padrão a médico/enfermeiro no controller; admin
         só entra aqui em caso excepcional, e essa chamada específica
-        fica registrada (ver registrar_escrita_clinica_excepcional)."""
+        fica registrada (ver registrar_escrita_clinica_excepcional).
+
+        ALTERADO: validação movida para PacienteAtualizarClinicoSchema
+        -- status agora é Literal (antes um valor fora do Enum só
+        falhava no commit()). O schema também aplica a regra
+        confirmada: falecido=True força status="obito" automaticamente
+        (via de mão única -- status="obito" sozinho não obriga
+        falecido=True nem data_obito)."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
 
-        if "status" in dados:
-            paciente.status = dados["status"]
-        if "falecido" in dados:
-            paciente.falecido = bool(dados["falecido"])
-        if "data_obito" in dados:
-            paciente.data_obito = _parse_data(dados["data_obito"])
+        try:
+            entrada = PacienteAtualizarClinicoSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        campos = entrada.campos_informados()
+        if "status" in campos:
+            paciente.status = campos["status"]
+        if "falecido" in campos:
+            paciente.falecido = campos["falecido"]
+        if "data_obito" in campos:
+            paciente.data_obito = campos["data_obito"]
 
         return self.repo.save(paciente)
 

@@ -56,7 +56,7 @@ class LgpdController():
     def revogar(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
-            c = _svc.revogar(uuid_paciente, dados.get("motivo"), get_id_empresa_sessao())
+            c = _svc.revogar(uuid_paciente, dados, get_id_empresa_sessao())
             return json_success(data=c.to_dict(), message="Consentimento revogado.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

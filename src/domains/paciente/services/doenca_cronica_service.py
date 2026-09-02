@@ -4,7 +4,9 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, DoencaCronicaRepository
-from src.schemas.schema_doenca_cronica import DoencaCronicaCreateSchema, _formatar_erros_pydantic
+from src.schemas.schema_doenca_cronica import (
+    DoencaCronicaCreateSchema, DoencaCronicaAtualizarSchema, _formatar_erros_pydantic,
+)
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -53,6 +55,27 @@ class DoencaCronicaService:
             observacoes=entrada.observacoes,
         )
         return self.repo.save(d)
+
+    def atualizar_doenca(self, uuid_paciente: str, uuid_doenca: str, dados: dict, id_empresa: int):
+        """NOVO: corrige/atualiza uma doença crônica já registrada
+        (ex: mudar status de 'ativa' para 'em-remissao', corrigir CID
+        digitado errado). Checagem de posse igual aos outros domínios
+        clínicos -- confirma que a doença pertence a um paciente da
+        empresa de quem chamou antes de aplicar qualquer alteração."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        doenca = self.repo.find_by_uuid(uuid_doenca)
+        if not doenca or doenca.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Doença crônica não encontrada: {uuid_doenca}")
+
+        try:
+            entrada = DoencaCronicaAtualizarSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        for campo, valor in entrada.campos_informados().items():
+            setattr(doenca, campo, valor)
+
+        return self.repo.save(doenca)
 
     # --- F1: Doenças crônicas mais comuns na base ---
     def top_cid_ativas(self, id_empresa: int, limite: int = 10):

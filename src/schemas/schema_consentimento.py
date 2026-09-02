@@ -36,3 +36,12 @@ class ConsentimentoDispensaEmergenciaSchema(BaseModel):
     os campos exigidos são outros (motivo é obrigatório aqui; não
     exige canal_coleta/versao_termo, já que não houve coleta de fato)."""
     motivo: str = Field(min_length=1, max_length=1000)
+
+
+class ConsentimentoRevogarSchema(BaseModel):
+    """NOVO: motivo passou a ser obrigatório -- antes revogar() aceitava
+    motivo=None e caía num fallback genérico ("Revogado a pedido do
+    titular."), inconsistente com dispensar_por_emergencia, que já
+    exige motivo. Revogação também é um evento que merece ficar
+    registrado com uma razão de verdade, não um texto padrão."""
+    motivo: str = Field(min_length=1, max_length=1000)

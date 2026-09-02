@@ -1,13 +1,15 @@
 """
 Rotas JSON de alergias do paciente (parte do domínio clínico).
 
-ADICIONADO: rota de nova reação numa alergia já existente (capacidade
-nova, antes o schema só suportava uma reação por alergia).
-
 ALTERADO: toda rota passa id_empresa (sessão) pro service, e as rotas
 de alergia/reação específica agora exigem uuid_paciente no path -- sem
 isso não dá pra confirmar que a alergia pertence a um paciente da
 empresa de quem está pedindo (ver AlergiaService).
+
+ALTERADO: adicionar_reacao/remover_reacao passaram a usar
+ReacaoAlergiaService, não AlergiaService -- responsabilidade de reação
+isolada saiu de AlergiaService para não duplicar lógica entre os dois
+services (ver ReacaoAlergiaService).
 """
 
 from flask import Blueprint, request
@@ -15,10 +17,11 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
-from src.domains.paciente.services import AlergiaService
+from src.domains.paciente.services import AlergiaService, ReacaoAlergiaService
 
 bp = Blueprint("alergia", __name__)
 _svc = AlergiaService()
+_svc_reacao = ReacaoAlergiaService()
 
 
 class AlergiaController():
@@ -46,14 +49,28 @@ class AlergiaController():
             return json_error(ex.message, ex.status_code)
 
 
-    # NOVO: registra uma reação adicional numa alergia já existente
+    # NOVO: atualiza codigo_substancia/flag_confirmado de uma alergia
+    # já registrada. substancia não é editável (ver AlergiaAtualizarSchema).
+    @staticmethod
+    @bp.put("/<uuid_paciente>/alergias/<uuid_alergia>")
+    @requer_papel("medico", "enfermeiro")
+    def atualizar_alergia(uuid_paciente, uuid_alergia):
+        dados = request.get_json(silent=True) or {}
+        try:
+            a = _svc.atualizar_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
+            return json_success(data=a.to_dict(), message="Alergia atualizada.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # Registra uma reação adicional numa alergia já existente
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/reacoes")
     @requer_papel("medico", "enfermeiro")
     def adicionar_reacao(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
-            a = _svc.adicionar_reacao(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
+            a = _svc_reacao.adicionar_reacao(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
             return json_success(data=a.to_dict(), message="Reação registrada.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -78,7 +95,7 @@ class AlergiaController():
     @requer_papel("medico", "enfermeiro")
     def remover_reacao(uuid_paciente, uuid_reacao):
         try:
-            _svc.remover_reacao(uuid_paciente, uuid_reacao, get_id_empresa_sessao())
+            _svc_reacao.remover_reacao(uuid_paciente, uuid_reacao, get_id_empresa_sessao())
             return json_success(message="Reação removida.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
