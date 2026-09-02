@@ -9,8 +9,9 @@ from ..repositories import (
     ObservacaoTipoSanguineoRepository,
 )
 from src.schemas.schema_paciente import (
-    PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, _formatar_erros_pydantic,
+    PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, _formatar_erros_pydantic, PacienteCriarSchema, 
 )
+from src.domains.regiao.cep_service import CepService
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -60,100 +61,139 @@ class PacienteService:
             raise RecursoNaoEncontradoError("Paciente não encontrado para este CPF.")
         return p
 
-    #TODO : adicionar bairro utilizando do cep_service, no cadastro do paciente
+
     def cadastrar(self, dados: dict, id_usuario_cadastro: int, id_empresa: int):
+        """
+        ALTERADO: validação movida para PacienteCriarSchema (Pydantic) --
+        antes só checava presença dos 4 campos obrigatórios com uma lista
+        manual, sem validar formato de nada (cpf sem dígito verificador,
+        telefone/cep sem checagem real). Ver schema_paciente_create.py
+        para o que cada campo aceita.
+    
+        id_regiao_geografica não é aceito como input direto: se 'cep'
+        vier no payload, a região é RESOLVIDA a partir dele via
+        CepService.regiao_por_cep -- decisão confirmada (região deve
+        refletir o endereço real do paciente, não um valor arbitrário
+        mandado pelo cliente). Se o cep vier mas a resolução falhar,
+        o cadastro inteiro falha (DadosInvalidosError). Sem cep, não há
+        fallback: id_regiao_geografica fica None.
+    
+        bairro é diferente: É aceito como input direto (ver
+        PacienteCriarSchema) porque pode divergir do bairro resolvido
+        pelo CEP (que é uma generalização/centróide, não o endereço
+        exato). Prioridade: bairro do payload > bairro resolvido via
+        CepService > None.
+        """
         from src.models.pacientes import Paciente, PacienteDadosPessoais
-
-        obrigatorios = ("sexo_biologico", "data_nascimento", "nome_completo", "cpf")
-        faltando = [c for c in obrigatorios if not dados.get(c)]
-        if faltando:
-            raise DadosInvalidosError(f"Campos obrigatórios ausentes: {', '.join(faltando)}")
-
-        cpf_cifrado = aes_encrypt(dados["cpf"])
-        cpf_hash = hmac_sha256(dados["cpf"])
+    
+        try:
+            entrada = PacienteCriarSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+    
+        cpf_cifrado = aes_encrypt(entrada.cpf)
+        cpf_hash = hmac_sha256(entrada.cpf)
         # Escopado por empresa: o mesmo CPF pode já existir como paciente
         # de OUTRA empresa -- isso é normal (mesma pessoa atendida em
         # clínicas diferentes) e não deve bloquear o cadastro aqui.
         if self.repo.find_por_cpf_hash(cpf_hash, id_empresa):
             raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.")
-
+    
+        # id_regiao_geografica: sempre derivado do cep, nunca aceito cru
+        # do payload -- ver docstring. bairro: payload tem prioridade;
+        # só cai no resolvido via CEP se vier ausente.
+        id_regiao_geografica = None
+        bairro = entrada.bairro
+        if entrada.cep:
+            cep_service = CepService()
+            # Duas chamadas públicas do CepService (regiao_por_cep +
+            # buscar_endereco_por_cep) em vez de reimplementar a resolução
+            # aqui -- ambas batem no mesmo cache em memória por CEP dentro
+            # do CepService, então a segunda chamada não repete a
+            # requisição HTTP à BrasilAPI/ViaCEP, só reaproveita o cache.
+            regiao = cep_service.regiao_por_cep(entrada.cep)
+            if regiao is None:
+                raise DadosInvalidosError(
+                    "Não foi possível resolver a região geográfica a partir do CEP informado."
+                )
+            id_regiao_geografica = regiao.id_regiao_geografica
+    
+            if bairro is None:
+                bairro = cep_service.buscar_bairro_por_cep(entrada.cep)
+    
         paciente = Paciente(
-            sexo_biologico=dados["sexo_biologico"],
-            # tipo_sanguineo REMOVIDO do construtor -- ver abaixo
-            data_nascimento=_parse_data(dados["data_nascimento"]),
-            id_regiao_geografica=dados.get("id_regiao_geografica"),
-            data_primeiro_atendimento=_parse_data(dados.get("data_primeiro_atendimento"))
+            sexo_biologico=entrada.sexo_biologico,
+            bairro=bairro,
+            data_nascimento=entrada.data_nascimento,
+            id_regiao_geografica=id_regiao_geografica,
+            data_primeiro_atendimento=entrada.data_primeiro_atendimento
             or datetime.now(timezone.utc).date(),
             cadastrado_por=id_usuario_cadastro,
             id_empresa=id_empresa,
         )
         self.repo.save(paciente)
-
+    
         # Se o cadastro já veio com tipo_sanguineo (ex: paciente
         # transferido de outro sistema, já com exame feito), registra
         # como primeira observação.
-
-        if dados.get("tipo_sanguineo"):
-            paciente.registrar_tipo_sanguineo(dados["tipo_sanguineo"], registrado_por=id_usuario_cadastro)
-
+        if entrada.tipo_sanguineo:
+            paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario_cadastro)
+    
         pessoal = PacienteDadosPessoais(
             id_paciente=paciente.id,
-            nome_completo=aes_encrypt(dados["nome_completo"]),
+            nome_completo=aes_encrypt(entrada.nome_completo),
             cpf=cpf_cifrado,
             cpf_hash=cpf_hash,
-            rg=dados.get("rg"),
-            telefone=aes_encrypt(dados.get("telefone")),
-            email=aes_encrypt(dados.get("email")),
-            logradouro=aes_encrypt(dados.get("logradouro")),
-            numero_residencia=dados.get("numero_residencia"),
-            cep=aes_encrypt(dados.get("cep")),
-            contato_emergencia_nome=dados.get("contato_emergencia_nome"),
-            contato_emergencia_telefone=aes_encrypt(dados.get("contato_emergencia_telefone")),
+            rg=entrada.rg,
+            telefone=aes_encrypt(entrada.telefone) if entrada.telefone else None,
+            email=aes_encrypt(entrada.email) if entrada.email else None,
+            logradouro=aes_encrypt(entrada.logradouro) if entrada.logradouro else None,
+            numero_residencia=entrada.numero_residencia,
+            cep=aes_encrypt(entrada.cep) if entrada.cep else None,
+            contato_emergencia_nome=entrada.contato_emergencia_nome,
+            contato_emergencia_telefone=(
+                aes_encrypt(entrada.contato_emergencia_telefone)
+                if entrada.contato_emergencia_telefone else None
+            ),
         )
-
+    
         from src.models import db
         db.session.add(pessoal)
         db.session.commit()
-
+    
         return paciente
 
-    def count_pacientes_hoje(self, id_empresa):
-        return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
-
-    def count_pacientes(self, id_empresa):
-        return self.repo.count_pacientes(id_empresa=id_empresa)
-
     def atualizar_pessoal(self, uuid: str, dados: dict, id_empresa: int):
-        """Corrigir cadastro (nome, telefone, endereço, etc) -- ação de
-        gestão de dados, não decisão clínica. Médico, enfermeiro e
-        admin podem chamar isso (ver controller); este método nunca
-        escreve em campos clínicos, mesmo que o payload contenha uma
-        chave 'status' por engano (schema nem aceita esse campo).
-
-        ALTERADO: validação de formato movida para
-        PacienteAtualizarPessoalSchema (Pydantic) -- antes qualquer
-        string era aceita sem checagem para telefone/email/cep."""
-        paciente = self.buscar_por_uuid(uuid, id_empresa)
-        if not paciente.pessoal:
-            raise DadosInvalidosError("Paciente está anonimizado; não há dados pessoais para atualizar.")
-
-        try:
-            entrada = PacienteAtualizarPessoalSchema(**dados)
-        except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
-
-        campos = entrada.campos_informados()
-        campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
-                                 "contato_emergencia_telefone")
-        for campo in campos_texto_cifrado:
-            if campo in campos:
-                setattr(paciente.pessoal, campo, aes_encrypt(campos[campo]))
-        for campo in ("rg", "numero_residencia", "contato_emergencia_nome"):
-            if campo in campos:
-                setattr(paciente.pessoal, campo, campos[campo])
-
-        return self.repo.save(paciente)
-
+            """Corrigir cadastro (nome, telefone, endereço, etc) -- ação de
+            gestão de dados, não decisão clínica. Médico, enfermeiro e
+            admin podem chamar isso (ver controller); este método nunca
+            escreve em campos clínicos, mesmo que o payload contenha uma
+            chave 'status' por engano (schema nem aceita esse campo).
+    
+            ALTERADO: validação de formato movida para
+            PacienteAtualizarPessoalSchema (Pydantic) -- antes qualquer
+            string era aceita sem checagem para telefone/email/cep."""
+            paciente = self.buscar_por_uuid(uuid, id_empresa)
+            if not paciente.pessoal:
+                raise DadosInvalidosError("Paciente está anonimizado; não há dados pessoais para atualizar.")
+    
+            try:
+                entrada = PacienteAtualizarPessoalSchema(**dados)
+            except ValidationError as e:
+                raise DadosInvalidosError(_formatar_erros_pydantic(e))
+    
+            campos = entrada.campos_informados()
+            campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
+                                     "contato_emergencia_telefone")
+            for campo in campos_texto_cifrado:
+                if campo in campos:
+                    setattr(paciente.pessoal, campo, aes_encrypt(campos[campo]))
+            for campo in ("rg", "numero_residencia", "contato_emergencia_nome"):
+                if campo in campos:
+                    setattr(paciente.pessoal, campo, campos[campo])
+    
+            return self.repo.save(paciente)
+        
     def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int):
         """Status, falecido e data_obito são decisões clínicas.
         Reservado por padrão a médico/enfermeiro no controller; admin
@@ -255,14 +295,6 @@ class PacienteService:
           contínuo -- pensado para leitura rápida (emergência), sem
           precisar percorrer os arrays completos logo abaixo.
 
-        Import direto dos módulos (não via
-        src.domains.paciente.services, o __init__.py agregador) --
-        este arquivo já é um dos módulos importados por aquele
-        __init__.py, então importar de volta o pacote inteiro criaria
-        dependência circular. Import local (dentro do método, não no
-        topo do arquivo) continua necessário para não carregar todos
-        os services de domínio toda vez que PacienteService for
-        instanciado, quando a maioria das chamadas nem usa o agregador.
         """
         from .montar_prontuario_service import montar_prontuario_completo
         return montar_prontuario_completo(uuid, id_empresa)
