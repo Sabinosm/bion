@@ -32,6 +32,7 @@ CREATE TABLE `atendimento` (
   UNIQUE KEY `uuid_atendimento` (`uuid_atendimento`),
   KEY `id_consulta` (`id_consulta`),
   KEY `realizado_por` (`realizado_por`),
+  KEY `ix_atendimento_realizado_por_status_data` (`realizado_por`,`status`,`data_hora_inicio`),
   CONSTRAINT `atendimento_ibfk_1` FOREIGN KEY (`id_consulta`) REFERENCES `consulta` (`id_consulta`),
   CONSTRAINT `atendimento_ibfk_2` FOREIGN KEY (`realizado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -105,7 +106,7 @@ CREATE TABLE `configuracao` (
   UNIQUE KEY `uuid_configuracao` (`uuid_configuracao`),
   UNIQUE KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `configuracao_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `configuracao_protocolo` (
   `id_configuracao_protocolo` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -124,12 +125,12 @@ CREATE TABLE `consentimento_lgpd` (
   `id_paciente` bigint(20) NOT NULL,
   `versao_termo` varchar(50) NOT NULL,
   `data_consentimento` timestamp NOT NULL,
-  `canal_coleta` enum('presencial-papel','presencial-digital','portal-online','totem') NOT NULL,
+  `canal_coleta` enum('presencial-papel','presencial-digital','portal-online','totem','dispensa-emergencia') NOT NULL,
   `coletado_por` bigint(20) DEFAULT NULL,
   `escopo_consentimento_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`escopo_consentimento_json`)),
-  `status` enum('ativo','revogado','expirado') NOT NULL,
+  `status` enum('ativo','revogado','expirado','dispensado_emergencia') NOT NULL DEFAULT 'ativo',
   `data_revogacao` timestamp NULL DEFAULT NULL,
-  `motivo_revogacao` text DEFAULT NULL,
+  `observacao` text DEFAULT NULL,
   `hash_documento` char(64) DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id_consentimento`),
@@ -194,7 +195,20 @@ CREATE TABLE `doenca_cronica` (
   CONSTRAINT `doenca_cronica_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `empresa` (
+CREATE TABLE `empresa_identificador` (
+  `id_empresa_identificador` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_empresa` bigint(20) NOT NULL,
+  `tipo_identificador` enum('cnpj','cnes') NOT NULL,
+  `valor` varchar(50) NOT NULL,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_empresa_identificador`),
+  UNIQUE KEY `uq_empresa_tipo` (`id_empresa`,`tipo_identificador`),
+  KEY `idx_id_empresa` (`id_empresa`),
+  KEY `idx_valor` (`valor`),
+  CONSTRAINT `fk_empresa_identificador` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `empresas` (
   `id_empresa` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_empresa` char(36) NOT NULL,
   `nome_fantasia` varchar(255) NOT NULL,
@@ -210,21 +224,8 @@ CREATE TABLE `empresa` (
   PRIMARY KEY (`id_empresa`),
   UNIQUE KEY `uuid_empresa` (`uuid_empresa`),
   KEY `id_regiao_geografica` (`id_regiao_geografica`),
-  CONSTRAINT `empresa_ibfk_1` FOREIGN KEY (`id_regiao_geografica`) REFERENCES `regiao_geografica` (`id_regiao_geografica`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `empresa_identificador` (
-  `id_empresa_identificador` bigint(20) NOT NULL AUTO_INCREMENT,
-  `id_empresa` bigint(20) NOT NULL,
-  `tipo_identificador` enum('cnpj','cnes') NOT NULL,
-  `valor` varchar(50) NOT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id_empresa_identificador`),
-  UNIQUE KEY `uq_empresa_tipo` (`id_empresa`,`tipo_identificador`),
-  KEY `idx_id_empresa` (`id_empresa`),
-  KEY `idx_valor` (`valor`),
-  CONSTRAINT `fk_empresa_identificador` FOREIGN KEY (`id_empresa`) REFERENCES `empresa` (`id_empresa`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CONSTRAINT `empresas_ibfk_1` FOREIGN KEY (`id_regiao_geografica`) REFERENCES `regiao_geografica` (`id_regiao_geografica`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `input_protocolo` (
   `id_input` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -272,6 +273,7 @@ CREATE TABLE `interacoes_medicamentos` (
 
 CREATE TABLE `log_acesso` (
   `id_log` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_empresa` bigint(20) NOT NULL,
   `uuid_log` char(36) NOT NULL,
   `id_usuario` bigint(20) NOT NULL,
   `uuid_paciente` char(36) DEFAULT NULL,
@@ -284,11 +286,14 @@ CREATE TABLE `log_acesso` (
   PRIMARY KEY (`id_log`),
   UNIQUE KEY `uuid_log` (`uuid_log`),
   KEY `id_usuario` (`id_usuario`),
+  KEY `fk_log_acesso_empresa` (`id_empresa`),
+  CONSTRAINT `fk_log_acesso_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`),
   CONSTRAINT `log_acesso_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `log_alteracao` (
   `id_alteracao` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_empresa` bigint(20) DEFAULT NULL,
   `uuid_alteracao` char(36) NOT NULL,
   `tabela_origem` varchar(100) NOT NULL,
   `id_registro` bigint(20) NOT NULL,
@@ -304,6 +309,10 @@ CREATE TABLE `log_alteracao` (
   PRIMARY KEY (`id_alteracao`),
   UNIQUE KEY `uuid_alteracao` (`uuid_alteracao`),
   KEY `alterado_por` (`alterado_por`),
+  KEY `ix_log_alteracao_empresa_data` (`id_empresa`,`alterado_em`),
+  KEY `ix_log_alteracao_usuario_data` (`alterado_por`,`alterado_em`),
+  KEY `ix_log_alteracao_registro_data` (`uuid_registro`,`alterado_em`),
+  CONSTRAINT `fk_log_alteracao_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`),
   CONSTRAINT `log_alteracao_ibfk_1` FOREIGN KEY (`alterado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -358,9 +367,11 @@ CREATE TABLE `output_bion` (
   `id_input` bigint(20) DEFAULT NULL,
   `indice_completude` decimal(5,2) DEFAULT NULL,
   `indice_confianca` decimal(5,2) DEFAULT NULL,
+  `criado_em` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id_output`),
   UNIQUE KEY `uuid_output` (`uuid_output`),
   KEY `fk_output_input` (`id_input`),
+  KEY `ix_output_bion_criado_input` (`criado_em`,`id_input`),
   CONSTRAINT `fk_output_input` FOREIGN KEY (`id_input`) REFERENCES `input_protocolo` (`id_input`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -378,10 +389,13 @@ CREATE TABLE `paciente` (
   `falecido` tinyint(1) NOT NULL DEFAULT 0,
   `data_obito` date DEFAULT NULL,
   `bairro` varchar(100) DEFAULT NULL,
+  `id_empresa` bigint(20) NOT NULL,
   PRIMARY KEY (`id_paciente`),
   UNIQUE KEY `uuid_paciente` (`uuid_paciente`),
   KEY `id_regiao_geografica` (`id_regiao_geografica`),
   KEY `cadastrado_por` (`cadastrado_por`),
+  KEY `ix_paciente_id_empresa` (`id_empresa`),
+  CONSTRAINT `fk_paciente_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`),
   CONSTRAINT `paciente_ibfk_1` FOREIGN KEY (`id_regiao_geografica`) REFERENCES `regiao_geografica` (`id_regiao_geografica`),
   CONSTRAINT `paciente_ibfk_2` FOREIGN KEY (`cadastrado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -425,6 +439,7 @@ CREATE TABLE `papel_profissional` (
   UNIQUE KEY `uq_usuario_tipo` (`id_usuario`,`tipo_papel`),
   KEY `idx_id_usuario` (`id_usuario`),
   KEY `idx_numero_conselho` (`numero_conselho`),
+  KEY `ix_papel_usuario_tipo_ativo` (`id_usuario`,`tipo_papel`,`ativo`),
   CONSTRAINT `fk_papel_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -599,11 +614,13 @@ CREATE TABLE `stepup_reautenticacao` (
   `state` varchar(64) NOT NULL,
   `expira_em` datetime NOT NULL,
   `criado_em` datetime NOT NULL DEFAULT current_timestamp(),
+  `nonce` varchar(64) NOT NULL,
+  `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `state` (`state`),
   KEY `ix_stepup_reautenticacao_id_usuario` (`id_usuario`),
   CONSTRAINT `fk_stepup_reautenticacao_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `stepup_token` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -645,10 +662,11 @@ CREATE TABLE `usuarios` (
   `onboarding_pendente` tinyint(1) DEFAULT 1,
   `cpf_hash` varchar(255) NOT NULL,
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
+  `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `uuid_usuario` (`uuid_usuario`),
   UNIQUE KEY `cpf` (`cpf`),
   UNIQUE KEY `email` (`email`),
   KEY `id_empresa` (`id_empresa`),
-  CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`id_empresa`) REFERENCES `empresa` (`id_empresa`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
