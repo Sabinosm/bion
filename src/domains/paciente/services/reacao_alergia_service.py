@@ -76,10 +76,20 @@ class ReacaoAlergiaService:
         por engano, diferente de remover a alergia toda.
 
         ALTERADO: passou a exigir uuid_paciente + id_empresa e checar
-        que a reação pertence a esse paciente (via alergia.id_paciente)."""
+        que a reação pertence a esse paciente (via alergia.id_paciente).
+
+        ALTERADO: bloqueia remoção de reação cuja alergia-mãe está
+        soft-deletada -- mesma lógica de não permitir editar uma
+        alergia removida (AlergiaService.atualizar_alergia). Sem essa
+        checagem, reacao.alergia (relationship direta, sem passar pelo
+        AlergiaRepository filtrado) permitiria mexer no histórico de
+        uma alergia que já devia estar "congelada" por ter sido
+        removida."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         reacao = self.repo.find_by_uuid(uuid_reacao)
         if not reacao or reacao.alergia.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Reação não encontrada: {uuid_reacao}")
+        if reacao.alergia.deletado:
             raise RecursoNaoEncontradoError(f"Reação não encontrada: {uuid_reacao}")
         self.repo.delete_by_uuid(uuid_reacao)
         return True

@@ -11,9 +11,15 @@ CREATE TABLE `alergia` (
   `flag_confirmado` tinyint(1) NOT NULL DEFAULT 0,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `sistema_codigo_substancia` varchar(50) DEFAULT 'http://snomed.info/sct',
+  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de flag_confirmado.',
+  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
+  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
+  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
   PRIMARY KEY (`id_alergia`),
   UNIQUE KEY `uuid_alergia` (`uuid_alergia`),
   KEY `id_paciente` (`id_paciente`),
+  KEY `idx_alergia_deletado` (`deletado`),
+  KEY `idx_alergia_paciente_deletado` (`id_paciente`,`deletado`),
   CONSTRAINT `alergia_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

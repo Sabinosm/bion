@@ -76,14 +76,30 @@ class AlergiaController():
             return json_error(ex.message, ex.status_code)
 
 
-    # Remove a alergia inteira (com todo o histórico de reações)
+    # Remove a alergia inteira (soft delete -- histórico de reações
+    # preservado fisicamente, ver AlergiaService.remover_alergia).
+    # Motivo vem no corpo da requisição, mesmo padrão do domínio de
+    # doença crônica.
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/<uuid_alergia>")
     @requer_papel("medico", "enfermeiro")
     def remover_alergia(uuid_paciente, uuid_alergia):
+        dados = request.get_json(silent=True) or {}
         try:
-            _svc.remover_alergia(uuid_paciente, uuid_alergia, get_id_empresa_sessao())
+            _svc.remover_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
             return json_success(message="Alergia removida.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: reverte um soft delete de alergia.
+    @staticmethod
+    @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/restaurar")
+    @requer_papel("medico", "enfermeiro")
+    def restaurar_alergia(uuid_paciente, uuid_alergia):
+        try:
+            a = _svc.restaurar_alergia(uuid_paciente, uuid_alergia, get_id_empresa_sessao())
+            return json_success(data=a.to_dict(), message="Alergia restaurada.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 

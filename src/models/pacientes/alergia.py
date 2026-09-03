@@ -17,6 +17,10 @@ from src.models.types import BigIntPK
 
 class Alergia(db.Model):
     __tablename__ = "alergia"
+    __table_args__ = (
+        db.Index("idx_alergia_deletado", "deletado"),
+        db.Index("idx_alergia_paciente_deletado", "id_paciente", "deletado"),
+    )
 
     id = db.Column("id_alergia", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_alergia", db.String(36), unique=True, nullable=False,
@@ -29,6 +33,25 @@ class Alergia(db.Model):
     flag_confirmado = db.Column(db.Boolean, nullable=False, default=False)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
+    # NOVO: soft delete -- mesmo padrão de DoencaCronica. `deletado` é
+    # campo independente de flag_confirmado (que é sobre confiabilidade
+    # clínica do dado, não sobre existência do registro). Um dos
+    # motivos de delete é 'solicitacao-paciente', onde a alergia
+    # continua clinicamente válida -- por isso não reaproveitamos
+    # nenhum campo clínico existente pra marcar "removido".
+    deletado = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
+    deletado_em = db.Column(db.DateTime(timezone=True), nullable=True)
+    motivo_delete = db.Column(
+        db.Enum(
+            "erro-digitacao",
+            "registro-duplicado",
+            "diagnostico-incorreto",
+            "solicitacao-paciente",
+            "outro",
+        ),
+        nullable=True,
+    )
+    observacoes_delete = db.Column(db.Text, nullable=True)
 
     paciente = db.relationship("Paciente", back_populates="alergias")
     reacoes = db.relationship("ReacaoAlergia", back_populates="alergia",

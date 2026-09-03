@@ -2,9 +2,11 @@ from datetime import datetime, date
 
 from pydantic import ValidationError
 
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, AlergiaRepository
-from src.schemas.schema_alergia import AlergiaCreateSchema, AlergiaAtualizarSchema, _formatar_erros_pydantic
+from src.schemas.schema_alergia import (
+    AlergiaCreateSchema, AlergiaAtualizarSchema, AlergiaRemoverSchema, _formatar_erros_pydantic,
+)
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -69,25 +71,68 @@ class AlergiaService:
         )
         return self.repo.save(a)
 
-    def remover_alergia(self, uuid_paciente: str, uuid_alergia: str, id_empresa: int):
-        """Remove a alergia inteira, incluindo todo o histórico de
-        reações associadas (cascade já configurado no model)."""
+    def remover_alergia(self, uuid_paciente: str, uuid_alergia: str, dados: dict, id_empresa: int):
+        """ALTERADO: soft delete em vez de delete físico -- alergia é
+        dado clínico de segurança (evita reintrodução acidental de uma
+        substância que já causou reação), não pode simplesmente sumir
+        sem rastro. Motivo obrigatório (validado via
+        AlergiaRemoverSchema), mesmo padrão de DoencaCronicaService.
+        As reações associadas continuam existindo fisicamente (não
+        aciona o cascade de delete físico) -- só ficam invisíveis por
+        tabela, já que não há listagem de reação fora do objeto
+        alergia. find_by_uuid já filtra deletado, então remover de
+        novo um registro já removido cai como 'não encontrado' --
+        idempotente e sem vazar se já foi deletado antes ou nunca
+        existiu."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         alergia = self.repo.find_by_uuid(uuid_alergia)
         if not alergia or alergia.id_paciente != p.id:
             raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
-        self.repo.delete_by_uuid(uuid_alergia)
+
+        try:
+            entrada = AlergiaRemoverSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        self.repo.soft_delete(alergia, entrada.motivo_delete, entrada.observacoes_delete)
         return True
+
+    def restaurar_alergia(self, uuid_paciente: str, uuid_alergia: str, id_empresa: int):
+        """NOVO: reverte um soft delete. Mesma lógica de
+        DoencaCronicaService.restaurar_doenca -- usa
+        find_by_uuid_incluindo_deletados pra achar o registro mesmo
+        estando deletado, e rejeita (409) restaurar um registro que
+        já está ativo (não idempotente de propósito, evita mascarar
+        clique duplicado/race condition)."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        alergia = self.repo.find_by_uuid_incluindo_deletados(uuid_alergia)
+        if not alergia or alergia.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
+        if not alergia.deletado:
+            raise ConflictoError(
+                f"Alergia não está removida, nada a restaurar: {uuid_alergia}"
+            )
+
+        return self.repo.restaurar(alergia)
 
     def atualizar_alergia(self, uuid_paciente: str, uuid_alergia: str, dados: dict, id_empresa: int):
         """NOVO: atualiza codigo_substancia/flag_confirmado de uma
         alergia já registrada. substancia não é editável aqui (ver
         AlergiaAtualizarSchema); manifestacao/gravidade/reações também
-        não -- isso é histórico, tratado por ReacaoAlergiaService."""
+        não -- isso é histórico, tratado por ReacaoAlergiaService.
+
+        ALTERADO: usa find_by_uuid_incluindo_deletados para distinguir
+        'não existe' (404) de 'existe mas está deletado' (409) --
+        mesmo padrão de DoencaCronicaService.atualizar_doenca."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
-        alergia = self.repo.find_by_uuid(uuid_alergia)
+        alergia = self.repo.find_by_uuid_incluindo_deletados(uuid_alergia)
         if not alergia or alergia.id_paciente != p.id:
             raise RecursoNaoEncontradoError(f"Alergia não encontrada: {uuid_alergia}")
+        if alergia.deletado:
+            raise ConflictoError(
+                f"Alergia removida não pode ser atualizada: {uuid_alergia}. "
+                "Restaure o registro antes de editar."
+            )
 
         try:
             entrada = AlergiaAtualizarSchema(**dados)
