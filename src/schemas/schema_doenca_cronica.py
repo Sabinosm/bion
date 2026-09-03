@@ -3,7 +3,9 @@ Schema Pydantic de ENTRADA para doença crônica.
 
 O Literal de `status` é cópia manual do db.Enum de DoencaCronica --
 não há introspecção automática do schema do banco aqui. Se o Enum do
-model mudar, este arquivo precisa ser atualizado junto.
+model mudar, este arquivo precisa ser atualizado junto. O mesmo vale
+para o Literal de `motivo_delete` em DoencaCronicaRemoverSchema, cópia
+manual do db.Enum `motivo_delete` do model.
 
 ALTERADO: validação reforçada --
 - codigo_cid10 agora valida o FORMATO CID-10 (letra + 2 dígitos +
@@ -19,7 +21,7 @@ import re
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 # Formato CID-10: uma letra (categoria) + dois dígitos + opcionalmente
 # ".x" ou ".xx" (subcategoria). Ex.: E11, E11.9, J45.0. Case-insensitive
@@ -137,3 +139,37 @@ class DoencaCronicaAtualizarSchema(BaseModel):
 
     def campos_informados(self) -> dict:
         return self.model_dump(exclude_unset=True)
+
+
+class DoencaCronicaRemoverSchema(BaseModel):
+    """NOVO: schema de entrada para o soft delete (DELETE) -- motivo é
+    obrigatório, exige explicitação de por que a doença crônica está
+    sendo removida (auditoria/LGPD).
+
+    ALTERADO: motivo_delete='outro' agora exige `observacoes_delete`
+    preenchida (não vazia/só-espaços) -- 'outro' sem nenhum detalhe é
+    inútil pra quem for auditar depois; os outros motivos já são
+    autoexplicativos pelo próprio Enum e não exigem observação, mas
+    aceitam se vier."""
+    motivo_delete: Literal[
+        "erro-digitacao",
+        "registro-duplicado",
+        "diagnostico-incorreto",
+        "solicitacao-paciente",
+        "outro",
+    ]
+    observacoes_delete: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("observacoes_delete")
+    @classmethod
+    def _observacoes_delete_normalizadas(cls, v: Optional[str]) -> Optional[str]:
+        return _strip_ou_none(v)
+
+    @model_validator(mode="after")
+    def _outro_exige_observacao(self) -> "DoencaCronicaRemoverSchema":
+        if self.motivo_delete == "outro" and not self.observacoes_delete:
+            raise ValueError(
+                "observacoes_delete é obrigatória e não pode ser vazia "
+                "quando motivo_delete='outro'"
+            )
+        return self

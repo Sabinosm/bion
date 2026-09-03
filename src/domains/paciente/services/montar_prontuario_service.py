@@ -13,6 +13,10 @@ def _montar_resumo_clinico(alergias, doencas, medicamentos):
                 "resumo": [f"{a.substancia} ({a.gravidade or 'sem reação registrada'})" for a in alergias],
             },
             "doencas_cronicas": {
+                # doencas já vem filtrado (deletado=False) por
+                # DoencaCronicaService.listar_doencas -- total aqui é
+                # "não removidas" (ativa + em-remissao), nunca inclui
+                # doença soft-deletada.
                 "total": len(doencas),
                 "ativas": sum(1 for d in doencas if d.status == "ativa"),
                 "resumo": [d.descricao_cid10 for d in doencas if d.status == "ativa"],
@@ -80,7 +84,7 @@ def montar_prontuario_completo(uuid: str, id_empresa: int):
         alergias_ordenadas = sorted(alergias, key=lambda a: ordem_gravidade.get(a.gravidade, 3))
 
         d = paciente.to_dict()
-        d["resumo_clinico"] = paciente._montar_resumo_clinico(alergias, doencas, medicamentos)
+        d["resumo_clinico"] = _montar_resumo_clinico(alergias, doencas, medicamentos)
         d["alergias"] = [a.to_dict() for a in alergias_ordenadas]
         d["doencas_cronicas"] = [doenca.to_dict() for doenca in doencas]
         d["medicamentos_em_uso"] = [m.to_dict() for m in medicamentos]
