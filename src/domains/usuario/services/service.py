@@ -15,6 +15,14 @@ ALTERADO (múltiplos admins por empresa):
 - `desativar()`/`ativar()`: um usuário que já é admin só pode ser
   desativado/ativado pelo super admin; o próprio super admin nunca pode
   ser desativado, por ninguém.
+
+ALTERADO (senha do super admin fundador):
+- `criar()`: a obrigatoriedade/proibição de senha para tipo_usuario="admin"
+  saiu do CadastroUsuarioSchema (que não tem como saber se este admin é o
+  super admin fundador ou um admin comum criado depois) e passou pra cá,
+  com base no parâmetro is_super_admin. Só existe um super admin por
+  empresa, e is_super_admin=True só é aceito vindo de
+  Empresa.cadastrar_com_admin -- nunca a partir de um payload de cliente.
 """
 
 from src.core.security import ph, aes_encrypt, hmac_sha256
@@ -33,17 +41,6 @@ from .service_validacoes import _checar_duplicidade, _valida_permissao_edicao, _
 class UsuarioService(ResetCredenciaisMixin):
     """Serviço de domínio para o CRUD de usuários e regras associadas."""
 
-    # ALTERADO: _checar_duplicidade / _valida_permissao_edicao /
-    # _valida_troca_tipo são definidas em service_validacoes.py como
-    # funções soltas de módulo (não dentro de uma classe), mas com
-    # 'self' como primeiro parâmetro -- ou seja, foram escritas para
-    # funcionar como métodos. Atribuí-las aqui como atributos de classe
-    # é o que faz `self._checar_duplicidade(...)` (chamado neste
-    # arquivo) e `user._checar_duplicidade(...)` (chamado em
-    # service_atualizar.py, onde 'user' é uma instância desta mesma
-    # classe) funcionarem de fato como métodos vinculados, sem precisar
-    # copiar essas funções para dentro da classe ou mudar sua
-    # assinatura em service_validacoes.py.
     _checar_duplicidade = _checar_duplicidade
     _valida_permissao_edicao = _valida_permissao_edicao
     _valida_troca_tipo = _valida_troca_tipo
@@ -103,7 +100,8 @@ class UsuarioService(ResetCredenciaisMixin):
                 admin. Só deve ser True vindo de
                 Empresa.cadastrar_com_admin (criação do primeiro admin
                 de uma empresa nova) -- nunca a partir de uma requisição
-                de um admin já autenticado.
+                de um admin já autenticado. Só existe um super admin por
+                empresa.
  
         Retorno:
             Instância de Usuario criada e salva (com .papeis já populado
@@ -111,8 +109,10 @@ class UsuarioService(ResetCredenciaisMixin):
  
         Levanta:
             DadosInvalidosError: se `dados` não passar na validação do
-                schema, ou se um usuário admin estiver sendo criado por
-                quem não é o super admin.
+                schema, se um usuário admin estiver sendo criado por
+                quem não é o super admin, ou se a presença/ausência de
+                senha não corresponder ao esperado para o tipo de admin
+                sendo criado (fundador vs. comum).
             ConflictoError: se CPF, e-mail ou login já existirem.
         """
         try:
@@ -127,6 +127,24 @@ class UsuarioService(ResetCredenciaisMixin):
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode criar novos administradores."
             )
+
+        # ADICIONADO: obrigatoriedade/proibição de senha para admin não é
+        # mais decidida pelo schema (que não sabe se este "admin" é o
+        # super admin fundador ou um admin comum) -- é decidida aqui, com
+        # base em is_super_admin, que só chega True vindo de
+        # Empresa.cadastrar_com_admin (nunca de um payload de cliente).
+        # Só existe um super admin por empresa: este é o único ponto do
+        # sistema onde is_super_admin=True é aceito na criação.
+        if schema.tipo_usuario == "admin":
+            if is_super_admin and not schema.senha:
+                raise DadosInvalidosError(
+                    "O administrador principal precisa definir uma senha no cadastro."
+                )
+            if not is_super_admin and schema.senha:
+                raise DadosInvalidosError(
+                    "Administradores não devem informar 'senha' no cadastro; o "
+                    "acesso é definido em um fluxo de ativação de conta separado."
+                )
  
         cpf_hash = hmac_sha256(schema.cpf)
         self._checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
@@ -154,11 +172,12 @@ class UsuarioService(ResetCredenciaisMixin):
             # responsabilidade de quem consome o schema, mesmo padrão
             # já usado para CPF (aes_encrypt/hmac_sha256 aqui do lado
             # de fora, não dentro do schema).
-            # 'senha' agora só vem preenchida para admin -- o schema
-            # garante isso (obrigatória para admin, proibida para
-            # médico/enfermeiro). Para médico/enfermeiro, hash_senha
-            # fica None: o acesso desses usuários é definido depois,
-            # em um fluxo de ativação de conta separado.
+            # 'senha' agora só vem preenchida para o super admin
+            # fundador -- garantido pela checagem acima (obrigatória
+            # para is_super_admin=True, proibida para admin comum e
+            # para médico/enfermeiro). Nos demais casos, hash_senha
+            # fica None: o acesso é definido depois, em um fluxo de
+            # ativação de conta separado.
             hash_senha=ph.hash(schema.senha) if schema.senha else None,
         )
  
