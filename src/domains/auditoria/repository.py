@@ -46,17 +46,21 @@ def _operacoes_sql_para_filtro(operacao_negocio: Optional[str]) -> Optional[tupl
     DELETE), usa direto -- mantem compatibilidade com quem ainda filtra
     pelo valor estrutural.
 
-    Se o valor nao for reconhecido nem como categoria de negocio nem
-    como valor SQL (ex: veio um `acao` livre tipo "editar_paciente"
-    reaproveitado como `operacao`), retorna None em vez de um fallback
-    que filtraria por um valor que nunca vai bater -- None sinaliza
-    "nao aplicar este filtro", evitando reduzir o resultado a zero
-    silenciosamente por engano de quem chamou."""
+    Contrato de retorno:
+    - None: nenhum filtro foi pedido (operacao_negocio vazio/None) --
+      chamador NAO deve aplicar filtro nenhum.
+    - tupla nao vazia: aplicar `.in_(tupla)` normalmente.
+    - tupla vazia (): o valor pedido nao tem equivalente SQL valido
+      (ex: "leitura"/"exportacao" para LogAlteracao, que nao tem
+      contrapartida em INSERT/UPDATE/DELETE) -- chamador deve aplicar
+      um filtro que NUNCA bate (`.in_(())`), resultando em lista vazia,
+      em vez de ignorar o filtro e devolver tudo.
+    """
     if not operacao_negocio:
         return None
     if operacao_negocio in ("INSERT", "UPDATE", "DELETE"):
         return (operacao_negocio,)
-    return MAPA_OPERACAO_NEGOCIO_PARA_SQL.get(operacao_negocio)
+    return MAPA_OPERACAO_NEGOCIO_PARA_SQL.get(operacao_negocio, ())
 
 
 class AuditoriaResumoRepository:
@@ -287,10 +291,14 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
             # operacao aqui e a categoria de negocio (leitura/escrita/
             # exclusao-logica/exportacao, mesmo vocabulario do filtro de
             # LogAcesso) -- traduzida para INSERT/UPDATE/DELETE, que e o
-            # que de fato esta gravado na coluna. Se nao reconhecido
-            # (None), nao aplica o filtro -- ver _operacoes_sql_para_filtro.
+            # que de fato esta gravado na coluna. Se `operacao` foi
+            # pedido mas nao tem equivalente SQL (ex: "leitura"/
+            # "exportacao", que nao existem para alteracao), o filtro
+            # e aplicado mesmo assim com uma tupla vazia -- `.in_(())`
+            # nunca bate com nada, entao o resultado e lista vazia, nao
+            # "todo mundo" (ver _operacoes_sql_para_filtro).
             operacoes_sql = _operacoes_sql_para_filtro(operacao)
-            if operacoes_sql:
+            if operacoes_sql is not None:
                 query = query.filter(LogAlteracao.operacao.in_(operacoes_sql))
         if data_inicio:
             query = query.filter(LogAlteracao.alterado_em >= data_inicio)
@@ -322,7 +330,7 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
             query = query.filter(LogAlteracao.acao == acao)
         if operacao:
             operacoes_sql = _operacoes_sql_para_filtro(operacao)
-            if operacoes_sql:
+            if operacoes_sql is not None:
                 query = query.filter(LogAlteracao.operacao.in_(operacoes_sql))
         if data_inicio:
             query = query.filter(LogAlteracao.alterado_em >= data_inicio)
