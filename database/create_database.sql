@@ -320,12 +320,14 @@ CREATE TABLE `log_alteracao` (
   `alterado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `ip_origem` varchar(45) DEFAULT NULL,
   `justificativa` text DEFAULT NULL,
+  `acao` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id_alteracao`),
   UNIQUE KEY `uuid_alteracao` (`uuid_alteracao`),
   KEY `alterado_por` (`alterado_por`),
   KEY `ix_log_alteracao_empresa_data` (`id_empresa`,`alterado_em`),
   KEY `ix_log_alteracao_usuario_data` (`alterado_por`,`alterado_em`),
   KEY `ix_log_alteracao_registro_data` (`uuid_registro`,`alterado_em`),
+  KEY `ix_log_alteracao_empresa_acao` (`id_empresa`,`acao`),
   CONSTRAINT `fk_log_alteracao_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`),
   CONSTRAINT `log_alteracao_ibfk_1` FOREIGN KEY (`alterado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

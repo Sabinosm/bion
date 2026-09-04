@@ -37,7 +37,8 @@ commitar sozinha também -- a view deve fazer suas alterações via
 `db.session.add(...)` / métodos de repository que não commitam, e
 DEVOLVER os detalhes; o commit final (que persiste alteração + log
 juntos) é feito aqui, uma vez só, no fim do wrapper. Se qualquer parte
-falhar (a view lança exceção, ou o registro do log lança exceção), o
+falhar (a view lança exceção, o registro do log lança exceção, ou
+`registrar_alteracao` recusa por falta de justificativa em DELETE), o
 decorator faz `db.session.rollback()` -- a alteração real nunca fica
 meio-persistida sem o log correspondente, e vice-versa.
 
@@ -46,6 +47,17 @@ chamar `db.session.commit()` internamente -- se a view já commita
 sozinha, a atomicidade descrita aqui deixa de valer (o commit da view
 já efetivou a alteração antes do decorator sequer tentar logar). Ver
 nota em cada view ao migrar.
+
+Correção de bug -- operacao de LogAcesso
+--------------------------------------------
+`acesso_auditado` deixou de ter `operacao="leitura"` como default
+silencioso. Motivo: o decorator era aplicado igual em views de
+leitura e de escrita/exportacao, e quem esquecesse de passar
+`operacao` explicitamente na view acabava registrando tudo como
+"leitura" mesmo quando o recurso foi exportado ou alterado por uma
+rota que nao usa `acao_sensivel`. Agora `operacao` e obrigatorio no
+decorator (`@acesso_auditado(recurso, operacao=...)`), forcando quem
+aplica o decorator a declarar a natureza real do acesso.
 """
 
 from functools import wraps
@@ -55,9 +67,11 @@ from flask import request
 from src.models import db
 from src.domains.auth.step_up import StepUp
 from src.domains.auditoria.service import AuditoriaService
-from src.core.session import get_id_usuario_sessao
+from src.core.session import get_id_usuario_sessao, get_id_empresa_sessao
 
 _auditoria = AuditoriaService()
+
+_OPERACOES_LOG_ACESSO = ("leitura", "escrita", "exclusao-logica", "exportacao")
 
 
 def _ip_origem():
@@ -85,7 +99,10 @@ def acao_sensivel(acao, *, tabela):
 
     Parâmetros:
         acao: identificador da ação sensível (mesmo valor usado no
-            frontend em `pedirConfirmacao(acao)`).
+            frontend em `pedirConfirmacao(acao)`), ex: "editar_paciente".
+            Além de disparar o step-up, agora também é persistido na
+            coluna `acao` de LogAlteracao -- permite filtrar/pesquisar
+            a trilha por ação de negócio, não só por tabela+operação.
         tabela: nome da tabela de origem (`tabela_origem` default se a
             view não especificar um diferente em `detalhes`).
 
@@ -95,11 +112,14 @@ def acao_sensivel(acao, *, tabela):
       - retornar `(resposta_flask, detalhes)`, onde `detalhes` é um
         dict com pelo menos `id_registro` e `uuid_registro` (e
         opcionalmente `operacao`, `tabela_origem`, `campo_alterado`,
-        `valor_anterior`, `valor_novo`, `justificativa`).
+        `valor_anterior`, `valor_novo`, `justificativa` -- esta última
+        OBRIGATÓRIA quando `operacao` for `"DELETE"`, ou o service
+        recusa a operação inteira via rollback).
 
-    Se a view lançar exceção, ou se faltar `id_registro`/
-    `uuid_registro` em `detalhes`, a transação inteira sofre rollback
-    -- nenhuma alteração parcial fica persistida.
+    Se a view lançar exceção, se faltar `id_registro`/`uuid_registro`
+    em `detalhes`, ou se for um DELETE sem `justificativa`, a
+    transação inteira sofre rollback -- nenhuma alteração parcial fica
+    persistida.
     """
     if not tabela:
         raise ValueError(f"acao_sensivel({acao!r}) exige o parâmetro 'tabela'")
@@ -121,6 +141,8 @@ def acao_sensivel(acao, *, tabela):
                     )
 
                 _auditoria.registrar_alteracao(
+                    id_empresa=get_id_empresa_sessao(),
+                    acao=acao,
                     tabela_origem=detalhes.get("tabela_origem", tabela),
                     id_registro=detalhes["id_registro"],
                     uuid_registro=detalhes["uuid_registro"],
@@ -135,7 +157,9 @@ def acao_sensivel(acao, *, tabela):
 
                 # Commit único: alteração da view (ainda pendente na
                 # sessão) + log, juntos. Se algo acima já tiver
-                # lançado, esta linha nunca é alcançada.
+                # lançado (incluindo a validação de justificativa em
+                # DELETE, dentro do service), esta linha nunca é
+                # alcançada.
                 db.session.commit()
 
             except Exception:
@@ -156,7 +180,7 @@ def acao_sensivel(acao, *, tabela):
 # acesso_auditado -- LEITURA sensível: sem step-up, só log
 # ======================================================================
 
-def acesso_auditado(recurso, *, operacao="leitura"):
+def acesso_auditado(recurso, *, operacao):
     """Decorator: registra LogAcesso após a view responder com sucesso.
 
     Sem step-up -- a sessão autenticada já é suficiente para leitura
@@ -168,8 +192,11 @@ def acesso_auditado(recurso, *, operacao="leitura"):
         recurso: nome do recurso acessado (`recurso_acessado`).
         operacao: uma das colunas do enum de LogAcesso.operacao
             ("leitura", "escrita", "exclusao-logica", "exportacao").
-            Default "leitura", coerente com o caso de uso deste
-            decorator.
+            OBRIGATÓRIO -- sem default. Antes, o default silencioso
+            "leitura" fazia rotas de exportação/escrita ficarem
+            registradas como leitura sempre que quem aplicava o
+            decorator esquecia de especificar; declarar explicitamente
+            aqui obriga a escolha consciente por rota.
 
     A view pode retornar só a resposta Flask (caso comum), ou
     `(resposta, detalhes)` se quiser especificar `uuid_paciente` ou
@@ -178,6 +205,12 @@ def acesso_auditado(recurso, *, operacao="leitura"):
     Se a view lançar exceção, nada é logado aqui -- a exceção sobe
     normalmente para o error handler padrão da aplicação.
     """
+    if operacao not in _OPERACOES_LOG_ACESSO:
+        raise ValueError(
+            f"acesso_auditado: operacao={operacao!r} invalida. "
+            f"Use uma de {_OPERACOES_LOG_ACESSO}."
+        )
+
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
@@ -185,6 +218,7 @@ def acesso_auditado(recurso, *, operacao="leitura"):
             resposta, detalhes = _extrair_resposta_e_detalhes(resultado)
 
             _auditoria.registrar_acesso(
+                id_empresa=get_id_empresa_sessao(),
                 id_usuario=get_id_usuario_sessao(),
                 recurso=detalhes.get("recurso_acessado", recurso),
                 operacao=detalhes.get("operacao", operacao),
