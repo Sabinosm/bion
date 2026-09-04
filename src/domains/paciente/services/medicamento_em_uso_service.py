@@ -5,7 +5,8 @@ from pydantic import ValidationError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
 from src.schemas.schema_medicamento_em_uso import (
-    MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema, _formatar_erros_pydantic,
+    MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema,
+    MedicamentoEmUsoRemoverSchema, _formatar_erros_pydantic,
 )
 
 def _parse_data(valor):
@@ -69,11 +70,20 @@ class MedicamentoEmUsoService:
         """NOVO: atualiza um medicamento em uso já registrado -- caso
         mais comum na prática: mudar status_uso de 'ativo' para
         'interrompido' quando o tratamento termina. id_catalogo NÃO é
-        editável aqui (ver MedicamentoEmUsoAtualizarSchema)."""
+        editável aqui (ver MedicamentoEmUsoAtualizarSchema).
+
+        ALTERADO: usa find_by_uuid_incluindo_deletados para distinguir
+        'não existe' (404) de 'existe mas está deletado' (409) --
+        mesmo padrão de Alergia/DoencaCronica."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
-        medicamento = self.repo.find_by_uuid(uuid_medicamento)
+        medicamento = self.repo.find_by_uuid_incluindo_deletados(uuid_medicamento)
         if not medicamento or medicamento.id_paciente != p.id:
             raise RecursoNaoEncontradoError(f"Medicamento em uso não encontrado: {uuid_medicamento}")
+        if medicamento.deletado:
+            raise ConflictoError(
+                f"Medicamento em uso removido não pode ser atualizado: {uuid_medicamento}. "
+                "Restaure o registro antes de editar."
+            )
 
         try:
             entrada = MedicamentoEmUsoAtualizarSchema(**dados)
@@ -84,6 +94,45 @@ class MedicamentoEmUsoService:
             setattr(medicamento, campo, valor)
 
         return self.repo.save(medicamento)
+
+    def remover_medicamento_em_uso(self, uuid_paciente: str, uuid_medicamento: str, dados: dict, id_empresa: int):
+        """NOVO: soft delete -- medicamento em uso é dado clínico
+        relevante pra segurança (interações medicamentosas, histórico
+        de tratamento), não pode simplesmente sumir sem rastro. Motivo
+        obrigatório (validado via MedicamentoEmUsoRemoverSchema), mesmo
+        padrão dos demais domínios. find_by_uuid já filtra deletado,
+        então remover de novo um registro já removido cai como 'não
+        encontrado' -- idempotente e sem vazar se já foi deletado antes
+        ou nunca existiu."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        medicamento = self.repo.find_by_uuid(uuid_medicamento)
+        if not medicamento or medicamento.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Medicamento em uso não encontrado: {uuid_medicamento}")
+
+        try:
+            entrada = MedicamentoEmUsoRemoverSchema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+
+        self.repo.soft_delete(medicamento, entrada.motivo_delete, entrada.observacoes_delete)
+        return True
+
+    def restaurar_medicamento_em_uso(self, uuid_paciente: str, uuid_medicamento: str, id_empresa: int):
+        """NOVO: reverte um soft delete. Mesma lógica de
+        AlergiaService.restaurar_alergia -- usa
+        find_by_uuid_incluindo_deletados pra achar o registro mesmo
+        estando deletado, e rejeita (409) restaurar um registro que já
+        está ativo (não idempotente de propósito)."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        medicamento = self.repo.find_by_uuid_incluindo_deletados(uuid_medicamento)
+        if not medicamento or medicamento.id_paciente != p.id:
+            raise RecursoNaoEncontradoError(f"Medicamento em uso não encontrado: {uuid_medicamento}")
+        if not medicamento.deletado:
+            raise ConflictoError(
+                f"Medicamento em uso não está removido, nada a restaurar: {uuid_medicamento}"
+            )
+
+        return self.repo.restaurar(medicamento)
     
 # --- F2: Pacientes em uso contínuo de medicação (%) ---
     def percentual_pacientes_em_uso_continuo(self, id_empresa: int):

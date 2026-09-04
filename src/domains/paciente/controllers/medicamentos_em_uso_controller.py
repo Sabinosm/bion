@@ -49,3 +49,30 @@ class MedicamentosEmUsoController():
             return json_success(data=m.to_dict(), message="Medicamento em uso atualizado.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: soft delete -- remove um medicamento em uso já registrado.
+    # Motivo vem no corpo da requisição, mesmo padrão dos demais
+    # domínios clínicos.
+    @staticmethod
+    @bp.delete("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>")
+    @requer_papel("medico", "enfermeiro")
+    def remover_medicamento_em_uso(uuid_paciente, uuid_medicamento):
+        dados = request.get_json(silent=True) or {}
+        try:
+            _svc.remover_medicamento_em_uso(uuid_paciente, uuid_medicamento, dados, get_id_empresa_sessao())
+            return json_success(message="Medicamento em uso removido.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # NOVO: reverte um soft delete de medicamento em uso.
+    @staticmethod
+    @bp.post("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>/restaurar")
+    @requer_papel("medico", "enfermeiro")
+    def restaurar_medicamento_em_uso(uuid_paciente, uuid_medicamento):
+        try:
+            m = _svc.restaurar_medicamento_em_uso(uuid_paciente, uuid_medicamento, get_id_empresa_sessao())
+            return json_success(data=m.to_dict(), message="Medicamento em uso restaurado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

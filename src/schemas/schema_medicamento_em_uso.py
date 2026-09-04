@@ -166,3 +166,33 @@ class MedicamentoEmUsoAtualizarSchema(BaseModel):
 
     def campos_informados(self) -> dict:
         return self.model_dump(exclude_unset=True)
+
+
+class MedicamentoEmUsoRemoverSchema(BaseModel):
+    """NOVO: schema de entrada para o soft delete (DELETE) de um
+    medicamento em uso -- mesmo padrão de AlergiaRemoverSchema/
+    DoencaCronicaRemoverSchema. motivo é obrigatório;
+    motivo_delete='outro' exige observacoes_delete preenchida (não
+    vazia/só-espaços)."""
+    motivo_delete: Literal[
+        "erro-digitacao",
+        "registro-duplicado",
+        "diagnostico-incorreto",
+        "solicitacao-paciente",
+        "outro",
+    ]
+    observacoes_delete: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("observacoes_delete")
+    @classmethod
+    def _observacoes_delete_normalizadas(cls, v: Optional[str]) -> Optional[str]:
+        return _strip_ou_none(v)
+
+    @model_validator(mode="after")
+    def _outro_exige_observacao(self) -> "MedicamentoEmUsoRemoverSchema":
+        if self.motivo_delete == "outro" and not self.observacoes_delete:
+            raise ValueError(
+                "observacoes_delete é obrigatória e não pode ser vazia "
+                "quando motivo_delete='outro'"
+            )
+        return self
