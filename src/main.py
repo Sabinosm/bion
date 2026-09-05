@@ -56,6 +56,8 @@ def _registrar_blueprints(app: Flask):
     from src.domains.configuracao.controller import bp as configuracao_bp
     from src.domains.exames.controller import bp_exames as catalogo_exames_bp
     from src.domains.medicamentos.controller import bp_medicamentos as catalogo_medicamentos_bp
+    from src.domains.medicamentos.contra_indicacao.contraindicacao_controller import bp_contraindicacoes as catalogo_contraindicacoes_bp
+    from src.domains.medicamentos.indicacao_terapeutica.indicacao_terapeutica_controller import bp_indicacoes_terapeuticas as catalogo_indicacoes_terapeuticas_bp
     from src.domains.estatisticas.controller import bp as bp_estatisticas
 
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
@@ -92,6 +94,8 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(configuracao_bp, url_prefix="/v1/api/configuracoes")
     app.register_blueprint(catalogo_exames_bp, url_prefix="/v1/api/catalogo/exames")
     app.register_blueprint(catalogo_medicamentos_bp, url_prefix="/v1/api/catalogo/medicamentos")
+    app.register_blueprint(catalogo_contraindicacoes_bp, url_prefix="/v1/api/catalogo/contraindicacoes")
+    app.register_blueprint(catalogo_indicacoes_terapeuticas_bp, url_prefix="/v1/api/catalogo/indicacoes-terapeuticas")
     app.register_blueprint(protocolo_bp, url_prefix="/v1/api/protocolos")
     app.register_blueprint(ia_bp, url_prefix="/v1/api/ia")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")

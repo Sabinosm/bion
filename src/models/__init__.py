@@ -15,6 +15,9 @@ from src.models.catalogos import (
     CatalogoExames,
     CatalogoMedicamentos,
     InteracoesMedicamentos,
+    Contraindicacao,
+    LogSincronizacaoCatalogo,
+    IndicacaoTerapeutica,
 
 )
 
@@ -84,6 +87,9 @@ __all__ = [
     "CatalogoExames",
     "CatalogoMedicamentos",
     "InteracoesMedicamentos",
+    "Contraindicacao",
+    "LogSincronizacaoCatalogo",
+    "IndicacaoTerapeutica",
     
     
     # Clínico
@@ -110,7 +116,7 @@ __all__ = [
     "DoencaCronica",
     "MedicamentoEmUso",
     "Paciente",
-    "PacientePessoal",
+    "PacienteDadosPessoais",
     "ObservacaoTipoSanguineo",
     "ReacaoAlergia",
     
