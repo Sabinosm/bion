@@ -11,10 +11,8 @@ class InteracoesMedicamentos(db.Model):
         # interação). A aplicação deve sempre gravar com o menor id em
         # id_medicamento_a antes de inserir.
         db.UniqueConstraint("id_medicamento_a", "id_medicamento_b", name="uq_interacao_par"),
-        # Lookup "quais interações envolvem o medicamento X" -- a query
-        # sempre bate em um dos dois lados, então indexa os dois.
-        db.Index("idx_interacao_medicamento_a", "id_medicamento_a"),
-        db.Index("idx_interacao_medicamento_b", "id_medicamento_b"),
+        # id_medicamento_a/b já ganham índice automático por serem
+        # FOREIGN KEY -- não criar db.Index duplicado aqui.
     )
 
     id = db.Column("id_interacao",BigIntPK, primary_key=True, autoincrement=True)

@@ -16,10 +16,7 @@ from src.models.types import BigIntPK
 
 class Prescricao(db.Model):
     __tablename__ = "prescricao"
-    __table_args__ = (
-        db.Index("idx_prescricao_catalogo", "id_catalogo"),
-        db.Index("idx_prescricao_resultado", "id_resultado_prescricao"),
-    )
+    __table_args__ = ()  # id_catalogo/id_resultado_prescricao já indexados pela FK
 
     id = db.Column("id_prescricao", BigIntPK, primary_key=True, autoincrement=True)
     id_resultado_prescricao = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id_resultado"))
