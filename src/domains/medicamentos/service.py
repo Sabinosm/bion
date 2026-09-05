@@ -1,4 +1,4 @@
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
+from src.core.exceptions import RecursoNaoEncontradoError
 from .repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
 
 
@@ -22,17 +22,6 @@ class CatalogoMedicamentosService:
     def verificar_interacoes(self, uuid: str):
         m = self.buscar_por_uuid(uuid)
         return self.repo.interacoes_de(m.id)
-
-    def criar(self, dados: dict):
-        from src.models.catalogos.catalogo_exames import CatalogoMedicamentos
-        if not dados.get("principio_ativo"):
-            raise DadosInvalidosError("principio_ativo é obrigatório.")
-        m = CatalogoMedicamentos(
-            principio_ativo=dados["principio_ativo"],
-            classe_farmaceutica=dados.get("classe_farmaceutica"),
-            nomes_comerciais_json=dados.get("nomes_comerciais"),
-        )
-        return self.repo.save(m)
 
 
 

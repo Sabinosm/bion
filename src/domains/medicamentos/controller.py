@@ -39,15 +39,3 @@ class MedicamentosController():
             return json_success(data=[i.to_dict() for i in interacoes])
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
-
-
-    @staticmethod
-    @bp_medicamentos.post("/")
-    @requer_papel("medico")
-    def criar_medicamento():
-        dados = request.get_json(silent=True) or {}
-        try:
-            m = _svc.criar(dados)
-            return json_success(data=m.to_dict(), message="Medicamento cadastrado.", status=201)
-        except BionException as ex:
-            return json_error(ex.message, ex.status_code)

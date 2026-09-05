@@ -50,6 +50,24 @@ CREATE TABLE `catalogo_medicamentos` (
   KEY `idx_catalogo_principio_ativo` (`principio_ativo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- bion_testes.log_sincronizacao_catalogo definition
+
+CREATE TABLE `log_sincronizacao_catalogo` (
+  `id_log_sincronizacao` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_log_sincronizacao` varchar(36) NOT NULL,
+  `id_catalogo` bigint(20) NOT NULL,
+  `tipo_alteracao` enum('criado','atualizado') NOT NULL,
+  `fonte` varchar(255) NOT NULL,
+  `dados_antes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_antes_json`)),
+  `dados_depois_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`dados_depois_json`)),
+  `executado_em` datetime NOT NULL,
+  PRIMARY KEY (`id_log_sincronizacao`),
+  UNIQUE KEY `uq_log_sincronizacao_uuid` (`uuid_log_sincronizacao`),
+  KEY `fk_log_sync_catalogo` (`id_catalogo`),
+  KEY `idx_log_sync_executado_em` (`executado_em`),
+  CONSTRAINT `fk_log_sync_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- bion_testes.catalogo_modulos definition
 
@@ -870,6 +888,9 @@ CREATE TABLE `resultado_prescricao` (
   CONSTRAINT `resultado_prescricao_ibfk_2` FOREIGN KEY (`formulado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `resultado_prescricao_ibfk_3` FOREIGN KEY (`id_output`) REFERENCES `output_bion` (`id_output`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
 
 
 

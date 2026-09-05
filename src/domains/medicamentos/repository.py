@@ -2,7 +2,6 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.catalogos.catalogo_exames import CatalogoExames
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
 
@@ -20,6 +19,16 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
             CatalogoMedicamentos.principio_ativo.ilike(f"%{termo}%")
         ).limit(20).all()
 
+    def find_por_principio_ativo_exato(self, principio_ativo: str) -> Optional[CatalogoMedicamentos]:
+        """Busca exata (case-insensitive), usada pelo processo de
+        sincronização para decidir se um item da fonte externa já
+        existe no catálogo (update) ou é novo (insert). Não confundir
+        com buscar_por_principio_ativo, que é fuzzy e para uso do
+        médico/IA."""
+        return CatalogoMedicamentos.query.filter(
+            db.func.lower(CatalogoMedicamentos.principio_ativo) == principio_ativo.lower()
+        ).first()
+
     def interacoes_de(self, id_medicamento: int) -> List[InteracoesMedicamentos]:
         return InteracoesMedicamentos.query.filter(
             (InteracoesMedicamentos.id_medicamento_a == id_medicamento) |
@@ -27,6 +36,14 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
         ).all()
 
     def save(self, entity: CatalogoMedicamentos) -> CatalogoMedicamentos:
+        # Catálogo é somente-leitura para o fluxo normal da aplicação
+        # (médico, IA, etc). Este método existe para cumprir o
+        # contrato IRepository e é usado exclusivamente pelo
+        # AtualizacaoMedicamentosService (ver
+        # atualizacao_medicamentos_service.py) -- o único ponto
+        # autorizado a criar/editar linhas do catálogo, sincronizando
+        # com a fonte externa. CatalogoMedicamentosService (uso comum)
+        # não deve chamar save/delete.
         db.session.add(entity)
         db.session.commit()
         return entity
