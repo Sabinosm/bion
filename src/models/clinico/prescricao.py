@@ -16,6 +16,10 @@ from src.models.types import BigIntPK
 
 class Prescricao(db.Model):
     __tablename__ = "prescricao"
+    __table_args__ = (
+        db.Index("idx_prescricao_catalogo", "id_catalogo"),
+        db.Index("idx_prescricao_resultado", "id_resultado_prescricao"),
+    )
 
     id = db.Column("id_prescricao", BigIntPK, primary_key=True, autoincrement=True)
     id_resultado_prescricao = db.Column(db.BigInteger, db.ForeignKey("resultado_prescricao.id_resultado"))
@@ -35,7 +39,7 @@ class Prescricao(db.Model):
             "frequencia": self.frequencia,
             "duracao": self.duracao,
             "orientacoes": self.orientacoes,
-            "medicamento": self.catalogo_medicamento.to_dict() if self.catalogo_medicamento else None,
+            "medicamento": self.catalogo_medicamentos.to_dict() if self.catalogo_medicamentos else None,
         }
 
     def __repr__(self):
