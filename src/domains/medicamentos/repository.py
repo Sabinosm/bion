@@ -11,6 +11,14 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
     def find_by_id(self, id: int) -> Optional[CatalogoMedicamentos]:
         return db.session.get(CatalogoMedicamentos, id)
 
+    def existe_por_id(self, id: int) -> bool:
+        """Checagem de existência para validação de FK (ex:
+        MedicamentoEmUsoService ao registrar um medicamento em uso).
+        Usa a mesma query de find_by_id -- método próprio só para
+        deixar a intenção clara no ponto de chamada (checar existência,
+        não usar a entidade)."""
+        return self.find_by_id(id) is not None
+
     def find_by_uuid(self, uuid: str) -> Optional[CatalogoMedicamentos]:
         return CatalogoMedicamentos.query.filter_by(uuid=uuid).first()
 
@@ -78,6 +86,16 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
             ))
             .all()
         )
+
+    def find_por_par_ordenado(self, id_a: int, id_b: int) -> Optional[InteracoesMedicamentos]:
+        """Busca exata pelo par (id_a, id_b) já ordenado -- id_a deve
+        ser sempre o menor dos dois. Quem chama é responsável por
+        ordenar antes (ver AtualizacaoInteracoesService), resolvendo
+        aqui a pendência antiga de garantir em código a mesma regra
+        que o UniqueConstraint do banco espera."""
+        return InteracoesMedicamentos.query.filter_by(
+            id_medicamento_a=id_a, id_medicamento_b=id_b
+        ).first()
 
     def save(self, entity: InteracoesMedicamentos) -> InteracoesMedicamentos:
         db.session.add(entity)

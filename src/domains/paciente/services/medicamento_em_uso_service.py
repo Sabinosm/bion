@@ -4,6 +4,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
+from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 from src.schemas.schema_medicamento_em_uso import (
     MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema,
     MedicamentoEmUsoRemoverSchema, _formatar_erros_pydantic,
@@ -24,6 +25,7 @@ class MedicamentoEmUsoService:
     def __init__(self):
         self.repo = MedicamentoEmUsoRepository()
         self.paciente_repo = PacienteRepository()
+        self.catalogo_repo = CatalogoMedicamentosRepository()
 
     def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
         p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
@@ -41,9 +43,15 @@ class MedicamentoEmUsoService:
         checagem de que id_catalogo EXISTE em catalogo_medicamentos --
         isso é uma FK, não formato, então o Pydantic sozinho não cobre;
         sem essa query, um id_catalogo inexistente só falhava no
-        commit() como IntegrityError de FK cru."""
+        commit() como IntegrityError de FK cru.
+
+        ALTERADO (revisão): a checagem de existência agora passa por
+        CatalogoMedicamentosRepository.existe_por_id em vez de acessar
+        CatalogoMedicamentos.query diretamente -- mantém a regra de
+        service -> repository -> model que o resto do projeto segue, e
+        troca o Query.get() deprecated (SQLAlchemy 2.x) por
+        db.session.get() por baixo do repository."""
         from src.models.pacientes import MedicamentoEmUso
-        from src.models.catalogos import CatalogoMedicamentos
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
 
         try:
@@ -51,7 +59,7 @@ class MedicamentoEmUsoService:
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
-        if not CatalogoMedicamentos.query.get(entrada.id_catalogo):
+        if not self.catalogo_repo.existe_por_id(entrada.id_catalogo):
             raise DadosInvalidosError(f"id_catalogo inválido: {entrada.id_catalogo} não existe no catálogo.")
 
         m = MedicamentoEmUso(
