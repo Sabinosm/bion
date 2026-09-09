@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
 from .repository import AtendimentoRepository
 from src.domains.consulta.repository import ConsultaRepository
+from src.domains.consulta.status_sync import sincronizar_status_consulta
 
 
 class AtendimentoService:
@@ -13,7 +14,7 @@ class AtendimentoService:
     def __init__(self):
         self.repo = AtendimentoRepository()
         self.consulta_repo = ConsultaRepository()
-        
+
     def buscar_por_uuid(self, uuid: str):
         """Retorna um Atendimento pelo UUID ou lança RecursoNaoEncontradoError."""
         e = self.repo.find_by_uuid(uuid)
@@ -24,7 +25,7 @@ class AtendimentoService:
     # --- C4: Tempo até busca por atendimento ---
     def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30):
         return self.repo.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
-    
+
     def listar(self):
         """Lista todos os Atendimentos cadastrados."""
         return self.repo.find_all()
@@ -36,10 +37,16 @@ class AtendimentoService:
             raise RecursoNaoEncontradoError(f"Consulta não encontrada: {uuid_consulta}")
         return self.repo.find_por_consulta(c.id)
 
+    def _sincronizar(self, consulta):
+        """Recalcula e persiste status_consulta a partir dos Atendimentos atuais."""
+        atendimentos = self.repo.find_por_consulta(consulta.id)
+        sincronizar_status_consulta(consulta, atendimentos)
+        self.consulta_repo.save(consulta)
+
     def abrir_triagem(self, uuid_consulta: str, id_usuario: int):
         """
-        Abre um Atendimento do tipo triagem para a Consulta e atualiza
-        seu status para 'em-triagem'.
+        Abre um Atendimento do tipo triagem para a Consulta e sincroniza
+        status_consulta a partir do histórico de Atendimentos resultante.
 
         Raises:
             RecursoNaoEncontradoError: se a Consulta não existir.
@@ -57,15 +64,13 @@ class AtendimentoService:
             data_hora_inicio=datetime.now(timezone.utc),
         )
         self.repo.save(atendimento)
-
-        c.status_consulta = "em-triagem"
-        self.consulta_repo.save(c)
+        self._sincronizar(c)
         return atendimento
 
     def abrir_avaliacao_medica(self, uuid_consulta: str, id_usuario: int):
         """
         Abre um Atendimento do tipo avaliação médica para a Consulta e
-        atualiza seu status para 'em-atendimento'.
+        sincroniza status_consulta a partir do histórico de Atendimentos.
 
         Raises:
             RecursoNaoEncontradoError: se a Consulta não existir.
@@ -83,15 +88,15 @@ class AtendimentoService:
             data_hora_inicio=datetime.now(timezone.utc),
         )
         self.repo.save(atendimento)
-
-        c.status_consulta = "em-atendimento"
-        self.consulta_repo.save(c)
+        self._sincronizar(c)
         return atendimento
 
     def finalizar(self, uuid_atendimento: str, observacoes: str = None):
         """
         Finaliza um Atendimento em andamento, registrando data/hora de
-        término e observações opcionais do profissional.
+        término e observações opcionais do profissional. Sincroniza
+        status_consulta em seguida -- este era o ponto que antes NÃO
+        atualizava a Consulta, deixando status_consulta desatualizado.
 
         Raises:
             ConflictoError: se o Atendimento já estiver finalizado.
@@ -103,7 +108,11 @@ class AtendimentoService:
         atendimento.data_hora_fim = datetime.now(timezone.utc)
         if observacoes:
             atendimento.observacoes_profissional = observacoes
-        return self.repo.save(atendimento)
+        self.repo.save(atendimento)
+
+        c = self.consulta_repo.find_by_id(atendimento.id_consulta)
+        self._sincronizar(c)
+        return atendimento
 
     # --- A2: Tempo médio de atendimento, por tipo ---
     def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30):
@@ -111,11 +120,11 @@ class AtendimentoService:
         Conversão para 'Xmin Ys' e variação % vs. período anterior ficam
         na camada de estatística."""
         return self.repo.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
- 
+
     # --- auxiliar: status no nível de etapa (não usado na Fase 1, mas pronto) ---
     def atendimentos_por_status(self, id_empresa: int, dias: int = 30):
         return self.repo.contar_atendimentos_por_status(id_empresa=id_empresa, dias=dias)
- 
+
     # --- E2: tempo médio por tipo, com janela explícita ---
     def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim):
         return self.repo.tempo_medio_por_tipo_periodo(

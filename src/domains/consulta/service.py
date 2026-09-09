@@ -35,9 +35,13 @@ class ConsultaService:
         """
         Abre uma nova Consulta para um paciente existente.
 
+        tipo_consulta foi removido: o "tipo" da consulta emerge do
+        primeiro Atendimento aberto nela (via AtendimentoService),
+        não é mais decidido aqui antecipadamente.
+
         Args:
             uuid_paciente: UUID público do paciente.
-            dados: payload com tipo_consulta e origem_encaminhamento (opcionais).
+            dados: payload com origem_encaminhamento (opcional).
             id_usuario: ID de quem está iniciando a consulta.
 
         Raises:
@@ -52,7 +56,6 @@ class ConsultaService:
 
         c = Consulta(
             id_paciente=paciente.id,
-            tipo_consulta=dados.get("tipo_consulta", "triagem"),
             origem_encaminhamento=dados.get("origem_encaminhamento", "espontanea"),
             status_consulta="aguardando-triagem",
             data_hora_inicio=datetime.now(timezone.utc),
@@ -64,15 +67,23 @@ class ConsultaService:
         """
         Encerra uma Consulta em aberto com um desfecho final.
 
+        Agora valida que não existe Atendimento em-andamento antes de
+        encerrar -- antes era possível encerrar a Consulta com um
+        Atendimento filho ainda aberto, deixando os dois registros
+        com histórias incompatíveis.
+
         Args:
             uuid: UUID da Consulta.
             desfecho: um de DESFECHOS_VALIDOS.
             id_usuario: ID de quem está encerrando.
 
         Raises:
-            ConflictoError: se a Consulta já estiver encerrada.
+            ConflictoError: se a Consulta já estiver encerrada, ou se
+                houver Atendimento em-andamento.
             DadosInvalidosError: se o desfecho informado for inválido.
         """
+        from src.domains.atendimento.repository import AtendimentoRepository
+
         c = self.buscar_por_uuid(uuid)
         if c.status_consulta == "encerrada":
             raise ConflictoError("Consulta já está encerrada.")
@@ -81,34 +92,41 @@ class ConsultaService:
                 f"Desfecho inválido. Use um de: {', '.join(DESFECHOS_VALIDOS)}"
             )
 
+        pendentes = [a for a in AtendimentoRepository().find_por_consulta(c.id)
+                     if a.status == "em-andamento"]
+        if pendentes:
+            raise ConflictoError(
+                "Existe Atendimento em andamento; finalize-o antes de encerrar a Consulta."
+            )
+
         c.status_consulta = "encerrada"
         c.desfecho_final = desfecho
         c.data_hora_fim = datetime.now(timezone.utc)
         c.finalizada_por = id_usuario
         return self.repo.save(c)
 
-    def contar_consultas_hoje(self,id_empresa):
+    def contar_consultas_hoje(self, id_empresa):
         return self.repo.contar_consultas_hoje(id_empresa=id_empresa)
-    
-# --- A1: Volume de atendimentos (consultas) por dia ---
+
+    # --- A1: Volume de atendimentos (consultas) por dia ---
     def consultas_por_dia(self, id_empresa: int, dias: int = 30):
         """Repassa a agregação bruta do repository. Sem lógica de negócio
         aqui -- formatação/leitura fica na camada de estatística."""
         return self.repo.contar_consultas_por_dia(id_empresa=id_empresa, dias=dias)
- 
+
     # --- A1 (comparação): consultas por dia, com janela explícita ---
     def consultas_por_dia_periodo(self, id_empresa: int, data_inicio, data_fim):
         return self.repo.contar_consultas_por_dia_periodo(
             id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
- 
+
     # --- A3: Taxa de conclusão vs. abandono ---
     def consultas_por_status(self, id_empresa: int, dias: int = 30):
         """Repassa a contagem bruta por status_consulta. O cálculo de %
         (concluídas / total) fica na camada de estatística, não aqui --
         o service de domínio só sabe buscar dado, não interpretar métrica."""
         return self.repo.contar_consultas_por_status(id_empresa=id_empresa, dias=dias)
- 
+
     # --- A3 (comparação): consultas por status, com janela explícita ---
     def consultas_por_status_periodo(self, id_empresa: int, data_inicio, data_fim):
         return self.repo.contar_consultas_por_status_periodo(

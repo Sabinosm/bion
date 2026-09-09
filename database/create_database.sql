@@ -524,7 +524,6 @@ CREATE TABLE `consulta` (
   `uuid_consulta` char(36) NOT NULL,
   `iniciada_por` bigint(20) DEFAULT NULL,
   `id_paciente` bigint(20) NOT NULL,
-  `tipo_consulta` enum('triagem','consulta-medica') NOT NULL,
   `data_hora_inicio` timestamp NOT NULL,
   `data_hora_fim` timestamp NULL DEFAULT NULL,
   `origem_encaminhamento` enum('espontanea','SAMU','transferencia','regulacao') NOT NULL,

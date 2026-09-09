@@ -21,7 +21,12 @@ class Consulta(db.Model):
     uuid = db.Column("uuid_consulta",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_paciente = db.Column("id_paciente",db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
-    tipo_consulta = db.Column(db.Enum("triagem", "consulta-medica"), nullable=False)
+    # tipo_consulta removido: era decidido antes de qualquer Atendimento
+    # existir e duplicava (de forma inconsistente) o que já é capturado
+    # por Atendimento.tipo_atendimento. status_consulta agora é o único
+    # campo de estado, e é sempre derivado via
+    # src.domains.consulta.status_sync.sincronizar_status_consulta --
+    # nunca setado manualmente fora dali.
     origem_encaminhamento = db.Column(
         db.Enum("espontanea", "SAMU", "transferencia", "regulacao"),
         nullable=False, default="espontanea")
@@ -48,7 +53,6 @@ class Consulta(db.Model):
     def to_dict(self):
         return {
             "uuid": self.uuid,
-            "tipo_consulta": self.tipo_consulta,
             "origem_encaminhamento": self.origem_encaminhamento,
             "status_consulta": self.status_consulta,
             "data_hora_inicio": self.data_hora_inicio.isoformat() if self.data_hora_inicio else None,
