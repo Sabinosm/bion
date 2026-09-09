@@ -17,4 +17,4 @@ navegador contra a origem atual, que nesse ponto é o Flask
 
 import os
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5500").rstrip("/")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://bion-one.vercel.app").rstrip("/")
