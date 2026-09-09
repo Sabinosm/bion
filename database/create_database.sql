@@ -103,6 +103,7 @@ CREATE TABLE `contraindicacoes` (
 CREATE TABLE `indicacoes_terapeuticas` (
   `id_indicacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_indicacao` varchar(36) NOT NULL,
+  `acao` varchar(100) DEFAULT NULL,
   `nome` varchar(255) NOT NULL,
   `sinonimos_busca_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`sinonimos_busca_json`)),
   PRIMARY KEY (`id_indicacao`),

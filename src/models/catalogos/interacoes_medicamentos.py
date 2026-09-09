@@ -26,6 +26,13 @@ class InteracoesMedicamentos(db.Model):
     # concomitante", "monitorar função renal") -- mecanismo_efeito
     # explica o porquê, recomendacao diz o que fazer.
     recomendacao = db.Column(db.Text)
+    # Vem da fonte Detecta Interações (campo "acao" da API) --
+    # categoria de conduta sugerida pela fonte (ex: "evitar",
+    # "monitorar", "ajustar dose"). Mantido como campo próprio, sem
+    # tentar inferir gravidade a partir dele -- são conceitos
+    # diferentes (gravidade = risco clínico; acao = conduta sugerida).
+    # Fica NULL para fontes que não fornecem essa informação.
+    acao = db.Column(db.String(100))
 
     medicamento_a = db.relationship("CatalogoMedicamentos", foreign_keys=[id_medicamento_a],
                                      back_populates="interacoes_como_a")
@@ -38,6 +45,7 @@ class InteracoesMedicamentos(db.Model):
             "gravidade": self.gravidade,
             "mecanismo_efeito": self.mecanismo_efeito,
             "recomendacao": self.recomendacao,
+            "acao": self.acao,
         }
 
     def __repr__(self):
