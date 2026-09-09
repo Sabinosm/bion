@@ -21,7 +21,10 @@ class InputProtocolo(db.Model):
     uuid = db.Column("uuid_input", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_coleta_clinica = db.Column(db.BigInteger, db.ForeignKey("coleta_clinica.id_coleta"))
-    tipo_input = db.Column(db.Enum("triagem", "consulta"))
+    # "consulta" renomeado para "avaliacao-medica": alinha com
+    # Atendimento.tipo_atendimento e evita ambiguidade com Consulta
+    # (a entidade "episódio inteiro"), que não é o que este campo indica.
+    tipo_input = db.Column(db.Enum("triagem", "avaliacao-medica"))
     input_json = db.Column(db.JSON)
     queixa_principal = db.Column(db.Text)
     valor_avpu = db.Column(db.String(20))

@@ -717,7 +717,7 @@ CREATE TABLE `input_protocolo` (
   `queixa_principal` text DEFAULT NULL,
   `valor_avpu` varchar(20) DEFAULT NULL,
   `dados_criticos_ausentes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_criticos_ausentes_json`)),
-  `tipo_input` enum('triagem','consulta') DEFAULT NULL,
+  `tipo_input` enum('triagem','avaliacao-medica') DEFAULT NULL,
   `id_protocolo_execucao` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`id_input`),
   UNIQUE KEY `uuid_input` (`uuid_input`),

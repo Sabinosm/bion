@@ -9,7 +9,14 @@ from src.domains.consulta.status_sync import sincronizar_status_consulta
 
 
 class AtendimentoService:
-    """Casos de uso relacionados à abertura, consulta e finalização de Atendimentos."""
+    """Casos de uso relacionados à abertura, consulta e finalização de Atendimentos.
+
+    Regra de sequência (rígida, independe de haver enfermeiro ou não):
+    toda Consulta passa por um Atendimento de triagem finalizado antes
+    de poder abrir um Atendimento de avaliação médica. Quem realiza a
+    triagem pode ser enfermeiro OU médico (ver permissões na rota) --
+    a etapa em si nunca é pulada.
+    """
 
     def __init__(self):
         self.repo = AtendimentoRepository()
@@ -45,16 +52,26 @@ class AtendimentoService:
 
     def abrir_triagem(self, uuid_consulta: str, id_usuario: int):
         """
-        Abre um Atendimento do tipo triagem para a Consulta e sincroniza
-        status_consulta a partir do histórico de Atendimentos resultante.
+        Abre um Atendimento do tipo triagem para a Consulta.
 
         Raises:
             RecursoNaoEncontradoError: se a Consulta não existir.
+            ConflictoError: se já existir uma triagem em-andamento ou já
+                finalizada para esta Consulta (não é permitido reabrir
+                nem duplicar a etapa).
         """
         from src.models.clinico import Atendimento
         c = self.consulta_repo.find_by_uuid(uuid_consulta)
         if not c:
             raise RecursoNaoEncontradoError(f"Consulta não encontrada: {uuid_consulta}")
+
+        existentes = [a for a in self.repo.find_por_consulta(c.id)
+                      if a.tipo_atendimento == "triagem"]
+        if existentes:
+            em_andamento = any(a.status == "em-andamento" for a in existentes)
+            if em_andamento:
+                raise ConflictoError("Já existe uma triagem em andamento para esta Consulta.")
+            raise ConflictoError("Esta Consulta já teve uma triagem registrada.")
 
         atendimento = Atendimento(
             id_consulta=c.id,
@@ -69,16 +86,37 @@ class AtendimentoService:
 
     def abrir_avaliacao_medica(self, uuid_consulta: str, id_usuario: int):
         """
-        Abre um Atendimento do tipo avaliação médica para a Consulta e
-        sincroniza status_consulta a partir do histórico de Atendimentos.
+        Abre um Atendimento do tipo avaliação médica para a Consulta.
 
         Raises:
             RecursoNaoEncontradoError: se a Consulta não existir.
+            ConflictoError: se não existir uma triagem finalizada para
+                esta Consulta (a etapa é obrigatória, com ou sem
+                enfermeiro -- quem a realiza pode variar, a sequência não),
+                ou se já existir uma avaliação médica em-andamento.
         """
         from src.models.clinico import Atendimento
         c = self.consulta_repo.find_by_uuid(uuid_consulta)
         if not c:
             raise RecursoNaoEncontradoError(f"Consulta não encontrada: {uuid_consulta}")
+
+        atendimentos = self.repo.find_por_consulta(c.id)
+
+        triagem_finalizada = any(
+            a.tipo_atendimento == "triagem" and a.status == "finalizado"
+            for a in atendimentos
+        )
+        if not triagem_finalizada:
+            raise ConflictoError(
+                "É necessário finalizar a triagem desta Consulta antes de abrir a avaliação médica."
+            )
+
+        avaliacao_em_andamento = any(
+            a.tipo_atendimento == "avaliacao-medica" and a.status == "em-andamento"
+            for a in atendimentos
+        )
+        if avaliacao_em_andamento:
+            raise ConflictoError("Já existe uma avaliação médica em andamento para esta Consulta.")
 
         atendimento = Atendimento(
             id_consulta=c.id,
@@ -95,8 +133,7 @@ class AtendimentoService:
         """
         Finaliza um Atendimento em andamento, registrando data/hora de
         término e observações opcionais do profissional. Sincroniza
-        status_consulta em seguida -- este era o ponto que antes NÃO
-        atualizava a Consulta, deixando status_consulta desatualizado.
+        status_consulta em seguida.
 
         Raises:
             ConflictoError: se o Atendimento já estiver finalizado.
