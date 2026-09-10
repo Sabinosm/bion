@@ -20,8 +20,15 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
 # API (o que o cliente HTTP manda) não muda — só a forma de PERSISTIR
 # muda. Isso é o núcleo do que discutimos: FHIR/reestruturação interna
 # não obriga a mudar contrato de API já em uso pelo front.
+#
+# ALTERADO (assertivo, sem alias): "tipo_usuario" saiu -- não existe
+# mais como chave de payload. Substituído por "eh_admin" e "tipo_papel",
+# os dois campos ortogonais que o tomam o lugar. Ambos continuam
+# restritos a admin, pelo mesmo motivo de antes (são dados sensíveis
+# de permissão/registro profissional).
 CAMPOS_RESTRITOS_A_ADMIN = (
-    "tipo_usuario",
+    "eh_admin",
+    "tipo_papel",
     "numero-crm", "uf-crm", "rqe",
     "numero-coren", "uf-coren", "especialidade",
 )
@@ -60,15 +67,21 @@ def monta_dados_papel(schema) -> dict | None:
     """Monta um dict pronto para criar/atualizar um PapelProfissional,
     a partir do schema validado.
 
+    ALTERADO: lia schema.tipo_usuario (removido). Agora lê
+    schema.tipo_papel, que é ortogonal a eh_admin -- um admin com
+    tipo_papel="medico" também gera um dict de papel aqui normalmente,
+    exatamente como um médico não-admin geraria.
+
     Parâmetros:
         schema: instância validada de CadastroUsuarioSchema (ou
             AtualizacaoUsuarioSchema).
 
     Retorno:
         dict com os campos prontos para PapelProfissional(**dict), ou
-        None se o tipo de usuário não exigir papel profissional (admin).
+        None se tipo_papel for None (usuário sem função clínica —
+        tipicamente admin puro).
     """
-    if schema.tipo_usuario == "medico":
+    if schema.tipo_papel == "medico":
         return {
             "tipo_papel": "medico",
             "numero_conselho": schema.numero_crm,
@@ -76,7 +89,7 @@ def monta_dados_papel(schema) -> dict | None:
             "rqe": (schema.rqe or "").strip() or None,
             "especialidade": None,
         }
-    elif schema.tipo_usuario == "enfermeiro":
+    elif schema.tipo_papel == "enfermeiro":
         return {
             "tipo_papel": "enfermeiro",
             "numero_conselho": schema.numero_coren,
@@ -85,4 +98,3 @@ def monta_dados_papel(schema) -> dict | None:
             "rqe": None,
         }
     return None
-

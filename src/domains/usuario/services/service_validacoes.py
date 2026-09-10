@@ -64,37 +64,62 @@ def _valida_permissao_edicao(
                     f"Você não tem permissão para alterar: {', '.join(campos_bloqueados)}."
                 )
 
-def _valida_troca_tipo(self, tipo_atual: str, novo_tipo: str, tipo_mudou: bool, dados: dict):
-        """Valida a troca de tipo profissional (médico <-> enfermeiro).
+def _valida_troca_tipo(self, papel_atual: str | None, novo_papel: str | None, papel_mudou: bool, dados: dict):
+        """Valida a troca de função clínica (médico <-> enfermeiro <-> nenhuma).
 
-        ALTERADO (múltiplos admins por empresa): troca de/para "admin"
-        NUNCA é permitida por aqui -- virar admin só acontece através de
-        criar() (e só o super admin pode fazer isso); um admin existente
-        nunca é rebaixado. Essa checagem já é feita antes desta função
-        ser chamada, em service_atualizar.py (bloqueio incondicional),
-        então aqui só resta validar a troca médico <-> enfermeiro, que é
-        a única troca de tipo ainda permitida via atualizar().
+        ALTERADO (separação admin/papel clínico, assertivo): esta função
+        cobria também a troca de/para "admin" através de uma comparação
+        de string única. Isso saiu -- eh_admin agora é um eixo
+        independente, validado por _valida_alteracao_admin (abaixo).
+        Aqui só resta o eixo de função clínica.
 
         Parâmetros:
-            tipo_atual: tipo de usuário antes da atualização.
-            novo_tipo: tipo de usuário resultante da atualização.
-            tipo_mudou: se True, o tipo de usuário está sendo alterado.
+            papel_atual: função clínica antes da atualização
+                ("medico"/"enfermeiro"/None).
+            novo_papel: função clínica resultante da atualização.
+            papel_mudou: se True, a função clínica está sendo alterada.
             dados: dicionário parcial com os campos enviados na requisição.
 
         Levanta:
-            DadosInvalidosError: se os atributos exigidos pelo novo tipo
-                não estiverem completos.
+            DadosInvalidosError: se os atributos exigidos pelo novo
+                papel não estiverem completos.
         """
-        if not tipo_mudou:
+        if not papel_mudou:
             return
 
-        if novo_tipo == "medico" and not (dados.get("numero-crm") and dados.get("uf-crm")):
+        if novo_papel == "medico" and not (dados.get("numero-crm") and dados.get("uf-crm")):
             raise DadosInvalidosError("Troca para médico exige 'numero-crm' e 'uf-crm'.")
-        if novo_tipo == "enfermeiro" and not (
+        if novo_papel == "enfermeiro" and not (
             dados.get("numero-coren") and dados.get("uf-coren") and dados.get("especialidade")
         ):
             raise DadosInvalidosError(
                 "Troca para enfermeiro exige 'numero-coren', 'uf-coren' e 'especialidade'."
+            )
+
+
+def _valida_alteracao_admin(self, eh_admin_atual: bool, novo_eh_admin: bool, admin_mudou: bool):
+        """Valida o eixo eh_admin isoladamente — independente da função clínica.
+
+        ADICIONADO (separação admin/papel clínico): mesma regra que
+        antes vivia misturada em service_atualizar.py comparando
+        tipo_usuario == "admin" -- extraída para função própria porque
+        agora é um eixo independente do papel clínico, e precisa da
+        mesma checagem incondicional: cargo de admin nunca é alterado
+        por edição de cadastro (nem promover, nem rebaixar), para
+        qualquer solicitante, inclusive o super admin. Virar admin só
+        acontece em criar(); rebaixar um admin nunca é permitido.
+
+        Parâmetros:
+            eh_admin_atual: se o usuário já é admin antes da atualização.
+            novo_eh_admin: valor de eh_admin resultante da atualização.
+            admin_mudou: se True, eh_admin está sendo alterado no payload.
+
+        Levanta:
+            DadosInvalidosError: se o payload tentar mudar eh_admin.
+        """
+        if admin_mudou:
+            raise DadosInvalidosError(
+                "O cargo de administrador não pode ser alterado por edição de cadastro."
             )
     
 def _checar_duplicidade(self, *, cpf_hash=None, email=None, login=None, ignorar_uuid=None):

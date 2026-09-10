@@ -62,7 +62,13 @@ class Login():
         session.clear()
         session.permanent = True
         session["id_usuario"] = usuario.id
-        session["tipo_usuario"] = usuario.tipo_usuario
+        # ALTERADO (assertivo, sem alias): session["tipo_usuario"] saiu.
+        # Duas chaves independentes entram no lugar — is_admin e
+        # funcao_clinica podem ambos ser "verdadeiros" ao mesmo tempo
+        # (admin que também atende). Ver session.py para os decorators
+        # que leem cada uma separadamente.
+        session["is_admin"] = usuario.is_admin
+        session["funcao_clinica"] = usuario.funcao_clinica
         session["uuid_usuario"] = usuario.uuid
         # ADICIONADO: necessário pra g.is_super_admin (session.py) e
         # pra requer_super_admin funcionarem em rotas futuras nesta sessão.

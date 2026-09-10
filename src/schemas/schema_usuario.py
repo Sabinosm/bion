@@ -32,7 +32,13 @@ class CadastroUsuarioSchema(BaseModel):
     cpf: str
     email: EmailStr
     user_login: str = Field(..., min_length=3, max_length=30)
-    tipo_usuario: Literal["medico", "enfermeiro", "admin"]
+    # ALTERADO (assertivo, sem transição): tipo_usuario Literal único
+    # SAIU. Duas dimensões ortogonais entram no lugar — reflete o
+    # mesmo desenho já adotado em Usuario (is_admin + funcao_clinica).
+    # Um usuário pode ter eh_admin=True e tipo_papel="medico" ao mesmo
+    # tempo (admin que também atende clinicamente).
+    tipo_papel: Optional[Literal["medico", "enfermeiro"]] = None
+    eh_admin: bool = False
     telefone: Optional[str] = None
 
     # ALTERADO: era Optional[str] = Field(..., ...) -- Optional junto
@@ -151,9 +157,16 @@ class CadastroUsuarioSchema(BaseModel):
 
     @model_validator(mode="after")
     def valida_campos_por_profissao(self):
-        tipo = self.tipo_usuario
+        """
+        ALTERADO (assertivo, sem transição): antes era um switch
+        if/elif/elif mutuamente exclusivo por tipo_usuario. Agora são
+        duas checagens INDEPENDENTES — tipo_papel e eh_admin podem
+        ambos ser verdadeiros ao mesmo tempo (admin que também atende).
 
-        if tipo == "medico":
+        Regra de senha continua ligada só a "é o super admin fundador",
+        nunca a tipo_papel — isso já era assim antes e não muda.
+        """
+        if self.tipo_papel == "medico":
             if not self.numero_crm or not self.uf_crm:
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
             if self.senha:
@@ -162,7 +175,7 @@ class CadastroUsuarioSchema(BaseModel):
                     "é definido em um fluxo de ativação de conta separado."
                 )
 
-        elif tipo == "enfermeiro":
+        elif self.tipo_papel == "enfermeiro":
             if not self.numero_coren or not self.uf_coren or not self.especialidade:
                 raise ValueError(
                     "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
@@ -173,24 +186,11 @@ class CadastroUsuarioSchema(BaseModel):
                     "é definido em um fluxo de ativação de conta separado."
                 )
 
-        elif tipo == "admin":
-            # ALTERADO: este schema não sabe se este "admin" é o super
-            # admin fundador (Empresa.cadastrar_com_admin -- precisa de
-            # senha, é o único super admin da empresa) ou um admin comum
-            # criado depois por esse super admin (senha proibida, vai
-            # por fluxo de ativação separado, igual médico/enfermeiro).
-            # Essa distinção só existe no service via o parâmetro
-            # is_super_admin, que nunca vem do payload do cliente -- o
-            # schema não tem esse contexto e não deve adivinhar.
-            #
-            # Por isso a senha fica OPCIONAL aqui para admin, sem
-            # checagem de presença/ausência. A obrigatoriedade é
-            # responsabilidade de UsuarioService.criar():
-            #   - is_super_admin=True (fundador): exige schema.senha.
-            #   - is_super_admin=False (admin comum, criado por um
-            #     super admin já existente): exige schema.senha ausente.
-
-            # Admin não deveria mandar campos de médico/enfermeiro — evita payload inconsistente
+        else:
+            # tipo_papel is None — sem profissão clínica associada.
+            # Não deveria vir com campos de médico/enfermeiro preenchidos,
+            # evita payload inconsistente (ex: eh_admin=True mandando
+            # numero-crm sem tipo_papel="medico" para dar sentido a isso).
             campos_indevidos = [
                 nome
                 for nome, valor in [
@@ -204,8 +204,31 @@ class CadastroUsuarioSchema(BaseModel):
             ]
             if campos_indevidos:
                 raise ValueError(
-                    f"Usuário admin não deve informar: {', '.join(campos_indevidos)}."
+                    f"Sem 'tipo_papel' definido, não deve informar: {', '.join(campos_indevidos)}."
                 )
+
+        # ADICIONADO: invariante que faltava na primeira versão desta
+        # migração. eh_admin=False e tipo_papel=None ao mesmo tempo
+        # criaria um usuário que não é admin nem tem profissão clínica
+        # -- "fantasma" no sistema, sem se encaixar em nenhuma regra de
+        # autorização (nem requer_admin, nem requer_papel_clinico
+        # passam). A regra de negócio é: admin PODE ter papel clínico
+        # (opcional), quem não é admin DEVE ter (obrigatório).
+        if not self.eh_admin and self.tipo_papel is None:
+            raise ValueError(
+                "Usuário sem 'eh_admin' precisa ter 'tipo_papel' definido "
+                "('medico' ou 'enfermeiro') — todo usuário precisa ser "
+                "administrador ou ter uma função clínica."
+            )
+
+        # ALTERADO: a regra de senha para admin (obrigatória para o
+        # super admin fundador, proibida para admin comum) permanece
+        # responsabilidade de UsuarioService.criar() via is_super_admin
+        # — o schema não tem esse contexto e não deve adivinhar. Isso
+        # vale tanto para eh_admin=True com tipo_papel=None (admin puro)
+        # quanto para eh_admin=True com tipo_papel setado (admin que
+        # também atende). Nenhuma checagem de senha aqui para eh_admin
+        # isoladamente — deliberado, ver service.py.
 
         return self
 
@@ -221,21 +244,96 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
     Mesmas regras de formato do cadastro (CPF válido, senha forte, etc.),
     mas nada é obrigatório — o cliente só envia o que quer alterar.
 
-    Atenção: 'tipo_usuario' também vira opcional aqui. Isso significa que,
-    se o payload de update não mandar 'tipo_usuario', o model_validator de
-    'valida_campos_por_profissao' (herdado) vai rodar com tipo=None e não
-    vai validar nada de CRM/COREN — o que é o comportamento certo para um
-    update parcial que não mexe na profissão. Quando o service mescla com
-    os dados atuais do usuário (ver EmpresaUsuarioService.atualizar), a
-    validação cruzada completa é refeita com o tipo real.
+    Atenção: 'tipo_papel' também é opcional aqui. Isso significa que,
+    se o payload de update não mandar 'tipo_papel', o model_validator de
+    'valida_campos_por_profissao' (herdado) vai rodar com tipo_papel=None
+    e não vai validar nada de CRM/COREN — o que é o comportamento certo
+    para um update parcial que não mexe na profissão. Quando o service
+    mescla com os dados atuais do usuário (ver EmpresaUsuarioService.
+    atualizar), a validação cruzada completa é refeita com o tipo real.
+
+    Atenção 2: 'eh_admin' aqui é Optional[bool] = None, DIFERENTE do
+    default False em CadastroUsuarioSchema. None significa "não veio no
+    payload, não mexer nesse campo" — False significa "remover admin
+    explicitamente". O service precisa distinguir os dois casos ao
+    mesclar com os dados atuais (não pode tratar None como False).
+
+    Atenção 3: a invariante "não-admin precisa ter tipo_papel" (ver
+    valida_campos_por_profissao no pai) É SOBRESCRITA aqui embaixo.
+    No cadastro, ausência de ambos é sempre inválida. No update
+    parcial, ausência de ambos é o caso comum (o payload não está
+    mexendo em papel/admin, só em outro campo) — não pode disparar
+    erro. A checagem "usuário final ficaria sem admin e sem papel"
+    só faz sentido quando o service já mesclou com o estado atual do
+    banco, não aqui no schema isolado.
     """
 
     nome_completo: Optional[str] = Field(None, min_length=3, max_length=150)
     cpf: Optional[str] = None
     email: Optional[EmailStr] = None
     user_login: Optional[str] = Field(None, min_length=3, max_length=30)
-    tipo_usuario: Optional[Literal["medico", "enfermeiro", "admin"]] = None
+    # ALTERADO: tipo_usuario saiu. tipo_papel já é Optional por herança
+    # (redeclarado aqui só por clareza); eh_admin também precisa ficar
+    # Optional no update parcial — None significa "não mexer no campo",
+    # diferente de False ("remover admin explicitamente"). O service
+    # que mescla com os dados atuais (EmpresaUsuarioService.atualizar)
+    # precisa distinguir esses dois casos.
+    tipo_papel: Optional[Literal["medico", "enfermeiro"]] = None
+    eh_admin: Optional[bool] = None
     senha: Optional[str] = Field(None, min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def valida_campos_por_profissao(self):
+        """
+        SOBRESCRITO do pai: reaproveita toda a lógica de
+        CRM/COREN/campos-indevidos (mesmo corpo), mas SEM a checagem
+        "not eh_admin and tipo_papel is None" -- essa invariante só
+        faz sentido no cadastro completo. Num update parcial, os dois
+        campos ausentes é o caso normal (payload não mexe neles).
+        """
+        if self.tipo_papel == "medico":
+            if not self.numero_crm or not self.uf_crm:
+                raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
+            if self.senha:
+                raise ValueError(
+                    "Médicos não devem informar 'senha' no cadastro; o acesso "
+                    "é definido em um fluxo de ativação de conta separado."
+                )
+
+        elif self.tipo_papel == "enfermeiro":
+            if not self.numero_coren or not self.uf_coren or not self.especialidade:
+                raise ValueError(
+                    "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
+                )
+            if self.senha:
+                raise ValueError(
+                    "Enfermeiros não devem informar 'senha' no cadastro; o acesso "
+                    "é definido em um fluxo de ativação de conta separado."
+                )
+
+        else:
+            campos_indevidos = [
+                nome
+                for nome, valor in [
+                    ("numero-crm", self.numero_crm),
+                    ("uf-crm", self.uf_crm),
+                    ("numero-coren", self.numero_coren),
+                    ("uf-coren", self.uf_coren),
+                    ("especialidade", self.especialidade),
+                ]
+                if valor
+            ]
+            if campos_indevidos:
+                raise ValueError(
+                    f"Sem 'tipo_papel' definido, não deve informar: {', '.join(campos_indevidos)}."
+                )
+
+        # DELIBERADAMENTE OMITIDO (diferente do pai): a checagem de
+        # "usuário final sem admin e sem papel" precisa do estado atual
+        # do banco mesclado com o payload -- só o service tem essa
+        # visão. Ver EmpresaUsuarioService.atualizar / service_atualizar.py.
+
+        return self
 
     @field_validator("cpf")
     @classmethod
@@ -278,4 +376,3 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
         if not all(re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$", p) for p in partes):
             raise ValueError("Nome completo contém caracteres inválidos.")
         return v
-

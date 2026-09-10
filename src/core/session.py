@@ -24,8 +24,23 @@ ALTERADO (múltiplos admins por empresa):
 - `requer_super_admin` foi adicionado como decorator dedicado, para
   rotas onde a exigência é binária (ex: criar admin). Para rotas onde a
   checagem depende do alvo da operação (atualizar/desativar/ativar um
-  usuário que pode ou não ser admin), continue usando `requer_papel("admin")`
+  usuário que pode ou não ser admin), continue usando `requer_admin`
   e faça a checagem fina no service, usando `g.is_super_admin`.
+
+ALTERADO (separação admin/papel clínico, assertivo, sem alias):
+- `session["tipo_usuario"]` SAIU por completo. `tipo_usuario` tratava
+  "é admin" e "qual profissão clínica" como uma única categoria
+  mutuamente exclusiva, o que impedia um admin de também ter uma
+  função clínica (ex: dono de clínica pequena que também atende).
+- Duas chaves independentes entram no lugar: `session["is_admin"]`
+  (bool) e `session["funcao_clinica"]` ("medico"/"enfermeiro"/None).
+  As duas podem ser "verdadeiras" ao mesmo tempo no mesmo usuário.
+- `requer_papel(...)` foi removido (levanta NotImplementedError se
+  chamado) -- não existe tradução automática segura do antigo
+  comportamento. Todo uso precisa ser revisto e trocado por
+  `requer_admin`, `requer_papel_clinico(...)` ou
+  `requer_admin_ou_papel_clinico(...)`, conforme a intenção original
+  de cada rota.
 """
 
 from functools import wraps
@@ -103,6 +118,27 @@ def get_is_super_admin_sessao() -> bool:
     return bool(session.get("is_super_admin", False))
 
 
+def get_is_admin_sessao() -> bool:
+    """
+    Retorna se o usuário logado é administrador (is_admin), independente
+    de ter ou não uma função clínica associada.
+
+    ALTERADO: substitui a antiga leitura de session.get("tipo_usuario")
+    == "admin". Fonte de verdade única para "é admin" -- nunca
+    inferido a partir de funcao_clinica.
+    """
+    return bool(session.get("is_admin", False))
+
+
+def get_funcao_clinica_sessao():
+    """
+    Retorna a função clínica do usuário logado ("medico"/"enfermeiro")
+    ou None. Independente de is_admin -- um admin pode ter função
+    clínica e vice-versa, as duas são consultadas separadamente.
+    """
+    return session.get("funcao_clinica")
+
+
 def _nao_autenticado():
     return jsonify({"status": "error", "message": "Autenticação necessária."}), 401
 
@@ -111,30 +147,130 @@ def _sem_permissao(papel):
     return jsonify({"status": "error", "message": f"Acesso restrito a {papel}."}), 403
 
 
-def _requer_papeis(*papeis_permitidos):
-    """Fábrica interna de decorator — usada pelos requer_* nomeados abaixo."""
+def _checagem_base_sessao():
+    """
+    Checagens comuns a todo decorator de sessão (autenticação, onboarding,
+    mfa). Retorna a resposta de erro se algo falhar, ou None se pode
+    prosseguir. Fatorado para não repetir em cada fábrica abaixo.
+    """
+    if not session.get("id_usuario"):
+        return _nao_autenticado()
+    if session.get("onboarding_pendente"):
+        return jsonify({"erro": "onboarding_pendente"}), 403
+    if session.get("mfa_pendente"):
+        return jsonify({"erro": "mfa_pendente"}), 401
+    return None
+
+
+def _popula_g():
+    """Popula g.* com os dados de sessão já liberada. Comum a todo decorator."""
+    g.id_usuario = get_id_usuario_sessao()
+    g.uuid_usuario = session.get("uuid_usuario")
+    g.id_empresa = session.get("id_empresa")
+    g.is_admin = get_is_admin_sessao()
+    g.funcao_clinica = get_funcao_clinica_sessao()
+    g.is_super_admin = get_is_super_admin_sessao()
+
+
+def _requer_papeis():
+    """
+    ALTERADO (assertivo, sem alias): a antiga fábrica genérica que
+    recebia *papeis_permitidos e comparava contra um único
+    session["tipo_usuario"] SAIU. Ela não pode mais expressar
+    corretamente "admin" e "médico" como dimensões independentes que
+    coexistem no mesmo usuário.
+
+    Mantida sem parâmetros — cobre só a checagem de sessão básica
+    (autenticado + onboarding + mfa), usada por requer_login. Para
+    exigências de papel, ver requer_admin, requer_papel_clinico e
+    requer_admin_ou_papel_clinico abaixo.
+    """
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            if not session.get("id_usuario"):
-                return _nao_autenticado()
+            erro = _checagem_base_sessao()
+            if erro:
+                return erro
+            _popula_g()
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
-            if session.get("onboarding_pendente"):
-                return jsonify({"erro": "onboarding_pendente"}), 403
 
-            if session.get("mfa_pendente"):
-                return jsonify({"erro": "mfa_pendente"}), 401
+def requer_admin(f):
+    """
+    Bloqueia a rota a menos que o usuário logado tenha is_admin=True.
 
-            if papeis_permitidos and session.get("tipo_usuario") not in papeis_permitidos:
+    Substitui os usos de @requer_papel("admin"). Não depende de
+    funcao_clinica -- um admin com ou sem papel clínico associado
+    passa igualmente por este decorator.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        erro = _checagem_base_sessao()
+        if erro:
+            return erro
+        if not get_is_admin_sessao():
+            return _sem_permissao("administrador")
+        _popula_g()
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def requer_papel_clinico(*papeis_permitidos):
+    """
+    Bloqueia a rota a menos que a função clínica do usuário logado
+    esteja entre papeis_permitidos ("medico", "enfermeiro").
+
+    Substitui os usos de @requer_papel("medico") / @requer_papel("enfermeiro").
+    Não depende de is_admin -- um médico que também é admin passa
+    igualmente por este decorator, contanto que tenha o papel clínico.
+
+    Uso:
+        @requer_papel_clinico("medico")
+        @requer_papel_clinico("medico", "enfermeiro")
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            erro = _checagem_base_sessao()
+            if erro:
+                return erro
+            if get_funcao_clinica_sessao() not in papeis_permitidos:
                 rotulo = " ou ".join(papeis_permitidos)
                 return _sem_permissao(rotulo)
+            _popula_g()
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
-            g.id_usuario = get_id_usuario_sessao()
-            g.uuid_usuario = session.get("uuid_usuario")
-            g.id_empresa = session.get("id_empresa")
-            g.tipo_usuario = session.get("tipo_usuario")
-            g.is_super_admin = get_is_super_admin_sessao()
 
+def requer_admin_ou_papel_clinico(*papeis_clinicos_permitidos):
+    """
+    Libera a rota se o usuário for admin (is_admin=True) OU tiver uma
+    das funções clínicas em papeis_clinicos_permitidos -- OR, não AND.
+
+    Existe porque simplesmente empilhar @requer_admin com
+    @requer_papel_clinico(...) exigiria as DUAS condições ao mesmo
+    tempo (mais restritivo que o pretendido). Use esta fábrica quando
+    a rota antiga fazia algo como @requer_papel("admin", "medico")
+    (liberar para qualquer um dos dois).
+
+    Uso:
+        @requer_admin_ou_papel_clinico("medico")
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            erro = _checagem_base_sessao()
+            if erro:
+                return erro
+            eh_admin = get_is_admin_sessao()
+            papel_ok = get_funcao_clinica_sessao() in papeis_clinicos_permitidos
+            if not (eh_admin or papel_ok):
+                rotulo = " ou ".join(("administrador",) + papeis_clinicos_permitidos)
+                return _sem_permissao(rotulo)
+            _popula_g()
             return f(*args, **kwargs)
         return wrapper
     return decorator
@@ -145,8 +281,10 @@ def requer_login(f):
     Bloqueia qualquer rota clínica/normal a menos que a sessão esteja
     TOTALMENTE liberada: sem onboarding pendente e sem 2FA pendente.
 
-    Também popula g.id_usuario / g.id_empresa / g.tipo_usuario /
-    g.is_super_admin, pra rota não precisar reler a sessão manualmente.
+    Também popula g.id_usuario / g.id_empresa / g.is_admin /
+    g.funcao_clinica / g.is_super_admin, pra rota não precisar reler a
+    sessão manualmente. (g.tipo_usuario foi REMOVIDO -- ver g.is_admin
+    e g.funcao_clinica.)
     """
     return _requer_papeis()(f)
 
@@ -172,16 +310,19 @@ def mfa_pendente_required(f):
 
 
 # ---------------------------------------------------------------------------
-# Decorators de papel (tipo_usuario)
+# Decorators de papel (is_admin / funcao_clinica)
 #
-# Mantidos como funções nomeadas individuais (requer_medico, requer_admin,
-# etc) para não quebrar imports já existentes em outras rotas. Por baixo,
-# todos usam _requer_papeis() para não repetir a mesma checagem 4 vezes.
+# requer_admin, requer_papel_clinico e requer_admin_ou_papel_clinico
+# (definidos acima) cobrem as combinações de autorização por papel.
 #
-# Cada um destes já inclui a checagem COMPLETA de sessão (autenticado +
+# Cada um já inclui a checagem COMPLETA de sessão (autenticado +
 # onboarding concluído + mfa concluído — igual requer_login), então não
-# é necessário empilhar @requer_login junto: @requer_medico sozinho já
+# é necessário empilhar @requer_login junto: @requer_admin sozinho já
 # garante tudo. Empilhar os dois juntos não quebra nada, só é redundante.
+#
+# Atenção: empilhar @requer_admin com @requer_papel_clinico(...) exige
+# as DUAS condições (AND) -- 
+# use requer_admin_ou_papel_clinico(...) quando a intenção é liberar para qualquer um dos dois (OR).
 # ---------------------------------------------------------------------------
 
 
@@ -200,16 +341,28 @@ def ja_logado() -> bool:
 
 def requer_papel(*papeis_permitidos):
     """
-    Versão genérica/parametrizável, pra combinações novas que ainda não
-    têm um nome dedicado acima (ex: uma rota futura que precise liberar
-    para "admin" e "medico" ao mesmo tempo, sem criar mais um
-    requer_admin_ou_medico só pra esse caso).
+    REMOVIDO (assertivo, sem alias de compatibilidade).
 
-    Uso:
-        @requer_papel("admin", "medico")
-        def rota(): ...
+    Este decorator comparava contra um único session["tipo_usuario"],
+    que não existe mais -- "admin" e papel clínico agora são dimensões
+    independentes (is_admin + funcao_clinica) e podem coexistir no
+    mesmo usuário. Não há tradução automática correta de
+    @requer_papel(...) para o novo modelo: a chamada precisa ser
+    revista caso a caso e trocada por uma das opções abaixo:
+
+      @requer_admin                              -- era @requer_papel("admin")
+      @requer_papel_clinico("medico")             -- era @requer_papel("medico")
+      @requer_papel_clinico("medico", "enfermeiro")
+      @requer_admin_ou_papel_clinico("medico")     -- era @requer_papel("admin", "medico")
+
+    Levanta erro imediato para forçar a correção no ponto de uso, em
+    vez de autorizar (ou negar) incorretamente de forma silenciosa.
     """
-    return _requer_papeis(*papeis_permitidos)
+    raise NotImplementedError(
+        "requer_papel(...) foi removido. Troque por @requer_admin, "
+        "@requer_papel_clinico(...) ou @requer_admin_ou_papel_clinico(...) "
+        "conforme a intenção original da rota."
+    )
 
 
 def requer_super_admin(f):
@@ -218,15 +371,15 @@ def requer_super_admin(f):
     empresa (o admin fundador -- ver Usuario.is_super_admin).
 
     Já inclui a checagem completa de sessão (autenticado + onboarding +
-    mfa), igual requer_papel("admin") -- não precisa empilhar com
-    @requer_login nem com @requer_papel("admin").
+    mfa), igual requer_admin -- não precisa empilhar com @requer_login
+    nem com @requer_admin.
 
     Use isto quando a exigência é binária pra rota inteira (ex: criar
     um novo admin). Quando a checagem depende do ALVO da operação (ex:
     atualizar/desativar um usuário que pode ou não ser admin), use
-    @requer_papel("admin") na rota e faça a checagem fina dentro do
-    service com g.is_super_admin -- um decorator não tem acesso ao
-    alvo antes da rota rodar.
+    @requer_admin na rota e faça a checagem fina dentro do service com
+    g.is_super_admin -- um decorator não tem acesso ao alvo antes da
+    rota rodar.
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -239,13 +392,14 @@ def requer_super_admin(f):
         if session.get("mfa_pendente"):
             return jsonify({"erro": "mfa_pendente"}), 401
 
-        if session.get("tipo_usuario") != "admin" or not session.get("is_super_admin"):
+        # ALTERADO: era session.get("tipo_usuario") != "admin" -- lia o
+        # campo errado. Super admin é sempre is_admin=True também (ver
+        # Empresa.cadastrar_com_admin), mas a fonte de verdade correta
+        # para "é admin" é is_admin, não mais tipo_usuario.
+        if not session.get("is_admin") or not session.get("is_super_admin"):
             return _sem_permissao("administrador principal")
 
-        g.id_usuario = get_id_usuario_sessao()
-        g.uuid_usuario = session.get("uuid_usuario")
-        g.id_empresa = session.get("id_empresa")
-        g.tipo_usuario = session.get("tipo_usuario")
+        _popula_g()
         g.is_super_admin = True
 
         return f(*args, **kwargs)

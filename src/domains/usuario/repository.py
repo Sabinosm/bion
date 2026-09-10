@@ -1,13 +1,17 @@
 """
-ALTERADO: tipo_usuario deixou de ser coluna de Usuario (agora é
-@property calculada). Isso significa que Usuario.query.filter_by(
-tipo_usuario=...) NÃO FUNCIONA MAIS -- o SQLAlchemy não sabe traduzir
-uma property Python em SQL sozinho.
+ALTERADO: tipo_usuario deixou de existir por completo (nem coluna, nem
+property) -- Usuario.query.filter_by(tipo_usuario=...) NÃO FUNCIONA.
+Nenhum método aqui usava isso (find_all, find_by_login etc filtram por
+outras colunas reais: is_admin, is_super_admin, status), então nada
+quebrou de fato. find_by_tipo_papel() é o substituto para "listar por
+função clínica" (join com PapelProfissional); find_admins() para
+"listar administradores" (filtro por is_admin).
 
-Nenhum método existente aqui usava isso (find_all, find_by_login etc
-filtram por outras colunas reais), então nada quebrou de fato -- mas
-adicionei find_by_tipo_papel() como o substituto correto, para uso
-futuro caso precise (ex: "listar todos os médicos da empresa").
+ALTERADO (separação admin/papel clínico, decisão confirmada):
+- contar_ativos_por_papel(): um admin que também tem função clínica
+  ativa (ex: dono de clínica que atende) agora conta SÓ na categoria
+  da função clínica, nunca em "admin" -- evita contagem duplicada no
+  card de estatística. Ver docstring do método.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -135,11 +139,21 @@ class UsuarioRepository(IRepository[Usuario]):
         método já devolve a contagem agregada -- é o que a estatística
         precisa, sem carregar objetos Usuario inteiros na memória.
 
+        DECISÃO (separação admin/papel clínico, confirmada): um mesmo
+        usuário nunca é contado em duas categorias. Um admin que também
+        tem função clínica ativa (ex: dono de clínica que atende) conta
+        SÓ como "medico"/"enfermeiro" aqui, nunca como "admin" -- função
+        clínica tem prioridade na contagem deste card, mesmo que
+        is_admin=True. "admin" no resultado representa só quem é
+        exclusivamente admin (sem papel clínico).
+
         Retorna dict, ex: {"medico": 12, "enfermeiro": 8, "admin": 2}
         """
         from src.models.usuarios.papel_profissional import PapelProfissional
 
-        # Profissionais (médico/enfermeiro) via PapelProfissional ativo
+        # Profissionais (médico/enfermeiro) via PapelProfissional ativo.
+        # Inclui quem também é admin -- prioridade da função clínica na
+        # contagem, por decisão confirmada.
         linhas = (
             db.session.query(
                 PapelProfissional.tipo_papel.label("tipo_papel"),
@@ -156,10 +170,24 @@ class UsuarioRepository(IRepository[Usuario]):
         )
         resultado = {linha.tipo_papel: linha.total for linha in linhas}
 
-        # Admins não têm PapelProfissional, contam à parte
+        # ALTERADO: "admin" agora conta só quem é EXCLUSIVAMENTE admin
+        # (sem PapelProfissional ativo) -- antes de nascer a
+        # possibilidade de admin-médico, todo is_admin=True já era
+        # implicitamente exclusivo, então este filtro extra não mudava
+        # nada; agora evita contar a mesma pessoa em duas categorias.
         total_admins = (
             Usuario.query
-            .filter_by(id_empresa=id_empresa, status="ativo", is_super_admin=False, is_admin=True)
+            .outerjoin(
+                PapelProfissional,
+                (PapelProfissional.id_usuario == Usuario.id) & (PapelProfissional.ativo == True),
+            )
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Usuario.status == "ativo",
+                Usuario.is_super_admin == False,
+                Usuario.is_admin == True,
+                PapelProfissional.id.is_(None),  # sem papel clínico ativo
+            )
             .count()
         )
         if total_admins:
@@ -206,5 +234,4 @@ class UsuarioRepository(IRepository[Usuario]):
                 or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
             )
             .count()
-        )    
-      
+        )

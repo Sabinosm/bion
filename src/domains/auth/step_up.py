@@ -31,6 +31,15 @@ duração vinculado ao `id_usuario` e à ação, guardado na tabela
 `stepup_token`. A rota sensível exige esse token via decorator
 `requer_confirmacao_recente`, que não precisa saber qual dos dois
 métodos foi usado para obtê-lo.
+
+ALTERADO (separação admin/papel clínico): extraída a função
+`token_recente_valido(acao)`, com a MESMA lógica que já vivia dentro
+do wrapper de `requer_confirmacao_recente`. Motivo: `usuario/controller.py`
+precisa da mesma checagem de forma CONDICIONAL dentro de `atualizar()`
+-- só quando o payload mexe em campos sensíveis (eh_admin/tipo_papel),
+não a rota inteira. Um decorator estático não serve para esse caso; a
+função nomeada serve para os dois usos (decorator e checagem manual)
+sem duplicar a query/validação de token.
 """
 
 import base64
@@ -85,6 +94,45 @@ def _emitir_token(id_usuario, acao):
 
         return token
 
+
+def token_recente_valido(acao: str) -> bool:
+    """Verifica e CONSOME (apaga) um token de step-up recente para a
+    ação informada, lendo o header X-Stepup-Token da requisição atual.
+
+    ADICIONADO (separação admin/papel clínico): extraído do corpo do
+    wrapper de `requer_confirmacao_recente` para poder ser chamado
+    tanto pelo decorator (uso normal, rota inteira sensível) quanto
+    de forma condicional dentro de uma view que só é sensível às
+    vezes, dependendo do payload (ex: UsuarioController.atualizar,
+    que também edita campos triviais no mesmo endpoint).
+
+    Mesma semântica de sempre: token de uso único -- é apagado assim
+    que lido, independente do resultado, para não permitir reuso.
+
+    Retorno:
+        True se havia um token válido e não expirado (e ele já foi
+        consumido/apagado). False caso contrário (ausente, incorreto
+        ou expirado) -- quem chama decide o que fazer (normalmente,
+        responder 403 com "confirmacao_requerida").
+    """
+    id_usuario = get_id_usuario_sessao()
+    token_recebido = request.headers.get("X-Stepup-Token")
+
+    if not token_recebido:
+        return False
+
+    registro = StepUpToken.query.filter_by(
+        id_usuario=id_usuario, acao=acao, token=token_recebido
+    ).first()
+
+    if not registro or registro.expirado():
+        return False
+
+    db.session.delete(registro)
+    db.session.commit()
+    return True
+
+
 class StepUp():
     
     @staticmethod
@@ -120,10 +168,6 @@ class StepUp():
         credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
 
         if not credenciais:
-            # Sem WebAuthn cadastrado -- fluxo alternativo. Não gera nada
-            # ainda aqui; só informa ao frontend qual caminho seguir. O
-            # registro de reautenticação só é criado em
-            # /stepup/senha/confirmar, junto com a validação da senha.
             return jsonify({"metodo": "senha_google", "acao": acao}), 200
 
         permitir = [
@@ -152,27 +196,7 @@ class StepUp():
     @bp_step_up.route("/confirmar", methods=["POST"])
     @requer_login
     def stepup_confirmar():
-        """Valida a assinatura WebAuthn e emite um token de confirmação.
-
-        O token é de uso único, curto e vinculado à ação específica
-        definida em `/stepup/iniciar` -- não serve para confirmar nenhuma
-        outra ação. Qualquer token anterior da mesma combinação (usuário,
-        ação) é removido antes de emitir o novo.
-
-        A `acao` enviada aqui pelo frontend é só conferência: a fonte de
-        verdade é a `acao` vinculada ao challenge na sessão, gravada em
-        `/stepup/iniciar`. Se não baterem, a confirmação é rejeitada --
-        isso impede iniciar o desafio para uma ação e confirmar outra.
-
-        Corpo esperado (JSON): `acao` e `credencial` (resposta WebAuthn).
-
-        Retorno:
-            200 com o token de confirmação e seu tempo de expiração.
-            400 se a ação não for especificada ou não houver um desafio
-            pendente na sessão.
-            401 se a credencial não for encontrada, a assinatura for
-            inválida, ou a ação não bater com a do desafio iniciado.
-        """
+        """Valida a assinatura WebAuthn e emite um token de confirmação."""
         id_usuario = get_id_usuario_sessao()
         dados = request.get_json()
         acao = dados.get("acao")
@@ -185,9 +209,6 @@ class StepUp():
             return jsonify({"erro": "desafio_nao_iniciado"}), 400
 
         if acao != pendente.get("acao"):
-            # A ação confirmada não é a mesma para a qual o desafio foi
-            # gerado -- não deixa o token sair vinculado a algo diferente
-            # do que o usuário efetivamente assinou.
             return jsonify({"erro": "acao_nao_corresponde_ao_desafio"}), 401
 
         challenge_esperado = base64.b64decode(pendente["challenge"])
@@ -229,26 +250,7 @@ class StepUp():
     @bp_step_up.route("/senha/confirmar", methods=["POST"])
     @requer_login
     def stepup_senha_confirmar():
-        """Primeira etapa do fallback: confirma a senha atual do usuário.
-
-        Só deve ser chamada por usuários sem WebAuthn cadastrado -- ver
-        `/stepup/iniciar`. Usuários com credencial devem usar o fluxo
-        WebAuthn normal; esta rota não impede a chamada por eles, mas o
-        frontend não deveria oferecê-la nesse caso.
-
-        Ao validar a senha, cria um registro `StepUpReautenticacao` com
-        `senha_confirmada=True` e devolve a URL para redirecionar ao
-        Google (segunda etapa). O registro expira em
-        `DURACAO_REAUTENTICACAO_SEGUNDOS` -- se o usuário não completar o
-        login Google a tempo, precisa reiniciar do zero.
-
-        Corpo esperado (JSON): `acao`, `senha`.
-
-        Retorno:
-            200 com `redirect_url` para o Google.
-            400 se `acao` ou `senha` não forem informadas.
-            401 se a senha estiver incorreta.
-        """
+        """Primeira etapa do fallback: confirma a senha atual do usuário."""
         id_usuario = get_id_usuario_sessao()
         dados = request.get_json(silent=True) or {}
         acao = dados.get("acao")
@@ -260,10 +262,6 @@ class StepUp():
         usuario = get_usuario_sessao()
 
         if not usuario or not usuario.hash_senha:
-            # Usuário sem senha definida (só login via Google) não tem
-            # como confirmar por este método -- nada a fazer aqui além de
-            # recusar; o frontend deveria nem oferecer esta opção nesse
-            # caso.
             return jsonify({"erro": "senha_nao_definida"}), 400
 
         try:
@@ -271,9 +269,6 @@ class StepUp():
         except VerifyMismatchError:
             return jsonify({"erro": "senha_invalida"}), 401
 
-        # Qualquer reautenticação pendente anterior da mesma combinação
-        # (usuário, ação) é substituída -- evita acumular registros de
-        # tentativas abandonadas.
         StepUpReautenticacao.query.filter_by(id_usuario=id_usuario, acao=acao).delete()
 
         state = secrets.token_urlsafe(32)
@@ -290,20 +285,6 @@ class StepUp():
 
         redirect_uri = url_for("step_up.stepup_google_callback", _external=True)
 
-        # create_authorization_url() (API de baixo nível) NÃO grava state
-        # nem nonce na sessão Flask -- diferente de authorize_redirect(),
-        # que grava e é o que authorize_access_token() espera encontrar
-        # depois. Isso é proposital aqui: o usuário pode voltar do Google
-        # numa aba/sessão diferente da que iniciou (ver docstring do
-        # módulo), então a sessão Flask não é uma correlação confiável
-        # entre as duas pontas -- state e nonce vivem em
-        # StepUpReautenticacao (banco), não na sessão.
-        #
-        # Consequência direta: o callback (stepup_google_callback) NÃO
-        # pode usar oauth.google.authorize_access_token() -- esse método
-        # tenta ler o state de volta da sessão e sempre falharia aqui.
-        # Ele precisa usar oauth.google.fetch_access_token(), passando
-        # code/state explicitamente da query string (ver callback abaixo).
         autorizacao = oauth.google.create_authorization_url(
             redirect_uri, state=state, nonce=nonce, prompt="login"
         )
@@ -314,26 +295,7 @@ class StepUp():
     @staticmethod
     @bp_step_up.route("/google/callback", methods=["GET"])
     def stepup_google_callback():
-        """Segunda etapa do fallback: recebe a volta do Google e emite o token.
-
-        Rota própria, separada do callback de login (`oauth.google_callback`)
-        -- não deve reautenticar a sessão nem tratar onboarding/MFA, só
-        concluir a reconfirmação de uma ação específica já em andamento.
-
-        `state` é a mesma correlação usada para localizar o registro
-        `StepUpReautenticacao` -- confirma que este callback corresponde
-        ao redirect que a etapa anterior gerou, e não a qualquer outro.
-
-        `prompt=login` foi exigido no redirect (ver stepup_senha_confirmar)
-        para que este login ao Google seja uma reautenticação real, não um
-        SSO silencioso reaproveitando uma sessão Google já aberta no
-        navegador -- sem isso, a segunda "prova" não provaria nada de novo.
-
-        Retorno:
-            Redirect para `stepup_callback.html` no frontend, com
-            `token_confirmacao` e `acao` na query string em caso de
-            sucesso, ou `erro` em caso de falha.
-        """
+        """Segunda etapa do fallback: recebe a volta do Google e emite o token."""
         state = request.args.get("state")
         code = request.args.get("code")
         erro_google = request.args.get("error")
@@ -347,14 +309,6 @@ class StepUp():
 
         redirect_uri = url_for("step_up.stepup_google_callback", _external=True)
 
-        # fetch_access_token() (não authorize_access_token()) porque o
-        # state/nonce foram gerados sem passar pela sessão Flask deste
-        # navegador (ver stepup_senha_confirmar) -- passamos code/state
-        # explicitamente da query string, sem depender de nada gravado
-        # em sessão. authorize_access_token() sempre falharia aqui: ele
-        # tenta localizar o state de volta na sessão via
-        # self.framework.get_state_data(session, state), que nunca foi
-        # populada por create_authorization_url().
         try:
             token_google = oauth.google.fetch_access_token(
                 redirect_uri=redirect_uri,
@@ -365,9 +319,6 @@ class StepUp():
             db.session.commit()
             return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_REAUTENTICACAO}?erro=falha_google")
 
-        # parse_id_token exige o nonce que geramos e persistimos na etapa
-        # anterior -- protege contra reuso do id_token (replay), separado
-        # da proteção de CSRF que o state já cobre.
         try:
             userinfo = oauth.google.parse_id_token(token_google, nonce=pendente.nonce)
         except Exception:
@@ -377,10 +328,6 @@ class StepUp():
 
         usuario = ur.find_by_id(pendente.id_usuario)
 
-        # O e-mail que voltou do Google precisa ser o mesmo do usuário que
-        # iniciou o fluxo (confirmou a senha na etapa anterior) -- sem
-        # isso, alguém poderia confirmar a senha de uma conta e completar
-        # a segunda etapa logado com uma conta Google diferente.
         if not usuario or userinfo.get("email") != usuario.email:
             db.session.delete(pendente)
             db.session.commit()
@@ -403,11 +350,10 @@ class StepUp():
     def requer_confirmacao_recente(acao):
         """Decorator que exige um token de step-up recente para a rota.
 
-        O frontend deve enviar o token no header `X-Stepup-Token`. O token
-        é consumido (apagado) assim que validado, mesmo que a ação decorada
-        falhe depois por outro motivo -- evitando reuso. Funciona
-        identicamente para tokens emitidos via WebAuthn ou via senha+Google
-        -- o decorator não distingue a origem.
+        ALTERADO: o corpo do wrapper agora delega para
+        `token_recente_valido(acao)` -- mesma função usada para a
+        checagem condicional em UsuarioController.atualizar(). Zero
+        mudança de comportamento aqui, só eliminação de duplicação.
 
         Uso:
             @app.route("/prontuarios/<id>", methods=["DELETE"])
@@ -427,22 +373,8 @@ class StepUp():
         def decorator(f):
             @wraps(f)
             def wrapper(*args, **kwargs):
-                id_usuario = get_id_usuario_sessao()
-                token_recebido = request.headers.get("X-Stepup-Token")
-
-                if not token_recebido:
+                if not token_recente_valido(acao):
                     return jsonify({"erro": "confirmacao_requerida", "acao": acao}), 403
-
-                registro = StepUpToken.query.filter_by(
-                    id_usuario=id_usuario, acao=acao, token=token_recebido
-                ).first()
-
-                if not registro or registro.expirado():
-                    return jsonify({"erro": "confirmacao_requerida", "acao": acao}), 403
-
-                db.session.delete(registro)
-                db.session.commit()
-
                 return f(*args, **kwargs)
             return wrapper
         return decorator

@@ -83,22 +83,27 @@ class Usuario(db.Model):
         return next((p for p in self.papeis if p.ativo), None)
 
     @property
-    def tipo_usuario(self):
+    def funcao_clinica(self):
         """
-        Recria o valor que antes vinha da coluna tipo_usuario, agora como
-        @property — qualquer código existente que faça
-        `usuario.tipo_usuario == "medico"` (sem parênteses) continua
-        funcionando exatamente como antes, sem precisar de nenhuma
-        alteração nos arquivos que já leem esse atributo.
+        Substitui a antiga property/coluna tipo_usuario.
 
-        Atenção (só isso muda de verdade): não é mais uma coluna do
-        banco, então NÃO pode aparecer em filtros de query, tipo
-        `Usuario.query.filter_by(tipo_usuario="medico")` — isso quebra,
-        porque o SQLAlchemy não sabe fazer isso virar SQL sozinho.
-        Ver repository.py para o substituto (find_by_tipo_papel).
+        DECISÃO (assertiva, sem alias de compatibilidade): esta property
+        reflete SÓ o papel clínico (medico/enfermeiro/None). Nunca
+        retorna "admin" — nem para admin puro, sem PapelProfissional.
+        is_admin é a ÚNICA fonte de verdade para saber se alguém é
+        administrador; funcao_clinica responde a uma pergunta diferente
+        (qual profissão, se houver) e as duas são consultadas
+        separadamente, nunca uma no lugar da outra.
+
+        Um usuário pode ter is_admin=True e funcao_clinica="medico" ao
+        mesmo tempo (admin que também atende) — as duas dimensões são
+        ortogonais por design.
+
+        Não é coluna do banco — NÃO pode aparecer em filtros de query,
+        tipo `Usuario.query.filter_by(funcao_clinica="medico")`. Ver
+        repository.py: find_by_tipo_papel (join com PapelProfissional)
+        e find_admins (filtro por is_admin).
         """
-        if self.is_admin:
-            return "admin"
         papel = self.papel_ativo()
         return papel.tipo_papel if papel else None
 
@@ -111,6 +116,17 @@ class Usuario(db.Model):
         return bool(papel and papel.tipo_papel == "enfermeiro")
 
     def to_dict(self, incluir_sensiveis=False):
+        """
+        ALTERADO (mudança de contrato de API, assertiva/sem transição):
+        a chave "tipo_usuario" SAIU da resposta. No lugar entram duas
+        chaves independentes:
+          - "funcao_clinica": "medico" | "enfermeiro" | None
+          - "is_admin": bool
+        Um usuário pode ter is_admin=True e funcao_clinica="medico" ao
+        mesmo tempo. Front precisa ser atualizado para ler os dois
+        campos separadamente — não existe mais um único campo que
+        resuma "o que este usuário é".
+        """
         papel = self.papel_ativo()
         d = {
             "uuid": self.uuid,
@@ -118,7 +134,8 @@ class Usuario(db.Model):
             "email": self.email,
             "telefone": self.telefone,
             "user_login": self.user_login,
-            "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
+            "funcao_clinica": self.funcao_clinica,
+            "is_admin": self.is_admin,
             "is_super_admin": self.is_super_admin,
             "status": self.status,
             "ultimo_acesso": self.ultimo_acesso.isoformat() if self.ultimo_acesso else None,
@@ -131,11 +148,17 @@ class Usuario(db.Model):
         return d
     
     def to_dict_few(self):
+        """
+        ALTERADO: "tipo_usuario" saiu, "funcao_clinica" entra no lugar.
+        "is_admin" já existia aqui (não precisou de mudança) — agora as
+        duas chaves juntas descrevem o usuário sem ambiguidade: front
+        pode ter is_admin=True e funcao_clinica="medico" no mesmo item.
+        """
         d = {
                     "uuid": self.uuid,
                     "nome_completo": self.nome_completo,
                     "email": self.email,
-                    "tipo_usuario": self.tipo_usuario,  # mantém a MESMA chave/formato do JSON de resposta
+                    "funcao_clinica": self.funcao_clinica,
                     "status": self.status,
                     # ADICIONADO (múltiplos admins por empresa): a listagem
                     # agora pode incluir admins comuns (ver

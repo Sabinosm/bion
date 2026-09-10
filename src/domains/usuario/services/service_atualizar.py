@@ -24,22 +24,32 @@ def att(
         """Atualiza parcialmente os dados de um usuário existente.
 
         Orquestra a atualização em etapas: valida permissão de edição,
-        valida troca de tipo profissional (se houver), mescla os dados
-        enviados com os atuais, revalida como cadastro completo e persiste.
+        valida os dois eixos independentes (eh_admin e tipo_papel, se
+        houver mudança em algum deles), mescla os dados enviados com os
+        atuais, revalida como cadastro completo e persiste.
 
-        ALTERADO (múltiplos admins por empresa):
+        ALTERADO (separação admin/papel clínico, assertivo, sem alias):
+        - tipo_usuario (3 valores mutuamente exclusivos) SAIU. Em seu
+          lugar, dois eixos independentes: eh_admin (bool) e tipo_papel
+          ("medico"/"enfermeiro"/None). Um usuário pode ter eh_admin=True
+          e tipo_papel="medico" ao mesmo tempo.
+        - Eixo eh_admin: nunca é alterado por edição de cadastro (nem
+          promover, nem rebaixar), para qualquer solicitante, inclusive
+          o super admin -- ver _valida_alteracao_admin. Virar admin só
+          acontece via criar().
+        - Eixo tipo_papel: troca de função clínica continua permitida
+          via atualizar() -- ver _valida_troca_tipo.
+        - Invariante nova: o usuário resultante nunca pode ficar com
+          eh_admin=False e tipo_papel=None simultaneamente (ficaria sem
+          qualquer acesso no sistema). Isso é impossível de expressar
+          no schema de update parcial isolado (depende do estado atual
+          mesclado com o payload), por isso é checado aqui.
+
+        ALTERADO (múltiplos admins por empresa, preexistente):
         - Novo parâmetro `solicitante_eh_super_admin`, repassado para
           `_valida_permissao_edicao` -- só o super admin pode alterar um
           usuário que já é admin (comum ou super). Ver docstring de
           `_valida_permissao_edicao` em service_validacoes.py.
-        - Troca de/para tipo_usuario == "admin" agora é bloqueada de
-          forma incondicional, para qualquer solicitante (inclusive o
-          super admin) -- promover a admin só acontece via criar(), e
-          rebaixar um admin nunca é permitido. Isso substitui a antiga
-          checagem de auto-edição (que só cobria o solicitante editando
-          a si mesmo); agora cobre também um admin tentando editar o
-          tipo de outro usuário para admin, ou tentando rebaixar
-          qualquer admin.
 
         Parâmetros:
             user: instância de UsuarioService que chamou esta função
@@ -62,8 +72,9 @@ def att(
 
         Levanta:
             DadosInvalidosError: em qualquer violação das regras de
-                validação, campos ausentes, tentativa de mexer em tipo
-                admin, ou schema inválido.
+                validação, campos ausentes, tentativa de mexer em
+                eh_admin, usuário resultante sem admin e sem papel, ou
+                schema inválido.
             ConflictoError: se o novo CPF, e-mail ou login já existirem.
         """
 
@@ -75,22 +86,47 @@ def att(
         )
     
         atributos_atuais_u = atributos_atuais(u)  # já devolve no formato antigo (numero-crm etc)
-        tipo_atual = u.tipo_usuario  # agora é @property, acesso idêntico a antes
-        novo_tipo = dados.get("tipo_usuario", tipo_atual)
-        tipo_mudou = novo_tipo != tipo_atual
 
-        # ADICIONADO: cargo de admin nunca é alterado por edição de
-        # cadastro -- nem promover (médico/enfermeiro -> admin), nem
-        # rebaixar (admin -> médico/enfermeiro/qualquer coisa). Virar
-        # admin só acontece em criar() (novo cadastro), restrito ao
-        # super admin. Verificação incondicional: vale para qualquer
-        # solicitante, inclusive o próprio super admin.
-        if tipo_mudou and (tipo_atual == "admin" or novo_tipo == "admin"):
+        # ALTERADO (separação admin/papel clínico, assertivo): antes
+        # havia um único eixo (tipo_usuario, 3 valores mutuamente
+        # exclusivos). Agora são DOIS eixos independentes, cada um
+        # podendo mudar ou não, em qualquer combinação:
+        eh_admin_atual = u.is_admin
+        novo_eh_admin = dados.get("eh_admin", eh_admin_atual)
+        admin_mudou = novo_eh_admin != eh_admin_atual
+
+        papel_atual_tipo = u.funcao_clinica  # antes: tipo_atual = u.tipo_usuario
+        novo_papel_tipo = dados.get("tipo_papel", papel_atual_tipo)
+        papel_mudou = novo_papel_tipo != papel_atual_tipo
+
+        # Eixo eh_admin: cargo de admin nunca muda por edição de
+        # cadastro (nem promover, nem rebaixar) -- incondicional, para
+        # qualquer solicitante, inclusive o super admin.
+        user._valida_alteracao_admin(eh_admin_atual, novo_eh_admin, admin_mudou)
+
+        # Eixo tipo_papel: troca de função clínica continua permitida
+        # (médico <-> enfermeiro <-> nenhuma), com as exigências de
+        # registro profissional de sempre.
+        user._valida_troca_tipo(papel_atual_tipo, novo_papel_tipo, papel_mudou, dados)
+
+        # ADICIONADO: invariante que não existia como risco antes
+        # (tipo_usuario de 3 valores garantia isso por construção).
+        # O usuário RESULTANTE desta atualização nunca pode ficar sem
+        # ser admin e sem função clínica ao mesmo tempo -- senão vira
+        # um usuário sem qualquer acesso no sistema (nem requer_admin
+        # nem requer_papel_clinico o autorizam para nada).
+        #
+        # DECISÃO CONFIRMADA: isso dispara mesmo para edições que não
+        # tocam eh_admin/tipo_papel (ex: só telefone), SE o usuário já
+        # estiver inconsistente por dado legado. É proposital -- bloqueia
+        # qualquer edição até alguém corrigir eh_admin/tipo_papel
+        # primeiro, em vez de permitir que o estado inconsistente
+        # continue sendo persistido silenciosamente.
+        if not novo_eh_admin and novo_papel_tipo is None:
             raise DadosInvalidosError(
-                "O cargo de administrador não pode ser alterado por edição de cadastro."
+                "O usuário resultante ficaria sem ser administrador e sem "
+                "função clínica. Defina 'eh_admin' ou 'tipo_papel'."
             )
-
-        user._valida_troca_tipo(tipo_atual, novo_tipo, tipo_mudou, dados)
     
         try:
             schema_parcial = AtualizacaoUsuarioSchema(**dados)
@@ -122,7 +158,8 @@ def att(
             "cpf": cpf_para_validar,
             "email": u.email,
             "user_login": u.user_login,
-            "tipo_usuario": tipo_atual,
+            "eh_admin": eh_admin_atual,
+            "tipo_papel": papel_atual_tipo,
             "telefone": u.telefone,
             "numero-crm": atributos_atuais_u.get("numero-crm"),
             "uf-crm": atributos_atuais_u.get("uf-crm"),
@@ -154,10 +191,10 @@ def att(
         # Antes: sobrescrevia atributos_profissionais_json inteiro.
         # Agora: opera sobre a linha de PapelProfissional.
         #
-        # Nota (múltiplos admins): como tipo_mudou envolvendo "admin" já
-        # levantou DadosInvalidosError acima, tudo que chega até aqui com
-        # tipo_mudou=True é troca médico <-> enfermeiro -- u.is_admin
-        # nunca é tocado neste bloco.
+        # Nota (separação admin/papel clínico): u.is_admin nunca é
+        # tocado neste bloco -- isso já foi validado incondicionalmente
+        # por _valida_alteracao_admin acima (admin_mudou levanta erro
+        # antes de chegar aqui). Este bloco cuida só do eixo tipo_papel.
         # -----------------------------------------------------------------
         
         campos_papel_mudaram = any(
@@ -165,19 +202,20 @@ def att(
             for c in ("numero_crm", "uf_crm", "rqe", "numero_coren", "uf_coren", "especialidade")
         )
     
-        if tipo_mudou or campos_papel_mudaram:
+        if papel_mudou or campos_papel_mudaram:
             papel_atual = u.papel_ativo()
     
-            if tipo_mudou and papel_atual:
-                # Tipo profissional mudou (ex: enfermeiro virou médico):
-                # desativa o papel antigo em vez de apagar — preserva
-                # histórico (quem já teve qual papel, quando).
+            if papel_mudou and papel_atual:
+                # Função clínica mudou (ex: enfermeiro virou médico, ou
+                # perdeu a função clínica): desativa o papel antigo em
+                # vez de apagar — preserva histórico (quem já teve qual
+                # papel, quando).
                 papel_atual.ativo = False
     
             dados_papel_novos = monta_dados_papel(schema_completo)
     
             if dados_papel_novos:
-                if tipo_mudou or not papel_atual:
+                if papel_mudou or not papel_atual:
                     # Papel novo (troca de tipo médico <-> enfermeiro, ou
                     # usuário que ainda não tinha papel algum)
                     novo_papel = PapelProfissional(**dados_papel_novos)
@@ -188,4 +226,4 @@ def att(
                     for campo, valor in dados_papel_novos.items():
                         setattr(papel_atual, campo, valor)
     
-        return user.repo.save(u)
+        return user.repo.save(u)    

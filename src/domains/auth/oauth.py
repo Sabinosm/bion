@@ -133,7 +133,10 @@ class Oauth():
         session.clear()
         # CORRIGIDO: era usuario.id_usuario (atributo inexistente) -> usuario.id
         session["id_usuario"] = usuario.id
-        session["tipo_usuario"] = usuario.tipo_usuario
+        # ALTERADO (assertivo, sem alias): mesmo padrão de login.py —
+        # session["tipo_usuario"] saiu, is_admin + funcao_clinica entram.
+        session["is_admin"] = usuario.is_admin
+        session["funcao_clinica"] = usuario.funcao_clinica
         session["uuid_usuario"] = usuario.uuid
         # ADICIONADO: mesmo motivo de login.py -- necessário pra
         # g.is_super_admin e requer_super_admin funcionarem depois.

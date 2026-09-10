@@ -5,8 +5,17 @@ reset de credenciais vivem em `service_reset.py` (mixin) e as funções
 puras de apoio em `service_helpers.py`, para manter este arquivo restrito
 à orquestração das regras de criação/atualização de usuário.
 
-ALTERADO (múltiplos admins por empresa):
-- `criar()`: criar um usuário com tipo_usuario="admin" agora exige que o
+ALTERADO (separação admin/papel clínico, assertivo, sem alias):
+- tipo_usuario (3 valores mutuamente exclusivos) SAIU por completo,
+  inclusive em criar(). Todas as checagens que comparavam
+  schema.tipo_usuario == "admin" agora leem schema.eh_admin
+  diretamente -- ortogonal a schema.tipo_papel. Um usuário pode nascer
+  com eh_admin=True e tipo_papel="medico" ao mesmo tempo (admin que
+  também atende), e passa pelas MESMAS regras de super admin/senha que
+  um admin puro.
+
+ALTERADO (múltiplos admins por empresa, preexistente):
+- `criar()`: criar um usuário com eh_admin=True agora exige que o
   solicitante seja o super admin (ou que a criação já venha marcada como
   `is_super_admin=True`, único caso sendo o primeiro admin de uma
   empresa nova -- ver Empresa.cadastrar_com_admin). Sem isso, um admin
@@ -16,8 +25,8 @@ ALTERADO (múltiplos admins por empresa):
   desativado/ativado pelo super admin; o próprio super admin nunca pode
   ser desativado, por ninguém.
 
-ALTERADO (senha do super admin fundador):
-- `criar()`: a obrigatoriedade/proibição de senha para tipo_usuario="admin"
+ALTERADO (senha do super admin fundador, preexistente):
+- `criar()`: a obrigatoriedade/proibição de senha para eh_admin=True
   saiu do CadastroUsuarioSchema (que não tem como saber se este admin é o
   super admin fundador ou um admin comum criado depois) e passou pra cá,
   com base no parâmetro is_super_admin. Só existe um super admin por
@@ -36,7 +45,12 @@ from .service_reset import ResetCredenciaisMixin
 from src.schemas.schema_usuario import CadastroUsuarioSchema
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
-from .service_validacoes import _checar_duplicidade, _valida_permissao_edicao, _valida_troca_tipo
+from .service_validacoes import (
+    _checar_duplicidade,
+    _valida_permissao_edicao,
+    _valida_troca_tipo,
+    _valida_alteracao_admin,
+)
 
 class UsuarioService(ResetCredenciaisMixin):
     """Serviço de domínio para o CRUD de usuários e regras associadas."""
@@ -44,6 +58,12 @@ class UsuarioService(ResetCredenciaisMixin):
     _checar_duplicidade = _checar_duplicidade
     _valida_permissao_edicao = _valida_permissao_edicao
     _valida_troca_tipo = _valida_troca_tipo
+    # ADICIONADO (separação admin/papel clínico): faltava agregar esta
+    # função como atributo de classe -- ela foi criada em
+    # service_validacoes.py mas não estava sendo agregada aqui, o que
+    # quebrava TODO update (att() chama user._valida_alteracao_admin,
+    # e "user" é uma instância desta classe). Pego por teste.
+    _valida_alteracao_admin = _valida_alteracao_admin
  
     def __init__(self):
         self.repo = UsuarioRepository()
@@ -94,8 +114,8 @@ class UsuarioService(ResetCredenciaisMixin):
             commitar: se True, persiste e comita a transação imediatamente.
             solicitante_eh_super_admin: se True, quem está pedindo a
                 criação é o super admin da empresa -- necessário para
-                criar um usuário com tipo_usuario="admin". Ignorado para
-                médico/enfermeiro.
+                criar um usuário com eh_admin=True. Ignorado quando
+                eh_admin=False (médico/enfermeiro comuns).
             is_super_admin: marca o usuário recém-criado como super
                 admin. Só deve ser True vindo de
                 Empresa.cadastrar_com_admin (criação do primeiro admin
@@ -123,7 +143,13 @@ class UsuarioService(ResetCredenciaisMixin):
         # ADICIONADO: só o super admin cria outros admins. is_super_admin=True
         # (fluxo de Empresa.cadastrar_com_admin, sem solicitante autenticado)
         # também libera -- é a criação do próprio super admin fundador.
-        if schema.tipo_usuario == "admin" and not solicitante_eh_super_admin and not is_super_admin:
+        #
+        # ALTERADO: era schema.tipo_usuario == "admin". Agora eh_admin é
+        # ortogonal a tipo_papel -- um médico com eh_admin=True (admin
+        # que também atende) precisa da MESMA autorização de super
+        # admin que um admin puro, então a checagem é só sobre eh_admin,
+        # independente de o schema também trazer tipo_papel preenchido.
+        if schema.eh_admin and not solicitante_eh_super_admin and not is_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode criar novos administradores."
             )
@@ -135,7 +161,12 @@ class UsuarioService(ResetCredenciaisMixin):
         # Empresa.cadastrar_com_admin (nunca de um payload de cliente).
         # Só existe um super admin por empresa: este é o único ponto do
         # sistema onde is_super_admin=True é aceito na criação.
-        if schema.tipo_usuario == "admin":
+        #
+        # ALTERADO: era schema.tipo_usuario == "admin". A regra de senha
+        # é sobre eh_admin isoladamente -- vale tanto para admin puro
+        # quanto para admin que também tem tipo_papel preenchido (a
+        # senha do fundador não depende de ele também atender ou não).
+        if schema.eh_admin:
             if is_super_admin and not schema.senha:
                 raise DadosInvalidosError(
                     "O administrador principal precisa definir uma senha no cadastro."
@@ -165,7 +196,7 @@ class UsuarioService(ResetCredenciaisMixin):
             email=schema.email,
             telefone=schema.telefone,
             user_login=schema.user_login,
-            is_admin=(schema.tipo_usuario == "admin"),
+            is_admin=schema.eh_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
             is_super_admin=is_super_admin,
             # ALTERADO: schema.hash_senha não existe -- o schema expõe
             # 'senha' em texto puro (validada, não hasheada); o hash é
