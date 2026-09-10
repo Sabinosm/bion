@@ -150,7 +150,7 @@ class UsuarioController():
     @staticmethod
     @bp.post("/<uuid>/ativar")
     @requer_admin
-    @StepUp.requer_confirmacao_recente("desativar_profissional")
+    @StepUp.requer_confirmacao_recente("ativar_profissional")
     def ativar(uuid):
         try:
             u = _svc.ativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
