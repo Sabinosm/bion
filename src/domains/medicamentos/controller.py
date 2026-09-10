@@ -32,7 +32,7 @@ class MedicamentosController():
 
     @staticmethod
     @bp_medicamentos.get("/<uuid>/interacoes")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def interacoes_medicamento(uuid):
         try:
             interacoes = _svc.verificar_interacoes(uuid)

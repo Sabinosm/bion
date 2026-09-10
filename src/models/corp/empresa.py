@@ -6,10 +6,7 @@ EmpresaIdentificador (tipo_identificador='cnpj'), abrindo espaço para
 CNES no futuro sem nova migração.
 
 Mantida uma @property `cnpj` para que código existente que lê
-`empresa.cnpj` continue funcionando sem alteração (mesmo padrão usado
-em Usuario.tipo_usuario). ATENÇÃO: diferente de lá, aqui NÃO dá para
-usar um setter de property com a mesma simplicidade porque criar/trocar
-identificador envolve checar duplicidade -- por isso a ESCRITA de CNPJ
+`empresa.cnpj` continue funcionando sem alteração. a ESCRITA de CNPJ
 tem um método explícito (`definir_cnpj`), não um `empresa.cnpj = valor`.
 """
 

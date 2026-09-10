@@ -2,7 +2,6 @@
 ALTERADO: tipo_regiao (enum) substituído por id_tipo_jurisdicao (FK para
 TipoJurisdicao). Mantida @property `tipo_regiao` para que código
 existente que lê `regiao.tipo_regiao` continue funcionando sem alteração
-(mesmo padrão já usado em Usuario.tipo_usuario e Empresa.cnpj).
 """
 
 from datetime import datetime, timezone

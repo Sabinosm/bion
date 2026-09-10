@@ -18,6 +18,15 @@ Paginacao:
 - /profissionais/<uuid>/detalhe: cursor por data (`cursor_data` +
   `cursor_uuid`), ja que aqui a navegacao e cronologica e sofreria com
   offset em um log que recebe eventos em tempo real (ver service.py).
+
+ALTERADO (separação admin/papel clínico, assertivo, sem alias):
+- @requer_papel("admin") SAIU de todas as rotas (4 ocorrências) --
+  substituído por @requer_admin. Ver session.py no domínio Usuario:
+  requer_papel comparava contra session["tipo_usuario"], que não
+  existe mais.
+- filtro `tipo_usuario` (query param de listar_resumo_profissionais)
+  virou dois params independentes: `funcao_clinica` e `eh_admin`. Ver
+  nota em repository.py.
 """
 
 from datetime import datetime
@@ -26,7 +35,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_papel, get_id_empresa_sessao
+from src.core.session import requer_admin, get_id_empresa_sessao
 from .service import AuditoriaService
 
 bp = Blueprint("auditoria", __name__)
@@ -60,24 +69,39 @@ class AuditoriaController():
 
     @staticmethod
     @bp.get("/profissionais/resumo")
-    @requer_papel("admin")
+    @requer_admin
     def listar_resumo_profissionais():
         """Tela principal: profissionais em ordem alfabetica, paginados,
         cada um com seu ultimo acesso e ultima alteracao.
 
-        Query params: nome, tipo_usuario, acao, page (default 1), limit
+        Query params: nome, funcao_clinica ("medico"/"enfermeiro"),
+        eh_admin ("true"/"false"), acao, page (default 1), limit
         (default 10, maximo 50).
+
+        ALTERADO: `tipo_usuario` (único, mutuamente exclusivo) virou
+        dois params independentes e combináveis -- `funcao_clinica` e
+        `eh_admin`. Podem vir juntos (ex: ?eh_admin=true&funcao_clinica=medico
+        → só admins que também são médicos) ou separados.
         """
         id_empresa = get_id_empresa_sessao()
         nome = request.args.get("nome")
-        tipo_usuario = request.args.get("tipo_usuario")
+        funcao_clinica = request.args.get("funcao_clinica")
+
+        eh_admin_raw = request.args.get("eh_admin")
+        eh_admin = None
+        if eh_admin_raw is not None:
+            if eh_admin_raw.lower() not in ("true", "false"):
+                return json_error("eh_admin deve ser 'true' ou 'false'.", status=400)
+            eh_admin = eh_admin_raw.lower() == "true"
+
         acao = request.args.get("acao")
         page = request.args.get("page", default=1, type=int)
         limit = request.args.get("limit", default=10, type=int)
 
         try:
             itens, total = _svc.listar_resumo_por_profissional(
-                id_empresa, nome_usuario=nome, tipo_usuario=tipo_usuario, acao=acao,
+                id_empresa, nome_usuario=nome, funcao_clinica=funcao_clinica,
+                eh_admin=eh_admin, acao=acao,
                 page=page, limit=limit,
             )
         except BionException as e:
@@ -87,7 +111,7 @@ class AuditoriaController():
 
     @staticmethod
     @bp.get("/profissionais/<string:uuid_usuario>/detalhe")
-    @requer_papel("admin")
+    @requer_admin
     def detalhe_profissional(uuid_usuario: str):
         """Historico completo (acesso + alteracao) de UM profissional,
         identificado por uuid. Paginado por cursor de data em cada
@@ -155,7 +179,7 @@ class AuditoriaController():
 
     @staticmethod
     @bp.get("/acessos")
-    @requer_papel("admin")
+    @requer_admin
     def listar_acessos():
         """Filtros: uuid_usuario, nome, operacao, data_inicio, data_fim,
         page, limit (default 10, maximo 50)."""
@@ -184,7 +208,7 @@ class AuditoriaController():
 
     @staticmethod
     @bp.get("/alteracoes")
-    @requer_papel("admin")
+    @requer_admin
     def listar_alteracoes():
         """Filtros: tabela+uuid_registro (drill-down, sem paginacao),
         uuid_usuario, nome, acao (texto livre, ex: "editar_paciente"),

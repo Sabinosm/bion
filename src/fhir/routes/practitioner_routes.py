@@ -62,7 +62,7 @@ def search():
 
 
 @bp.post("/Practitioner")
-@requer_papel("admin")
+@requer_admin
 def create():
     """POST /fhir/Practitioner -- cria um Practitioner a partir do envelope FHIR.
 

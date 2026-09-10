@@ -14,7 +14,7 @@ class ResultadoPrescricaoController():
     
     @staticmethod
     @bp_resultado_prescricao.post("/atendimento/<uuid_atendimento>")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def registrar_resultado(uuid_atendimento):
         """Registra o diagnóstico (CID-10) e desfecho de um Atendimento."""
         dados = request.get_json(silent=True) or {}

@@ -50,7 +50,7 @@ def search():
 
 
 @bp.post("/MedicationStatement")
-@requer_papel("medico", "enfermeiro")
+@requer_papel_clinico("medico", "enfermeiro")
 def create():
     """POST /fhir/MedicationStatement -- NOVO (inbound).
 

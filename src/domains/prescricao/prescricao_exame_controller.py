@@ -14,7 +14,7 @@ class PrescricaoExameController():
     
     @staticmethod
     @bp_prescricao_exame.post("/<uuid_resultado>/exames")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def adicionar_exame(uuid_resultado):
         """Adiciona um exame prescrito a um ResultadoPrescricao."""
         dados = request.get_json(silent=True) or {}

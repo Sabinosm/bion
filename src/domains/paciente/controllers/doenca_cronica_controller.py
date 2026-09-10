@@ -29,7 +29,7 @@ class DoencaCronicaController():
 
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def adicionar_doenca(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -42,7 +42,7 @@ class DoencaCronicaController():
     # NOVO: corrige/atualiza uma doença crônica já registrada.
     @staticmethod
     @bp.put("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def atualizar_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
@@ -57,7 +57,7 @@ class DoencaCronicaController():
     # mantém consistência com os outros schemas Pydantic do domínio).
     @staticmethod
     @bp.delete("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def remover_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
@@ -72,7 +72,7 @@ class DoencaCronicaController():
     # motivo_delete/observacoes_delete.
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>/restaurar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def restaurar_doenca(uuid_paciente, uuid_doenca):
         try:
             d = _svc.restaurar_doenca(uuid_paciente, uuid_doenca, get_id_empresa_sessao())

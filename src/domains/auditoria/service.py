@@ -155,16 +155,23 @@ class AuditoriaService:
     # ------------------------------------------------------------------
 
     def listar_resumo_por_profissional(self, id_empresa: int, *, nome_usuario: str = None,
-                                        tipo_usuario: str = None, acao: str = None,
+                                        funcao_clinica: str = None, eh_admin: bool = None,
+                                        acao: str = None,
                                         page: int = 1, limit: int = PER_PAGE_PADRAO):
         """Uma pagina de profissionais (ordem alfabetica, com pelo menos
         um log de acesso ou alteracao), cada um com seu ultimo acesso e
         ultima alteracao. O "ultimo evento" e buscado so para quem esta
         NESTA pagina (10-50 usuarios), nao para a empresa toda -- ponto
         importante de performance agora que o resumo pagina de verdade.
+
+        ALTERADO: antigo parâmetro único `tipo_usuario` virou dois
+        filtros independentes e combináveis -- funcao_clinica
+        ("medico"/"enfermeiro") e eh_admin (bool). Ver repository.py
+        para a lógica de combinação.
         """
         profissionais, total = self.resumo_repo.find_profissionais(
-            id_empresa, nome_usuario=nome_usuario, tipo_usuario=tipo_usuario, acao=acao,
+            id_empresa, nome_usuario=nome_usuario, funcao_clinica=funcao_clinica,
+            eh_admin=eh_admin, acao=acao,
             page=page, per_page=limit,
         )
 
@@ -180,7 +187,12 @@ class AuditoriaService:
 
         itens = []
         for p in profissionais:
-            entrada = {"uuid_usuario": p.uuid, "nome": p.nome}
+            # CORRIGIDO: era p.nome -- Usuario não tem esse atributo
+            # (a coluna real é nome_completo). Bug pré-existente, sem
+            # relação com a migração tipo_usuario, mas no mesmo raio de
+            # alcance (mesmo objeto Usuario retornado pela query
+            # corrigida em find_profissionais).
+            entrada = {"uuid_usuario": p.uuid, "nome": p.nome_completo}
             if p.id_usuario in ultimos_acessos:
                 entrada["ultimo_acesso"] = ultimos_acessos[p.id_usuario].to_dict_resumido()
             if p.id_usuario in ultimas_alteracoes:

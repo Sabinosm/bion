@@ -339,32 +339,6 @@ def ja_logado() -> bool:
        return {'authenticated': True}, 200
     return {'authenticated': False}, 401
 
-def requer_papel(*papeis_permitidos):
-    """
-    REMOVIDO (assertivo, sem alias de compatibilidade).
-
-    Este decorator comparava contra um único session["tipo_usuario"],
-    que não existe mais -- "admin" e papel clínico agora são dimensões
-    independentes (is_admin + funcao_clinica) e podem coexistir no
-    mesmo usuário. Não há tradução automática correta de
-    @requer_papel(...) para o novo modelo: a chamada precisa ser
-    revista caso a caso e trocada por uma das opções abaixo:
-
-      @requer_admin                              -- era @requer_papel("admin")
-      @requer_papel_clinico("medico")             -- era @requer_papel("medico")
-      @requer_papel_clinico("medico", "enfermeiro")
-      @requer_admin_ou_papel_clinico("medico")     -- era @requer_papel("admin", "medico")
-
-    Levanta erro imediato para forçar a correção no ponto de uso, em
-    vez de autorizar (ou negar) incorretamente de forma silenciosa.
-    """
-    raise NotImplementedError(
-        "requer_papel(...) foi removido. Troque por @requer_admin, "
-        "@requer_papel_clinico(...) ou @requer_admin_ou_papel_clinico(...) "
-        "conforme a intenção original da rota."
-    )
-
-
 def requer_super_admin(f):
     """
     Bloqueia a rota a menos que o usuário logado seja o super admin da

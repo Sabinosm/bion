@@ -36,7 +36,7 @@ class ProtocoloController():
 
     @staticmethod
     @bp_protocolo.post("/")
-    @requer_papel("admin")
+    @requer_admin
     def criar_protocolo():
         """Cadastra um novo ProtocoloCatalogo."""
         dados = request.get_json(silent=True) or {}

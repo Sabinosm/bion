@@ -15,7 +15,7 @@ class EmpresaController():
     
     @staticmethod
     @bp.get("/")
-    @requer_papel("admin")
+    @requer_admin
     def detalhe():
         try:
             e = _svc.repo.find_by_id(get_id_empresa_sessao())

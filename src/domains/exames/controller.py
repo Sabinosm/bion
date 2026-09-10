@@ -33,7 +33,7 @@ class ExamesController():
 
     @staticmethod
     @bp_exames.post("/")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def criar_exame():
         dados = request.get_json(silent=True) or {}
         try:

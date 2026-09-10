@@ -27,7 +27,7 @@ class MedicamentosEmUsoController():
 
     @staticmethod
     @bp.post("/<uuid_paciente>/medicamentos-em-uso")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def adicionar_medicamento_em_uso(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -41,7 +41,7 @@ class MedicamentosEmUsoController():
     # status_uso para 'interrompido' quando o tratamento termina).
     @staticmethod
     @bp.put("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def atualizar_medicamento_em_uso(uuid_paciente, uuid_medicamento):
         dados = request.get_json(silent=True) or {}
         try:
@@ -56,7 +56,7 @@ class MedicamentosEmUsoController():
     # domínios clínicos.
     @staticmethod
     @bp.delete("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def remover_medicamento_em_uso(uuid_paciente, uuid_medicamento):
         dados = request.get_json(silent=True) or {}
         try:
@@ -69,7 +69,7 @@ class MedicamentosEmUsoController():
     # NOVO: reverte um soft delete de medicamento em uso.
     @staticmethod
     @bp.post("/<uuid_paciente>/medicamentos-em-uso/<uuid_medicamento>/restaurar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def restaurar_medicamento_em_uso(uuid_paciente, uuid_medicamento):
         try:
             m = _svc.restaurar_medicamento_em_uso(uuid_paciente, uuid_medicamento, get_id_empresa_sessao())

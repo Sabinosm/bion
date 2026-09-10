@@ -29,7 +29,7 @@ def read(id_fhir):
 
 
 @bp.post("/Patient")
-@requer_papel("medico", "enfermeiro")
+@requer_papel_clinico("medico", "enfermeiro")
 def create():
     """POST /fhir/Patient?consentimento_versao={v}&consentimento_canal={c} -- NOVO (inbound).
 

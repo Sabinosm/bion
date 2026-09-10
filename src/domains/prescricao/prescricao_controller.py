@@ -13,7 +13,7 @@ _svc_prescricao = PrescricaoService()
 class PrescricaoController():
     @staticmethod
     @bp_prescricao.post("/<uuid_resultado>/medicamentos")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def adicionar_medicamento(uuid_resultado):
         """Adiciona um medicamento prescrito a um ResultadoPrescricao."""
         dados = request.get_json(silent=True) or {}

@@ -62,7 +62,7 @@ class RegiaoService:
         vindo de src.models.corp.empresa por engano) e tipo_regiao
         resolvido via TipoJurisdicao -- não é mais possível passar
         tipo_regiao=... direto no construtor, já que virou @property
-        somente-leitura (mesmo padrão de Empresa.cnpj / Usuario.tipo_usuario).
+        somente-leitura .
         """
         from src.models.corp.regiao_geografica import RegiaoGeografica
         from src.models.corp.tipo_jurisdicao import TipoJurisdicao

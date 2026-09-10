@@ -14,7 +14,7 @@ class DadosClinicosController():
     
     @staticmethod
     @bp_dados_clinicos.post("/<uuid_atendimento>/sinais-vitais")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def registrar_sinais_vitais(uuid_atendimento):
         """Registra um ou mais sinais vitais para o Atendimento informado."""
         dados = request.get_json(silent=True) or {}
@@ -32,7 +32,7 @@ class DadosClinicosController():
 
     @staticmethod
     @bp_dados_clinicos.post("/<uuid_atendimento>/coleta-clinica")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def registrar_coleta_clinica(uuid_atendimento):
         """Cria uma coleta clínica para o Atendimento informado."""
         dados = request.get_json(silent=True) or {}
@@ -45,7 +45,7 @@ class DadosClinicosController():
 
     @staticmethod
     @bp_dados_clinicos.post("/coleta-clinica/<uuid_coleta>/input-protocolo")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def registrar_input_protocolo(uuid_coleta):
         """Registra o input de protocolo (queixa, sinais, fluxograma) de uma coleta clínica."""
         dados = request.get_json(silent=True) or {}

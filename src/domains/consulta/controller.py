@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
+from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao
 from .service import ConsultaService
 
 bp_consulta = Blueprint("consulta", __name__)
@@ -49,7 +49,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.post("/paciente/<uuid_paciente>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def abrir_consulta(uuid_paciente):
         """Abre uma nova Consulta para o paciente informado."""
         dados = request.get_json(silent=True) or {}
@@ -62,7 +62,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.post("/<uuid>/encerrar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def encerrar_consulta(uuid):
         """Encerra uma Consulta em aberto com o desfecho final informado."""
         dados = request.get_json(silent=True) or {}

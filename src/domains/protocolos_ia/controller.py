@@ -18,7 +18,7 @@ class IaController():
     
     @staticmethod
     @bp_ia.post("/analisar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def analisar():
         """Executa um protocolo determinístico (via Strategy/Factory) e persiste o resultado."""
         dados = request.get_json(silent=True) or {}
@@ -36,7 +36,7 @@ class IaController():
 
     @staticmethod
     @bp_ia.post("/analisar-llm")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def analisar_llm():
         """Executa a análise clínica via IA generativa (Claude), complementar aos protocolos determinísticos."""
         from .motor.ia_base import ContextoClinico

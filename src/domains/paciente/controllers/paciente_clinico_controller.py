@@ -43,7 +43,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
+from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
 from src.domains.auditoria.acaoSensivel import acao_sensivel
 
@@ -53,7 +53,7 @@ _svc_tipo_sanguineo = ObservacaoTipoSanguineoService()
 
 
 def _pode_ver_clinico() -> bool:
-    return session.get("tipo_usuario") in ("medico", "enfermeiro")
+    return session.get("funcao_clinica") in ("medico", "enfermeiro")
 
 
 def _serializar_clinico(paciente):
@@ -68,7 +68,7 @@ class PacienteClinicoController():
     # consentimento_ativo como booleano) -- só aqui, nunca em listagem
     @staticmethod
     @bp.get("/<uuid>")
-    @requer_papel("medico", "enfermeiro", "admin")
+    @requer_papel_clinico("medico", "enfermeiro", "admin")
     @acao_sensivel(acao="vizualizar_paciente", tabela="paciente")
     def detalhe(uuid):
         try:
@@ -84,7 +84,7 @@ class PacienteClinicoController():
     # por ser exceção, não fluxo normal.
     @staticmethod
     @bp.put("/<uuid>")
-    @requer_papel("medico", "enfermeiro", "admin")
+    @requer_papel_clinico("medico", "enfermeiro", "admin")
     def atualizar_clinico(uuid):
         dados = request.get_json(silent=True) or {}
         try:
@@ -101,7 +101,7 @@ class PacienteClinicoController():
     # Registra novo exame/resultado de tipo sanguíneo (preserva histórico)
     @staticmethod
     @bp.post("/<uuid>/tipo-sanguineo")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def registrar_tipo_sanguineo(uuid):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
@@ -118,7 +118,7 @@ class PacienteClinicoController():
     # Corrige uma observação específica (erro de digitação, não novo exame)
     @staticmethod
     @bp.put("/<uuid>/tipo-sanguineo/<uuid_observacao>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def corrigir_tipo_sanguineo(uuid, uuid_observacao):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
@@ -137,7 +137,7 @@ class PacienteClinicoController():
     # exceção para admin aqui.
     @staticmethod
     @bp.delete("/<uuid>/tipo-sanguineo/<uuid_observacao>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def remover_tipo_sanguineo(uuid, uuid_observacao):
         try:
             _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao())

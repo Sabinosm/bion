@@ -75,12 +75,29 @@ class AuditoriaResumoRepository:
     """
 
     def find_profissionais(self, id_empresa: int, *, nome_usuario: str = None,
-                            tipo_usuario: str = None, acao: str = None,
+                            funcao_clinica: str = None, eh_admin: bool = None, acao: str = None,
                             page: int = 1, per_page: int = PER_PAGE_PADRAO) -> Tuple[List[Usuario], int]:
         """`acao` filtra por LogAlteracao.acao (texto livre) OU
         LogAcesso.operacao (categoria fechada) -- um profissional
         aparece se bate com qualquer um dos dois lados, ja que 'acao' na
-        UI e um conceito unico que cobre os dois logs."""
+        UI e um conceito unico que cobre os dois logs.
+
+        ALTERADO (separação admin/papel clínico, assertivo, sem alias):
+        o antigo filtro único `tipo_usuario` (medico/enfermeiro/admin,
+        mutuamente exclusivo -- e nunca implementado de fato, só um
+        placeholder com Usuario.tipo_usuario, coluna que não existe)
+        virou dois filtros INDEPENDENTES e combináveis, decisão
+        confirmada:
+
+        - funcao_clinica: filtra por PapelProfissional.tipo_papel
+          ativo, via JOIN -- "medico" ou "enfermeiro".
+        - eh_admin: filtra por Usuario.is_admin diretamente -- bool.
+
+        Podem ser passados juntos (ex: funcao_clinica="medico" +
+        eh_admin=True → só admins que também são médicos) ou
+        separados. None em qualquer um dos dois significa "não
+        filtrar por esse eixo".
+        """
         existe_acesso = LogAcesso.query.filter(
             LogAcesso.id_usuario == Usuario.id_usuario,
             LogAcesso.id_empresa == id_empresa,
@@ -103,13 +120,23 @@ class AuditoriaResumoRepository:
         )
 
         if nome_usuario:
-            query = query.filter(Usuario.nome.ilike(f"%{nome_usuario}%"))
-        if tipo_usuario:
-            query = query.filter(Usuario.tipo_usuario == tipo_usuario)  # ajustar valor conforme o model real
+            query = query.filter(Usuario.nome_completo.ilike(f"%{nome_usuario}%"))
+
+        if eh_admin is not None:
+            query = query.filter(Usuario.is_admin == eh_admin)
+
+        if funcao_clinica:
+            from src.models.usuarios.papel_profissional import PapelProfissional
+            query = query.join(
+                PapelProfissional, PapelProfissional.id_usuario == Usuario.id_usuario
+            ).filter(
+                PapelProfissional.tipo_papel == funcao_clinica,
+                PapelProfissional.ativo == True,
+            )
 
         per_page = _limit_seguro(per_page)
         total = query.order_by(None).count()
-        itens = (query.order_by(Usuario.nome.asc())
+        itens = (query.order_by(Usuario.nome_completo.asc())
                  .offset((page - 1) * per_page)
                  .limit(per_page)
                  .all())
@@ -151,7 +178,7 @@ class LogAcessoRepository(IRepository[LogAcesso]):
         if uuid_usuario:
             query = query.filter(Usuario.uuid == uuid_usuario)
         if nome_usuario:
-            query = query.filter(Usuario.nome.ilike(f"%{nome_usuario}%"))
+            query = query.filter(Usuario.nome_completo.ilike(f"%{nome_usuario}%"))
         if operacao:
             query = query.filter(LogAcesso.operacao == operacao)
         if data_inicio:
@@ -284,7 +311,7 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
         if uuid_usuario:
             query = query.filter(Usuario.uuid == uuid_usuario)
         if nome_usuario:
-            query = query.filter(Usuario.nome.ilike(f"%{nome_usuario}%"))
+            query = query.filter(Usuario.nome_completo.ilike(f"%{nome_usuario}%"))
         if acao:
             query = query.filter(LogAlteracao.acao == acao)
         if operacao:

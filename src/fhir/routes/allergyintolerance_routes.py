@@ -53,7 +53,7 @@ def search():
 
 
 @bp.post("/AllergyIntolerance")
-@requer_papel("medico", "enfermeiro")
+@requer_papel_clinico("medico", "enfermeiro")
 def create():
     """POST /fhir/AllergyIntolerance -- NOVO (inbound).
 

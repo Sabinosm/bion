@@ -54,7 +54,7 @@ def search():
 
 
 @bp.post("/Condition")
-@requer_papel("medico", "enfermeiro")
+@requer_papel_clinico("medico", "enfermeiro")
 def create():
     """POST /fhir/Condition -- NOVO (inbound)."""
     payload = request.get_json(silent=True) or {}

@@ -39,7 +39,7 @@ class AlergiaController():
 
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def adicionar_alergia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -53,7 +53,7 @@ class AlergiaController():
     # já registrada. substancia não é editável (ver AlergiaAtualizarSchema).
     @staticmethod
     @bp.put("/<uuid_paciente>/alergias/<uuid_alergia>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def atualizar_alergia(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -66,7 +66,7 @@ class AlergiaController():
     # Registra uma reação adicional numa alergia já existente
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/reacoes")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def adicionar_reacao(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -82,7 +82,7 @@ class AlergiaController():
     # doença crônica.
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/<uuid_alergia>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def remover_alergia(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -95,7 +95,7 @@ class AlergiaController():
     # NOVO: reverte um soft delete de alergia.
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/restaurar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def restaurar_alergia(uuid_paciente, uuid_alergia):
         try:
             a = _svc.restaurar_alergia(uuid_paciente, uuid_alergia, get_id_empresa_sessao())
@@ -108,7 +108,7 @@ class AlergiaController():
     # restante do histórico intactos
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/reacoes/<uuid_reacao>")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def remover_reacao(uuid_paciente, uuid_reacao):
         try:
             _svc_reacao.remover_reacao(uuid_paciente, uuid_reacao, get_id_empresa_sessao())

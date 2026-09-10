@@ -40,7 +40,7 @@ class LgpdController():
 
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos")
-    @requer_papel("medico","enfermeiro")
+    @requer_papel_clinico("medico","enfermeiro")
     def registrar(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -52,7 +52,7 @@ class LgpdController():
 
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos/revogar")
-    @requer_papel("medico","enfermeiro")
+    @requer_papel_clinico("medico","enfermeiro")
     def revogar(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -69,7 +69,7 @@ class LgpdController():
     # propósito, com motivo e responsável registrados.
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos/dispensar-emergencia")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def dispensar_emergencia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:

@@ -66,7 +66,7 @@ class EmpresaService:
         except Exception as e:
             raise DadosInvalidosError(f"Dados da empresa inválidos: {e}") from e
 
-        dados_admin = {**dados_admin, "tipo_usuario": "admin"}
+        dados_admin = {**dados_admin, "is_admin": True}
 
         if self.repo.find_by_cnpj(schema_empresa.cnpj):
             raise ConflictoError("CNPJ já cadastrado.")

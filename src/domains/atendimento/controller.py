@@ -4,7 +4,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_usuario_sessao
+from src.core.session import requer_login, get_id_usuario_sessao, requer_papel_clinico
 from .service import AtendimentoService
 
 bp_atendimento = Blueprint("atendimento", __name__)
@@ -48,7 +48,7 @@ class AtendimentoController():
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def abrir_triagem(uuid_consulta):
         """Abre um Atendimento do tipo triagem para a Consulta informada."""
         try:
@@ -60,7 +60,7 @@ class AtendimentoController():
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-avaliacao-medica")
-    @requer_papel("medico")
+    @requer_papel_clinico("medico")
     def abrir_avaliacao_medica(uuid_consulta):
         """Abre um Atendimento do tipo avaliação médica para a Consulta informada."""
         try:
@@ -72,7 +72,7 @@ class AtendimentoController():
 
     @staticmethod
     @bp_atendimento.post("/<uuid_atendimento>/finalizar")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def finalizar_atendimento(uuid_atendimento):
         """Finaliza um Atendimento em andamento."""
         dados = request.get_json(silent=True) or {}

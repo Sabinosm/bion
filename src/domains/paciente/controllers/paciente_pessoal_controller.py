@@ -29,7 +29,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
+from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin
 from src.domains.paciente.services import PacienteService
 from src.domains.auditoria.acaoSensivel import acao_sensivel
 
@@ -38,7 +38,7 @@ _svc = PacienteService()
 
 
 def _pode_ver_clinico() -> bool:
-    return session.get("tipo_usuario") in ("medico", "enfermeiro")
+    return session.get("funcao_clinica") in ("medico", "enfermeiro")
 
 
 def _serializar(paciente, com_pii: bool):
@@ -95,7 +95,7 @@ class PacientePessoalController():
 
     @staticmethod
     @bp.post("/")
-    @requer_papel("medico", "enfermeiro")
+    @requer_papel_clinico("medico", "enfermeiro")
     def cadastrar():
         dados = request.get_json(silent=True) or {}
         try:
@@ -107,7 +107,7 @@ class PacientePessoalController():
 
     @staticmethod
     @bp.put("/<uuid>")
-    @requer_papel("medico", "enfermeiro", "admin")
+    @requer_papel_clinico("medico", "enfermeiro", "admin")
     def atualizar_pessoal(uuid):
         dados = request.get_json(silent=True) or {}
         try:
@@ -122,7 +122,7 @@ class PacientePessoalController():
     # Só admin: decisão de titularidade/compliance, não ato clínico.
     @staticmethod
     @bp.post("/<uuid>/anonimizar")
-    @requer_papel("admin")
+    @requer_admin
     def anonimizar(uuid):
         try:
             p = _svc.anonimizar(uuid, get_id_empresa_sessao())
