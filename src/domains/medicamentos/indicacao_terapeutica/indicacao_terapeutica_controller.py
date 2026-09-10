@@ -5,14 +5,14 @@ from src.core.exceptions import BionException
 from src.core.session import requer_login
 from .indicacao_terapeutica_service import IndicacaoTerapeuticaService
 
-bp_indicacoes = Blueprint("indicacoes_terapeuticas", __name__)
+bp_indicacoes_terapeuticas = Blueprint("indicacoes_terapeuticas", __name__)
 _svc = IndicacaoTerapeuticaService()
 
 
 class IndicacaoTerapeuticaController():
 
     @staticmethod
-    @bp_indicacoes.get("/")
+    @bp_indicacoes_terapeuticas.get("/")
     @requer_login
     def lista_indicacoes():
         termo = request.args.get("q")
@@ -20,7 +20,7 @@ class IndicacaoTerapeuticaController():
         return json_success(data=[i.to_dict() for i in itens])
 
     @staticmethod
-    @bp_indicacoes.get("/<uuid>")
+    @bp_indicacoes_terapeuticas.get("/<uuid>")
     @requer_login
     def detalhe_indicacao(uuid):
         try:
@@ -30,7 +30,7 @@ class IndicacaoTerapeuticaController():
             return json_error(ex.message, ex.status_code)
 
     @staticmethod
-    @bp_indicacoes.get("/<uuid>/medicamentos")
+    @bp_indicacoes_terapeuticas.get("/<uuid>/medicamentos")
     @requer_login
     def medicamentos_da_indicacao(uuid):
         """Endpoint central do caso de uso original: médico busca por

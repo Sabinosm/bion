@@ -167,3 +167,10 @@ class AtendimentoService:
         return self.repo.tempo_medio_por_tipo_periodo(
             id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
+
+    # --- Validação: tempo médio por tipo, segmentado mesmo-profissional
+    #     vs. transferência entre profissionais (ver repository para o
+    #     motivo -- médico sozinho fazendo triagem+avaliação distorce a
+    #     média combinada de A2/E2 se não for segmentado) ---
+    def tempo_medio_por_tipo_segmentado(self, id_empresa: int, dias: int = 30):
+        return self.repo.tempo_medio_por_tipo_segmentado(id_empresa=id_empresa, dias=dias)

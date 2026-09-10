@@ -212,3 +212,98 @@ class  AtendimentoRepository(IRepository[Atendimento]):
             .scalar()
         )
         return float(media) if media is not None else None
+    
+    # --- Validação: tempo médio por tipo, segmentado por
+    #     "mesmo profissional fez triagem e avaliação" vs. "transferência
+    #     entre profissionais diferentes" -- sem essa distinção, A2/E2
+    #     misturam dois comportamentos diferentes (médico sozinho tende a
+    #     ser mais rápido na triagem que um enfermeiro dedicado, o que
+    #     enviesa a média quando os dois cenários coexistem na base).
+    def tempo_medio_por_tipo_segmentado(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """
+        Mesma agregação de tempo_medio_por_tipo, mas quebrada em dois
+        grupos por Consulta: 'mesmo_profissional' (o realizado_por da
+        triagem == realizado_por da avaliação médica) e 'transferencia'
+        (profissionais diferentes, ou só uma das duas etapas existe
+        ainda). Retorna lista de dicts:
+        [{"tipo_atendimento": ..., "grupo": "mesmo_profissional"|"transferencia",
+          "media_segundos": float, "total": int}, ...]
+        """
+        from src.models.usuarios.usuario import Usuario
+        from src.models.clinico import Consulta
+
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+        duracao_segundos = func.timestampdiff(
+            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
+        )
+
+        # realizado_por de cada etapa, por consulta
+        triagens = (
+            db.session.query(
+                Atendimento.id_consulta.label("id_consulta"),
+                Atendimento.realizado_por.label("realizado_por"),
+            )
+            .filter(Atendimento.tipo_atendimento == "triagem")
+            .subquery()
+        )
+        avaliacoes = (
+            db.session.query(
+                Atendimento.id_consulta.label("id_consulta"),
+                Atendimento.realizado_por.label("realizado_por"),
+            )
+            .filter(Atendimento.tipo_atendimento == "avaliacao-medica")
+            .subquery()
+        )
+
+        mapa_grupo = (
+            db.session.query(
+                triagens.c.id_consulta,
+                triagens.c.realizado_por.label("prof_triagem"),
+                avaliacoes.c.realizado_por.label("prof_avaliacao"),
+            )
+            .outerjoin(avaliacoes, triagens.c.id_consulta == avaliacoes.c.id_consulta)
+            .all()
+        )
+        grupo_por_consulta = {}
+        for linha in mapa_grupo:
+            if linha.prof_avaliacao is None:
+                continue  # avaliação ainda não existe -- não classificável ainda
+            grupo_por_consulta[linha.id_consulta] = (
+                "mesmo_profissional" if linha.prof_triagem == linha.prof_avaliacao
+                else "transferencia"
+            )
+
+        linhas = (
+            db.session.query(
+                Atendimento.id_consulta.label("id_consulta"),
+                Atendimento.tipo_atendimento.label("tipo_atendimento"),
+                duracao_segundos.label("duracao"),
+            )
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= limite)
+            .filter(Atendimento.data_hora_fim.isnot(None))
+            .filter(Atendimento.tipo_atendimento.in_(["triagem", "avaliacao-medica"]))
+            .all()
+        )
+
+        acumulado = {}  # (tipo, grupo) -> [soma, total]
+        for linha in linhas:
+            grupo = grupo_por_consulta.get(linha.id_consulta)
+            if grupo is None:
+                continue
+            chave = (linha.tipo_atendimento, grupo)
+            if chave not in acumulado:
+                acumulado[chave] = [0.0, 0]
+            acumulado[chave][0] += float(linha.duracao or 0)
+            acumulado[chave][1] += 1
+
+        return [
+            {
+                "tipo_atendimento": tipo,
+                "grupo": grupo,
+                "media_segundos": soma / total if total else 0.0,
+                "total": total,
+            }
+            for (tipo, grupo), (soma, total) in acumulado.items()
+        ]

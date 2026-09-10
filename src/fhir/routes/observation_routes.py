@@ -6,7 +6,7 @@ from fhir.resources.R4B.observation import Observation
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, g
+from src.core.session import requer_login, requer_papel_clinico, g
 from ..services.observation_fhir_service import ObservationFhirService
 
 bp = Blueprint("fhir_observation", __name__)

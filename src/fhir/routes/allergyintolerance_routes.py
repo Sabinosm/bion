@@ -9,7 +9,7 @@ from fhir.resources.R4B.allergyintolerance import AllergyIntolerance
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel_clinico
 from src.fhir.services.allergyintolerance_fhir_service import AllergyIntoleranceFhirService
 
 bp = Blueprint("fhir_allergyintolerance", __name__)

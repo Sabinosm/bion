@@ -3,7 +3,7 @@ from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel_clinico
 from .service import CatalogoExamesService
 
 bp_exames = Blueprint("catalogo_exames", __name__)

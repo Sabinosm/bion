@@ -6,7 +6,7 @@ from fhir.resources.R4B.patient import Patient
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel
+from src.core.session import requer_login, requer_papel_clinico
 from ..services.patient_fhir_service import PatientFhirService
 
 bp = Blueprint("fhir_patient", __name__)

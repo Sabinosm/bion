@@ -19,7 +19,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_usuario_sessao, get_id_empresa_sessao
+from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import ConsentimentoService
 
 bp = Blueprint("paciente_lgpd", __name__)
