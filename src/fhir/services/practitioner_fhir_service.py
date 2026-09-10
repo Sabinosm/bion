@@ -48,31 +48,40 @@ class PractitionerFhirService:
         recurso = usuario_papel_to_fhir_practitioner(usuario, usuario.papel_ativo())
         return [recurso.model_dump(exclude_none=True, mode="json")]
 
-    def criar_a_partir_de_fhir(self, practitioner, id_empresa: int, tipo_usuario: str, user_login: str = None) -> dict:
+    def criar_a_partir_de_fhir(self, practitioner, id_empresa: int, user_login: str = None,
+                                solicitante_eh_super_admin: bool = False) -> dict:
         """POST /fhir/Practitioner -- caminho INBOUND.
+
+        ALTERADO (separação admin/papel clínico, decisão confirmada):
+        antes recebia `tipo_usuario` e recusava explicitamente
+        "medico"/"enfermeiro" (só "admin" funcionava, por falta de
+        CRM/COREN no Resource Practitioner padrão). Como só um valor
+        jamais dava certo, o parâmetro saiu -- esta função sempre cria
+        um admin puro agora (eh_admin=True, sem função clínica).
+
+        ADICIONADO: `solicitante_eh_super_admin` -- estava ausente
+        antes (bug), e UsuarioService.criar() sempre exige esse
+        parâmetro como True quando eh_admin=True (só o super admin cria
+        outros admins). Sem repassá-lo, toda chamada falhava.
 
         Parâmetros:
             practitioner: instância de fhir.resources.R4B.practitioner.Practitioner,
                 já validada pela rota antes de chegar aqui.
+            solicitante_eh_super_admin: repassado direto para
+                UsuarioService.criar() -- deve vir de g.is_super_admin
+                na rota, nunca hardcoded ou inferido aqui.
         """
         from src.domains.usuario.services.service import UsuarioService
 
         dados_base = fhir_practitioner_to_dados_cadastro(practitioner)
-        dados_base["tipo_usuario"] = tipo_usuario
+        dados_base["eh_admin"] = True
         if user_login:
             dados_base["user_login"] = user_login
 
-        if tipo_usuario in ("medico", "enfermeiro"):
-            raise ValueError(
-                f"Criar Practitioner do tipo '{tipo_usuario}' exige dados de "
-                "CRM/COREN (numero, UF, e para enfermeiro também especialidade), "
-                "que não fazem parte do Resource Practitioner padrão. "
-                "Use a rota interna de cadastro de usuário para este caso, "
-                "ou aguarde a implementação de criação via Bundle "
-                "(Practitioner + PractitionerRole) numa única transação."
-            )
-
         usuario_service = UsuarioService()
-        usuario = usuario_service.criar(id_empresa, dados_base, commitar=True)
+        usuario = usuario_service.criar(
+            id_empresa, dados_base, commitar=True,
+            solicitante_eh_super_admin=solicitante_eh_super_admin,
+        )
         recurso = usuario_papel_to_fhir_practitioner(usuario, usuario.papel_ativo())
         return recurso.model_dump(exclude_none=True, mode="json")

@@ -11,15 +11,18 @@ StructureDefinition oficial.
 ATENÇÃO SOBRE AUTENTICAÇÃO: mesma ressalva de antes -- @requer_login
 por ora, migrar para SMART on FHIR se for consumido por sistemas
 externos de verdade.
+
+ALTERADO (separação admin/papel clínico): create() perdeu o query
+param `tipo_usuario` -- ver docstring da função.
 """
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 from pydantic import ValidationError
 from fhir.resources.R4B.practitioner import Practitioner
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel, get_id_empresa_sessao
+from src.core.session import requer_login, requer_admin, get_id_empresa_sessao
 from ..services.practitioner_fhir_service import PractitionerFhirService
 
 bp = Blueprint("fhir_practitioner", __name__)
@@ -67,18 +70,23 @@ def create():
     """POST /fhir/Practitioner -- cria um Practitioner a partir do envelope FHIR.
 
     LIMITAÇÃO CONHECIDA (mantida, documentada em README_RECEBIMENTO.md):
-    o Resource Practitioner puro não carrega tipo_usuario, user_login,
-    nem CRM/COREN completos -- só funciona hoje para tipo_usuario=admin.
+    o Resource Practitioner puro não carrega user_login, nem CRM/COREN
+    completos -- só é possível criar um admin puro por esta rota. Para
+    médico/enfermeiro (que exigem CRM/COREN, fora do Resource
+    Practitioner padrão), use a rota interna de cadastro de usuário,
+    ou aguarde a implementação de criação via Bundle (Practitioner +
+    PractitionerRole) numa única transação.
+
+    ALTERADO (separação admin/papel clínico, decisão confirmada):
+    o query param `tipo_usuario` SAIU -- não fazia sentido pedir essa
+    escolha na URL quando só um valor ("admin") de fato funcionava (os
+    outros dois sempre levantavam erro no service). A rota agora cria
+    sempre um admin puro (eh_admin=True, sem função clínica),
+    implicitamente.
     """
     payload = request.get_json(silent=True) or {}
-    tipo_usuario = request.args.get("tipo_usuario")
     user_login = request.args.get("user_login")
 
-    if tipo_usuario not in ("medico", "enfermeiro", "admin"):
-        return json_error(
-            "Query param 'tipo_usuario' obrigatório (medico|enfermeiro|admin) -- "
-            "não faz parte do Resource Practitioner padrão.", 422
-        )
     if not user_login:
         return json_error(
             "Query param 'user_login' obrigatório -- não faz parte "
@@ -93,7 +101,16 @@ def create():
         return json_error(f"Recurso Practitioner inválido: {e}", 422)
 
     try:
-        recurso = _svc.criar_a_partir_de_fhir(practitioner, get_id_empresa_sessao(), tipo_usuario, user_login)
+        # ADICIONADO: solicitante_eh_super_admin não estava sendo
+        # repassado -- UsuarioService.criar() exige isso sempre que
+        # eh_admin=True (regra: só o super admin cria outros admins).
+        # Sem isso, TODA chamada a esta rota falhava com
+        # DadosInvalidosError, mesmo vindo de um super admin de
+        # verdade -- bug encontrado durante a migração, corrigido aqui.
+        recurso = _svc.criar_a_partir_de_fhir(
+            practitioner, get_id_empresa_sessao(), user_login,
+            solicitante_eh_super_admin=g.is_super_admin,
+        )
         return json_success(data=recurso, message="Practitioner criado.", status=201)
     except (BionException, ValueError) as ex:
         message = ex.message if isinstance(ex, BionException) else str(ex)
