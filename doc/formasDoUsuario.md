@@ -98,3 +98,65 @@ Isso reaproveita a mesma função (`token_recente_valido`) que o decorator `requ
 Esse fluxo cobre a barreira de confirmação, mas **não gera um registro de auditoria** (`LogAlteracao`) especificamente para essa ação — decisão deliberada de manter simples por enquanto. Se um médico tiver a função clínica removida enquanto conduz um atendimento em andamento, o sistema não impede nem avisa sobre esse conflito no momento em que ele acontece; a trilha de "quem era o quê, quando" existe de forma geral (via auditoria de alterações de outros domínios), mas não há checagem cruzada com atendimentos abertos no momento da troca.
 
 ---
+
+# Médico e enfermeiro: hierarquia dentro de `funcao_clinica`
+
+A seção anterior trata `funcao_clinica` como um valor entre outros (`"medico"`, `"enfermeiro"`, `None`) para fins de admin vs. clínico. Mas dentro do próprio eixo clínico, os dois valores não são paralelos — são uma hierarquia de capacidade, e isso tem consequência direta em como o ciclo de vida da Consulta é modelado, não só em quem pode chamar qual rota.
+
+## Médico é superset de enfermeiro, nunca o contrário
+
+A regra: **tudo que um enfermeiro pode fazer clinicamente, um médico também pode — a via inversa não existe.** Isso não é uma preferência de UX, é uma decisão de modelagem que aparece diretamente nas permissões de rota do domínio de Atendimento:
+
+```python
+@bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")
+@requer_papel("medico", "enfermeiro")
+def abrir_triagem(uuid_consulta): ...
+
+@bp_atendimento.post("/consulta/<uuid_consulta>/abrir-avaliacao-medica")
+@requer_papel("medico")
+def abrir_avaliacao_medica(uuid_consulta): ...
+```
+
+A etapa de triagem aceita ambos; a etapa de avaliação médica aceita só médico. Não existe rota clínica em que `enfermeiro` seja aceito e `medico` não — a hierarquia é assimétrica por construção, não por lista de papéis coincidentemente sobreposta.
+
+## Por que isso importa: nem toda clínica tem enfermeiro
+
+O modelo do ciclo de Consulta (triagem → avaliação médica → desfecho) foi originalmente pensado assumindo que sempre existe um enfermeiro fazendo a triagem enquanto o médico foca na avaliação — um fluxo com paralelismo real entre duas pessoas. Isso não é universal: o produto atende tanto hospitais quanto clínicas pequenas, e em clínicas pequenas o médico frequentemente **é** quem faz a triagem também, seja porque não há enfermeiro no quadro, seja porque o volume não justifica.
+
+Como médico é superset de enfermeiro na permissão de rota, isso já funciona sem nenhuma mudança de autorização: o mesmo usuário com `funcao_clinica="medico"` pode chamar `abrir-triagem` e, em seguida, `abrir-avaliacao-medica`, para a mesma Consulta.
+
+## A etapa de triagem continua obrigatória — só quem a faz que varia
+
+Decisão importante, e não óbvia à primeira vista: mesmo quando é o mesmo médico fazendo as duas etapas, **a triagem não é pulada nem fundida com a avaliação médica**. `AtendimentoService.abrir_avaliacao_medica` bloqueia a abertura se não existir uma triagem já finalizada para aquela Consulta, independentemente de quem a tenha feito:
+
+```python
+triagem_finalizada = any(
+    a.tipo_atendimento == "triagem" and a.status == "finalizado"
+    for a in atendimentos
+)
+if not triagem_finalizada:
+    raise ConflictoError(
+        "É necessário finalizar a triagem desta Consulta antes de abrir a avaliação médica."
+    )
+```
+
+A razão para manter essa rigidez, mesmo sem enfermeiro: triagem e avaliação médica não são a mesma pergunta clínica em sequência — são dois protocolos com objetivos diferentes. A triagem responde "esse paciente corre risco agora, em que ordem deveria ser visto" (discriminação/urgência, ex: MTS); a avaliação médica responde "o que esse paciente tem, o que fazer" (diagnóstico). Fundir as duas etapas apagaria essa distinção de raciocínio clínico, mesmo que a distinção de mão de obra deixe de existir. Por isso a solução para "não tem enfermeiro" não é remover a etapa — é permitir que o mesmo profissional a percorra duas vezes, como dois momentos de raciocínio distintos, ainda que consecutivos.
+
+Isso também mantém a integridade dos dados que dependem da etapa de triagem existir como registro próprio — sinais vitais, tempo desde o início dos sintomas, inputs do protocolo de risco — sem depender de haver dois profissionais diferentes para isso.
+
+## Duas travas de sequência, simétricas
+
+Como consequência direta da obrigatoriedade acima, `AtendimentoService` também impede duplicar ou pular a etapa nos dois sentidos:
+
+- `abrir_triagem` recusa (`ConflictoError`) se já existir uma triagem em-andamento ou já finalizada para a Consulta — não é permitido reabrir nem duplicar a etapa, mesmo com o mesmo profissional tentando de novo.
+- `abrir_avaliacao_medica` recusa se a triagem não estiver finalizada, e também recusa abrir uma segunda avaliação médica em-andamento.
+
+O resultado é uma sequência rígida e previsível — `abrir-triagem → finalizar → abrir-avaliacao-medica → finalizar` — válida tanto no fluxo com enfermeiro quanto no fluxo só-médico, sem ramificação condicional no back para o caso "sem enfermeiro". O que muda entre os dois fluxos é exclusivamente `realizado_por` ser ou não a mesma pessoa nos dois Atendimentos; nenhuma validação de sequência olha para esse campo.
+
+## Implicação de UX, não de dado
+
+A rigidez da sequência é deliberadamente uma decisão de back-end, não de experiência do usuário. Quando o mesmo médico faz as duas etapas sem pausa real entre elas, a exigência de "abrir → finalizar → abrir → finalizar" pode parecer trabalho duplicado de clique — mas isso é um problema de interface a ser resolvido no front (ex: uma tela única que dispara as duas chamadas em sequência sem expor a costura), não uma razão para afrouxar a validação no back. Fluidez de tela e rigidez de estrutura não são objetivos concorrentes aqui.
+
+## Estatísticas: essa flexibilidade precisa ser enxergada, não só permitida
+
+Permitir que o mesmo profissional faça as duas etapas introduz uma dimensão nova que as métricas agregadas por `tipo_atendimento` (tempo médio de triagem, tempo médio de avaliação médica) não enxergavam antes: um médico sozinho tende a ter um comportamento de tempo sistematicamente diferente de um enfermeiro dedicado fazendo a mesma etapa — não porque um seja "melhor", mas porque a motivação de cada etapa muda quando não há paralelismo a ganhar. Misturar as duas populações numa média só, sem sinalizar isso, produz um número que não representa bem nenhum dos dois grupos. Por isso a métrica de tempo médio por tipo tem um complemento que segmenta por "mesmo profissional fez as duas etapas" vs. "profissionais diferentes", exibido como aviso apenas quando a proporção de um dos grupos é alta o suficiente para distorcer a leitura combinada — não como uma segunda métrica sempre visível.
