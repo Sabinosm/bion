@@ -52,12 +52,6 @@ class ResetCredenciaisMixin:
 
         if not usuario:
             return jsonify({"erro": "usuario_nao_encontrado"}), 404
-
-        # CORRIGIDO: era usuario.uuid_empresa (atributo inexistente em
-        # Usuario) comparado contra get_uuid_empresa_sessao() (função
-        # que não existe em session.py, a julgar pelo resto do domínio,
-        # que só usa get_id_empresa_sessao). Comparação agora é por
-        # id_empresa, coluna real do model.
         if usuario.id_empresa != get_id_empresa_sessao():
             return jsonify({"erro": "acesso_negado"}), 403
 
