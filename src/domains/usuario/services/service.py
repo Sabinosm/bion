@@ -1,9 +1,16 @@
 """Regras de negócio do domínio Usuario.
 
-Este módulo concentra o CRUD principal (`UsuarioService`). As rotinas de
-reset de credenciais vivem em `service_reset.py` (mixin) e as funções
-puras de apoio em `service_helpers.py`, para manter este arquivo restrito
-à orquestração das regras de criação/atualização de usuário.
+Este módulo concentra o CRUD principal (`UsuarioService`), incluindo as
+rotinas de reset de credenciais (reset_2fa/reset_total). As funções puras
+de apoio ficam em `service_helpers.py`.
+
+ALTERADO (reset de 2FA/credenciais, WebAuthn):
+- `service_reset.py` (mixin `ResetCredenciaisMixin`) foi DESACOPLADO --
+  UsuarioService não herda mais dele. reset_2fa/reset_total agora vivem
+  direto nesta classe, com isolamento por empresa (id_empresa) e trava
+  de super admin. O mixin antigo tinha dois bugs de coluna (uuid_usuario/
+  uuid_empresa, que não existem nos models) e ficou só como referência
+  histórica -- não é mais importado por lugar nenhum.
 
 ALTERADO (separação admin/papel clínico, assertivo, sem alias):
 - tipo_usuario (3 valores mutuamente exclusivos) SAIU por completo,
@@ -41,7 +48,6 @@ from .service_helpers import (
     monta_dados_papel,
 )
 from .service_atualizar import att
-from .service_reset import ResetCredenciaisMixin
 from src.schemas.schema_usuario import CadastroUsuarioSchema
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
@@ -52,7 +58,7 @@ from .service_validacoes import (
     _valida_alteracao_admin,
 )
 
-class UsuarioService(ResetCredenciaisMixin):
+class UsuarioService:
     """Serviço de domínio para o CRUD de usuários e regras associadas."""
 
     _checar_duplicidade = _checar_duplicidade
@@ -295,6 +301,94 @@ class UsuarioService(ResetCredenciaisMixin):
         solicitante_eh_super_admin: bool = False,
     ):
         return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid, solicitante_eh_super_admin)
+
+    def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
+        """Reseta o 2FA de um usuário: remove TODAS as credenciais
+        WebAuthn cadastradas, forçando o cadastro de um dispositivo novo
+        no próximo login.
+
+        RESTRIÇÕES:
+        - Só o super admin pode chamar isso, para QUALQUER usuário-alvo
+          -- inclusive um usuário sem papel de admin. Diferente de
+          desativar()/ativar() (onde a trava de super admin só entra se
+          o ALVO for admin), aqui a trava é sobre quem SOLICITA, sempre,
+          já que resetar 2FA de terceiros é sensível por si só.
+        - O alvo precisa pertencer à MESMA empresa do solicitante --
+          senão trata como "não encontrado" (RecursoNaoEncontradoError),
+          não como "acesso negado", pra não revelar que o uuid existe em
+          outra empresa.
+
+        Parâmetros:
+            uuid_usuario: identificador do usuário alvo.
+            id_empresa_solicitante: empresa de quem está pedindo (ver
+                get_id_empresa_sessao() no controller).
+            solicitante_eh_super_admin: se True, quem está pedindo é o
+                super admin da empresa.
+
+        Retorno:
+            Instância de Usuario (para manter o padrão de retorno do
+            controller, que chama u.to_dict()).
+
+        Levanta:
+            DadosInvalidosError: se o solicitante não for o super admin.
+            RecursoNaoEncontradoError: se o usuário não existir ou não
+                pertencer à empresa do solicitante.
+        """
+        if not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode resetar o 2FA de um usuário."
+            )
+
+        u = self.buscar_por_uuid(uuid_usuario)
+        if u.id_empresa != id_empresa_solicitante:
+            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+
+        self.repo.remover_credenciais_webauthn(u.id)
+        return u
+
+    def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
+        """Reset completo de credenciais de um usuário: remove o 2FA
+        (mesma lógica de reset_2fa) e também zera a senha, devolvendo o
+        usuário ao estado de onboarding pendente -- ele precisa refazer
+        o fluxo de ativação de conta do zero.
+
+        RESTRIÇÕES: mesmas de reset_2fa (só super admin, só dentro da
+        própria empresa), mais uma: o próprio super admin nunca pode ser
+        resetado (nem por ele mesmo), mesma lógica de proteção já
+        aplicada em desativar().
+
+        Parâmetros:
+            uuid_usuario: identificador do usuário alvo.
+            id_empresa_solicitante: empresa de quem está pedindo.
+            solicitante_eh_super_admin: se True, quem está pedindo é o
+                super admin da empresa.
+
+        Retorno:
+            Instância de Usuario atualizada e salva.
+
+        Levanta:
+            DadosInvalidosError: se o solicitante não for o super admin,
+                ou se o alvo for o próprio super admin.
+            RecursoNaoEncontradoError: se o usuário não existir ou não
+                pertencer à empresa do solicitante.
+        """
+        if not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode resetar um usuário por completo."
+            )
+
+        u = self.buscar_por_uuid(uuid_usuario)
+        if u.id_empresa != id_empresa_solicitante:
+            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+
+        if u.is_super_admin:
+            raise DadosInvalidosError("O administrador principal não pode ser resetado.")
+
+        self.repo.remover_credenciais_webauthn(u.id)
+        u.hash_senha = None
+        u.onboarding_pendente = True
+        u.status = "pendente"
+        return self.repo.save(u)
     
     def contagem_profissionais(self, id_empresa):
         return self.repo.count_no_super_admin_users(id_empresa=id_empresa)

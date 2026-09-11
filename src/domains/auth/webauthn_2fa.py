@@ -51,12 +51,16 @@ from webauthn import (
     generate_registration_options,
     verify_registration_response,
 )
-from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
+from webauthn.helpers.structs import (
+    PublicKeyCredentialDescriptor,
+    UserVerificationRequirement,
+    AuthenticatorSelectionCriteria,
+)
 
 from src.models import db
 from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.core.session import mfa_pendente_required, get_id_usuario_sessao, requer_login, get_usuario_sessao
-from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
+from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN, RP_NAME
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
 
@@ -101,6 +105,157 @@ class Webauthn():
         # Agora sim você monta o JSON final perfeitamente
         return jsonify({"webauthn":lista_webauthn})
         
+
+    @staticmethod
+    @bp_webauthn_2fa.post("/registrar/iniciar")
+    @requer_login
+    def registrar_dispositivo_iniciar():
+        """Gera o desafio WebAuthn para cadastrar um NOVO dispositivo.
+
+        Diferente de `/2fa/iniciar` (que autentica uma credencial já
+        existente para confirmar um login pendente), esta rota gera um
+        desafio de REGISTRO -- exige sessão já completa (`@requer_login`,
+        sem `mfa_pendente`), já que só faz sentido cadastrar um segundo
+        fator para quem já provou identidade uma vez.
+
+        `exclude_credentials` evita que o mesmo autenticador físico seja
+        cadastrado duas vezes para o mesmo usuário.
+
+        Retorno:
+            200 com as opções de registro em JSON.
+        """
+        usuario = get_usuario_sessao()
+
+        credenciais_existentes = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).all()
+        excluir = [
+            PublicKeyCredentialDescriptor(id=base64.urlsafe_b64decode(c.credential_id + "=="))
+            for c in credenciais_existentes
+        ]
+
+        opcoes = generate_registration_options(
+            rp_id=RP_ID,
+            rp_name=RP_NAME,
+            user_id=str(usuario.id).encode(),
+            user_name=usuario.email,
+            user_display_name=usuario.nome_completo,
+            exclude_credentials=excluir,
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                user_verification=UserVerificationRequirement.REQUIRED,
+            ),
+        )
+
+        session["registro_webauthn_challenge"] = base64.b64encode(opcoes.challenge).decode()
+
+        return options_to_json(opcoes), 200, {"Content-Type": "application/json"}
+
+    @staticmethod
+    @bp_webauthn_2fa.post("/registrar/confirmar")
+    @requer_login
+    def registrar_dispositivo_confirmar():
+        """Valida a resposta de registro e persiste a nova credencial.
+
+        Corpo esperado (JSON):
+            {
+              "apelido": "Notebook do trabalho",
+              "tipo": "mobile" | "usb" | "desktop",
+              "credencial": { ...resposta de startRegistration()... }
+            }
+
+        Retorno:
+            201 com a lista atualizada de credenciais (`webauthn.credenciais`).
+            400 se faltar apelido/credencial ou a verificação falhar.
+            409 se a credencial (mesmo credential_id) já estiver cadastrada.
+        """
+        usuario = get_usuario_sessao()
+        corpo = request.get_json() or {}
+        resposta_credencial = corpo.get("credencial")
+        apelido = (corpo.get("apelido") or "").strip()
+        tipo = corpo.get("tipo") or "desktop"
+
+        if not resposta_credencial:
+            return jsonify({"erro": "credencial_ausente"}), 400
+        if not apelido:
+            return jsonify({"erro": "apelido_obrigatorio"}), 400
+
+        challenge_esperado = base64.b64decode(session.get("registro_webauthn_challenge", ""))
+
+        try:
+            verificacao = verify_registration_response(
+                credential=resposta_credencial,
+                expected_challenge=challenge_esperado,
+                expected_rp_id=RP_ID,
+                expected_origin=EXPECTED_ORIGIN,
+            )
+        except Exception as erro:
+            return jsonify({"erro": "registro_invalido", "detalhe": str(erro)}), 400
+
+        credential_id = base64.urlsafe_b64encode(verificacao.credential_id).decode().rstrip("=")
+
+        ja_existe = CredencialWebAuthn.query.filter_by(credential_id=credential_id).first()
+        if ja_existe:
+            return jsonify({"erro": "credencial_ja_cadastrada"}), 409
+
+        # Campos confirmados em credencial_webauthn.py: apelido_dispositivo
+        # e tipo_dispositivo (não "apelido"/"tipo" -- esses só existem na
+        # saída de to_dict(), que já traduz os nomes pro formato do front).
+        nova = CredencialWebAuthn(
+            id_usuario=usuario.id,
+            credential_id=credential_id,
+            public_key=verificacao.credential_public_key,
+            sign_count=verificacao.sign_count,
+            apelido_dispositivo=apelido,
+            tipo_dispositivo=tipo,
+        )
+        db.session.add(nova)
+        db.session.commit()
+
+        session.pop("registro_webauthn_challenge", None)
+
+        lista_atual = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).all()
+        return jsonify({"webauthn": {"credenciais": [c.to_dict() for c in lista_atual]}}), 201
+
+    @staticmethod
+    @bp_webauthn_2fa.delete("/credenciais/<int:id_credencial>")
+    @requer_login
+    def remover_credencial(id_credencial):
+        """Remove um dispositivo (credencial WebAuthn) do usuário logado.
+
+        Delete simples de linha -- CredencialWebAuthn não tem
+        relacionamentos dependentes, então não existe "delete completo"
+        de nada além da própria linha.
+
+        BLOQUEIO: o WebAuthn é o único 2FA suportado hoje (ver docstring
+        do módulo e settingsModal.html, "Obrigatória via chave de
+        acesso"). Por isso a ÚLTIMA credencial do usuário não pode ser
+        removida por aqui -- isso deixaria a conta sem segundo fator
+        algum. Se um fluxo de "desativar 2FA por completo" vier a
+        existir, ele deve ser uma ação separada e explícita, não um
+        efeito colateral de remover o último dispositivo.
+
+        Retorno:
+            200 com a lista atualizada de credenciais.
+            403 se a credencial não pertencer ao usuário logado (mesma
+                resposta de 404, para não vazar se o id existe ou não).
+            409 se for a última credencial do usuário.
+        """
+        usuario = get_usuario_sessao()
+
+        credencial = CredencialWebAuthn.query.filter_by(
+            id_credencial=id_credencial, id_usuario=usuario.id
+        ).first()
+
+        if not credencial:
+            return jsonify({"erro": "credencial_nao_encontrada"}), 404
+
+        total_credenciais = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).count()
+        if total_credenciais <= 1:
+            return jsonify({"erro": "ultima_credencial_nao_pode_ser_removida"}), 409
+
+        db.session.delete(credencial)
+        db.session.commit()
+
+        lista_atual = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).all()
+        return jsonify({"webauthn": {"credenciais": [c.to_dict() for c in lista_atual]}}), 200
 
     @staticmethod
     @bp_webauthn_2fa.post("/2fa/iniciar")

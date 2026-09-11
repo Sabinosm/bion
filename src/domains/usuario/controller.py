@@ -162,17 +162,59 @@ class UsuarioController():
             return json_error(e.message, e.status_code)
 
 
-    # TODO parte do admin ( primeiro to fazendo o 2FA depois eu sigo para essa parte)
+    # ALTERADO: rota tinha <uuid> E <uuid_usuario>, mas a view só
+    # recebia uuid_usuario -- Flask quebra em runtime quando os
+    # parâmetros da view não batem com os da rota. Removido o <uuid>
+    # (não era usado por nada aqui).
+    #
+    # ADICIONADO: checagem explícita de super admin. @requer_admin só
+    # garante "é admin de alguma empresa" -- resetar 2FA/senha de
+    # terceiros é sensível o bastante pra exigir o super admin
+    # especificamente, não qualquer admin comum (mesmo padrão de
+    # checagem manual já usado em atualizar(), acima, para o step-up
+    # condicional).
+    @staticmethod
+    @bp.post("/<uuid_usuario>/resetar-2fa")
+    @requer_admin
+    @acao_sensivel(acao="resetar_2fa_usuario", tabela="Usuarios")
+    def resetar_2fa(uuid_usuario):
+        if not g.is_super_admin:
+            return json_error(
+                "Apenas o administrador principal pode resetar o 2FA de um usuário.",
+                403,
+            )
+        try:
+            u = _svc.reset_2fa(
+                uuid_usuario,
+                id_empresa_solicitante=get_id_empresa_sessao(),
+                solicitante_eh_super_admin=g.is_super_admin,
+            )
+            return json_success(
+                data=u.to_dict(),
+                message="2FA resetado. O usuário precisará cadastrar um novo dispositivo.",
+            )
+        except BionException as e:
+            return json_error(e.message, e.status_code)
 
     @staticmethod
-    @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-2fa", methods=["POST"])
+    @bp.post("/<uuid_usuario>/resetar-completo")
     @requer_admin
-    def resetar_2fa(uuid_usuario):
-        return _svc.reset_2fa(uuid_usuario)
-    
-    
-    @staticmethod
-    @bp.route("/<uuid>/usuarios/<uuid_usuario>/resetar-completo", methods=["POST"])
-    @requer_admin
+    @acao_sensivel(acao="resetar_completo_usuario", tabela="Usuarios")
     def resetar_completo(uuid_usuario):
-        return _svc.reset_total(uuid_usuario)
+        if not g.is_super_admin:
+            return json_error(
+                "Apenas o administrador principal pode resetar um usuário por completo.",
+                403,
+            )
+        try:
+            u = _svc.reset_total(
+                uuid_usuario,
+                id_empresa_solicitante=get_id_empresa_sessao(),
+                solicitante_eh_super_admin=g.is_super_admin,
+            )
+            return json_success(
+                data=u.to_dict(),
+                message="Usuário resetado por completo. Ele precisará refazer a ativação de conta.",
+            )
+        except BionException as e:
+            return json_error(e.message, e.status_code)

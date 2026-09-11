@@ -21,7 +21,7 @@ from sqlalchemy import func
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.usuarios import Usuario
+from src.models.usuarios import Usuario, CredencialWebAuthn
 from src.models.usuarios.papel_profissional import PapelProfissional
 
 
@@ -76,6 +76,24 @@ class UsuarioRepository(IRepository[Usuario]):
     def find_admins(self, id_empresa: int) -> List[Usuario]:
         """Lista usuários administradores de uma empresa (is_admin)."""
         return Usuario.query.filter_by(id_empresa=id_empresa, is_admin=True).all()
+
+    def remover_credenciais_webauthn(self, id_usuario: int) -> int:
+        """Remove TODAS as credenciais WebAuthn de um usuário.
+
+        Usado pelo reset de 2FA disparado por um super admin
+        (UsuarioService.reset_2fa / reset_total). Diferente da
+        autorremoção do próprio usuário (ver
+        webauthn_2fa.remover_credencial), aqui NÃO existe a trava de
+        "não pode remover a última" -- o objetivo explícito desta
+        operação é zerar o 2FA por completo, forçando o usuário a
+        cadastrar um dispositivo novo no próximo login.
+
+        Retorno:
+            Quantidade de credenciais removidas.
+        """
+        apagadas = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).delete()
+        db.session.commit()
+        return apagadas
 
     def save(self, entity: Usuario, commit: bool = True) -> Usuario:
         if commit == True:
