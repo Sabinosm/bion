@@ -5,13 +5,32 @@ confirma uma sessão que já está pendente após o login por senha. As
 rotas de registro do dispositivo seguem o mesmo mecanismo; somente as
 rotas de confirmação de login mudam de comportamento.
 
-Login via Google não passa por aqui
--------------------------------------
-Login via Google (oauth.py) nunca entra em `mfa_pendente`, mesmo que
-o usuário tenha uma credencial WebAuthn cadastrada -- autenticar com
-sucesso via Google já é considerado prova de identidade suficiente.
-As rotas deste módulo só são acionadas depois de um login por senha
-(login.py) para um usuário que já tem WebAuthn cadastrado.
+ALTERADO (2FA sempre obrigatório, também via Google)
+-------------------------------------------------------
+A seção "Login via Google não passa por aqui" (versão anterior deste
+módulo) não é mais verdadeira -- ver oauth.py. Login via Google agora
+também entra em `mfa_pendente=True` e usa as MESMAS rotas de
+confirmação deste módulo (`/2fa/iniciar`, `/2fa/confirmar`) e de
+totp_2fa.py. Nenhuma rota aqui precisou mudar por causa disso -- elas
+já trabalhavam em cima de `mfa_pendente`/`id_usuario` na sessão, sem
+depender de como a sessão chegou nesse estado (senha ou Google).
+
+ALTERADO (2FA sempre obrigatório -- registro durante onboarding)
+----------------------------------------------------------------------
+`registrar_dispositivo_iniciar`/`confirmar` agora usam
+`requer_login_ou_onboarding_pendente` em vez de `requer_login` --
+precisam funcionar tanto para quem já está com sessão completa
+(configurações da conta) quanto para quem está no meio do onboarding
+escolhendo o primeiro método de 2FA (ver onboarding.py). Ver
+session.py para o novo decorator.
+
+ALTERADO (remoção da última credencial -- agora considera TOTP)
+----------------------------------------------------------------------
+`remover_credencial` bloqueava remover a última CredencialWebAuthn
+partindo do princípio de que WebAuthn era o único 2FA existente. Isso
+não é mais verdade (ver totp_2fa.py) -- agora o bloqueio só se aplica
+se o usuário NÃO tiver também um TOTP confirmado. Ver comentário na
+própria função.
 
 Limite de tentativas
 ---------------------
@@ -22,10 +41,13 @@ cancelamento). O contador vive na sessão (`mfa_tentativas`), então
 zera a cada novo login -- não é persistido por usuário.
 
 Ao atingir `MAX_TENTATIVAS_MFA`, `/webauthn/2fa/iniciar` para de
-gerar novos desafios e devolve `limite_tentativas_excedido`. Cabe ao
-frontend, nesse caso, redirecionar de volta para a tela de login --
-o usuário pode então reautenticar por senha (nova tentativa de 2FA,
-contador reiniciado) ou por Google (que não exige 2FA).
+gerar novos desafios e devolve `limite_tentativas_excedido`. ALTERADO:
+diferente da versão anterior, isso não significa mais "volte ao login
+e use Google" -- cabe ao frontend tentar TOTP como próximo método, se
+o usuário tiver (ver totp_2fa.py e afterLogin.js). Só se TOTP também
+não estiver disponível ou esgotar é que não sobra mais nenhum caminho
+de login (ver mfa.py, login.py, oauth.py -- 2FA é sempre obrigatório,
+não há mais fallback para Google sem 2FA).
 
 CORRIGIDO (bug pré-existente, sem relação com múltiplos admins):
 `segundo_fator_confirmar` fazia `usuario = get_id_usuario_sessao`
@@ -58,8 +80,14 @@ from webauthn.helpers.structs import (
 )
 
 from src.models import db
-from src.models.usuarios import Usuario, CredencialWebAuthn
-from src.core.session import mfa_pendente_required, get_id_usuario_sessao, requer_login, get_usuario_sessao
+from src.models.usuarios import Usuario, CredencialWebAuthn, CredencialTOTP
+from src.core.session import (
+    mfa_pendente_required,
+    get_id_usuario_sessao,
+    requer_login,
+    get_usuario_sessao,
+    requer_login_ou_onboarding_pendente,
+)
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN, RP_NAME
 
 bp_webauthn_2fa = Blueprint("webauthn_2fa", __name__)
@@ -108,15 +136,19 @@ class Webauthn():
 
     @staticmethod
     @bp_webauthn_2fa.post("/registrar/iniciar")
-    @requer_login
+    @requer_login_ou_onboarding_pendente
     def registrar_dispositivo_iniciar():
         """Gera o desafio WebAuthn para cadastrar um NOVO dispositivo.
 
         Diferente de `/2fa/iniciar` (que autentica uma credencial já
         existente para confirmar um login pendente), esta rota gera um
-        desafio de REGISTRO -- exige sessão já completa (`@requer_login`,
-        sem `mfa_pendente`), já que só faz sentido cadastrar um segundo
-        fator para quem já provou identidade uma vez.
+        desafio de REGISTRO.
+
+        ALTERADO (2FA sempre obrigatório): antes exigia sessão já
+        completa (`@requer_login`) -- agora também aceita sessão em
+        onboarding_pendente, já que o onboarding passou a exigir
+        escolher WebAuthn ou TOTP antes de concluir (ver onboarding.py
+        e session.py::requer_login_ou_onboarding_pendente).
 
         `exclude_credentials` evita que o mesmo autenticador físico seja
         cadastrado duas vezes para o mesmo usuário.
@@ -150,9 +182,13 @@ class Webauthn():
 
     @staticmethod
     @bp_webauthn_2fa.post("/registrar/confirmar")
-    @requer_login
+    @requer_login_ou_onboarding_pendente
     def registrar_dispositivo_confirmar():
         """Valida a resposta de registro e persiste a nova credencial.
+
+        ALTERADO (2FA sempre obrigatório): mesmo motivo de
+        registrar_dispositivo_iniciar -- aceita também sessão em
+        onboarding_pendente.
 
         Corpo esperado (JSON):
             {
@@ -224,19 +260,24 @@ class Webauthn():
         relacionamentos dependentes, então não existe "delete completo"
         de nada além da própria linha.
 
-        BLOQUEIO: o WebAuthn é o único 2FA suportado hoje (ver docstring
-        do módulo e settingsModal.html, "Obrigatória via chave de
-        acesso"). Por isso a ÚLTIMA credencial do usuário não pode ser
-        removida por aqui -- isso deixaria a conta sem segundo fator
-        algum. Se um fluxo de "desativar 2FA por completo" vier a
-        existir, ele deve ser uma ação separada e explícita, não um
-        efeito colateral de remover o último dispositivo.
+        ALTERADO (bloqueio agora considera TOTP também): antes, a
+        ÚLTIMA credencial WebAuthn nunca podia ser removida, partindo
+        do princípio de que WebAuthn era o único 2FA existente no
+        sistema. Com TOTP também disponível (ver totp_2fa.py), isso
+        mudou: remover a última credencial WebAuthn só é bloqueado se
+        o usuário TAMBÉM não tiver um TOTP confirmado -- do contrário,
+        ele ficaria sem 2FA algum, o que não é mais permitido (login
+        sempre exige 2FA, ver login.py/oauth.py). Se o usuário tiver
+        TOTP confirmado, pode remover a última (ou única) credencial
+        WebAuthn livremente -- o TOTP sozinho já mantém a conta em
+        conformidade com a exigência de 2FA.
 
         Retorno:
             200 com a lista atualizada de credenciais.
             403 se a credencial não pertencer ao usuário logado (mesma
                 resposta de 404, para não vazar se o id existe ou não).
-            409 se for a última credencial do usuário.
+            409 se for a última credencial do usuário E ele não tiver
+                TOTP confirmado como alternativa.
         """
         usuario = get_usuario_sessao()
 
@@ -249,7 +290,11 @@ class Webauthn():
 
         total_credenciais = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).count()
         if total_credenciais <= 1:
-            return jsonify({"erro": "ultima_credencial_nao_pode_ser_removida"}), 409
+            tem_totp = CredencialTOTP.query.filter_by(
+                id_usuario=usuario.id, confirmado=True
+            ).first() is not None
+            if not tem_totp:
+                return jsonify({"erro": "ultima_credencial_nao_pode_ser_removida"}), 409
 
         db.session.delete(credencial)
         db.session.commit()
@@ -263,8 +308,9 @@ class Webauthn():
     def segundo_fator_iniciar():
         """Gera o desafio WebAuthn para confirmar o segundo fator.
 
-        Chamado após o login por senha/Google, quando a sessão está pendente
-        de confirmação (`mfa_pendente=True`).
+        Chamado após o login por senha OU por Google (ALTERADO: Google
+        também entra em mfa_pendente agora, ver oauth.py), quando a
+        sessão está pendente de confirmação.
 
         `user_verification=REQUIRED` obriga o autenticador a confirmar a
         identidade localmente (PIN ou biometria) -- não basta só presença
@@ -275,12 +321,13 @@ class Webauthn():
         Cada chamada aqui consome uma tentativa (`mfa_tentativas` na
         sessão), até `MAX_TENTATIVAS_MFA`. Isso limita quantos desafios
         distintos o frontend pode pedir nesta sessão antes de precisar
-        redirecionar o usuário de volta ao login -- ver módulo docstring.
+        tentar o próximo método (TOTP, se o usuário tiver -- ver
+        docstring do módulo e totp_2fa.py).
 
         Retorno:
             200 com as opções de autenticação em JSON e `tentativas_restantes`.
-            400 se o usuário não tiver nenhuma credencial cadastrada (não
-            deveria ocorrer se o login já checou a existência de 2FA).
+            400 se o usuário não tiver nenhuma credencial cadastrada --
+            nesse caso o frontend deve pular direto para TOTP.
             429 se o limite de tentativas já tiver sido atingido.
         """
         id_usuario = get_id_usuario_sessao()

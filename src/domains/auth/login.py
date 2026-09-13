@@ -1,10 +1,17 @@
 """Rotas de login/logout do domínio Auth.
 
-A sessão é lida e escrita via cookie httpOnly. Após autenticar login e
-senha, se o usuário tiver credencial WebAuthn cadastrada, a sessão fica
-em estado pendente (`mfa_pendente=True`) e `id_empresa` não é liberado
-ainda -- a sessão só é promovida a completa após a confirmação via
-`/webauthn/2fa/confirmar` (ver `webauthn_2fa.py`).
+A sessão é lida e escrita via cookie httpOnly.
+
+ALTERADO (2FA sempre obrigatório -- ver mfa.py, oauth.py, onboarding.py):
+não existe mais login por senha sem 2FA. Todo usuário tem WebAuthn
+e/ou TOTP cadastrado obrigatoriamente desde o onboarding, então a
+sessão SEMPRE fica pendente (`mfa_pendente=True`) após autenticar por
+senha -- `id_empresa` só é liberado depois da confirmação via
+`/webauthn/2fa/confirmar` ou `/totp/2fa/confirmar` (ver
+webauthn_2fa.py e totp_2fa.py). A antiga condição `if tem_2fa` (que
+dependia de o usuário ter ou não credencial WebAuthn) foi substituída
+por `metodo_2fa_preferencial`, que só decide QUAL método oferecer
+primeiro -- ver mfa.py.
 
 ALTERADO (múltiplos admins por empresa):
 - `session["is_super_admin"]` passa a ser gravado aqui, junto dos
@@ -26,11 +33,18 @@ onboarding que já existe abaixo. O usuário reseta e o próximo login
 dele já cai natural em "onboarding_pendente", exatamente como cairia
 se fosse uma conta nova sem senha definida ainda. Nenhuma lógica nova
 precisou entrar aqui por causa disso.
+
+Nota sobre reset de senha + 2FA já cadastrado: se o admin resetar a
+senha de um usuário que já tem WebAuthn/TOTP confirmados, esses
+fatores de 2FA NÃO são apagados -- só a senha. O próximo login cai em
+onboarding_pendente (definir senha nova), mas onboarding.py::concluir
+já vê que o usuário tem 2FA confirmado e libera a sessão sem pedir
+para escolher de novo (ver onboarding.py, _usuario_tem_algum_2fa_confirmado).
 """
 
 from flask import Blueprint, request, session
-from src.models.usuarios import CredencialWebAuthn
 from src.core.responses import json_success, json_error
+from src.domains.auth.mfa import metodo_2fa_preferencial
 from .services import AuthService
 
 
@@ -45,14 +59,15 @@ class Login():
     def login():
         """Autentica um usuário por login e senha.
 
-        Se o usuário tiver WebAuthn cadastrado, deixa a sessão em estado
-        pendente de segundo fator em vez de liberá-la por completo.
+        ALTERADO: a sessão SEMPRE fica pendente de 2FA após autenticar
+        por senha -- não existe mais caminho de login sem 2FA (ver
+        docstring do módulo).
 
         Corpo esperado (JSON ou form): `user_login`, `senha`.
 
         Retorno:
-            200 com dados de usuário e configurações se autenticado sem 2FA.
-            200 com `status: mfa_pendente` se autenticado mas pendente de 2FA.
+            200 com `status: mfa_pendente` se autenticado (sempre o
+                caso, exceto onboarding pendente).
             200 com `status: onboarding_pendente` se o usuário não tem
                 senha definida ainda -- inclusive logo após um reset de
                 senha feito por um admin (ver resetar_senha_usuario em
@@ -76,7 +91,15 @@ class Login():
         if not usuario:
             return json_error("Credenciais inválidas.", 401)
 
-        tem_2fa = CredencialWebAuthn.query.filter_by(id_usuario=usuario.id).first() is not None
+        # ALTERADO (2FA sempre obrigatório): não decide mais "se" pedir
+        # 2FA, só "qual" método oferecer primeiro -- ver mfa.py. `None`
+        # só ocorreria para uma conta legada sem nenhum fator migrado
+        # (não deveria existir depois do onboarding atual); nesse caso
+        # o frontend tenta WebAuthn e cai para TOTP normalmente (ver
+        # afterLogin.js), e se o usuário não tiver nenhum dos dois de
+        # verdade, os dois passos falham e o login fica bloqueado --
+        # correto para uma conta inconsistente.
+        metodo = metodo_2fa_preferencial(usuario.id)
 
         session.clear()
         session.permanent = True
@@ -107,18 +130,12 @@ class Login():
                 message="Cadastro incompleto, finalize o onboarding.",
             )
 
-        if tem_2fa:
-            session["mfa_pendente"] = True
-            return json_success(
-                data={"status": "mfa_pendente", "metodo": "webauthn"},
-                message="Confirmação adicional necessária.",
-            )
-        
-        _svc.load(usuario)
-        
+        # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
+        # `_svc.load(usuario)` que liberava a sessão direto sem 2FA.
+        session["mfa_pendente"] = True
         return json_success(
-            data={"status": "sucess"},
-            message="Login realizado com sucesso.",
+            data={"status": "mfa_pendente", "metodo": metodo or "webauthn"},
+            message="Confirmação adicional necessária.",
         )
     
             

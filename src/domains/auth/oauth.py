@@ -4,21 +4,33 @@ O usuário precisa já existir (cadastrado por um admin). O Google aqui
 serve apenas para provar posse do e-mail cadastrado -- nunca cria conta
 automaticamente.
 
-Login via Google NUNCA exige WebAuthn/2FA
--------------------------------------------
-Diferente do login por senha (login.py), autenticar com sucesso via
-Google já é, em si, uma prova forte de identidade -- por isso o login
-via Google libera a sessão como completa direto após o callback,
-mesmo que o usuário tenha uma credencial WebAuthn cadastrada. O único
-bloqueio possível é o onboarding pendente (usuário ainda sem senha
-definida), que tem prioridade sobre tudo.
+ALTERADO (2FA sempre obrigatório, também via Google)
+-------------------------------------------------------
+Versão anterior deste módulo liberava a sessão como completa direto
+após o callback do Google, sem passar por 2FA -- autenticar com
+sucesso via Google era tratado como prova forte o suficiente por si
+só. Essa exceção foi removida: agora TODO login, por senha ou por
+Google, exige confirmação de 2FA (WebAuthn e/ou TOTP) antes de liberar
+a sessão -- ver login.py e mfa.py para o mesmo tratamento do lado do
+login por senha.
 
-O cadastro de WebAuthn deixa de ser parte do onboarding (ver
-onboarding.py) e passa a ser feito depois, nas configurações da
-conta -- quem cadastrar poderá usá-lo para 2FA em logins futuros por
-senha, mas isso nunca afeta o login por Google.
+Motivo da mudança: com WebAuthn e/ou TOTP agora obrigatórios desde o
+onboarding (ver onboarding.py), todo usuário tem pelo menos um fator
+cadastrado. Deixar o Google como exceção permanente teria virado, na
+prática, um bypass permanente de 2FA -- bastaria repetir login via
+Google para nunca precisar confirmar o segundo fator. Navegadores que
+mantêm sessão Google ativa (login social "lembrado") agravavam isso:
+a "reautenticação" via Google podia ser só um SSO silencioso, sem
+nenhuma prova nova de identidade.
 
-CORRIGIDO (bugs pré-existentes, sem relação com a migração FHIR):
+O cadastro de WebAuthn/TOTP continua fora do onboarding por senha em
+si (ver onboarding.py) -- é o onboarding, de forma geral, que agora
+exige escolher pelo menos um dos dois antes de concluir, independente
+de o primeiro login ter sido por senha ou por Google.
+
+CORRIGIDO (bugs pré-existentes, sem relação com a migração FHIR nem
+com esta mudança de 2FA -- mantidos aqui por não terem sido
+revertidos):
 1. `usuario.ativo` não existe no model -- o campo real é `status`
    (enum 'ativo'/'inativo'/'suspenso'). Corrigido para status == "ativo".
 2. `usuario.id_usuario` não existe como atributo Python -- o model
@@ -53,6 +65,11 @@ ALTERADO (múltiplos admins por empresa):
   pendente) -- mesmo motivo de login.py. Não é gravado no ramo de
   onboarding_pendente porque, nesse caso, a sessão ainda não está
   completa e onboarding.py grava o restante ao concluir; ver nota lá.
+
+ADICIONADO (checagem de sessão obsoleta em leituras sensíveis -- ver
+requer_senha_atualizada em session.py):
+- `session["senha_versao"]` passa a ser gravada aqui também, mesmo
+  snapshot gravado em login.py, agora também no caminho Google.
 """
 
 from flask import Blueprint, session, redirect, url_for
@@ -98,19 +115,24 @@ class Oauth():
         """Recebe o callback do Google e autentica o usuário existente.
 
         Vincula o `google_sub` na primeira vez que o usuário loga via Google.
-        Define o próximo estado da sessão conforme o usuário já tenha
-        concluído o onboarding (senha definida) ou não.
 
-        Não passa por `mfa_pendente` em nenhum caso -- login via Google
-        libera a sessão como completa direto (exceto onboarding pendente),
-        mesmo que o usuário tenha WebAuthn cadastrado. Ver docstring do
-        módulo para o racional.
+        ALTERADO: assim como no login por senha, a sessão só é liberada
+        como completa depois de confirmado o 2FA (WebAuthn e/ou TOTP) --
+        ver mfa.py. `onboarding_pendente` continua tendo prioridade
+        sobre `mfa_pendente`: quem ainda não definiu senha nem escolheu
+        um método de 2FA precisa passar pelo onboarding primeiro (ver
+        onboarding.py), não faz sentido pedir 2FA de um usuário que
+        ainda não tem nenhum fator cadastrado.
 
         Retorno:
             Redirect para login.html com erro se o usuário não existir
             ou estiver inativo; redirect para afterLogin.html em sucesso
-            -- ambos na origem do frontend (FRONTEND_URL), não na origem
-            do Flask.
+            (sessão completa OU mfa_pendente OU onboarding_pendente,
+            dependendo do estado do usuário) -- ambos na origem do
+            frontend (FRONTEND_URL), não na origem do Flask. É o
+            afterLogin.js quem decide o que fazer a partir daí, via
+            /auth/status -- este módulo não distingue os três casos na
+            URL de redirect, só no estado da sessão.
         """
         token = oauth.google.authorize_access_token()
         userinfo = token["userinfo"]
@@ -148,14 +170,17 @@ class Oauth():
         session.permanent = True
 
         if usuario.onboarding_pendente:
-            # Único bloqueio possível para login via Google: falta definir
-            # senha. WebAuthn não faz mais parte do onboarding (ver
-            # onboarding.py), então não há mais nada além da senha
-            # pendente aqui.
+            # Único caso que NÃO passa por 2FA -- usuário ainda não tem
+            # nenhum fator cadastrado (nem senha definida, no caso de
+            # primeiro acesso). Precisa concluir o onboarding primeiro;
+            # é lá que WebAuthn/TOTP são escolhidos (ver onboarding.py).
             session["onboarding_pendente"] = True
         else:
-            # Login via Google sempre libera sessão completa, mesmo que o
-            # usuário tenha WebAuthn cadastrado -- ver docstring do módulo.
-            session["id_empresa"] = usuario.id_empresa
+            # ALTERADO: login via Google agora também exige 2FA, igual
+            # ao login por senha -- ver docstring do módulo. A sessão
+            # fica pendente até a confirmação via /webauthn/2fa/confirmar
+            # ou /totp/2fa/confirmar (mesmas rotas usadas pelo login por
+            # senha, ver webauthn_2fa.py e totp_2fa.py).
+            session["mfa_pendente"] = True
 
         return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_LOGIN}")

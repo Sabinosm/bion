@@ -4,33 +4,62 @@ Reconfirma a identidade antes de ações sensíveis (excluir prontuário,
 alterar prescrição, conceder acesso admin), mesmo com a sessão já
 totalmente autenticada.
 
-Dois métodos, conforme o que o usuário tem cadastrado
+Métodos, conforme o que o usuário tem cadastrado
 ---------------------------------------------------------
-1. WebAuthn (preferencial): gera um desafio vinculado ao `id_usuario`
-   e à ação específica. Só disponível para quem já tem credencial
-   cadastrada.
+ALTERADO (2FA sempre obrigatório no login; step-up simplificado --
+ver `src/domains/auth/mfa.py`): a regra de "redundância" (2+ fatores
+para tornar obrigatório) foi abandonada. Como todo usuário agora tem
+WebAuthn e/ou TOTP obrigatoriamente desde o onboarding, o step-up
+simplesmente usa o que o usuário tiver, na ordem:
 
-2. Senha + Google (fallback para quem não tem WebAuthn): em duas
-   etapas -- primeiro confirma a senha atual, depois reautentica via
-   Google com `prompt=login` (forçando o Google a pedir login de novo,
-   mesmo que já haja uma sessão Google ativa no navegador -- sem isso,
-   a "reautenticação" poderia ser só um SSO silencioso que não prova
-   nada de novo). O estado entre essas duas etapas é persistido na
-   tabela `stepup_reautenticacao` (não na sessão Flask), porque o
-   fluxo atravessa um redirect real de navegador e pode voltar em uma
-   aba diferente da que iniciou.
+1. WebAuthn, se tiver credencial cadastrada.
+2. TOTP, se tiver (e WebAuthn não estiver disponível, ou tiver
+   esgotado as tentativas -- ver totp_2fa.py, stepup_totp_iniciar/
+   confirmar).
+3. Senha + Google (fallback), se não tiver nenhum dos dois -- ou se
+   WebAuthn e TOTP tiverem esgotado as tentativas. Diferente da
+   versão anterior deste módulo, NÃO há mais um estado de bloqueio
+   sem saída no step-up: mesmo esgotando WebAuthn e TOTP, o fallback
+   senha+Google continua disponível como último recurso. Essa é uma
+   escolha deliberada: no login, perder acesso aos dois fatores é
+   tratado como bloqueio total (ver login.py/oauth.py/mfa.py) porque
+   não sobra nenhum caminho de entrada; no step-up, a pessoa já está
+   autenticada e dentro do sistema -- negar toda e qualquer forma de
+   confirmar uma ação sensível, mesmo com senha+reautenticação Google
+   forçada disponível, seria mais rígido do que o necessário.
 
-   Isso é deliberadamente mais fraco que WebAuthn: senha + Google prova
-   posse de duas credenciais que já autenticaram a sessão original (não
-   é um fator independente), enquanto WebAuthn prova posse de hardware
-   específico. É o preço aceito para não deixar usuários sem WebAuthn
-   irrecuperavelmente incapazes de confirmar ações sensíveis.
+Os métodos em si:
 
-Em ambos os casos, o resultado final é o mesmo: um token de curta
-duração vinculado ao `id_usuario` e à ação, guardado na tabela
-`stepup_token`. A rota sensível exige esse token via decorator
-`requer_confirmacao_recente`, que não precisa saber qual dos dois
-métodos foi usado para obtê-lo.
+1. WebAuthn: gera um desafio vinculado ao `id_usuario` e à ação
+   específica.
+
+2. TOTP (ver totp_2fa.py): código de 6 dígitos do app autenticador,
+   também vinculado à ação. Só é oferecido depois que WebAuthn não
+   está disponível ou esgota tentativas.
+
+3. Senha + Google (fallback): em duas etapas -- primeiro confirma a
+   senha atual, depois reautentica via Google com `prompt=login`
+   (forçando o Google a pedir login de novo, mesmo que já haja uma
+   sessão Google ativa no navegador -- sem isso, a "reautenticação"
+   poderia ser só um SSO silencioso que não prova nada de novo). O
+   estado entre essas duas etapas é persistido na tabela
+   `stepup_reautenticacao` (não na sessão Flask), porque o fluxo
+   atravessa um redirect real de navegador e pode voltar em uma aba
+   diferente da que iniciou.
+
+   Isso é deliberadamente mais fraco que WebAuthn/TOTP: senha + Google
+   prova posse de duas credenciais que já autenticaram a sessão
+   original (não é um fator independente), enquanto WebAuthn/TOTP
+   provam posse de algo além da sessão em si. É o preço aceito para
+   nunca deixar um usuário autenticado incapaz de confirmar uma ação
+   sensível, mesmo no pior caso (perdeu WebAuthn e TOTP ao mesmo
+   tempo).
+
+Em todos os casos que chegam a um token, o resultado final é o mesmo:
+um token de curta duração vinculado ao `id_usuario` e à ação, guardado
+na tabela `stepup_token`. A rota sensível exige esse token via
+decorator `requer_confirmacao_recente`, que não precisa saber qual
+método foi usado para obtê-lo.
 
 ALTERADO (separação admin/papel clínico): extraída a função
 `token_recente_valido(acao)`, com a MESMA lógica que já vivia dentro
@@ -60,6 +89,7 @@ from src.core.session import requer_login, get_usuario_sessao, get_id_usuario_se
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 from src.domains.auth.frontend_config import FRONTEND_URL
 from src.domains.auth.oauth import oauth
+from src.domains.auth.mfa import usuario_tem_algum_2fa
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
@@ -167,6 +197,15 @@ class StepUp():
 
         credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
 
+        # ALTERADO (2FA sempre obrigatório no login; step-up simplificado):
+        # a regra de "redundância" (2+ fatores) foi abandonada -- agora
+        # todo usuário tem WebAuthn e/ou TOTP obrigatoriamente desde o
+        # onboarding (ver mfa.py). O step-up usa o que o usuário tiver:
+        # WebAuthn se tiver credencial cadastrada; senão TOTP, se tiver
+        # (ver totp_2fa.py, stepup_totp_iniciar); senão, fallback
+        # senha+Google -- que na prática só deveria ocorrer para contas
+        # legadas ainda não migradas, já que o onboarding atual sempre
+        # exige pelo menos um dos dois métodos.
         if not credenciais:
             return jsonify({"metodo": "senha_google", "acao": acao}), 200
 
