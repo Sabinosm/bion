@@ -37,6 +37,7 @@ pydantic_core==2.46.4
 Pygments==2.20.0
 PyMySQL==1.2.0
 pyOpenSSL==26.3.0
+PyOTP==2.10.0
 pytest==9.1.1
 python-dotenv==1.2.2
 requests==2.32.3
