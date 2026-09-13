@@ -218,3 +218,58 @@ class UsuarioController():
             )
         except BionException as e:
             return json_error(e.message, e.status_code)
+
+    # ADICIONADO (troca de senha, autoatendimento): rota dedicada, sem
+    # campos triviais misturados -- por isso usa o decorator estático
+    # de step-up (igual ativar()), não a checagem condicional que
+    # atualizar() usa. Validação de força/repetição acontece dentro do
+    # service (AlterarSenhaSchema), não aqui -- mesmo padrão de criar().
+    @staticmethod
+    @bp.put("/senha")
+    @requer_login
+    @StepUp.requer_confirmacao_recente("alterar_senha")
+    def alterar_senha():
+        dados = request.get_json(silent=True) or {}
+        try:
+            _svc.alterar_senha(g.uuid_usuario, dados)
+            return json_success(
+                message="Senha alterada. Você precisará entrar novamente em outros dispositivos."
+            )
+        except BionException as e:
+            return json_error(e.message, e.status_code)
+
+    # ADICIONADO (reset de senha por admin, isolado): diferente de
+    # resetar_completo (zera 2FA + onboarding + status), aqui SÓ a
+    # senha muda -- WebAuthn e status permanecem intactos. Combina
+    # step-up (prova que é realmente o super admin logado agindo, não
+    # uma sessão sequestrada dele) com auditoria (ação sobre a conta de
+    # OUTRA pessoa -- diferente de alterar_senha(), aqui "quem fez o
+    # quê e quando" tem valor sem o problema de inferência que motivou
+    # não auditar a autotroca). Sem senha temporária pra retornar --
+    # ver decisão em service.py: o usuário define a própria senha no
+    # próximo login, que cai automaticamente no fluxo de onboarding já
+    # existente (onboarding_pendente=True).
+    @staticmethod
+    @bp.post("/<uuid_usuario>/resetar-senha")
+    @requer_admin
+    @StepUp.requer_confirmacao_recente("resetar_senha_usuario")
+    @acao_sensivel(acao="resetar_senha_usuario", tabela="Usuarios")
+    def resetar_senha(uuid_usuario):
+        if not g.is_super_admin:
+            return json_error(
+                "Apenas o administrador principal pode resetar a senha de um usuário.",
+                403,
+            )
+        try:
+            u = _svc.resetar_senha_usuario(
+                uuid_usuario,
+                id_empresa_solicitante=get_id_empresa_sessao(),
+                solicitante_eh_super_admin=g.is_super_admin,
+            )
+            return json_success(
+                data=u.to_dict(),
+                message="Senha resetada. O usuário precisará definir uma nova senha "
+                        "no próximo login.",
+            )
+        except BionException as e:
+            return json_error(e.message, e.status_code)

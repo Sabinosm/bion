@@ -36,7 +36,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Sessão / Cookie
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=10)
     SESSION_PERMANENT = True
     SESSION_COOKIE_HTTPONLY = True   # JS do front não acessa o cookie
     SESSION_COOKIE_SAMESITE = "Lax"  # Proteção CSRF básica # ou "None" se front e back tiverem domínios diferentes

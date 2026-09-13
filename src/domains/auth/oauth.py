@@ -141,6 +141,10 @@ class Oauth():
         # ADICIONADO: mesmo motivo de login.py -- necessário pra
         # g.is_super_admin e requer_super_admin funcionarem depois.
         session["is_super_admin"] = usuario.is_super_admin
+        # ADICIONADO (checagem de sessão obsoleta em leituras sensíveis
+        # -- ver requer_senha_atualizada em session.py): mesmo snapshot
+        # gravado em login.py, agora também no caminho Google.
+        session["senha_versao"] = usuario.senha_versao
         session.permanent = True
 
         if usuario.onboarding_pendente:

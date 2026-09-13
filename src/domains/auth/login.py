@@ -11,6 +11,21 @@ ALTERADO (múltiplos admins por empresa):
   demais dados de sessão -- é o que `g.is_super_admin` (session.py) lê
   depois em toda rota autenticada. Sem isso, o super admin perderia o
   poder de criar/alterar outros admins mesmo logado corretamente.
+
+ADICIONADO (checagem de sessão obsoleta em leituras sensíveis -- ver
+requer_senha_atualizada em session.py):
+- `session["senha_versao"]` passa a ser gravada aqui, junto dos demais
+  dados -- é o snapshot que as rotas de leitura sensível comparam
+  contra o valor atual do banco.
+
+DECISÃO (reset de senha por admin -- ver resetar_senha_usuario em
+service.py): não existe estado "senha temporária pendente" separado.
+Um reset de admin simplesmente zera hash_senha e marca
+onboarding_pendente=True -- reaproveitando 100% do branch de
+onboarding que já existe abaixo. O usuário reseta e o próximo login
+dele já cai natural em "onboarding_pendente", exatamente como cairia
+se fosse uma conta nova sem senha definida ainda. Nenhuma lógica nova
+precisou entrar aqui por causa disso.
 """
 
 from flask import Blueprint, request, session
@@ -38,6 +53,10 @@ class Login():
         Retorno:
             200 com dados de usuário e configurações se autenticado sem 2FA.
             200 com `status: mfa_pendente` se autenticado mas pendente de 2FA.
+            200 com `status: onboarding_pendente` se o usuário não tem
+                senha definida ainda -- inclusive logo após um reset de
+                senha feito por um admin (ver resetar_senha_usuario em
+                service.py), que reaproveita este mesmo estado.
             400 se o usuário só tiver login via Google (sem senha).
             401 se as credenciais forem inválidas.
             422 se login ou senha não forem enviados.
@@ -73,6 +92,12 @@ class Login():
         # ADICIONADO: necessário pra g.is_super_admin (session.py) e
         # pra requer_super_admin funcionarem em rotas futuras nesta sessão.
         session["is_super_admin"] = usuario.is_super_admin
+        # ADICIONADO (checagem de sessão obsoleta em leituras sensíveis
+        # -- ver requer_senha_atualizada em session.py): snapshot da
+        # versão da senha NO MOMENTO deste login. Se a senha mudar
+        # depois (autotroca ou reset por admin), essa sessão fica com
+        # um valor antigo e é pega pela checagem nas rotas decoradas.
+        session["senha_versao"] = usuario.senha_versao
         
         
         if usuario.onboarding_pendente:

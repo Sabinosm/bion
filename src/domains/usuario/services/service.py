@@ -39,7 +39,29 @@ ALTERADO (senha do super admin fundador, preexistente):
   com base no parâmetro is_super_admin. Só existe um super admin por
   empresa, e is_super_admin=True só é aceito vindo de
   Empresa.cadastrar_com_admin -- nunca a partir de um payload de cliente.
+
+ADICIONADO (troca/reset de senha -- ver conversa sobre step-up +
+requer_senha_atualizada em session.py):
+- `alterar_senha()`: autoatendimento, chamado pelo próprio usuário já
+  reconfirmado via step-up (o controller consome o token ANTES de
+  chamar isto -- este método não reautentica nada, só valida força/
+  repetição e persiste).
+- `resetar_senha_usuario()`: reset feito por um super admin na conta de
+  um terceiro. DECISÃO (assertivo): não existe conceito de "senha
+  temporária" gerada pelo sistema -- isso daria ao admin uma senha
+  válida da conta de outra pessoa, abrindo a porta pra ele logar como
+  o usuário e agir em nome dele sem que ele saiba. Em vez disso, o
+  reset zera hash_senha e devolve o usuário ao onboarding -- ele define
+  a própria senha nova, do mesmo jeito que define no cadastro inicial,
+  e essa senha nunca passa pelas mãos de mais ninguém.
+- As duas incrementam `senha_versao` -- é o que torna qualquer sessão
+  aberta (a própria ou de terceiro) com uma versão antiga detectável
+  pelas rotas de leitura sensível decoradas com
+  `@requer_senha_atualizada` (session.py). Sem esse incremento aqui, a
+  coluna nunca muda e aquela checagem nunca dispara.
 """
+
+from argon2.exceptions import VerifyMismatchError
 
 from src.core.security import ph, aes_encrypt, hmac_sha256
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
@@ -48,7 +70,7 @@ from .service_helpers import (
     monta_dados_papel,
 )
 from .service_atualizar import att
-from src.schemas.schema_usuario import CadastroUsuarioSchema
+from src.schemas.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 from .service_validacoes import (
@@ -301,6 +323,118 @@ class UsuarioService:
         solicitante_eh_super_admin: bool = False,
     ):
         return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid, solicitante_eh_super_admin)
+
+    # ADICIONADO (troca de senha, autoatendimento): protegido a montante
+    # por step-up no controller (o token já foi consumido antes de
+    # chegar aqui) -- este método não reautentica nada, só valida
+    # força/repetição via schema e persiste.
+    def alterar_senha(self, uuid: str, dados: dict):
+        """Troca a senha do próprio usuário autenticado.
+
+        Parâmetros:
+            uuid: uuid do usuário logado (g.uuid_usuario no controller
+                -- nunca um uuid arbitrário vindo do payload, pra não
+                abrir brecha de trocar a senha de outra pessoa por essa
+                via).
+            dados: dict bruto do payload, validado aqui via
+                AlterarSenhaSchema (mesmo padrão de criar(), que também
+                valida o schema dentro do service, não no controller).
+
+        Retorno:
+            Instância de Usuario atualizada e salva.
+
+        Levanta:
+            DadosInvalidosError: se a senha não passar na validação de
+                força, ou se for igual à senha atual.
+            RecursoNaoEncontradoError: se o uuid não corresponder a
+                nenhum usuário (não deveria acontecer numa sessão válida,
+                mas cobre a corrida de usuário deletado no meio do fluxo).
+        """
+        try:
+            schema = AlterarSenhaSchema(**dados)
+        except Exception as e:
+            raise DadosInvalidosError(f"Erro de validação: {e}") from e
+
+        u = self.buscar_por_uuid(uuid)
+
+        # Impede repetir a mesma senha -- só dá pra comparar via verify
+        # (hash não é reversível), não via igualdade direta de string.
+        if u.hash_senha:
+            try:
+                ph.verify(u.hash_senha, schema.senha_nova)
+                raise DadosInvalidosError("A nova senha deve ser diferente da atual.")
+            except VerifyMismatchError:
+                pass
+
+        u.hash_senha = ph.hash(schema.senha_nova)
+        # ADICIONADO: ver docstring do módulo -- é isso que torna
+        # qualquer sessão com a versão antiga detectável pelas rotas
+        # decoradas com @requer_senha_atualizada (session.py).
+        u.senha_versao = (u.senha_versao or 1) + 1
+        u.deve_trocar_senha = False
+        return self.repo.save(u)
+
+    # ADICIONADO (reset de senha por admin, isolado): DECISÃO
+    # (assertivo, sem conceito de "senha temporária"): não existe senha
+    # gerada pelo sistema que passe pelas mãos do admin -- se existisse,
+    # o admin literalmente saberia a senha do usuário e poderia entrar
+    # na conta dele e agir em nome dele sem que ele soubesse. Em vez
+    # disso, resetar a senha simplesmente zera hash_senha e devolve o
+    # usuário ao onboarding (mesmo fluxo que já existe para conta nova
+    # -- ele define a própria senha, que nunca é vista por ninguém
+    # além dele). Diferente de reset_total: NÃO mexe em WebAuthn nem em
+    # status -- só a senha, sem forçar o usuário a recadastrar 2FA.
+    # Mesmas travas de reset_2fa/reset_total (só super admin, só dentro
+    # da própria empresa, alvo super admin bloqueado).
+    def resetar_senha_usuario(
+        self,
+        uuid_usuario: str,
+        id_empresa_solicitante: int,
+        solicitante_eh_super_admin: bool = False,
+    ):
+        """Reseta SÓ a senha de um usuário-alvo, devolvendo-o ao
+        onboarding para que ele mesmo defina a nova senha.
+
+        Parâmetros:
+            uuid_usuario: identificador do usuário alvo.
+            id_empresa_solicitante: empresa de quem está pedindo (ver
+                get_id_empresa_sessao() no controller).
+            solicitante_eh_super_admin: se True, quem está pedindo é o
+                super admin da empresa.
+
+        Retorno:
+            Instância de Usuario atualizada e salva.
+
+        Levanta:
+            DadosInvalidosError: se o solicitante não for o super admin,
+                ou se o alvo for o próprio super admin.
+            RecursoNaoEncontradoError: se o usuário não existir ou não
+                pertencer à empresa do solicitante.
+        """
+        if not solicitante_eh_super_admin:
+            raise DadosInvalidosError(
+                "Apenas o administrador principal pode resetar a senha de um usuário."
+            )
+
+        u = self.buscar_por_uuid(uuid_usuario)
+        if u.id_empresa != id_empresa_solicitante:
+            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+
+        if u.is_super_admin:
+            raise DadosInvalidosError(
+                "O administrador principal não pode ter a senha resetada por outra pessoa."
+            )
+
+        u.hash_senha = None
+        u.onboarding_pendente = True
+        # ADICIONADO: mesmo motivo de alterar_senha() -- derruba
+        # qualquer sessão aberta dele nas rotas de leitura sensível
+        # (ver requer_senha_atualizada em session.py). O onboarding em
+        # si já impede uso normal, mas isso cobre também as leituras
+        # sensíveis numa sessão que porventura ainda estivesse com
+        # onboarding_pendente=False em cache local de algum lugar.
+        u.senha_versao = (u.senha_versao or 1) + 1
+        return self.repo.save(u)
 
     def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
         """Reseta o 2FA de um usuário: remove TODAS as credenciais

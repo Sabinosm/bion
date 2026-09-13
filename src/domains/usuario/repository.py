@@ -77,6 +77,20 @@ class UsuarioRepository(IRepository[Usuario]):
         """Lista usuários administradores de uma empresa (is_admin)."""
         return Usuario.query.filter_by(id_empresa=id_empresa, is_admin=True).all()
 
+    def find_senha_versao(self, id_usuario: int) -> Optional[int]:
+        """Retorna só a coluna senha_versao do usuário, sem instanciar o
+        Usuario inteiro -- usado por `requer_senha_atualizada`
+        (session.py) nas rotas de leitura sensível que precisam
+        comparar contra o valor gravado na sessão a cada requisição.
+        Deliberadamente mais barato que find_by_id: 1 SELECT de uma
+        coluna indexada por PK, sem carregar relacionamentos.
+
+        Retorno: o inteiro, ou None se o usuário não existir mais
+        (ex: deletado entre o login e esta requisição).
+        """
+        row = db.session.query(Usuario.senha_versao).filter_by(id=id_usuario).first()
+        return row[0] if row else None
+
     def remover_credenciais_webauthn(self, id_usuario: int) -> int:
         """Remove TODAS as credenciais WebAuthn de um usuário.
 

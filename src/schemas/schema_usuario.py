@@ -376,3 +376,37 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
         if not all(re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$", p) for p in partes):
             raise ValueError("Nome completo contém caracteres inválidos.")
         return v
+
+# ---------------------------------------------------------------------------
+# Troca de senha (autoatendimento)
+# ---------------------------------------------------------------------------
+
+
+class AlterarSenhaSchema(BaseModel):
+    """Payload de PUT /usuarios/senha -- troca de senha pelo próprio
+    usuário autenticado (ver UsuarioService.alterar_senha).
+
+    ADICIONADO: mesma validação de força de senha usada em
+    CadastroUsuarioSchema/AtualizacaoUsuarioSchema (vl.validar_senha) --
+    reaproveitada aqui, não reimplementada, pra manter a política de
+    senha consistente em todo o sistema (cadastro, atualização e troca
+    passam pela mesma régua).
+
+    Deliberadamente sem campo `senha_atual`: a prova de identidade já
+    aconteceu no step-up (WebAuthn, ou senha+Google com prompt=login)
+    antes deste endpoint ser chamado -- pedir a senha atual de novo
+    aqui duplicaria uma prova que o fluxo já fez, sem ganho de
+    segurança. Ver step_up.py e a discussão registrada em
+    UsuarioController.atualizar sobre esse mesmo racional.
+    """
+
+    senha_nova: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("senha_nova")
+    @classmethod
+    def valida_forca_senha(cls, v: str) -> str:
+        senha_valida, resposta = vl.validar_senha(v)
+        if senha_valida == True:
+            return v
+        else:
+            raise ValueError(resposta["erro"])

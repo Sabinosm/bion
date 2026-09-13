@@ -74,7 +74,7 @@ class AuditoriaService:
     # ------------------------------------------------------------------
 
     def registrar_acesso(self, id_empresa: int, id_usuario: int, recurso: str, operacao: str,
-                          ip_origem: str, resultado: str = "sucesso", uuid_paciente: str = None):
+                          ip_origem: str,  uuid_paciente: str = None):
         # id_usuario aqui e o id INTERNO, vindo de get_id_usuario_sessao()
         # (sessao autenticada) -- nunca do client. So a leitura/consulta
         # publica e restrita a uuid.
@@ -86,11 +86,26 @@ class AuditoriaService:
             operacao=operacao,
             data_hora=datetime.now(timezone.utc),
             ip_origem=ip_origem,
-            resultado=resultado,
+            resultado="sucesso",
             uuid_paciente=uuid_paciente,
         )
         return self.acesso_repo.save(log)
 
+    def registrar_acesso_negado(self, id_empresa: int, id_usuario: int, recurso: str, operacao: str,
+                                ip_origem: str, motivo: str):
+        from src.models.auditoria.log_acesso import LogAcesso
+        log = LogAcesso(
+            id_empresa=id_empresa,
+            id_usuario=id_usuario,
+            recurso_acessado=recurso,
+            operacao=operacao,
+            data_hora=datetime.now(timezone.utc),
+            ip_origem=ip_origem,
+            resultado="negado",
+            motivo_negacao=motivo,
+        )
+        return self.acesso_repo.save(log)
+    
     def registrar_alteracao(self, id_empresa: int, tabela_origem: str, id_registro: int,
                              uuid_registro: str, operacao: str, acao: str = None,
                              id_usuario: int = None, campo_alterado: str = None,

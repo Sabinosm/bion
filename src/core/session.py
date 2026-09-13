@@ -41,6 +41,52 @@ ALTERADO (separação admin/papel clínico, assertivo, sem alias):
   `requer_admin`, `requer_papel_clinico(...)` ou
   `requer_admin_ou_papel_clinico(...)`, conforme a intenção original
   de cada rota.
+
+DECISÃO CONFIRMADA (revogação de sessão x troca de senha, avaliada e
+descartada -- registro pra não reabrir a discussão sem motivo novo):
+- Cogitamos contador de versão (`senha_versao`) usado GLOBALMENTE,
+  guardar a senha/hash na própria sessão, e uma tabela `SessaoUsuario`
+  (sessão revogável com estado no servidor, inclusive política de
+  1-sessão-por-usuário). Todas exigem 1 SELECT por requisição
+  autenticada (N+1) pra saber se a sessão "envelheceu" -- não existe
+  forma de invalidar uma sessão client-side (cookie assinado) sem
+  consultar uma fonte de verdade no servidor a cada request; guardar o
+  dado revogável DENTRO da própria sessão não resolve nada, porque a
+  sessão de quem já está logado (inclusive um invasor) nunca é
+  reescrita por uma ação de outra pessoa -- não há canal de
+  invalidação remota em sessão client-side.
+- Descartado GLOBALMENTE (em `requer_login`) por custo (N+1) sem
+  ganho real pra ESCRITA: ações sensíveis de escrita (admin, papel,
+  senha, 2FA) já passam por step-up (`step_up.py`), que exige WebAuthn
+  ou senha+Google com `prompt=login` -- um invasor só com o cookie de
+  sessão não passa nisso de jeito nenhum.
+- No lugar, pra rotas comuns: sessão com expiração DESLIZANTE de 10
+  min de INATIVIDADE (não de uso contínuo -- cada requisição renova o
+  contador). Configurado via `app.config["PERMANENT_SESSION_LIFETIME"]`
+  no factory do Flask (`timedelta(minutes=10)`, ver `main.py`) +
+  `session.permanent = True` setado no login (senha, Google e
+  confirmação de 2FA). Nenhuma mudança de código é necessária NESTE
+  arquivo por causa disso -- é config pura do app + 1 linha no(s)
+  controller(s) de login.
+
+ADICIONADO (checagem pontual de senha_versao para LEITURA sensível):
+- Existe uma categoria intermediária que nem o step-up cobre (não é
+  escrita) nem o TTL de 10 min cobre bem o bastante sozinho: LEITURA
+  de dados clínicos de paciente. Uma sessão sequestrada pode continuar
+  lendo prontuário por até 10 min de inatividade real do dono mesmo
+  depois de ele já ter trocado a senha -- pouco tempo, mas dados de
+  saúde justificam fechar essa janela também.
+- `requer_senha_atualizada(acao_log)` cobre isso: 1 SELECT indexado
+  por PK (só a coluna `senha_versao`, via
+  `UsuarioRepository.find_senha_versao` -- não carrega o Usuario
+  inteiro), aplicado só nas rotas decoradas explicitamente, nunca em
+  `requer_login`. Se a versão gravada na sessão no momento do login
+  não bate com a atual do banco, a tentativa é logada e a sessão é
+  encerrada (403) -- mesmo que ainda estivesse dentro do TTL.
+- `senha_versao` é gravada na sessão em TODO login (senha, Google,
+  confirmação de 2FA -- ver login.py e oauth.py) e incrementada no
+  banco toda vez que `hash_senha` muda (troca pelo próprio usuário ou
+  reset por admin -- ver service.py e usuario.py).
 """
 
 from functools import wraps
@@ -170,6 +216,91 @@ def _popula_g():
     g.is_admin = get_is_admin_sessao()
     g.funcao_clinica = get_funcao_clinica_sessao()
     g.is_super_admin = get_is_super_admin_sessao()
+
+
+def _senha_sessao_atualizada(id_usuario: int) -> bool:
+    """Compara senha_versao gravada na sessão (no login) contra o valor
+    ATUAL no banco. Custa 1 SELECT indexado por PK, de uma única
+    coluna -- por isso não entra em `_popula_g`/`requer_login` (rodaria
+    em 100% do tráfego autenticado); é chamada só de dentro de
+    `requer_senha_atualizada`, nas rotas que o time decidir decorar.
+
+    Retorno: True se a sessão foi criada com a senha_versao vigente
+    (ou se a sessão ainda não tem essa chave -- sessão aberta antes
+    deste deploy; fail-open aqui é intencional pra não deslogar todo
+    mundo no dia do deploy só por essa checagem faltar, diferente do
+    fail-closed usado para is_super_admin). False se a senha mudou
+    depois deste login.
+    """
+    versao_sessao = session.get("senha_versao")
+    if versao_sessao is None:
+        return True
+
+    from src.domains.usuario.repository import UsuarioRepository
+    versao_atual = UsuarioRepository().find_senha_versao(id_usuario)
+    return versao_atual is not None and versao_sessao == versao_atual
+
+
+def requer_senha_atualizada(acao_log: str):
+    """Decorator para rotas de LEITURA de dados sensíveis (dados
+    clínicos de paciente). Além da checagem normal de sessão (login +
+    onboarding + mfa), confere se a senha do usuário não mudou desde
+    que ESTA sessão foi criada. Se mudou, a sessão é tratada como
+    obsoleta para esse tipo de acesso -- registra a tentativa e nega,
+    mesmo que a sessão continue dentro do TTL normal e válida para o
+    resto do sistema.
+
+    Diferente de `@acao_sensivel` (usado em rotas de ESCRITA, com o
+    contrato de (resposta, detalhes) para log de mutação) e diferente
+    de `@StepUp.requer_confirmacao_recente` (exige reautenticação ATIVA
+    antes de agir): este decorator não pede nada ao usuário, só
+    verifica passivamente e loga quando nega -- pensado pra GET.
+
+    Uso:
+        @bp.get("/<uuid>/dados-clinicos")
+        @requer_senha_atualizada("acesso_dados_clinicos")
+        def dados_clinicos(uuid):
+            ...
+
+    Parâmetros:
+        acao_log: identificador gravado no log quando o acesso é
+            negado por sessão com senha desatualizada.
+
+    Retorno:
+        Decorator que envolve a view, retornando 403 com
+        `sessao_invalida_senha_alterada` quando a checagem falha.
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            erro = _checagem_base_sessao()
+            if erro:
+                return erro
+
+            id_usuario = get_id_usuario_sessao()
+            if not _senha_sessao_atualizada(id_usuario):
+                # ADICIONADO: log da tentativa negada. Import local
+                # para não criar dependência circular entre session.py
+                # (usado por praticamente todo domínio) e o módulo de
+                # auditoria. Ajustar o caminho/assinatura conforme o
+                # módulo real de log de acesso do projeto -- este é um
+                # placeholder que segue o mesmo espírito de
+                # `acao_sensivel`, mas para leitura negada, não mutação.
+                from src.domains.auditoria.service import AuditoriaService
+                au = AuditoriaService()
+                
+                au.registrar_acesso_negado(
+                    id_usuario=id_usuario,
+                    acao=acao_log,
+                    motivo="sessao_com_senha_desatualizada",
+                )
+                session.clear()
+                return jsonify({"erro": "sessao_invalida_senha_alterada"}), 403
+
+            _popula_g()
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def _requer_papeis():

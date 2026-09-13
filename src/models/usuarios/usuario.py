@@ -60,6 +60,20 @@ class Usuario(db.Model):
                         nullable=False, default="pendente")
     # atributos_profissionais_json REMOVIDO — ver PapelProfissional
     hash_senha = db.Column(db.String(255), nullable=True)  # Argon2id
+
+    # ADICIONADO (checagem de sessão obsoleta em leituras sensíveis):
+    # incrementado toda vez que hash_senha muda (troca pelo próprio
+    # usuário ou reset por admin -- ver service.py). NÃO é usado para
+    # revogar sessão de forma geral (decisão registrada em
+    # src/core/session.py: revogação ativa foi descartada por custo de
+    # N+1 sem ganho real, já que ações sensíveis passam por step-up).
+    # É usado só pelo decorator `requer_senha_atualizada` (session.py),
+    # aplicado pontualmente em rotas de LEITURA de dados sensíveis
+    # (paciente): se a versão gravada na sessão no login for diferente
+    # da atual, a sessão é tratada como obsoleta pra esse tipo de
+    # acesso, mesmo que continue válida pro resto do sistema.
+    senha_versao = db.Column("senha_versao", db.Integer, nullable=False, default=1)
+
     onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
     ultimo_acesso = db.Column(db.DateTime(timezone=True))
     criado_em = db.Column(db.DateTime(timezone=True),
