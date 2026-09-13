@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ValidationError
 from src.models.corp.empresa import Empresa
 from src.core import validacoes as vl
 
@@ -16,7 +16,18 @@ class ConflictoError(Exception):
  
 REGEX_CEP_LIMPO = re.compile(r"^\d{8}$")
  
- 
+def _formatar_erros_pydantic(exc: ValidationError) -> str:
+    """Transforma a lista de erros do Pydantic numa mensagem curta,
+    uma linha por campo -- consistente com o formato que
+    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
+    """
+    partes = []
+    for erro in exc.errors():
+        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
+        partes.append(f"{campo}: {erro['msg']}")
+    return "; ".join(partes)
+
+
 class CadastroEmpresaSchema(BaseModel):
     """Usado na criação: campos obrigatórios permanecem obrigatórios."""
  
@@ -106,9 +117,6 @@ Divisão de campos por sensibilidade:
   validado contra ele (FK existente), não recebido cru.
 """
 
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
-from src.core import validacoes as vl
 
 REGEX_NUMERO_ENDERECO = re.compile(r"^[A-Za-z0-9°ºª\s\-/.,]{1,20}$")
 class AtualizacaoEmpresaSchema(BaseModel):

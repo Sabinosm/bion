@@ -51,6 +51,8 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaCreateSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -90,6 +92,8 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaAtualizarSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -119,6 +123,8 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaRemoverSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 

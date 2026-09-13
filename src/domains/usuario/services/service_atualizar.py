@@ -1,3 +1,5 @@
+from pydantic.v1 import ValidationError
+
 from src.core.security import ph, aes_encrypt, hmac_sha256, aes_decrypt
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
 from ..repository import UsuarioRepository
@@ -8,7 +10,7 @@ from .service_helpers import (
     monta_dados_papel,
 )
 from .service_reset import ResetCredenciaisMixin
-from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema
+from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema, _formatar_erros_pydantic
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 
@@ -131,7 +133,9 @@ def att(
         try:
             schema_parcial = AtualizacaoUsuarioSchema(**dados)
         except Exception as e:
-            raise DadosInvalidosError(f"Erro de validação: {e}") from e
+            raise
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
     
         campos_enviados = schema_parcial.model_dump(exclude_unset=True, exclude_none=True)
         if not campos_enviados:

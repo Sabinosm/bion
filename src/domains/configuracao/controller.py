@@ -28,6 +28,7 @@ class ConfiguracaoController():
         try:
             cfg = _svc.atualizar(g.id_usuario, dados.get("configuracoes", {}))
             return json_success(data={ "configuracoes": cfg.to_dict()}, message="Configurações atualizadas.")
+        
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 

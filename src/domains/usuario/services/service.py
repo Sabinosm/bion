@@ -62,6 +62,7 @@ requer_senha_atualizada em session.py):
 """
 
 from argon2.exceptions import VerifyMismatchError
+from pydantic import ValidationError
 
 from src.core.security import ph, aes_encrypt, hmac_sha256
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
@@ -70,7 +71,7 @@ from .service_helpers import (
     monta_dados_papel,
 )
 from .service_atualizar import att
-from src.schemas.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema
+from src.schemas.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, _formatar_erros_pydantic
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 from .service_validacoes import (
@@ -165,8 +166,8 @@ class UsuarioService:
         """
         try:
             schema = CadastroUsuarioSchema(**dados)
-        except Exception as e:
-            raise DadosInvalidosError(f"Erro de validação: {e}") from e
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
         # ADICIONADO: só o super admin cria outros admins. is_super_admin=True
         # (fluxo de Empresa.cadastrar_com_admin, sem solicitante autenticado)
@@ -353,7 +354,9 @@ class UsuarioService:
         try:
             schema = AlterarSenhaSchema(**dados)
         except Exception as e:
-            raise DadosInvalidosError(f"Erro de validação: {e}") from e
+            raise
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
         u = self.buscar_por_uuid(uuid)
 

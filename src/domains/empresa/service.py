@@ -9,7 +9,10 @@ já bloqueia alteração de CNPJ via "extra": "forbid" -- ou seja, esse
 service nunca escreve CNPJ em uma atualização, só na criação.
 """
 
+from pydantic import ValidationError
+
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
+from src.schemas.schema_usuario import _formatar_erros_pydantic
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
 from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
@@ -26,10 +29,10 @@ class EmpresaService:
     def cadastrar(self, dados: dict) -> "Empresa":
         try:
             schema = CadastroEmpresaSchema(**dados)
-        except DadosInvalidosError:
-            raise
         except Exception as e:
-            raise DadosInvalidosError(f"Erro de validação: {e}") from e
+            raise
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
         if self.repo.find_by_cnpj(schema.cnpj):
             raise ConflictoError("CNPJ já cadastrado.")
@@ -64,7 +67,9 @@ class EmpresaService:
         try:
             schema_empresa = CadastroEmpresaSchema(**dados_empresa)
         except Exception as e:
-            raise DadosInvalidosError(f"Dados da empresa inválidos: {e}") from e
+            raise
+        except ValidationError as e:
+            raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
         dados_admin = {**dados_admin, "is_admin": True}
 
@@ -119,10 +124,10 @@ class EmpresaService:
         if empresa.uuid == uuid_empresa:
             try:
                 schema = AtualizacaoEmpresaSchema(**dados)
-            except DadosInvalidosError:
-                raise
             except Exception as e:
-                raise DadosInvalidosError(f"Erro de validação: {e}") from e
+                raise
+            except ValidationError as e:
+                raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
             empresa = self.repo.find_by_id(id_empresa)
             if not empresa:

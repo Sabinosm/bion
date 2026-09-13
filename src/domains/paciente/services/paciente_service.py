@@ -88,6 +88,8 @@ class PacienteService:
     
         try:
             entrada = PacienteCriarSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
     
@@ -186,6 +188,8 @@ class PacienteService:
     
             try:
                 entrada = PacienteAtualizarPessoalSchema(**dados)
+            except Exception as e:
+                raise
             except ValidationError as e:
                 raise DadosInvalidosError(_formatar_erros_pydantic(e))
     
@@ -217,6 +221,8 @@ class PacienteService:
 
         try:
             entrada = PacienteAtualizarClinicoSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 

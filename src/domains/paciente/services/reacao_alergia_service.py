@@ -59,6 +59,8 @@ class ReacaoAlergiaService:
 
         try:
             entrada = ReacaoAlergiaCreateSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 

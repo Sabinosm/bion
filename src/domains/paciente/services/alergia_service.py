@@ -55,6 +55,8 @@ class AlergiaService:
 
         try:
             entrada = AlergiaCreateSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -91,6 +93,8 @@ class AlergiaService:
 
         try:
             entrada = AlergiaRemoverSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -136,6 +140,8 @@ class AlergiaService:
 
         try:
             entrada = AlergiaAtualizarSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 

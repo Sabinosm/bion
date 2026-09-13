@@ -56,6 +56,8 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoCreateSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -95,6 +97,8 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoAtualizarSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
@@ -119,9 +123,11 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoRemoverSchema(**dados)
+        except Exception as e:
+            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
-
+        
         self.repo.soft_delete(medicamento, entrada.motivo_delete, entrada.observacoes_delete)
         return True
 

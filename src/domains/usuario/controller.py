@@ -31,6 +31,7 @@ ALTERADO (múltiplos admins por empresa, preexistente):
 """
 
 from flask import Blueprint, request, g
+from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
@@ -83,6 +84,8 @@ class UsuarioController():
                 solicitante_eh_super_admin=g.is_super_admin,
             )
             return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
+        except ValidationError as e:
+                return json_error(str(e), 422)
         except BionException as e:
             return json_error(e.message, e.status_code)
 
@@ -131,6 +134,8 @@ class UsuarioController():
                 solicitante_eh_super_admin=g.is_super_admin,
             )
             return json_success(data=u.to_dict(), message="Usuário atualizado.")
+        except ValidationError as e:
+            return json_error(str(e), 422)
         except BionException as e:
             return json_error(e.message, e.status_code)
 

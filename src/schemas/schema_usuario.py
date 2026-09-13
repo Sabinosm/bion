@@ -2,8 +2,7 @@ import json
 import re
 from typing import Optional, Tuple, Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
 from src.core import validacoes as vl
 from src.core.security import aes_encrypt, ph  # vl.validar_cpf, vl.validar_telefone_br, etc.
 
@@ -17,6 +16,16 @@ class DadosInvalidosError(Exception):
 
     pass
 
+def _formatar_erros_pydantic(exc: ValidationError) -> str:
+    """Transforma a lista de erros do Pydantic numa mensagem curta,
+    uma linha por campo -- consistente com o formato que
+    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
+    """
+    partes = []
+    for erro in exc.errors():
+        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
+        partes.append(f"{campo}: {erro['msg']}")
+    return "; ".join(partes)
 
 # ---------------------------------------------------------------------------
 # Regras de formato reaproveitáveis
@@ -421,3 +430,4 @@ class AlterarSenhaSchema(BaseModel):
             return v
         else:
             raise ValueError(resposta["erro"])
+        

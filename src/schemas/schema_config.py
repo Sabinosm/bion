@@ -37,6 +37,7 @@ TAMANHOS_FONTE_PERMITIDOS = {"pequeno", "medio", "grande"}
 IDIOMAS_PERMITIDOS = {"pt-BR", "en-US"}
 
 
+
 class DesignSchema(BaseModel):
     tema: Optional[str] = None
     tamanho_fonte: Optional[str] = None
@@ -118,6 +119,7 @@ def validar_configuracoes(dados: dict) -> dict:
 
     try:
         validado = ConfiguracoesSchema(**dados)
+        
     except ValidationError as ex:
         primeiro_erro = ex.errors()[0]
         campo = ".".join(str(p) for p in primeiro_erro["loc"])
