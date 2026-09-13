@@ -217,20 +217,7 @@ class UsuarioService:
         # o que muda por tipo é só a associação de PapelProfissional,
         # que já é tratada à parte, no bloco 'dados_papel' abaixo.
         
-        if is_super_admin==True:
-            u = Usuario(
-                id_empresa=id_empresa,
-                nome_completo=schema.nome_completo,
-                cpf=aes_encrypt(schema.cpf),
-                cpf_hash=cpf_hash,
-                email=schema.email,
-                telefone=schema.telefone,
-                user_login=schema.user_login,
-                is_admin=True,
-                is_super_admin=True,
-                hash_senha=ph.hash(schema.senha),
-                onboarding_pendente=True,
-            )
+        
             
         u = Usuario(
             id_empresa=id_empresa,
@@ -243,6 +230,7 @@ class UsuarioService:
             is_admin=schema.is_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
             is_super_admin=is_super_admin,
             hash_senha=ph.hash(schema.senha) if schema.senha else None,
+            onboarding_pendente=True,
         )
 
         dados_papel = monta_dados_papel(schema)
