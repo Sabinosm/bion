@@ -150,6 +150,20 @@ class Onboarding():
 
         session.pop("onboarding_pendente", None)
         session["id_empresa"] = usuario.id_empresa
+        # CORRIGIDO: login.py e oauth.py só gravam is_admin,
+        # funcao_clinica e is_super_admin no ramo de sessão completa
+        # (quando onboarding_pendente já era False na entrada) -- o
+        # ramo de onboarding_pendente não grava nenhuma dessas chaves,
+        # e este método era o único lugar que "prometia" completar isso
+        # depois (ver comentário em oauth.py sobre is_super_admin), sem
+        # de fato fazê-lo. Resultado: qualquer usuário que conclui o
+        # onboarding (inclusive o admin fundador, que agora sempre
+        # passa por aqui -- ver criação em Empresa.cadastrar_com_admin)
+        # ficava com sessão "completa" mas sem seus privilégios de
+        # papel até deslogar e logar de novo pelo caminho normal.
+        session["is_admin"] = usuario.is_admin
+        session["funcao_clinica"] = usuario.funcao_clinica
+        session["is_super_admin"] = usuario.is_super_admin
 
         return jsonify({
             "status": "onboarding_concluido",

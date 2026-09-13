@@ -217,6 +217,21 @@ class UsuarioService:
         # o que muda por tipo é só a associação de PapelProfissional,
         # que já é tratada à parte, no bloco 'dados_papel' abaixo.
         
+        if is_super_admin:
+            u = Usuario(
+                id_empresa=id_empresa,
+                nome_completo=schema.nome_completo,
+                cpf=aes_encrypt(schema.cpf),
+                cpf_hash=cpf_hash,
+                email=schema.email,
+                telefone=schema.telefone,
+                user_login=schema.user_login,
+                is_admin=True,
+                is_super_admin=True,
+                hash_senha=ph.hash(schema.senha),
+                onboarding_pendente=True,
+            )
+            
         u = Usuario(
             id_empresa=id_empresa,
             nome_completo=schema.nome_completo,
@@ -226,21 +241,10 @@ class UsuarioService:
             telefone=schema.telefone,
             user_login=schema.user_login,
             is_admin=schema.is_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
-            is_super_admin=is_super_admin,
-            # ALTERADO: schema.hash_senha não existe -- o schema expõe
-            # 'senha' em texto puro (validada, não hasheada); o hash é
-            # responsabilidade de quem consome o schema, mesmo padrão
-            # já usado para CPF (aes_encrypt/hmac_sha256 aqui do lado
-            # de fora, não dentro do schema).
-            # 'senha' agora só vem preenchida para o super admin
-            # fundador -- garantido pela checagem acima (obrigatória
-            # para is_super_admin=True, proibida para admin comum e
-            # para médico/enfermeiro). Nos demais casos, hash_senha
-            # fica None: o acesso é definido depois, em um fluxo de
-            # ativação de conta separado.
+            is_super_admin=False,
             hash_senha=ph.hash(schema.senha) if schema.senha else None,
         )
- 
+
         dados_papel = monta_dados_papel(schema)
         if dados_papel:
             # Associa via relationship, não via FK manual — o SQLAlchemy
