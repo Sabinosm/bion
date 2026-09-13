@@ -92,6 +92,8 @@ ADICIONADO (checagem pontual de senha_versao para LEITURA sensível):
 from functools import wraps
 from flask import session, jsonify, g
 
+from src.models.usuarios.usuario import Usuario
+
 
 def _usuario_sessao():
     """
@@ -550,3 +552,4 @@ def requer_login_ou_onboarding_pendente(f):
         _popula_g()
         return f(*args, **kwargs)
     return wrapper
+

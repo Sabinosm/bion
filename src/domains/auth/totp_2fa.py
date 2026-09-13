@@ -272,14 +272,14 @@ class Totp():
             }), 401
 
         from src.domains.usuario.repository import UsuarioRepository
-        usuario = UsuarioRepository().find_by_id(id_usuario)
+        from src.domains.auth.services import AuthService
+        usuario = UsuarioRepository().find_by_id(id_usuario, db)
 
-        session.pop("mfa_pendente", None)
-        session.pop("mfa_webauthn_challenge", None)
-        session.pop("mfa_tentativas", None)
-        session.pop("totp_tentativas", None)
-        session["id_empresa"] = usuario.id_empresa
-        session["is_super_admin"] = usuario.is_super_admin
+        # ALTERADO: liberação de sessão centralizada em
+        # AuthService.liberar_sessao_completa -- mesmo método chamado
+        # por webauthn_2fa.py::segundo_fator_confirmar, para não
+        # duplicar (e divergir) essa lógica entre os dois módulos.
+        AuthService().liberar_sessao_completa(usuario)
 
         return jsonify({
             "id_usuario": usuario.id,

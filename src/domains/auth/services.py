@@ -6,6 +6,7 @@ from src.core.exceptions import BionException
 from src.core.security import ph
 from src.domains.usuario.repository import UsuarioRepository
 from src.models.usuarios import Usuario
+from src.core.session import session
 
 
 
@@ -50,17 +51,14 @@ class AuthService:
 
         return usuario, None
     
-    def load(self, usuario: Usuario):
-        """Carrega o usuário da sessão atual."""
-        from src.domains.configuracao.service import ConfiguracaoService
-        from src.core.session import get_id_usuario_sessao
-        from flask import session
-        
-        usuario.status="ativo"
+
+    def liberar_sessao_completa(usuario: Usuario, db):
+        usuario.status = "ativo"
+        db.session.commit()  # precisa persistir isso, load() original não commitava (bug pré-existente também)
+        session.pop("mfa_pendente", None)
+        session.pop("mfa_webauthn_challenge", None)
+        session.pop("mfa_tentativas", None)
+        session.pop("totp_tentativas", None)
         session["id_empresa"] = usuario.id_empresa
-        
-        data = {"usuario": usuario.to_dict()}
-            
-        return data
-    
+        session["is_super_admin"] = usuario.is_super_admin
         

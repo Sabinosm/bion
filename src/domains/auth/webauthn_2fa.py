@@ -408,15 +408,14 @@ class Webauthn():
         # função, sem chamar) -- usuario.id_empresa/.id quebrariam em
         # runtime. Busca o Usuario de verdade.
         from src.domains.usuario.repository import UsuarioRepository
+        from src.domains.auth.services import AuthService
         usuario = UsuarioRepository().find_by_id(id_usuario)
 
-        session.pop("mfa_pendente", None)
-        session.pop("mfa_webauthn_challenge", None)
-        session.pop("mfa_tentativas", None)
-        session["id_empresa"] = usuario.id_empresa
-        # ADICIONADO: reforça o dado já gravado em login.py -- ver
-        # docstring do módulo.
-        session["is_super_admin"] = usuario.is_super_admin
+        # ALTERADO: liberação de sessão centralizada em
+        # AuthService.liberar_sessao_completa -- mesmo método chamado
+        # por totp_2fa.py::segundo_fator_totp_confirmar, para não
+        # duplicar (e divergir) essa lógica entre os dois módulos.
+        AuthService().liberar_sessao_completa(usuario, db)
 
         return jsonify({
             "id_usuario": usuario.id,
