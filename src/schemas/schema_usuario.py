@@ -169,7 +169,14 @@ class CadastroUsuarioSchema(BaseModel):
         if self.tipo_papel == "medico":
             if not self.numero_crm or not self.uf_crm:
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
-            if self.senha:
+            # EXCEÇÃO: a proibição de 'senha' vale para o médico comum
+            # (ativado depois, sem senha no cadastro). O admin fundador
+            # que também é médico (is_admin=True) é o único fluxo que já
+            # cria a conta com senha — não se aplica aqui. A
+            # obrigatoriedade/proibição real de senha por tipo de conta
+            # continua resolvida no service via is_super_admin; isso é
+            # só o schema deixando de barrar um payload legítimo.
+            if self.senha and not self.is_admin:
                 raise ValueError(
                     "Médicos não devem informar 'senha' no cadastro; o acesso "
                     "é definido em um fluxo de ativação de conta separado."
@@ -180,7 +187,9 @@ class CadastroUsuarioSchema(BaseModel):
                 raise ValueError(
                     "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
                 )
-            if self.senha:
+            # Mesma exceção acima, para o admin fundador que também é
+            # enfermeiro.
+            if self.senha and not self.is_admin:
                 raise ValueError(
                     "Enfermeiros não devem informar 'senha' no cadastro; o acesso "
                     "é definido em um fluxo de ativação de conta separado."
@@ -294,7 +303,9 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
         if self.tipo_papel == "medico":
             if not self.numero_crm or not self.uf_crm:
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
-            if self.senha:
+            # Mesma exceção do cadastro (ver CadastroUsuarioSchema): não
+            # se aplica ao admin (is_admin=True) que também é médico.
+            if self.senha and not self.is_admin:
                 raise ValueError(
                     "Médicos não devem informar 'senha' no cadastro; o acesso "
                     "é definido em um fluxo de ativação de conta separado."
@@ -305,7 +316,7 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
                 raise ValueError(
                     "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
                 )
-            if self.senha:
+            if self.senha and not self.is_admin:
                 raise ValueError(
                     "Enfermeiros não devem informar 'senha' no cadastro; o acesso "
                     "é definido em um fluxo de ativação de conta separado."
