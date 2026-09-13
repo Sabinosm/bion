@@ -10,7 +10,8 @@ usuário tem WebAuthn e/ou TOTP obrigatoriamente desde o onboarding
 fatores suficientes?" e passou a ser "qual fator tentar primeiro?".
 """
 
-from src.models.usuarios import CredencialWebAuthn, CredencialTOTP
+from src.models.usuarios.credencial_totp import CredencialTOTP
+from src.models.usuarios.credencial_webauthn import CredencialWebAuthn
 
 
 def metodo_2fa_preferencial(id_usuario) -> str | None:

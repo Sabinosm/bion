@@ -80,7 +80,8 @@ from webauthn.helpers.structs import (
 )
 
 from src.models import db
-from src.models.usuarios import Usuario, CredencialWebAuthn, CredencialTOTP
+from src.models.usuarios.credencial_totp import CredencialTOTP
+from src.models.usuarios.credencial_webauthn import CredencialWebAuthn
 from src.core.session import (
     mfa_pendente_required,
     get_id_usuario_sessao,

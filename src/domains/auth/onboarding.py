@@ -40,7 +40,8 @@ from flask import Blueprint, request, jsonify, session
 from argon2 import PasswordHasher
 
 from src.models import db
-from src.models.usuarios import CredencialWebAuthn, CredencialTOTP
+from src.models.usuarios.credencial_totp import CredencialTOTP
+from src.models.usuarios.credencial_webauthn import CredencialWebAuthn
 from src.core.session import onboarding_pendente_required, get_usuario_sessao
 from src.core.validacoes import validar_senha
 
