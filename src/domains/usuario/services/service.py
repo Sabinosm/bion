@@ -217,7 +217,7 @@ class UsuarioService:
         # o que muda por tipo é só a associação de PapelProfissional,
         # que já é tratada à parte, no bloco 'dados_papel' abaixo.
         
-        if is_super_admin:
+        if is_super_admin==True:
             u = Usuario(
                 id_empresa=id_empresa,
                 nome_completo=schema.nome_completo,
@@ -241,7 +241,7 @@ class UsuarioService:
             telefone=schema.telefone,
             user_login=schema.user_login,
             is_admin=schema.is_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
-            is_super_admin=False,
+            is_super_admin=is_super_admin,
             hash_senha=ph.hash(schema.senha) if schema.senha else None,
         )
 
