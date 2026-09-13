@@ -50,7 +50,7 @@ from flask import Blueprint, request, jsonify, session
 import pyotp
 
 from src.models import db
-from src.models.usuarios import CredencialTOTP
+from src.models.usuarios.credencial_totp import CredencialTOTP
 from src.core.session import mfa_pendente_required, get_id_usuario_sessao, requer_login, get_usuario_sessao, requer_login_ou_onboarding_pendente
 from src.domains.auth.webauthn_config import RP_NAME
 
