@@ -145,7 +145,7 @@ class Oauth():
             return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=usuario_nao_cadastrado")
 
         # CORRIGIDO: era usuario.ativo (atributo inexistente) -> usuario.status
-        if usuario.status != "ativo":
+        if usuario.status == "inativo":
             return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=conta_inativa")
 
         if not usuario.google_sub:

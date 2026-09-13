@@ -95,7 +95,7 @@ No login por senha, se o usuário só tiver conta via Google (sem `hash_senha`),
 - Sem WebAuthn cadastrado → sessão completa direto (empresa liberada)
 - Com WebAuthn cadastrado → sessão fica `mfa_pendente`, aguardando confirmação em `webauthn_2fa.py`
 
-No login via Google (`oauth.py`), o usuário **precisa já existir** (cadastrado por admin) e estar com `status == "ativo"`. O Google só confirma o e-mail. Na primeira vez, vincula `google_sub` ao usuário. Depois, decide entre onboarding pendente (se faltar senha) ou sessão completa direto — login via Google nunca resulta em `mfa_pendente`, independentemente de o usuário ter WebAuthn cadastrado ou não.
+No login via Google (`oauth.py`), o usuário **precisa já existir** (cadastrado por admin) e estar com `status != "inativo"`. O Google só confirma o e-mail. Na primeira vez, vincula `google_sub` ao usuário. Depois, decide entre onboarding pendente (se faltar senha) ou sessão completa direto — login via Google nunca resulta em `mfa_pendente`, independentemente de o usuário ter WebAuthn cadastrado ou não.
 
 ## Step-up authentication: reconfirmar mesmo já logado
 
