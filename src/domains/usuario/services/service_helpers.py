@@ -22,12 +22,12 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
 # não obriga a mudar contrato de API já em uso pelo front.
 #
 # ALTERADO (assertivo, sem alias): "tipo_usuario" saiu -- não existe
-# mais como chave de payload. Substituído por "eh_admin" e "tipo_papel",
+# mais como chave de payload. Substituído por "is_admin" e "tipo_papel",
 # os dois campos ortogonais que o tomam o lugar. Ambos continuam
 # restritos a admin, pelo mesmo motivo de antes (são dados sensíveis
 # de permissão/registro profissional).
 CAMPOS_RESTRITOS_A_ADMIN = (
-    "eh_admin",
+    "is_admin",
     "tipo_papel",
     "numero-crm", "uf-crm", "rqe",
     "numero-coren", "uf-coren", "especialidade",
@@ -68,7 +68,7 @@ def monta_dados_papel(schema) -> dict | None:
     a partir do schema validado.
 
     ALTERADO: lia schema.tipo_usuario (removido). Agora lê
-    schema.tipo_papel, que é ortogonal a eh_admin -- um admin com
+    schema.tipo_papel, que é ortogonal a is_admin -- um admin com
     tipo_papel="medico" também gera um dict de papel aqui normalmente,
     exatamente como um médico não-admin geraria.
 

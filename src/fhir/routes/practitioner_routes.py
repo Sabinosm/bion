@@ -81,7 +81,7 @@ def create():
     o query param `tipo_usuario` SAIU -- não fazia sentido pedir essa
     escolha na URL quando só um valor ("admin") de fato funcionava (os
     outros dois sempre levantavam erro no service). A rota agora cria
-    sempre um admin puro (eh_admin=True, sem função clínica),
+    sempre um admin puro (is_admin=True, sem função clínica),
     implicitamente.
     """
     payload = request.get_json(silent=True) or {}
@@ -103,7 +103,7 @@ def create():
     try:
         # ADICIONADO: solicitante_eh_super_admin não estava sendo
         # repassado -- UsuarioService.criar() exige isso sempre que
-        # eh_admin=True (regra: só o super admin cria outros admins).
+        # is_admin=True (regra: só o super admin cria outros admins).
         # Sem isso, TODA chamada a esta rota falhava com
         # DadosInvalidosError, mesmo vindo de um super admin de
         # verdade -- bug encontrado durante a migração, corrigido aqui.

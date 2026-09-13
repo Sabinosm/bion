@@ -17,30 +17,30 @@ def att(
     user,
     uuid: str,
     dados: dict,
-    solicitante_eh_admin: bool,
+    solicitante_is_admin: bool,
     solicitante_uuid: str,
     solicitante_eh_super_admin: bool = False,
 ):
         """Atualiza parcialmente os dados de um usuário existente.
 
         Orquestra a atualização em etapas: valida permissão de edição,
-        valida os dois eixos independentes (eh_admin e tipo_papel, se
+        valida os dois eixos independentes (is_admin e tipo_papel, se
         houver mudança em algum deles), mescla os dados enviados com os
         atuais, revalida como cadastro completo e persiste.
 
         ALTERADO (separação admin/papel clínico, assertivo, sem alias):
         - tipo_usuario (3 valores mutuamente exclusivos) SAIU. Em seu
-          lugar, dois eixos independentes: eh_admin (bool) e tipo_papel
-          ("medico"/"enfermeiro"/None). Um usuário pode ter eh_admin=True
+          lugar, dois eixos independentes: is_admin (bool) e tipo_papel
+          ("medico"/"enfermeiro"/None). Um usuário pode ter is_admin=True
           e tipo_papel="medico" ao mesmo tempo.
-        - Eixo eh_admin: nunca é alterado por edição de cadastro (nem
+        - Eixo is_admin: nunca é alterado por edição de cadastro (nem
           promover, nem rebaixar), para qualquer solicitante, inclusive
           o super admin -- ver _valida_alteracao_admin. Virar admin só
           acontece via criar().
         - Eixo tipo_papel: troca de função clínica continua permitida
           via atualizar() -- ver _valida_troca_tipo.
         - Invariante nova: o usuário resultante nunca pode ficar com
-          eh_admin=False e tipo_papel=None simultaneamente (ficaria sem
+          is_admin=False e tipo_papel=None simultaneamente (ficaria sem
           qualquer acesso no sistema). Isso é impossível de expressar
           no schema de update parcial isolado (depende do estado atual
           mesclado com o payload), por isso é checado aqui.
@@ -59,7 +59,7 @@ def att(
                 variável local 'u' logo abaixo).
             uuid: identificador do usuário a atualizar.
             dados: dicionário parcial com os campos a alterar.
-            solicitante_eh_admin: se True, o solicitante pode alterar
+            solicitante_is_admin: se True, o solicitante pode alterar
                 campos restritos.
             solicitante_uuid: UUID de quem está fazendo a requisição,
                 usado para detectar auto-edição.
@@ -73,7 +73,7 @@ def att(
         Levanta:
             DadosInvalidosError: em qualquer violação das regras de
                 validação, campos ausentes, tentativa de mexer em
-                eh_admin, usuário resultante sem admin e sem papel, ou
+                is_admin, usuário resultante sem admin e sem papel, ou
                 schema inválido.
             ConflictoError: se o novo CPF, e-mail ou login já existirem.
         """
@@ -82,7 +82,7 @@ def att(
         eh_auto_edicao = (uuid == solicitante_uuid)
     
         user._valida_permissao_edicao(
-            dados, solicitante_eh_admin, solicitante_eh_super_admin, eh_auto_edicao, u
+            dados, solicitante_is_admin, solicitante_eh_super_admin, eh_auto_edicao, u
         )
     
         atributos_atuais_u = atributos_atuais(u)  # já devolve no formato antigo (numero-crm etc)
@@ -91,18 +91,18 @@ def att(
         # havia um único eixo (tipo_usuario, 3 valores mutuamente
         # exclusivos). Agora são DOIS eixos independentes, cada um
         # podendo mudar ou não, em qualquer combinação:
-        eh_admin_atual = u.is_admin
-        novo_eh_admin = dados.get("eh_admin", eh_admin_atual)
-        admin_mudou = novo_eh_admin != eh_admin_atual
+        is_admin_atual = u.is_admin
+        novo_is_admin = dados.get("is_admin", is_admin_atual)
+        admin_mudou = novo_is_admin != is_admin_atual
 
         papel_atual_tipo = u.funcao_clinica  # antes: tipo_atual = u.tipo_usuario
         novo_papel_tipo = dados.get("tipo_papel", papel_atual_tipo)
         papel_mudou = novo_papel_tipo != papel_atual_tipo
 
-        # Eixo eh_admin: cargo de admin nunca muda por edição de
+        # Eixo is_admin: cargo de admin nunca muda por edição de
         # cadastro (nem promover, nem rebaixar) -- incondicional, para
         # qualquer solicitante, inclusive o super admin.
-        user._valida_alteracao_admin(eh_admin_atual, novo_eh_admin, admin_mudou)
+        user._valida_alteracao_admin(is_admin_atual, novo_is_admin, admin_mudou)
 
         # Eixo tipo_papel: troca de função clínica continua permitida
         # (médico <-> enfermeiro <-> nenhuma), com as exigências de
@@ -117,15 +117,15 @@ def att(
         # nem requer_papel_clinico o autorizam para nada).
         #
         # DECISÃO CONFIRMADA: isso dispara mesmo para edições que não
-        # tocam eh_admin/tipo_papel (ex: só telefone), SE o usuário já
+        # tocam is_admin/tipo_papel (ex: só telefone), SE o usuário já
         # estiver inconsistente por dado legado. É proposital -- bloqueia
-        # qualquer edição até alguém corrigir eh_admin/tipo_papel
+        # qualquer edição até alguém corrigir is_admin/tipo_papel
         # primeiro, em vez de permitir que o estado inconsistente
         # continue sendo persistido silenciosamente.
-        if not novo_eh_admin and novo_papel_tipo is None:
+        if not novo_is_admin and novo_papel_tipo is None:
             raise DadosInvalidosError(
                 "O usuário resultante ficaria sem ser administrador e sem "
-                "função clínica. Defina 'eh_admin' ou 'tipo_papel'."
+                "função clínica. Defina 'is_admin' ou 'tipo_papel'."
             )
     
         try:
@@ -158,7 +158,7 @@ def att(
             "cpf": cpf_para_validar,
             "email": u.email,
             "user_login": u.user_login,
-            "eh_admin": eh_admin_atual,
+            "is_admin": is_admin_atual,
             "tipo_papel": papel_atual_tipo,
             "telefone": u.telefone,
             "numero-crm": atributos_atuais_u.get("numero-crm"),

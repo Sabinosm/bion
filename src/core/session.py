@@ -396,9 +396,9 @@ def requer_admin_ou_papel_clinico(*papeis_clinicos_permitidos):
             erro = _checagem_base_sessao()
             if erro:
                 return erro
-            eh_admin = get_is_admin_sessao()
+            is_admin = get_is_admin_sessao()
             papel_ok = get_funcao_clinica_sessao() in papeis_clinicos_permitidos
-            if not (eh_admin or papel_ok):
+            if not (is_admin or papel_ok):
                 rotulo = " ou ".join(("administrador",) + papeis_clinicos_permitidos)
                 return _sem_permissao(rotulo)
             _popula_g()

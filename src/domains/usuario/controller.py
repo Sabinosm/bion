@@ -5,12 +5,12 @@ ALTERADO (separação admin/papel clínico, assertivo, sem alias):
   substituído por @requer_admin, que checa g.is_admin (sessão) em vez
   de comparar contra um session["tipo_usuario"] que não existe mais.
 - atualizar(): g.tipo_usuario != "admin" virou `not g.is_admin`, e
-  solicitante_eh_admin=(g.tipo_usuario == "admin") virou
-  solicitante_eh_admin=g.is_admin. Um médico-admin passa por essas
+  solicitante_is_admin=(g.tipo_usuario == "admin") virou
+  solicitante_is_admin=g.is_admin. Um médico-admin passa por essas
   checagens igual a um admin puro -- is_admin nunca depende da função
   clínica.
 - atualizar() agora exige STEP-UP (reconfirmação de identidade) quando
-  o payload mexe em 'eh_admin' ou 'tipo_papel' -- mesmo tratamento de
+  o payload mexe em 'is_admin' ou 'tipo_papel' -- mesmo tratamento de
   ação sensível que já existia em desativar(). Não dá para decorar a
   rota inteira com @acao_sensivel/@requer_confirmacao_recente, porque
   este MESMO endpoint também edita campos triviais (telefone, email)
@@ -20,10 +20,10 @@ ALTERADO (separação admin/papel clínico, assertivo, sem alias):
   duplicar a lógica de validação/consumo do token).
 
 ALTERADO (múltiplos admins por empresa, preexistente):
-- criar(): quando o payload pede eh_admin=True, a rota exige o
+- criar(): quando o payload pede is_admin=True, a rota exige o
   super admin -- a checagem fina continua sendo feita dentro do
   service (que já bloqueia se solicitante_eh_super_admin=False e
-  eh_admin=True). O que muda aqui é repassar g.is_super_admin ao
+  is_admin=True). O que muda aqui é repassar g.is_super_admin ao
   service.
 - atualizar()/desativar()/ativar(): passam g.is_super_admin adiante,
   necessário para o service decidir se o solicitante pode mexer num
@@ -101,7 +101,7 @@ class UsuarioController():
         dados = request.get_json(silent=True) or {}
 
         # ADICIONADO: step-up condicional. Este mesmo endpoint edita
-        # tanto campos triviais (telefone, email) quanto eh_admin/
+        # tanto campos triviais (telefone, email) quanto is_admin/
         # tipo_papel -- só o segundo caso é ação sensível. Diferente de
         # desativar() (rota inteira dedicada, decorável com
         # @acao_sensivel sem ambiguidade), aqui a sensibilidade depende
@@ -114,7 +114,7 @@ class UsuarioController():
         # sozinho via repo.save(), sem o contrato (resposta, detalhes)
         # que @acao_sensivel exigiria. Se auditoria completa for
         # necessária depois, revisitar junto de service_atualizar.py.
-        mexe_em_campo_sensivel = "eh_admin" in dados or "tipo_papel" in dados
+        mexe_em_campo_sensivel = "is_admin" in dados or "tipo_papel" in dados
         if mexe_em_campo_sensivel and not token_recente_valido("alterar_papel_usuario"):
             return json_error(
                 "Confirmação de identidade necessária para alterar "
@@ -126,7 +126,7 @@ class UsuarioController():
             u = _svc.atualizar(
                 uuid,
                 dados,
-                solicitante_eh_admin=g.is_admin,
+                solicitante_is_admin=g.is_admin,
                 solicitante_uuid=g.uuid_usuario,
                 solicitante_eh_super_admin=g.is_super_admin,
             )

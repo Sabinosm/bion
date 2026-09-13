@@ -35,10 +35,10 @@ class CadastroUsuarioSchema(BaseModel):
     # ALTERADO (assertivo, sem transição): tipo_usuario Literal único
     # SAIU. Duas dimensões ortogonais entram no lugar — reflete o
     # mesmo desenho já adotado em Usuario (is_admin + funcao_clinica).
-    # Um usuário pode ter eh_admin=True e tipo_papel="medico" ao mesmo
+    # Um usuário pode ter is_admin=True e tipo_papel="medico" ao mesmo
     # tempo (admin que também atende clinicamente).
     tipo_papel: Optional[Literal["medico", "enfermeiro"]] = None
-    eh_admin: bool = False
+    is_admin: bool = False
     telefone: Optional[str] = None
 
     # ALTERADO: era Optional[str] = Field(..., ...) -- Optional junto
@@ -160,7 +160,7 @@ class CadastroUsuarioSchema(BaseModel):
         """
         ALTERADO (assertivo, sem transição): antes era um switch
         if/elif/elif mutuamente exclusivo por tipo_usuario. Agora são
-        duas checagens INDEPENDENTES — tipo_papel e eh_admin podem
+        duas checagens INDEPENDENTES — tipo_papel e is_admin podem
         ambos ser verdadeiros ao mesmo tempo (admin que também atende).
 
         Regra de senha continua ligada só a "é o super admin fundador",
@@ -189,7 +189,7 @@ class CadastroUsuarioSchema(BaseModel):
         else:
             # tipo_papel is None — sem profissão clínica associada.
             # Não deveria vir com campos de médico/enfermeiro preenchidos,
-            # evita payload inconsistente (ex: eh_admin=True mandando
+            # evita payload inconsistente (ex: is_admin=True mandando
             # numero-crm sem tipo_papel="medico" para dar sentido a isso).
             campos_indevidos = [
                 nome
@@ -208,15 +208,15 @@ class CadastroUsuarioSchema(BaseModel):
                 )
 
         # ADICIONADO: invariante que faltava na primeira versão desta
-        # migração. eh_admin=False e tipo_papel=None ao mesmo tempo
+        # migração. is_admin=False e tipo_papel=None ao mesmo tempo
         # criaria um usuário que não é admin nem tem profissão clínica
         # -- "fantasma" no sistema, sem se encaixar em nenhuma regra de
         # autorização (nem requer_admin, nem requer_papel_clinico
         # passam). A regra de negócio é: admin PODE ter papel clínico
         # (opcional), quem não é admin DEVE ter (obrigatório).
-        if not self.eh_admin and self.tipo_papel is None:
+        if not self.is_admin and self.tipo_papel is None:
             raise ValueError(
-                "Usuário sem 'eh_admin' precisa ter 'tipo_papel' definido "
+                "Usuário sem 'is_admin' precisa ter 'tipo_papel' definido "
                 "('medico' ou 'enfermeiro') — todo usuário precisa ser "
                 "administrador ou ter uma função clínica."
             )
@@ -225,9 +225,9 @@ class CadastroUsuarioSchema(BaseModel):
         # super admin fundador, proibida para admin comum) permanece
         # responsabilidade de UsuarioService.criar() via is_super_admin
         # — o schema não tem esse contexto e não deve adivinhar. Isso
-        # vale tanto para eh_admin=True com tipo_papel=None (admin puro)
-        # quanto para eh_admin=True com tipo_papel setado (admin que
-        # também atende). Nenhuma checagem de senha aqui para eh_admin
+        # vale tanto para is_admin=True com tipo_papel=None (admin puro)
+        # quanto para is_admin=True com tipo_papel setado (admin que
+        # também atende). Nenhuma checagem de senha aqui para is_admin
         # isoladamente — deliberado, ver service.py.
 
         return self
@@ -252,7 +252,7 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
     mescla com os dados atuais do usuário (ver EmpresaUsuarioService.
     atualizar), a validação cruzada completa é refeita com o tipo real.
 
-    Atenção 2: 'eh_admin' aqui é Optional[bool] = None, DIFERENTE do
+    Atenção 2: 'is_admin' aqui é Optional[bool] = None, DIFERENTE do
     default False em CadastroUsuarioSchema. None significa "não veio no
     payload, não mexer nesse campo" — False significa "remover admin
     explicitamente". O service precisa distinguir os dois casos ao
@@ -273,13 +273,13 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
     email: Optional[EmailStr] = None
     user_login: Optional[str] = Field(None, min_length=3, max_length=30)
     # ALTERADO: tipo_usuario saiu. tipo_papel já é Optional por herança
-    # (redeclarado aqui só por clareza); eh_admin também precisa ficar
+    # (redeclarado aqui só por clareza); is_admin também precisa ficar
     # Optional no update parcial — None significa "não mexer no campo",
     # diferente de False ("remover admin explicitamente"). O service
     # que mescla com os dados atuais (EmpresaUsuarioService.atualizar)
     # precisa distinguir esses dois casos.
     tipo_papel: Optional[Literal["medico", "enfermeiro"]] = None
-    eh_admin: Optional[bool] = None
+    is_admin: Optional[bool] = None
     senha: Optional[str] = Field(None, min_length=8, max_length=128)
 
     @model_validator(mode="after")
@@ -287,7 +287,7 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
         """
         SOBRESCRITO do pai: reaproveita toda a lógica de
         CRM/COREN/campos-indevidos (mesmo corpo), mas SEM a checagem
-        "not eh_admin and tipo_papel is None" -- essa invariante só
+        "not is_admin and tipo_papel is None" -- essa invariante só
         faz sentido no cadastro completo. Num update parcial, os dois
         campos ausentes é o caso normal (payload não mexe neles).
         """

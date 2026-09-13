@@ -15,14 +15,14 @@ ALTERADO (reset de 2FA/credenciais, WebAuthn):
 ALTERADO (separação admin/papel clínico, assertivo, sem alias):
 - tipo_usuario (3 valores mutuamente exclusivos) SAIU por completo,
   inclusive em criar(). Todas as checagens que comparavam
-  schema.tipo_usuario == "admin" agora leem schema.eh_admin
+  schema.tipo_usuario == "admin" agora leem schema.is_admin
   diretamente -- ortogonal a schema.tipo_papel. Um usuário pode nascer
-  com eh_admin=True e tipo_papel="medico" ao mesmo tempo (admin que
+  com is_admin=True e tipo_papel="medico" ao mesmo tempo (admin que
   também atende), e passa pelas MESMAS regras de super admin/senha que
   um admin puro.
 
 ALTERADO (múltiplos admins por empresa, preexistente):
-- `criar()`: criar um usuário com eh_admin=True agora exige que o
+- `criar()`: criar um usuário com is_admin=True agora exige que o
   solicitante seja o super admin (ou que a criação já venha marcada como
   `is_super_admin=True`, único caso sendo o primeiro admin de uma
   empresa nova -- ver Empresa.cadastrar_com_admin). Sem isso, um admin
@@ -33,7 +33,7 @@ ALTERADO (múltiplos admins por empresa, preexistente):
   ser desativado, por ninguém.
 
 ALTERADO (senha do super admin fundador, preexistente):
-- `criar()`: a obrigatoriedade/proibição de senha para eh_admin=True
+- `criar()`: a obrigatoriedade/proibição de senha para is_admin=True
   saiu do CadastroUsuarioSchema (que não tem como saber se este admin é o
   super admin fundador ou um admin comum criado depois) e passou pra cá,
   com base no parâmetro is_super_admin. Só existe um super admin por
@@ -142,8 +142,8 @@ class UsuarioService:
             commitar: se True, persiste e comita a transação imediatamente.
             solicitante_eh_super_admin: se True, quem está pedindo a
                 criação é o super admin da empresa -- necessário para
-                criar um usuário com eh_admin=True. Ignorado quando
-                eh_admin=False (médico/enfermeiro comuns).
+                criar um usuário com is_admin=True. Ignorado quando
+                is_admin=False (médico/enfermeiro comuns).
             is_super_admin: marca o usuário recém-criado como super
                 admin. Só deve ser True vindo de
                 Empresa.cadastrar_com_admin (criação do primeiro admin
@@ -172,12 +172,12 @@ class UsuarioService:
         # (fluxo de Empresa.cadastrar_com_admin, sem solicitante autenticado)
         # também libera -- é a criação do próprio super admin fundador.
         #
-        # ALTERADO: era schema.tipo_usuario == "admin". Agora eh_admin é
-        # ortogonal a tipo_papel -- um médico com eh_admin=True (admin
+        # ALTERADO: era schema.tipo_usuario == "admin". Agora is_admin é
+        # ortogonal a tipo_papel -- um médico com is_admin=True (admin
         # que também atende) precisa da MESMA autorização de super
-        # admin que um admin puro, então a checagem é só sobre eh_admin,
+        # admin que um admin puro, então a checagem é só sobre is_admin,
         # independente de o schema também trazer tipo_papel preenchido.
-        if schema.eh_admin and not solicitante_eh_super_admin and not is_super_admin:
+        if schema.is_admin and not solicitante_eh_super_admin and not is_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode criar novos administradores."
             )
@@ -191,10 +191,10 @@ class UsuarioService:
         # sistema onde is_super_admin=True é aceito na criação.
         #
         # ALTERADO: era schema.tipo_usuario == "admin". A regra de senha
-        # é sobre eh_admin isoladamente -- vale tanto para admin puro
+        # é sobre is_admin isoladamente -- vale tanto para admin puro
         # quanto para admin que também tem tipo_papel preenchido (a
         # senha do fundador não depende de ele também atender ou não).
-        if schema.eh_admin:
+        if schema.is_admin:
             if is_super_admin and not schema.senha:
                 raise DadosInvalidosError(
                     "O administrador principal precisa definir uma senha no cadastro."
@@ -224,7 +224,7 @@ class UsuarioService:
             email=schema.email,
             telefone=schema.telefone,
             user_login=schema.user_login,
-            is_admin=schema.eh_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
+            is_admin=schema.is_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
             is_super_admin=is_super_admin,
             # ALTERADO: schema.hash_senha não existe -- o schema expõe
             # 'senha' em texto puro (validada, não hasheada); o hash é
@@ -318,11 +318,11 @@ class UsuarioService:
         self,
         uuid: str,
         dados: dict,
-        solicitante_eh_admin: bool,
+        solicitante_is_admin: bool,
         solicitante_uuid: str,
         solicitante_eh_super_admin: bool = False,
     ):
-        return att(self, uuid, dados, solicitante_eh_admin, solicitante_uuid, solicitante_eh_super_admin)
+        return att(self, uuid, dados, solicitante_is_admin, solicitante_uuid, solicitante_eh_super_admin)
 
     # ADICIONADO (troca de senha, autoatendimento): protegido a montante
     # por step-up no controller (o token já foi consumido antes de

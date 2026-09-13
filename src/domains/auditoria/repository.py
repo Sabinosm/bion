@@ -75,7 +75,7 @@ class AuditoriaResumoRepository:
     """
 
     def find_profissionais(self, id_empresa: int, *, nome_usuario: str = None,
-                            funcao_clinica: str = None, eh_admin: bool = None, acao: str = None,
+                            funcao_clinica: str = None, is_admin: bool = None, acao: str = None,
                             page: int = 1, per_page: int = PER_PAGE_PADRAO) -> Tuple[List[Usuario], int]:
         """`acao` filtra por LogAlteracao.acao (texto livre) OU
         LogAcesso.operacao (categoria fechada) -- um profissional
@@ -91,10 +91,10 @@ class AuditoriaResumoRepository:
 
         - funcao_clinica: filtra por PapelProfissional.tipo_papel
           ativo, via JOIN -- "medico" ou "enfermeiro".
-        - eh_admin: filtra por Usuario.is_admin diretamente -- bool.
+        - is_admin: filtra por Usuario.is_admin diretamente -- bool.
 
         Podem ser passados juntos (ex: funcao_clinica="medico" +
-        eh_admin=True → só admins que também são médicos) ou
+        is_admin=True → só admins que também são médicos) ou
         separados. None em qualquer um dos dois significa "não
         filtrar por esse eixo".
         """
@@ -122,8 +122,8 @@ class AuditoriaResumoRepository:
         if nome_usuario:
             query = query.filter(Usuario.nome_completo.ilike(f"%{nome_usuario}%"))
 
-        if eh_admin is not None:
-            query = query.filter(Usuario.is_admin == eh_admin)
+        if is_admin is not None:
+            query = query.filter(Usuario.is_admin == is_admin)
 
         if funcao_clinica:
             from src.models.usuarios.papel_profissional import PapelProfissional

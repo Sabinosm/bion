@@ -170,7 +170,7 @@ class AuditoriaService:
     # ------------------------------------------------------------------
 
     def listar_resumo_por_profissional(self, id_empresa: int, *, nome_usuario: str = None,
-                                        funcao_clinica: str = None, eh_admin: bool = None,
+                                        funcao_clinica: str = None, is_admin: bool = None,
                                         acao: str = None,
                                         page: int = 1, limit: int = PER_PAGE_PADRAO):
         """Uma pagina de profissionais (ordem alfabetica, com pelo menos
@@ -181,12 +181,12 @@ class AuditoriaService:
 
         ALTERADO: antigo parâmetro único `tipo_usuario` virou dois
         filtros independentes e combináveis -- funcao_clinica
-        ("medico"/"enfermeiro") e eh_admin (bool). Ver repository.py
+        ("medico"/"enfermeiro") e is_admin (bool). Ver repository.py
         para a lógica de combinação.
         """
         profissionais, total = self.resumo_repo.find_profissionais(
             id_empresa, nome_usuario=nome_usuario, funcao_clinica=funcao_clinica,
-            eh_admin=eh_admin, acao=acao,
+            is_admin=is_admin, acao=acao,
             page=page, per_page=limit,
         )
 

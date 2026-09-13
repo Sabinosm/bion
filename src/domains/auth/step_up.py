@@ -65,7 +65,7 @@ ALTERADO (separação admin/papel clínico): extraída a função
 `token_recente_valido(acao)`, com a MESMA lógica que já vivia dentro
 do wrapper de `requer_confirmacao_recente`. Motivo: `usuario/controller.py`
 precisa da mesma checagem de forma CONDICIONAL dentro de `atualizar()`
--- só quando o payload mexe em campos sensíveis (eh_admin/tipo_papel),
+-- só quando o payload mexe em campos sensíveis (is_admin/tipo_papel),
 não a rota inteira. Um decorator estático não serve para esse caso; a
 função nomeada serve para os dois usos (decorator e checagem manual)
 sem duplicar a query/validação de token.

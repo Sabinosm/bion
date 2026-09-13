@@ -25,7 +25,7 @@ ALTERADO (separação admin/papel clínico, assertivo, sem alias):
   requer_papel comparava contra session["tipo_usuario"], que não
   existe mais.
 - filtro `tipo_usuario` (query param de listar_resumo_profissionais)
-  virou dois params independentes: `funcao_clinica` e `eh_admin`. Ver
+  virou dois params independentes: `funcao_clinica` e `is_admin`. Ver
   nota em repository.py.
 """
 
@@ -75,24 +75,24 @@ class AuditoriaController():
         cada um com seu ultimo acesso e ultima alteracao.
 
         Query params: nome, funcao_clinica ("medico"/"enfermeiro"),
-        eh_admin ("true"/"false"), acao, page (default 1), limit
+        is_admin ("true"/"false"), acao, page (default 1), limit
         (default 10, maximo 50).
 
         ALTERADO: `tipo_usuario` (único, mutuamente exclusivo) virou
         dois params independentes e combináveis -- `funcao_clinica` e
-        `eh_admin`. Podem vir juntos (ex: ?eh_admin=true&funcao_clinica=medico
+        `is_admin`. Podem vir juntos (ex: ?is_admin=true&funcao_clinica=medico
         → só admins que também são médicos) ou separados.
         """
         id_empresa = get_id_empresa_sessao()
         nome = request.args.get("nome")
         funcao_clinica = request.args.get("funcao_clinica")
 
-        eh_admin_raw = request.args.get("eh_admin")
-        eh_admin = None
-        if eh_admin_raw is not None:
-            if eh_admin_raw.lower() not in ("true", "false"):
-                return json_error("eh_admin deve ser 'true' ou 'false'.", status=400)
-            eh_admin = eh_admin_raw.lower() == "true"
+        is_admin_raw = request.args.get("is_admin")
+        is_admin = None
+        if is_admin_raw is not None:
+            if is_admin_raw.lower() not in ("true", "false"):
+                return json_error("is_admin deve ser 'true' ou 'false'.", status=400)
+            is_admin = is_admin_raw.lower() == "true"
 
         acao = request.args.get("acao")
         page = request.args.get("page", default=1, type=int)
@@ -101,7 +101,7 @@ class AuditoriaController():
         try:
             itens, total = _svc.listar_resumo_por_profissional(
                 id_empresa, nome_usuario=nome, funcao_clinica=funcao_clinica,
-                eh_admin=eh_admin, acao=acao,
+                is_admin=is_admin, acao=acao,
                 page=page, limit=limit,
             )
         except BionException as e:

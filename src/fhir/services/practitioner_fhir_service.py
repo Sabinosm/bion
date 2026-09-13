@@ -57,11 +57,11 @@ class PractitionerFhirService:
         "medico"/"enfermeiro" (só "admin" funcionava, por falta de
         CRM/COREN no Resource Practitioner padrão). Como só um valor
         jamais dava certo, o parâmetro saiu -- esta função sempre cria
-        um admin puro agora (eh_admin=True, sem função clínica).
+        um admin puro agora (is_admin=True, sem função clínica).
 
         ADICIONADO: `solicitante_eh_super_admin` -- estava ausente
         antes (bug), e UsuarioService.criar() sempre exige esse
-        parâmetro como True quando eh_admin=True (só o super admin cria
+        parâmetro como True quando is_admin=True (só o super admin cria
         outros admins). Sem repassá-lo, toda chamada falhava.
 
         Parâmetros:
@@ -74,7 +74,7 @@ class PractitionerFhirService:
         from src.domains.usuario.services.service import UsuarioService
 
         dados_base = fhir_practitioner_to_dados_cadastro(practitioner)
-        dados_base["eh_admin"] = True
+        dados_base["is_admin"] = True
         if user_login:
             dados_base["user_login"] = user_login
 

@@ -15,7 +15,7 @@ from src.models.usuarios import Usuario
 def _valida_permissao_edicao(
     self,
     dados: dict,
-    solicitante_eh_admin: bool,
+    solicitante_is_admin: bool,
     solicitante_eh_super_admin: bool,
     eh_auto_edicao: bool,
     u: "Usuario",
@@ -42,7 +42,7 @@ def _valida_permissao_edicao(
 
         Parâmetros:
             dados: dicionário parcial com os campos a alterar.
-            solicitante_eh_admin: se True, o solicitante é admin (comum
+            solicitante_is_admin: se True, o solicitante é admin (comum
                 ou super).
             solicitante_eh_super_admin: se True, o solicitante é
                 especificamente o super admin da empresa.
@@ -57,7 +57,7 @@ def _valida_permissao_edicao(
                 "Apenas o administrador principal pode alterar o cadastro de um administrador."
             )
 
-        if not solicitante_eh_admin:
+        if not solicitante_is_admin:
             campos_bloqueados = [c for c in CAMPOS_RESTRITOS_A_ADMIN if c in dados]
             if campos_bloqueados:
                 raise DadosInvalidosError(
@@ -69,7 +69,7 @@ def _valida_troca_tipo(self, papel_atual: str | None, novo_papel: str | None, pa
 
         ALTERADO (separação admin/papel clínico, assertivo): esta função
         cobria também a troca de/para "admin" através de uma comparação
-        de string única. Isso saiu -- eh_admin agora é um eixo
+        de string única. Isso saiu -- is_admin agora é um eixo
         independente, validado por _valida_alteracao_admin (abaixo).
         Aqui só resta o eixo de função clínica.
 
@@ -97,8 +97,8 @@ def _valida_troca_tipo(self, papel_atual: str | None, novo_papel: str | None, pa
             )
 
 
-def _valida_alteracao_admin(self, eh_admin_atual: bool, novo_eh_admin: bool, admin_mudou: bool):
-        """Valida o eixo eh_admin isoladamente — independente da função clínica.
+def _valida_alteracao_admin(self, is_admin_atual: bool, novo_is_admin: bool, admin_mudou: bool):
+        """Valida o eixo is_admin isoladamente — independente da função clínica.
 
         ADICIONADO (separação admin/papel clínico): mesma regra que
         antes vivia misturada em service_atualizar.py comparando
@@ -110,12 +110,12 @@ def _valida_alteracao_admin(self, eh_admin_atual: bool, novo_eh_admin: bool, adm
         acontece em criar(); rebaixar um admin nunca é permitido.
 
         Parâmetros:
-            eh_admin_atual: se o usuário já é admin antes da atualização.
-            novo_eh_admin: valor de eh_admin resultante da atualização.
-            admin_mudou: se True, eh_admin está sendo alterado no payload.
+            is_admin_atual: se o usuário já é admin antes da atualização.
+            novo_is_admin: valor de is_admin resultante da atualização.
+            admin_mudou: se True, is_admin está sendo alterado no payload.
 
         Levanta:
-            DadosInvalidosError: se o payload tentar mudar eh_admin.
+            DadosInvalidosError: se o payload tentar mudar is_admin.
         """
         if admin_mudou:
             raise DadosInvalidosError(

@@ -51,7 +51,7 @@ Ainda que independentes, as duas dimensões têm uma regra de combinação: **um
 
 Essa invariante é verificada tanto na criação quanto na edição:
 
-- **No cadastro**, é uma regra de validação simples: se `eh_admin` vier `False` (ou ausente) e `tipo_papel` vier vazio, o cadastro é rejeitado.
+- **No cadastro**, é uma regra de validação simples: se `is_admin` vier `False` (ou ausente) e `tipo_papel` vier vazio, o cadastro é rejeitado.
 - **Na edição**, é mais sutil, porque um payload de atualização parcial pode não mexer em nenhum dos dois campos (só trocar telefone, por exemplo) — nesse caso a checagem é sobre o **resultado final**, depois de mesclar o payload com o que o usuário já tinha. Se esse resultado ficaria sem admin e sem papel, a edição é bloqueada — mesmo que o payload não tenha tocado nesses campos diretamente. Isso é deliberado: existe para pegar tanto tentativas diretas quanto dados legados que já estejam inconsistentes, forçando a correção antes de qualquer outra edição no cadastro.
 
 ## Como a sessão representa isso
@@ -84,7 +84,7 @@ Um admin que também é médico passa pelos três tipos de rota normalmente — 
 Mudar `is_admin` ou `funcao_clinica` de alguém, via edição de cadastro, exige **step-up** — a mesma reconfirmação de identidade descrita no fluxo de autenticação, usando `X-Stepup-Token`. A rota de atualização de usuário também edita campos triviais (telefone, email), que não deveriam pedir essa fricção — então a exigência é condicional ao conteúdo do payload, não uma trava fixa na rota inteira:
 
 ```python
-mexe_em_campo_sensivel = "eh_admin" in dados or "tipo_papel" in dados
+mexe_em_campo_sensivel = "is_admin" in dados or "tipo_papel" in dados
 if mexe_em_campo_sensivel and not token_recente_valido("alterar_papel_usuario"):
     # 403 confirmacao_requerida
 ```
