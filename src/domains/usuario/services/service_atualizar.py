@@ -132,10 +132,10 @@ def att(
     
         try:
             schema_parcial = AtualizacaoUsuarioSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
     
         campos_enviados = schema_parcial.model_dump(exclude_unset=True, exclude_none=True)
         if not campos_enviados:

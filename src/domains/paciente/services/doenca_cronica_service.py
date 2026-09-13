@@ -51,10 +51,10 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaCreateSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         d = DoencaCronica(
             id_paciente=p.id,
@@ -92,10 +92,10 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaAtualizarSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         for campo, valor in entrada.campos_informados().items():
             setattr(doenca, campo, valor)
@@ -123,10 +123,10 @@ class DoencaCronicaService:
 
         try:
             entrada = DoencaCronicaRemoverSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         return self.repo.soft_delete(doenca, entrada.motivo_delete, entrada.observacoes_delete)
 

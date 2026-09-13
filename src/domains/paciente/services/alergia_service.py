@@ -55,10 +55,10 @@ class AlergiaService:
 
         try:
             entrada = AlergiaCreateSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         a = Alergia(
             id_paciente=p.id,
@@ -93,10 +93,10 @@ class AlergiaService:
 
         try:
             entrada = AlergiaRemoverSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         self.repo.soft_delete(alergia, entrada.motivo_delete, entrada.observacoes_delete)
         return True
@@ -140,10 +140,10 @@ class AlergiaService:
 
         try:
             entrada = AlergiaAtualizarSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         for campo, valor in entrada.campos_informados().items():
             setattr(alergia, campo, valor)

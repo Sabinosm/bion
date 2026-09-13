@@ -353,10 +353,10 @@ class UsuarioService:
         """
         try:
             schema = AlterarSenhaSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         u = self.buscar_por_uuid(uuid)
 

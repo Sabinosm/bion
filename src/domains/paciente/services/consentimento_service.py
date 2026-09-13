@@ -35,10 +35,10 @@ class ConsentimentoService:
 
         try:
             entrada = ConsentimentoCreateSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         ativo = self.repo.find_ativo_por_paciente(p.id)
         if ativo:
@@ -71,10 +71,10 @@ class ConsentimentoService:
 
         try:
             entrada = ConsentimentoRevogarSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         ativo.status = "revogado"
         ativo.data_revogacao = datetime.now(timezone.utc)
@@ -99,10 +99,10 @@ class ConsentimentoService:
 
         try:
             entrada = ConsentimentoDispensaEmergenciaSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         c = Consentimento(
             id_paciente=p.id,

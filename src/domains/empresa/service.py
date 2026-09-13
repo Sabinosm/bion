@@ -29,10 +29,10 @@ class EmpresaService:
     def cadastrar(self, dados: dict) -> "Empresa":
         try:
             schema = CadastroEmpresaSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         if self.repo.find_by_cnpj(schema.cnpj):
             raise ConflictoError("CNPJ já cadastrado.")
@@ -66,10 +66,10 @@ class EmpresaService:
         
         try:
             schema_empresa = CadastroEmpresaSchema(**dados_empresa)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         dados_admin = {**dados_admin, "is_admin": True}
 

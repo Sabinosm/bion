@@ -88,10 +88,10 @@ class PacienteService:
     
         try:
             entrada = PacienteCriarSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
     
         cpf_cifrado = aes_encrypt(entrada.cpf)
         cpf_hash = hmac_sha256(entrada.cpf)
@@ -221,10 +221,10 @@ class PacienteService:
 
         try:
             entrada = PacienteAtualizarClinicoSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         campos = entrada.campos_informados()
         if "status" in campos:

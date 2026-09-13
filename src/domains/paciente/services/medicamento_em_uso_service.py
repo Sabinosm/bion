@@ -56,10 +56,10 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoCreateSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         if not self.catalogo_repo.existe_por_id(entrada.id_catalogo):
             raise DadosInvalidosError(f"id_catalogo inválido: {entrada.id_catalogo} não existe no catálogo.")
@@ -97,10 +97,10 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoAtualizarSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
 
         for campo, valor in entrada.campos_informados().items():
             setattr(medicamento, campo, valor)
@@ -123,10 +123,10 @@ class MedicamentoEmUsoService:
 
         try:
             entrada = MedicamentoEmUsoRemoverSchema(**dados)
-        except Exception as e:
-            raise
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        except Exception as e:
+            raise
         
         self.repo.soft_delete(medicamento, entrada.motivo_delete, entrada.observacoes_delete)
         return True
