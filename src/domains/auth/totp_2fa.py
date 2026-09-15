@@ -273,7 +273,7 @@ class Totp():
 
         from src.domains.usuario.repository import UsuarioRepository
         from src.domains.auth.services import AuthService
-        usuario = UsuarioRepository().find_by_id(id_usuario, db)
+        usuario = UsuarioRepository().find_by_id(id_usuario)
 
         # ALTERADO: liberação de sessão centralizada em
         # AuthService.liberar_sessao_completa -- mesmo método chamado
