@@ -51,7 +51,7 @@ class AuthService:
         return usuario, None
     
 
-    def liberar_sessao_completa(usuario: Usuario, db):
+    def liberar_sessao_completa(self,usuario: Usuario, db):
         usuario.status = "ativo"
         db.session.commit()  # precisa persistir isso, load() original não commitava (bug pré-existente também)
         session.pop("mfa_pendente", None)

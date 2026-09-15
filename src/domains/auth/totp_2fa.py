@@ -279,7 +279,7 @@ class Totp():
         # AuthService.liberar_sessao_completa -- mesmo método chamado
         # por webauthn_2fa.py::segundo_fator_confirmar, para não
         # duplicar (e divergir) essa lógica entre os dois módulos.
-        AuthService().liberar_sessao_completa(usuario)
+        AuthService().liberar_sessao_completa(usuario,db)
 
         return jsonify({
             "id_usuario": usuario.id,
