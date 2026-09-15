@@ -22,6 +22,7 @@ from src.models import db
 # sem aviso. O fallback abaixo (gerar uma key nova se a env var não
 # existir) só existe para não quebrar em dev local; em produção a
 # ausência dessa env var deveria ser tratada como erro de deploy.
+
 _TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
 if not _TOTP_ENCRYPTION_KEY:
     _TOTP_ENCRYPTION_KEY = Fernet.generate_key().decode()
