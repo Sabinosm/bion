@@ -36,6 +36,16 @@ class Status():
             novo ou oferecer reautenticação por senha ou Google).
             401 com `status: nao_autenticado` se não houver sessão iniciada.
         """
+        if not get_usuario_sessao():
+            return jsonify({"status": "nao_autenticado"}), 401
+
+        if session.get("onboarding_pendente"):
+            usuario = get_usuario_sessao()
+            return jsonify({
+                "status": "onboarding_pendente",
+                "senha_definida": usuario.hash_senha is not None,
+            }), 200
+            
         if session.get("mfa_pendente"):
             from src.domains.auth.mfa import metodos_2fa_disponiveis
             from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
