@@ -45,3 +45,29 @@ def usuario_tem_algum_2fa(id_usuario) -> bool:
     para quem não tem nenhum dos dois, ver step_up.py).
     """
     return metodo_2fa_preferencial(id_usuario) is not None
+
+def metodos_2fa_disponiveis(id_usuario) -> list[str]:
+    """Retorna TODOS os métodos de 2FA cadastrados e utilizáveis pelo
+    usuário, em ordem de preferência de exibição (WebAuthn primeiro).
+
+    Diferente de `metodo_2fa_preferencial()` -- que devolve só o
+    primeiro que encontra, usado para decidir automaticamente qual
+    tentar no STEP-UP -- esta função existe para o frontend poder
+    OFERECER ESCOLHA ao usuário quando mais de um método está
+    disponível (ver /auth/status, tela de escolha no login). Lista
+    vazia só deveria ocorrer para o mesmo caso de dado legado descrito
+    em `metodo_2fa_preferencial`.
+    """
+    metodos = []
+
+    tem_webauthn = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).first() is not None
+    if tem_webauthn:
+        metodos.append("webauthn")
+
+    tem_totp = CredencialTOTP.query.filter_by(
+        id_usuario=id_usuario, confirmado=True
+    ).first() is not None
+    if tem_totp:
+        metodos.append("totp")
+
+    return metodos

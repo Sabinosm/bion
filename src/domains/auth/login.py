@@ -44,7 +44,7 @@ para escolher de novo (ver onboarding.py, _usuario_tem_algum_2fa_confirmado).
 
 from flask import Blueprint, request, session
 from src.core.responses import json_success, json_error
-from src.domains.auth.mfa import metodo_2fa_preferencial
+from src.domains.auth.mfa import metodo_2fa_preferencial, metodos_2fa_disponiveis
 from .services import AuthService
 
 
@@ -130,11 +130,15 @@ class Login():
                 message="Cadastro incompleto, finalize o onboarding.",
             )
 
-        # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
+                # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
         # `_svc.load(usuario)` que liberava a sessão direto sem 2FA.
         session["mfa_pendente"] = True
         return json_success(
-            data={"status": "mfa_pendente", "metodo": metodo or "webauthn"},
+            data={
+                "status": "mfa_pendente",
+                "metodo": metodo,  # pode ser None -- ver metodos abaixo
+                "metodos_disponiveis": metodos_2fa_disponiveis(usuario.id),
+            },
             message="Confirmação adicional necessária.",
         )
     

@@ -36,35 +36,26 @@ class Status():
             novo ou oferecer reautenticação por senha ou Google).
             401 com `status: nao_autenticado` se não houver sessão iniciada.
         """
-        if not get_usuario_sessao():
-            return jsonify({"status": "nao_autenticado"}), 401
-
-        if session.get("onboarding_pendente"):
-            usuario = get_usuario_sessao()
-            return jsonify({
-                "status": "onboarding_pendente",
-                "senha_definida": usuario.hash_senha is not None,
-            }), 200
-
         if session.get("mfa_pendente"):
+            from src.domains.auth.mfa import metodos_2fa_disponiveis
             from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
+
+            usuario = get_usuario_sessao()
+            metodos = metodos_2fa_disponiveis(usuario.id)
 
             tentativas = session.get("mfa_tentativas", 0)
             tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
 
             return jsonify({
                 "status": "mfa_pendente",
-                "metodo": "webauthn",
+                # Mantido por compatibilidade com qualquer leitura antiga
+                # de `metodo` (singular) -- primeiro da lista de preferência.
+                "metodo": metodos[0] if metodos else None,
+                # Novo: lista completa, para a tela de escolha no frontend.
+                "metodos_disponiveis": metodos,
                 "tentativas_restantes": tentativas_restantes,
-                # Quando o limite é atingido, não há mais fallback dentro
-                # da própria sessão de 2FA -- o usuário precisa voltar ao
-                # login e reautenticar do zero, seja por senha (o que
-                # reinicia o contador de tentativas) seja por Google (que
-                # nunca exige WebAuthn).
                 "reautenticar_disponivel": tentativas_restantes == 0,
             }), 200
-
-        return jsonify({"status": "completa"}), 200
 
     @staticmethod
     @bp_status.get("/me")
