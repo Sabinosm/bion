@@ -19,7 +19,6 @@ class Status():
     @staticmethod    
     @bp_status.route("/status", methods=["GET"])
     def status_sessao():
-        from src.models.usuarios import Usuario
         """Retorna o estado atual da sessão sem exigir autenticação completa.
 
         `onboarding_pendente` só cobre a definição de senha (WebAuthn não
