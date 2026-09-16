@@ -66,7 +66,7 @@ class Status():
                 "reautenticar_disponivel": tentativas_restantes == 0,
             }), 200
             
-        return jsonify({"status": "autenticado"}), 200
+        return jsonify({"status": "completa"}), 200
         
         
 
