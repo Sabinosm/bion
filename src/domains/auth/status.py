@@ -65,6 +65,10 @@ class Status():
                 "tentativas_restantes": tentativas_restantes,
                 "reautenticar_disponivel": tentativas_restantes == 0,
             }), 200
+            
+        return jsonify({"status": "nao_autenticado"}), 200
+        
+        
 
     @staticmethod
     @bp_status.get("/me")
