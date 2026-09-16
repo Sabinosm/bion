@@ -189,11 +189,12 @@ class Oauth():
             # é lá que WebAuthn/TOTP são escolhidos (ver onboarding.py).
             session["onboarding_pendente"] = True
         else:
+            from src.core.session import iniciar_mfa_pendente
             # ALTERADO: login via Google agora também exige 2FA, igual
             # ao login por senha -- ver docstring do módulo. A sessão
             # fica pendente até a confirmação via /webauthn/2fa/confirmar
             # ou /totp/2fa/confirmar (mesmas rotas usadas pelo login por
             # senha, ver webauthn_2fa.py e totp_2fa.py).
-            session["mfa_pendente"] = True
+            iniciar_mfa_pendente()  # era: session["mfa_pendente"] = True
 
         return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_LOGIN}")

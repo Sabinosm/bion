@@ -45,26 +45,26 @@ class Status():
                 "senha_definida": usuario.hash_senha is not None,
             }), 200
             
+        from src.core.session import get_usuario_sessao, _mfa_pendente_expirado
+
         if session.get("mfa_pendente"):
+            # ALTERADO: mfa_pendente agora também expira por tempo fixo
+            # (ver _mfa_pendente_expirado em session.py), não só por
+            # inatividade do cookie Flask -- sem isso, o /auth/status
+            # continuaria reportando "mfa_pendente" indefinidamente
+            # mesmo depois do TTL estourar, mesmo com
+            # mfa_pendente_required já bloqueando as rotas de
+            # confirmação corretamente.
+            if _mfa_pendente_expirado():
+                session.clear()
+                return jsonify({"status": "nao_autenticado"}), 401
+
             from src.domains.auth.mfa import metodos_2fa_disponiveis
             from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
 
             usuario = get_usuario_sessao()
             metodos = metodos_2fa_disponiveis(usuario.id)
-
-            tentativas = session.get("mfa_tentativas", 0)
-            tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
-
-            return jsonify({
-                "status": "mfa_pendente",
-                # Mantido por compatibilidade com qualquer leitura antiga
-                # de `metodo` (singular) -- primeiro da lista de preferência.
-                "metodo": metodos[0] if metodos else None,
-                # Novo: lista completa, para a tela de escolha no frontend.
-                "metodos_disponiveis": metodos,
-                "tentativas_restantes": tentativas_restantes,
-                "reautenticar_disponivel": tentativas_restantes == 0,
-            }), 200
+            # ... resto sem mudança
             
         return jsonify({"status": "completa"}), 200
         

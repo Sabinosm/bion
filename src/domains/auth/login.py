@@ -149,14 +149,14 @@ class Login():
                     data={"status": "onboarding_pendente"},
                     message="Cadastro incompleto, finalize o onboarding.",
                 )
-
-        # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
+        from src.core.session import iniciar_mfa_pendente 
+          # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
         # `_svc.load(usuario)` que liberava a sessão direto sem 2FA.
-        session["mfa_pendente"] = True
+        iniciar_mfa_pendente()  # era: session["mfa_pendente"] = True
         return json_success(
             data={
                 "status": "mfa_pendente",
-                "metodo": metodo,  # pode ser None -- ver metodos abaixo
+                "metodo": metodo,
                 "metodos_disponiveis": metodos_2fa_disponiveis(usuario.id),
             },
             message="Confirmação adicional necessária.",
