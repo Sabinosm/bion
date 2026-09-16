@@ -99,11 +99,11 @@ class AuditoriaResumoRepository:
         filtrar por esse eixo".
         """
         existe_acesso = LogAcesso.query.filter(
-            LogAcesso.id_usuario == Usuario.id_usuario,
+            LogAcesso.id_usuario == Usuario.id,
             LogAcesso.id_empresa == id_empresa,
         )
         existe_alteracao = LogAlteracao.query.filter(
-            LogAlteracao.alterado_por == Usuario.id_usuario,
+            LogAlteracao.alterado_por == Usuario.id,
             LogAlteracao.id_empresa == id_empresa,
         )
 
@@ -128,7 +128,7 @@ class AuditoriaResumoRepository:
         if funcao_clinica:
             from src.models.usuarios.papel_profissional import PapelProfissional
             query = query.join(
-                PapelProfissional, PapelProfissional.id_usuario == Usuario.id_usuario
+                PapelProfissional, PapelProfissional.id_usuario == Usuario.id
             ).filter(
                 PapelProfissional.tipo_papel == funcao_clinica,
                 PapelProfissional.ativo == True,
@@ -174,7 +174,7 @@ class LogAcessoRepository(IRepository[LogAcesso]):
 
         precisa_join_usuario = uuid_usuario or nome_usuario
         if precisa_join_usuario:
-            query = query.join(Usuario, Usuario.id_usuario == LogAcesso.id_usuario)
+            query = query.join(Usuario, Usuario.id == LogAcesso.id_usuario)
         if uuid_usuario:
             query = query.filter(Usuario.uuid == uuid_usuario)
         if nome_usuario:
@@ -215,7 +215,7 @@ class LogAcessoRepository(IRepository[LogAcesso]):
         """
         query = (
             LogAcesso.query
-            .join(Usuario, Usuario.id_usuario == LogAcesso.id_usuario)
+            .join(Usuario, Usuario.id == LogAcesso.id_usuario)
             .filter(LogAcesso.id_empresa == id_empresa, Usuario.uuid == uuid_usuario)
         )
 
@@ -307,7 +307,7 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
 
         precisa_join_usuario = uuid_usuario or nome_usuario
         if precisa_join_usuario:
-            query = query.join(Usuario, Usuario.id_usuario == LogAlteracao.alterado_por)
+            query = query.join(Usuario, Usuario.id == LogAlteracao.alterado_por)
         if uuid_usuario:
             query = query.filter(Usuario.uuid == uuid_usuario)
         if nome_usuario:
@@ -349,7 +349,7 @@ class LogAlteracaoRepository(IRepository[LogAlteracao]):
         de data. Mesma logica de find_por_usuario_cursor de LogAcesso."""
         query = (
             LogAlteracao.query
-            .join(Usuario, Usuario.id_usuario == LogAlteracao.alterado_por)
+            .join(Usuario, Usuario.id == LogAlteracao.alterado_por)
             .filter(LogAlteracao.id_empresa == id_empresa, Usuario.uuid == uuid_usuario)
         )
 

@@ -93,6 +93,9 @@ class AuditoriaService:
 
     def registrar_acesso_negado(self, id_empresa: int, id_usuario: int, recurso: str, operacao: str,
                                 ip_origem: str, motivo: str):
+        # ALTERADO: "negado" nao e um valor valido do Enum LogAcesso.resultado
+        # (sucesso/falha-autenticacao/acesso-negado/timeout) -- estourava erro
+        # de integridade no insert. Corrigido para "acesso-negado".
         from src.models.auditoria.log_acesso import LogAcesso
         log = LogAcesso(
             id_empresa=id_empresa,
@@ -101,7 +104,7 @@ class AuditoriaService:
             operacao=operacao,
             data_hora=datetime.now(timezone.utc),
             ip_origem=ip_origem,
-            resultado="negado",
+            resultado="acesso-negado",
             motivo_negacao=motivo,
         )
         return self.acesso_repo.save(log)
@@ -190,7 +193,11 @@ class AuditoriaService:
             page=page, per_page=limit,
         )
 
-        ids_pagina = [p.id_usuario for p in profissionais]
+        # CORRIGIDO: era p.id_usuario -- Usuario nao tem esse atributo, a PK
+        # do model e Usuario.id (id_usuario so existe em tabelas que tem FK
+        # para usuario, como LogAcesso/LogAlteracao). Bug seguia o mesmo
+        # raio da correcao de p.nome abaixo.
+        ids_pagina = [p.id for p in profissionais]
         ultimos_acessos = {
             log.id_usuario: log
             for log in self.acesso_repo.find_ultimo_por_usuarios(id_empresa, ids_pagina)
@@ -208,10 +215,10 @@ class AuditoriaService:
             # alcance (mesmo objeto Usuario retornado pela query
             # corrigida em find_profissionais).
             entrada = {"uuid_usuario": p.uuid, "nome": p.nome_completo}
-            if p.id_usuario in ultimos_acessos:
-                entrada["ultimo_acesso"] = ultimos_acessos[p.id_usuario].to_dict_resumido()
-            if p.id_usuario in ultimas_alteracoes:
-                entrada["ultima_alteracao"] = ultimas_alteracoes[p.id_usuario].to_dict_resumido()
+            if p.id in ultimos_acessos:
+                entrada["ultimo_acesso"] = ultimos_acessos[p.id].to_dict_resumido()
+            if p.id in ultimas_alteracoes:
+                entrada["ultima_alteracao"] = ultimas_alteracoes[p.id].to_dict_resumido()
             itens.append(entrada)
 
         return itens, total
@@ -258,7 +265,14 @@ class AuditoriaService:
             limit=limit,
         )
         alteracoes, tem_mais_alteracoes = self.alteracao_repo.find_por_usuario_cursor(
-            uuid_usuario, id_empresa, acao=acao, operacao=acao,
+            uuid_usuario, id_empresa, acao=acao,
+            # CORRIGIDO: passava tambem operacao=acao. Como `acao` e texto
+            # livre (ex: "editar_paciente"), _operacoes_sql_para_filtro
+            # devolvia () (tupla vazia, sem equivalente SQL) e o filtro
+            # virava .in_(()), que nunca bate com nada -- o bloco de
+            # alteracoes voltava SEMPRE vazio quando `acao` era informado.
+            # O filtro por acao ja e resolvido por LogAlteracao.acao == acao,
+            # nao precisa (e nao deve) duplicar em `operacao`.
             data_inicio=data_inicio, data_fim=data_fim,
             cursor_data=cursor_alteracoes.get("data"), cursor_uuid=cursor_alteracoes.get("uuid"),
             limit=limit,

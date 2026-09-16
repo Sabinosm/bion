@@ -20,6 +20,9 @@ class LogAcesso(db.Model):
     ip_origem = db.Column(db.String(255), nullable=False)
     resultado = db.Column(
         db.Enum("sucesso", "falha-autenticacao", "acesso-negado", "timeout"), nullable=False)
+    motivo_negacao = db.Column(db.String(255))  # preenchido so quando resultado != "sucesso";
+    # sem o motivo, o log so diz QUE falhou, nao PORQUE -- dado central p/
+    # investigacao de incidente e auditoria LGPD.
     uuid_paciente = db.Column(db.String(36))  # referencia leve, sem FK, p/ nao acoplar dominio
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -42,6 +45,7 @@ class LogAcesso(db.Model):
             "operacao": self.operacao,
             "data_hora": self.data_hora.isoformat() if self.data_hora else None,
             "resultado": self.resultado,
+            "motivo_negacao": self.motivo_negacao,
         }
 
     def to_dict_resumido(self):
