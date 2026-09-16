@@ -9,7 +9,7 @@ em JSON, mesmo sendo uma rota de apoio à navegação.
 
 from flask import Blueprint, session, jsonify, g
 from src.core.responses import json_error, json_success
-from src.core.session import requer_login, get_usuario_sessao
+from src.core.session import requer_login, get_usuario_sessao, _mfa_pendente_expirado
 
 bp_status = Blueprint("status", __name__)
 
@@ -44,8 +44,6 @@ class Status():
                 "status": "onboarding_pendente",
                 "senha_definida": usuario.hash_senha is not None,
             }), 200
-            
-        from src.core.session import get_usuario_sessao, _mfa_pendente_expirado
 
         if session.get("mfa_pendente"):
             # ALTERADO: mfa_pendente agora também expira por tempo fixo
