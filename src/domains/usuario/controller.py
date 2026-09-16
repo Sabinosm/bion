@@ -61,11 +61,11 @@ class UsuarioController():
 
     @staticmethod
     @bp.get("/<uuid>")
-    @requer_login
+    @requer_admin
     def detalhe(uuid):
         try:
             u = _svc.buscar_por_uuid(uuid)
-            return json_success(data=u.to_dict())
+            return json_success(data=u.to_dict(True))
         except BionException as e:
             return json_error(e.message, e.status_code)
 
@@ -92,7 +92,7 @@ class UsuarioController():
 
     @staticmethod
     @bp.put("/<uuid>")
-    @requer_login
+    @requer_admin
     def atualizar(uuid):
         # ALTERADO: era g.tipo_usuario != "admin" -- lia o campo errado
         # (tipo_usuario não existe mais na sessão). is_admin é a fonte
