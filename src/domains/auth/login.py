@@ -44,7 +44,9 @@ para escolher de novo (ver onboarding.py, _usuario_tem_algum_2fa_confirmado).
 
 from flask import Blueprint, request, session
 from src.core.responses import json_success, json_error
+from src.models import db
 from src.domains.auth.mfa import metodo_2fa_preferencial, metodos_2fa_disponiveis
+from src.domains.auth.onboarding import _usuario_tem_algum_2fa_confirmado
 from .services import AuthService
 
 
@@ -124,13 +126,31 @@ class Login():
         
         
         if usuario.onboarding_pendente:
-            session["onboarding_pendente"] = True
-            return json_success(
-                data={"status": "onboarding_pendente"},
-                message="Cadastro incompleto, finalize o onboarding.",
-            )
+            # CORRIGIDO: `onboarding_pendente` só virava False dentro
+            # de /onboarding/concluir -- uma chamada HTTP separada da
+            # confirmação do 2FA em si. Se a sessão caísse entre o TOTP/
+            # WebAuthn ser confirmado (persistido, isso não se perde) e
+            # essa chamada, o usuário ficava com onboarding_pendente
+            # preso em True para sempre no banco, mesmo já tendo senha e    
+            # 2FA prontos -- e o próximo login o jogava de volta para
+            # onboarding.js, que podia acabar reiniciando o cadastro de
+            # 2FA (ver /totp/registrar/iniciar) mesmo já havendo um
+            # confirmado. Aqui fechamos o onboarding no próprio login
+            # quando os pré-requisitos já estão de fato satisfeitos, em
+            # vez de depender só daquela chamada separada ter ocorrido.
+            if usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
+                usuario.onboarding_pendente = False
+                db.session.commit()
+                # segue para o fluxo normal abaixo (mfa_pendente) --
+                # não retorna aqui.
+            else:
+                session["onboarding_pendente"] = True
+                return json_success(
+                    data={"status": "onboarding_pendente"},
+                    message="Cadastro incompleto, finalize o onboarding.",
+                )
 
-                # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
+        # ALTERADO: sempre mfa_pendente agora -- não há mais o ramo
         # `_svc.load(usuario)` que liberava a sessão direto sem 2FA.
         session["mfa_pendente"] = True
         return json_success(

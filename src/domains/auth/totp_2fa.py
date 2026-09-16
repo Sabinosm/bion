@@ -79,11 +79,33 @@ class Totp():
         WebAuthn/TOTP) -- ver requer_login_ou_onboarding_pendente em
         session.py.
 
-        Diferente do WebAuthn, não há "excluir credenciais existentes"
-        -- se o usuário já tiver um CredencialTOTP (confirmado ou
-        não), este endpoint SUBSTITUI o secret anterior (mesma linha,
-        novo secret, `confirmado` volta a False). Só faz sentido ter 1
-        TOTP ativo por usuário -- reconfigurar substitui, não acumula.
+        CORRIGIDO: esta rota costumava sobrescrever `secret` e marcar
+        `confirmado = False` no banco incondicionalmente, mesmo quando
+        já existia um TOTP CONFIRMADO e em uso. Como esta rota só
+        *propõe* um novo cadastro (o usuário ainda pode nunca escanear
+        o QR nem digitar o código), isso já invalidava o fator existente
+        na hora, só por ela ter sido chamada -- bastava abrir a tela de
+        novo (ou o onboarding recair aqui, ver onboarding.js/
+        onboarding.py) para o usuário perder o único 2FA que tinha, sem
+        nenhuma confirmação nova ter de fato acontecido.
+
+        O problema nunca foi o `secret` em si (não é uma chave fixa do
+        sistema, é só o valor gerado para esta credencial -- trocar o
+        `secret` é exatamente o que reconfigurar significa). O problema
+        é que `confirmado` virava False -- ou seja, o fator deixava de
+        valer -- num momento em que nada foi de fato confirmado ainda.
+
+        Por isso o novo secret NUNCA é gravado no banco aqui. Ele fica
+        só na sessão do servidor (`session["totp_secret_pendente"]`),
+        exatamente como o desafio de um WebAuthn em andamento --
+        efêmero, específico desta tentativa de cadastro, descartado se
+        nunca for confirmado. A linha em CredencialTOTP (`secret` e
+        `confirmado`) só é tocada em `/registrar/confirmar`, e só se o
+        código bater -- nunca antes disso. Enquanto isso não acontece,
+        um TOTP já confirmado continua exatamente como estava, e um
+        usuário sem nenhum ainda simplesmente não tem nada até
+        confirmar (nunca um "confirmado=False" órfão pairando no meio
+        do caminho).
 
         Retorno:
             200 com {"otpauth_uri": "...", "secret_texto": "..."}.
@@ -95,15 +117,11 @@ class Totp():
         usuario = get_usuario_sessao()
 
         secret = pyotp.random_base32()
-
-        credencial = CredencialTOTP.query.filter_by(id_usuario=usuario.id).first()
-        if not credencial:
-            credencial = CredencialTOTP(id_usuario=usuario.id)
-            db.session.add(credencial)
-
-        credencial.definir_secret(secret)
-        credencial.confirmado = False
-        db.session.commit()
+        # Efêmero -- nada é persistido no banco até /registrar/confirmar
+        # validar o código. Um novo /registrar/iniciar (ex: usuário
+        # pediu outro QR) simplesmente substitui este valor na sessão;
+        # não há nada no banco para conflitar.
+        session["totp_secret_pendente"] = secret
 
         otpauth_uri = pyotp.totp.TOTP(secret).provisioning_uri(
             name=usuario.email,
@@ -125,9 +143,19 @@ class Totp():
 
         Corpo esperado (JSON): {"codigo": "123456"}.
 
+        CORRIGIDO: agora que `/registrar/iniciar` guarda o novo secret
+        só na sessão (`totp_secret_pendente`, ver docstring lá), esta
+        rota é o único lugar que efetivamente cria ou substitui a
+        credencial no banco -- e só faz isso depois do código bater.
+        Antes de bater, um TOTP já confirmado continua sendo o válido
+        (nada nele foi tocado); depois de bater, a linha é criada ou
+        atualizada e `confirmado` vira True atomicamente com a troca do
+        secret -- nunca existe um instante em que `confirmado=False`
+        aponta para o fator antigo já descartado.
+
         Retorno:
             200 com {"totp": {...}} se o código bater.
-            400 se não houver registro pendente ou o código for inválido.
+            400 se não houver cadastro pendente ou o código for inválido.
         """
         usuario = get_usuario_sessao()
         dados = request.get_json(silent=True) or {}
@@ -136,16 +164,28 @@ class Totp():
         if not codigo:
             return jsonify({"erro": "codigo_obrigatorio"}), 400
 
-        credencial = CredencialTOTP.query.filter_by(id_usuario=usuario.id).first()
-        if not credencial:
+        secret_pendente = session.get("totp_secret_pendente")
+        if not secret_pendente:
             return jsonify({"erro": "cadastro_nao_iniciado"}), 400
 
-        totp = pyotp.TOTP(credencial.secret_plano)
+        totp = pyotp.TOTP(secret_pendente)
         if not totp.verify(codigo, valid_window=1):
             return jsonify({"erro": "codigo_invalido"}), 400
 
+        credencial = CredencialTOTP.query.filter_by(id_usuario=usuario.id).first()
+        if not credencial:
+            credencial = CredencialTOTP(id_usuario=usuario.id)
+            db.session.add(credencial)
+
+        # Só agora, com o código já validado, o fator anterior (se
+        # havia) é de fato substituído -- secret e confirmado mudam na
+        # mesma transação, então nunca há um estado intermediário sem
+        # 2FA válido.
+        credencial.definir_secret(secret_pendente)
         credencial.confirmado = True
         db.session.commit()
+
+        session.pop("totp_secret_pendente", None)
 
         return jsonify({"totp": credencial.to_dict()}), 200
 

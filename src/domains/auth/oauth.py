@@ -77,6 +77,7 @@ from authlib.integrations.flask_client import OAuth
 from src.models.usuarios import Usuario
 from src.models import db
 from src.domains.auth.frontend_config import FRONTEND_URL
+from src.domains.auth.onboarding import _usuario_tem_algum_2fa_confirmado
 
 oauth = OAuth()
 bp_oauth = Blueprint("oauth", __name__)
@@ -168,6 +169,18 @@ class Oauth():
         # gravado em login.py, agora também no caminho Google.
         session["senha_versao"] = usuario.senha_versao
         session.permanent = True
+
+        # CORRIGIDO: mesmo problema e mesma correção de login.py --
+        # `onboarding_pendente` só era fechado dentro de
+        # /onboarding/concluir, uma chamada HTTP separada da
+        # confirmação do 2FA. Se essa chamada nunca acontecesse (sessão
+        # caindo no meio do caminho), o usuário ficava preso em
+        # onboarding_pendente para sempre, mesmo com senha e 2FA já
+        # prontos no banco. Fechamos aqui também quando os
+        # pré-requisitos já estão satisfeitos.
+        if usuario.onboarding_pendente and usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
+            usuario.onboarding_pendente = False
+            db.session.commit()
 
         if usuario.onboarding_pendente:
             # Único caso que NÃO passa por 2FA -- usuário ainda não tem
