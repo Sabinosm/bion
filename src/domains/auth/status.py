@@ -62,7 +62,19 @@ class Status():
 
             usuario = get_usuario_sessao()
             metodos = metodos_2fa_disponiveis(usuario.id)
-            # ... resto sem mudança
+            tentativas = session.get("mfa_tentativas", 0)
+            tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
+
+            return jsonify({
+                "status": "mfa_pendente",
+                # Mantido por compatibilidade com qualquer leitura antiga
+                # de `metodo` (singular) -- primeiro da lista de preferência.
+                "metodo": metodos[0] if metodos else None,
+                # Novo: lista completa, para a tela de escolha no frontend.
+                "metodos_disponiveis": metodos,
+                "tentativas_restantes": tentativas_restantes,
+                "reautenticar_disponivel": tentativas_restantes == 0,
+            }), 200
             
         return jsonify({"status": "completa"}), 200
         
