@@ -7,6 +7,7 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_empresa_sessao
+from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 from src.domains.paciente.services import DoencaCronicaService
 
 bp = Blueprint("doencas-cronicas", __name__)
@@ -30,6 +31,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def adicionar_doenca(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -43,6 +45,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.put("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def atualizar_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
@@ -58,6 +61,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.delete("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acao_sensivel(acao="remover_doenca_cronica", tabela="doenca_cronica")
     def remover_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
@@ -73,6 +77,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def restaurar_doenca(uuid_paciente, uuid_doenca):
         try:
             d = _svc.restaurar_doenca(uuid_paciente, uuid_doenca, get_id_empresa_sessao())

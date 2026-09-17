@@ -21,6 +21,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import ConsentimentoService
+from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
 bp = Blueprint("paciente_lgpd", __name__)
 _svc = ConsentimentoService()
@@ -30,6 +31,7 @@ class LgpdController():
     @staticmethod
     @bp.get("/<uuid_paciente>/consentimentos")
     @requer_login
+    @acesso_auditado(operacao="leitura")
     def listar(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao())
@@ -53,6 +55,7 @@ class LgpdController():
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos/revogar")
     @requer_papel_clinico("medico","enfermeiro")
+    @acao_sensivel(acao="revogar_consentimento", tabela="consentimento")
     def revogar(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -70,6 +73,7 @@ class LgpdController():
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos/dispensar-emergencia")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def dispensar_emergencia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:

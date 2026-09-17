@@ -10,6 +10,26 @@ ALTERADO: adicionar_reacao/remover_reacao passaram a usar
 ReacaoAlergiaService, não AlergiaService -- responsabilidade de reação
 isolada saiu de AlergiaService para não duplicar lógica entre os dois
 services (ver ReacaoAlergiaService).
+
+ALTERADO: rotas de escrita/exclusão passaram a registrar auditoria.
+Critério usado (mesmo do domínio de usuário/paciente): alergia é dado
+clínico usado em checagem de interação medicamentosa -- um erro ou uma
+remoção indevida tem risco direto de segurança do paciente, então toda
+escrita fica rastreável. Só `remover_alergia` recebeu `acao_sensivel`
+(step-up + log atômico) -- é a única ação aqui que descarta o registro
+"ativo" da alergia (soft delete) sem possibilidade de o próprio dado
+continuar sendo consultado por engano; as demais (`adicionar_alergia`,
+`atualizar_alergia`, `adicionar_reacao`, `restaurar_alergia`,
+`remover_reacao`) usam `acesso_auditado` com a operação correspondente
+-- registram log sem exigir reconfirmação de identidade, pra não gerar
+fricção em fluxo clínico de uso frequente.
+
+TODO antes de ativar `acao_sensivel` em remover_alergia: confirmar que
+`AlergiaService.remover_alergia` NÃO chama `db.session.commit()`
+internamente e passa a retornar `(resposta, detalhes)` com pelo menos
+`id_registro`/`uuid_registro` (e `justificativa`, já que é
+soft-delete) -- ver contrato descrito em `acaoSensivel.py`. Sem isso o
+decorator falha silenciosamente ou quebra a atomicidade do log.
 """
 
 from flask import Blueprint, request
@@ -18,6 +38,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_empresa_sessao
 from src.domains.paciente.services import AlergiaService, ReacaoAlergiaService
+from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
 bp = Blueprint("alergia", __name__)
 _svc = AlergiaService()
@@ -40,6 +61,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado("alergia", operacao="escrita")
     def adicionar_alergia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -54,6 +76,7 @@ class AlergiaController():
     @staticmethod
     @bp.put("/<uuid_paciente>/alergias/<uuid_alergia>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado("alergia", operacao="escrita")
     def atualizar_alergia(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -67,6 +90,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/reacoes")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado("reacao_alergia", operacao="escrita")
     def adicionar_reacao(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -83,7 +107,14 @@ class AlergiaController():
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/<uuid_alergia>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acao_sensivel("remover_alergia", tabela="alergia")
     def remover_alergia(uuid_paciente, uuid_alergia):
+        # ATENÇÃO: ver TODO no topo do arquivo -- para o decorator
+        # acima funcionar corretamente, remover_alergia() no service
+        # não pode commitar sozinha, e esta view precisa devolver
+        # (resposta, detalhes) com id_registro/uuid_registro/
+        # justificativa. Ajustar service + retorno abaixo antes de
+        # subir para produção.
         dados = request.get_json(silent=True) or {}
         try:
             _svc.remover_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
@@ -96,6 +127,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado("alergia", operacao="escrita")
     def restaurar_alergia(uuid_paciente, uuid_alergia):
         try:
             a = _svc.restaurar_alergia(uuid_paciente, uuid_alergia, get_id_empresa_sessao())
@@ -109,6 +141,7 @@ class AlergiaController():
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/reacoes/<uuid_reacao>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado("reacao_alergia", operacao="exclusao-logica")
     def remover_reacao(uuid_paciente, uuid_reacao):
         try:
             _svc_reacao.remover_reacao(uuid_paciente, uuid_reacao, get_id_empresa_sessao())

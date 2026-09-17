@@ -45,7 +45,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
-from src.domains.auditoria.acaoSensivel import acao_sensivel
+from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
 bp = Blueprint("paciente_clinico", __name__)
 _svc = PacienteService()
@@ -102,6 +102,7 @@ class PacienteClinicoController():
     @staticmethod
     @bp.post("/<uuid>/tipo-sanguineo")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def registrar_tipo_sanguineo(uuid):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
@@ -119,6 +120,7 @@ class PacienteClinicoController():
     @staticmethod
     @bp.put("/<uuid>/tipo-sanguineo/<uuid_observacao>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(operacao="escrita")
     def corrigir_tipo_sanguineo(uuid, uuid_observacao):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
@@ -138,6 +140,7 @@ class PacienteClinicoController():
     @staticmethod
     @bp.delete("/<uuid>/tipo-sanguineo/<uuid_observacao>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acao_sensivel(acao="remover_tipo_sanguineo", tabela="observacao_tipo_sanguineo")
     def remover_tipo_sanguineo(uuid, uuid_observacao):
         try:
             _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao())

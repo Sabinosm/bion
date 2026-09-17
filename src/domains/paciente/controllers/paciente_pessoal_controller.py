@@ -31,7 +31,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin
 from src.domains.paciente.services import PacienteService
-from src.domains.auditoria.acaoSensivel import acao_sensivel
+from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
 bp = Blueprint("paciente_pessoal", __name__)
 _svc = PacienteService()
@@ -52,6 +52,7 @@ class PacientePessoalController():
     @staticmethod
     @bp.get("/")
     @requer_login
+    @acesso_auditado(operacao="leitura")
     def lista():
         com_pii = _pode_ver_clinico()
         pacientes = _svc.listar(get_id_empresa_sessao())

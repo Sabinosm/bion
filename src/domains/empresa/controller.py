@@ -7,6 +7,7 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_admin, get_uuid_empresa_sessao, get_id_empresa_sessao, requer_super_admin
 from .service import EmpresaService
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("empresa", __name__)
 _svc = EmpresaService()
@@ -27,6 +28,7 @@ class EmpresaController():
     @staticmethod
     @bp.put("/") 
     @requer_super_admin
+    @acao_sensivel(acao="atualizar_empresa", tabela="empresa")
     def atualizar():
         uuid = get_uuid_empresa_sessao()
         dados = request.get_json(silent=True) or {}
