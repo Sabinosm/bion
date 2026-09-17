@@ -25,6 +25,11 @@ Se for adicionar algo novo:
 
 E reexportar aqui embaixo, se for algo de uso público no resto do projeto.
 """
+# Reexportado por compatibilidade: o arquivo original importava
+# `session`/`jsonify`/`g` do flask no topo, então código externo podia
+# fazer `from src.core.sessao import session`. Mantido aqui só por
+# isso -- para uso novo, prefira importar direto de `flask`.
+from flask import session, jsonify, g
 
 # --- sessaoUsuarios: getters de dados do usuário/empresa na sessão ---
 from src.core.sessaoHelpers.sessaoUsuarios import (
@@ -68,6 +73,7 @@ from src.core.sessaoHelpers.sessaoMfa import (
     TTL_MFA_PENDENTE_SEGUNDOS,
     iniciar_mfa_pendente,
     mfa_pendente_required,
+    _mfa_pendente_expirado, # só usado internamente por status.py
 )
 
 __all__ = [
@@ -97,4 +103,5 @@ __all__ = [
     "TTL_MFA_PENDENTE_SEGUNDOS",
     "iniciar_mfa_pendente",
     "mfa_pendente_required",
+    "_mfa_pendente_expirado",
 ]
