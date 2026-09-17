@@ -1,13 +1,7 @@
 """
-Dominio de Usuarios (profissionais de saude, admins).
-
-Usuario ja estava quase completo no projeto original; mantido. Configuracao
-era um stub no original; completado com vinculo 1-para-1 com Usuario e um
-JSON livre de preferencias/overrides de protocolo.
+ConfiguracaoProtocolo — vincula uma Configuracao (preferencias de um
+usuario) a um protocolo do catalogo, permitindo overrides por protocolo.
 """
-
-from datetime import datetime, timezone
-import uuid as _uuid
 
 from src.models import db
 from src.models.types import BigIntPK
@@ -23,7 +17,7 @@ class ConfiguracaoProtocolo(db.Model):
                               nullable=True)
 
     configuracao = db.relationship("Configuracao", back_populates="protocolos")
-    protocolo = db.relationship("ProtocoloCatalogo") 
+    protocolo = db.relationship("ProtocoloCatalogo")
 
     def to_dict(self):
         return {

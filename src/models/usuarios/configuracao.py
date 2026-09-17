@@ -1,9 +1,7 @@
 """
-Dominio de Usuarios (profissionais de saude, admins).
-
-Usuario ja estava quase completo no projeto original; mantido. Configuracao
-era um stub no original; completado com vinculo 1-para-1 com Usuario e um
-JSON livre de preferencias/overrides de protocolo.
+Configuracao — preferencias do usuario (tema, fonte, idioma) e vinculo
+com os protocolos que ele acompanha, guardados em configuracoes_json.
+Relacao 1-para-1 com Usuario.
 """
 
 from datetime import datetime, timezone
@@ -28,23 +26,20 @@ class Configuracao(db.Model):
     usuario = db.relationship("Usuario", back_populates="configuracao")
     protocolos = db.relationship("ConfiguracaoProtocolo", back_populates="configuracao",
                                   cascade="all, delete-orphan")
-    
-    # Quebrar configuracoes_json
+
     def to_dict(self):
-        # "design": {
-        #     "tema": "claro",
-        #     "tamanho_fonte": "medio",
-        # },
-        # "preferencias": {
-        #     "linguagem": ["pt-BR"]
-        # }
-        
+        """
+        Espera configuracoes_json no formato:
+        {
+            "design": {"tema": "claro", "tamanho_fonte": "medio"},
+            "preferencias": {"linguagem": ["pt-BR"]}
+        }
+        """
         return {
             "uuid": self.uuid,
             "design": self.configuracoes_json["design"],
             "preferencias": self.configuracoes_json["preferencias"],
             "protocolos": {
-                #
                 (p.protocolo.sigla if p.protocolo else p.id_protocolo): {
                     "nome": p.protocolo.nome_protocolo if p.protocolo else None,
                     "tipo": p.protocolo.tipo_protocolo if p.protocolo else None,
