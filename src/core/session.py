@@ -23,7 +23,7 @@ E reexportar aqui embaixo, se for algo de uso público no resto do projeto.
 from flask import session, jsonify, g
 
 # --- sessaoUsuarios: getters de dados do usuário/empresa na sessão ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoUsuarios import (
     get_id_usuario_sessao,
     get_uuid_usuario_sessao,
     get_usuario_sessao,
@@ -35,13 +35,13 @@ from src.core.sessaoHelpers(
 )
 
 # --- sessaoAutenticacao: checagem base de sessão + requer_login ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoAutenticacao import (
     requer_login,
     ja_logado,
 )
 
 # --- sessaoPapeis: autorização por papel (admin / clínico / super admin) ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoPapeis import (
     requer_admin,
     requer_papel_clinico,
     requer_admin_ou_papel_clinico,
@@ -49,18 +49,18 @@ from src.core.sessaoHelpers(
 )
 
 # --- sessaoSenha: checagem de senha_versao para leitura sensível ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoSenha import (
     requer_senha_atualizada,
 )
 
 # --- sessaoOnboarding: rotas de onboarding e caso híbrido ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoOnboarding import (
     onboarding_pendente_required,
     requer_login_ou_onboarding_pendente,
 )
 
 # --- sessaoMfa: segundo fator pendente ---
-from src.core.sessaoHelpers(
+from src.core.sessaoHelpers.sessaoMfa import (
     TTL_MFA_PENDENTE_SEGUNDOS,
     iniciar_mfa_pendente,
     mfa_pendente_required,
