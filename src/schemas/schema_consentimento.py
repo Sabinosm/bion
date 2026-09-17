@@ -5,15 +5,9 @@ O Literal de `canal_coleta` é cópia manual do db.Enum de Consentimento
 -- não há introspecção automática do schema do banco aqui. Se o Enum
 do model mudar, este arquivo precisa ser atualizado junto.
 
-ALTERADO: validação reforçada --
-- motivo (dispensa/revogação) agora tem strip + rejeição de string
-  só-espaços -- antes "   " passava no min_length=1 do Pydantic
-  (contagem de caracteres, não de conteúdo) e virava motivo vazio de
-  fato salvo no banco.
-- hash_documento validado como hex de 64 caracteres (SHA-256), já que
-  é esse o formato assumido pelo domínio; ajustar aqui se o algoritmo
-  usado for outro.
-- versao_termo ganhou o mesmo tratamento de strip.
+motivo (dispensa/revogação) tem strip + rejeição de string só-espaços.
+hash_documento é validado como hex de 64 caracteres (SHA-256), formato
+assumido pelo domínio -- ajustar aqui se o algoritmo usado mudar.
 """
 
 import re
@@ -70,10 +64,10 @@ class ConsentimentoCreateSchema(BaseModel):
 
 
 class ConsentimentoDispensaEmergenciaSchema(BaseModel):
-    """NOVO: entrada para dispensar consentimento por urgência/
-    emergência -- fluxo separado de ConsentimentoCreateSchema porque
-    os campos exigidos são outros (motivo é obrigatório aqui; não
-    exige canal_coleta/versao_termo, já que não houve coleta de fato)."""
+    """Entrada para dispensar consentimento por urgência/emergência --
+    fluxo separado de ConsentimentoCreateSchema porque os campos
+    exigidos são outros (motivo é obrigatório aqui; não exige
+    canal_coleta/versao_termo, já que não houve coleta de fato)."""
     motivo: str = Field(min_length=1, max_length=1000)
 
     @field_validator("motivo")
@@ -83,11 +77,10 @@ class ConsentimentoDispensaEmergenciaSchema(BaseModel):
 
 
 class ConsentimentoRevogarSchema(BaseModel):
-    """NOVO: motivo passou a ser obrigatório -- antes revogar() aceitava
-    motivo=None e caía num fallback genérico ("Revogado a pedido do
-    titular."), inconsistente com dispensar_por_emergencia, que já
-    exige motivo. Revogação também é um evento que merece ficar
-    registrado com uma razão de verdade, não um texto padrão."""
+    """motivo é obrigatório -- consistente com
+    ConsentimentoDispensaEmergenciaSchema. Revogação é um evento que
+    merece ficar registrado com uma razão de verdade, não um texto
+    padrão genérico."""
     motivo: str = Field(min_length=1, max_length=1000)
 
     @field_validator("motivo")

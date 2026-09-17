@@ -91,11 +91,8 @@ def get_is_super_admin_sessao() -> bool:
 def get_is_admin_sessao() -> bool:
     """
     Retorna se o usuário logado é administrador (is_admin), independente
-    de ter ou não uma função clínica associada.
-
-    ALTERADO: substitui a antiga leitura de session.get("tipo_usuario")
-    == "admin". Fonte de verdade única para "é admin" -- nunca
-    inferido a partir de funcao_clinica.
+    de ter ou não uma função clínica associada. Fonte de verdade única
+    para "é admin" -- nunca inferido a partir de funcao_clinica.
     """
     return bool(session.get("is_admin", False))
 

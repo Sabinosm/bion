@@ -90,13 +90,9 @@ def requer_senha_atualizada(acao_log: str):
 
             id_usuario = get_id_usuario_sessao()
             if not _senha_sessao_atualizada(id_usuario):
-                # ADICIONADO: log da tentativa negada. Import local
-                # para não criar dependência circular entre este
-                # módulo (usado por praticamente todo domínio) e o
-                # módulo de auditoria. Ajustar o caminho/assinatura
-                # conforme o módulo real de log de acesso do projeto --
-                # este é um placeholder que segue o mesmo espírito de
-                # `acao_sensivel`, mas para leitura negada, não mutação.
+                # Log da tentativa negada. Import local para não criar
+                # dependência circular entre este módulo (usado por
+                # praticamente todo domínio) e o módulo de auditoria.
                 from src.domains.auditoria.service import AuditoriaService
                 au = AuditoriaService()
 

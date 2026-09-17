@@ -29,9 +29,8 @@ def requer_admin(f):
     """
     Bloqueia a rota a menos que o usuário logado tenha is_admin=True.
 
-    Substitui os usos de @requer_papel("admin"). Não depende de
-    funcao_clinica -- um admin com ou sem papel clínico associado
-    passa igualmente por este decorator.
+    Não depende de funcao_clinica -- um admin com ou sem papel clínico
+    associado passa igualmente por este decorator.
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -50,7 +49,6 @@ def requer_papel_clinico(*papeis_permitidos):
     Bloqueia a rota a menos que a função clínica do usuário logado
     esteja entre papeis_permitidos ("medico", "enfermeiro").
 
-    Substitui os usos de @requer_papel("medico") / @requer_papel("enfermeiro").
     Não depende de is_admin -- um médico que também é admin passa
     igualmente por este decorator, contanto que tenha o papel clínico.
 
@@ -81,8 +79,7 @@ def requer_admin_ou_papel_clinico(*papeis_clinicos_permitidos):
     Existe porque simplesmente empilhar @requer_admin com
     @requer_papel_clinico(...) exigiria as DUAS condições ao mesmo
     tempo (mais restritivo que o pretendido). Use esta fábrica quando
-    a rota antiga fazia algo como @requer_papel("admin", "medico")
-    (liberar para qualquer um dos dois).
+    a rota deve liberar para qualquer um dos dois (ex: admin ou médico).
 
     Uso:
         @requer_admin_ou_papel_clinico("medico")
@@ -126,10 +123,6 @@ def requer_super_admin(f):
         if erro:
             return erro
 
-        # ALTERADO: era session.get("tipo_usuario") != "admin" -- lia o
-        # campo errado. Super admin é sempre is_admin=True também (ver
-        # Empresa.cadastrar_com_admin), mas a fonte de verdade correta
-        # para "é admin" é is_admin, não mais tipo_usuario.
         if not session.get("is_admin") or not session.get("is_super_admin"):
             return _sem_permissao("administrador principal")
 

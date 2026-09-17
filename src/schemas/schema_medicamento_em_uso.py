@@ -10,14 +10,12 @@ Checagem de que id_catalogo EXISTE em catalogo_medicamentos não entra
 aqui -- é uma FK, não formato, então fica no service (query real
 contra o banco), não no schema.
 
-ALTERADO: validação reforçada --
-- descricao ganhou max_length (estava sem limite); descricao/dose/
-  frequencia ganharam strip + rejeição de string vazia/só-espaços.
-- desde não pode ser uma data futura.
-- cross-field validator: quando status_uso vem explícito junto com
-  flag_em_uso, os dois precisam ser coerentes (ex: flag_em_uso=False
-  com status_uso="ativo" é contraditório). Quando status_uso não vem,
-  a derivação automática a partir de flag_em_uso é mantida como antes.
+Validações principais: descricao/dose/frequencia rejeitam string
+vazia/só-espaços; desde não pode ser uma data futura; um cross-field
+validator garante que, quando status_uso vem explícito junto com
+flag_em_uso, os dois são coerentes (ex: flag_em_uso=False com
+status_uso="ativo" é contraditório). Quando status_uso não vem, é
+derivado automaticamente a partir de flag_em_uso.
 """
 
 from datetime import date
@@ -27,8 +25,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, model_v
 
 # status_uso que são coerentes com cada valor de flag_em_uso. Usado só
 # para rejeitar combinações claramente contraditórias quando AMBOS os
-# campos vêm explícitos no payload -- não para inventar regra nova
-# além da derivação que já existia no service.
+# campos vêm explícitos no payload.
 _STATUS_COERENTES_COM_FLAG = {
     True: {"ativo"},
     False: {"interrompido", "concluido"},
@@ -90,9 +87,7 @@ class MedicamentoEmUsoCreateSchema(BaseModel):
     @field_validator("status_uso")
     @classmethod
     def _default_conforme_flag(cls, v, info):
-        # Reproduz a regra que já existia no service: se status_uso não
-        # vier, deriva de flag_em_uso -- mantido aqui para não perder
-        # esse comportamento ao migrar a validação pro schema.
+        # Se status_uso não vier, deriva de flag_em_uso.
         if v is not None:
             return v
         flag = info.data.get("flag_em_uso", True)
@@ -113,7 +108,7 @@ class MedicamentoEmUsoCreateSchema(BaseModel):
 
 
 class MedicamentoEmUsoAtualizarSchema(BaseModel):
-    """NOVO: atualização parcial (PATCH-like) -- todo campo é opcional.
+    """Atualização parcial (PATCH-like) -- todo campo é opcional.
 
     id_catalogo NÃO é editável de propósito: trocar de medicamento é
     conceitualmente um novo registro (nova prescrição), não uma
@@ -169,8 +164,8 @@ class MedicamentoEmUsoAtualizarSchema(BaseModel):
 
 
 class MedicamentoEmUsoRemoverSchema(BaseModel):
-    """NOVO: schema de entrada para o soft delete (DELETE) de um
-    medicamento em uso -- mesmo padrão de AlergiaRemoverSchema/
+    """Schema de entrada para o soft delete (DELETE) de um medicamento
+    em uso -- mesmo padrão de AlergiaRemoverSchema/
     DoencaCronicaRemoverSchema. motivo é obrigatório;
     motivo_delete='outro' exige observacoes_delete preenchida (não
     vazia/só-espaços)."""

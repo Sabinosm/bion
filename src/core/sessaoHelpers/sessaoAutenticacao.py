@@ -30,16 +30,11 @@ def _checagem_base_sessao():
 
 def _requer_papeis():
     """
-    ALTERADO (assertivo, sem alias): a antiga fábrica genérica que
-    recebia *papeis_permitidos e comparava contra um único
-    session["tipo_usuario"] SAIU. Ela não pode mais expressar
-    corretamente "admin" e "médico" como dimensões independentes que
-    coexistem no mesmo usuário.
-
-    Mantida sem parâmetros — cobre só a checagem de sessão básica
-    (autenticado + onboarding + mfa), usada por requer_login. Para
-    exigências de papel, ver requer_admin, requer_papel_clinico e
-    requer_admin_ou_papel_clinico em sessaoPapeis.py.
+    Fábrica de decorator sem parâmetros -- cobre só a checagem de
+    sessão básica (autenticado + onboarding + mfa), usada por
+    requer_login. Para exigências de papel, ver requer_admin,
+    requer_papel_clinico e requer_admin_ou_papel_clinico em
+    sessaoPapeis.py.
     """
     def decorator(f):
         @wraps(f)
@@ -60,8 +55,7 @@ def requer_login(f):
 
     Também popula g.id_usuario / g.id_empresa / g.is_admin /
     g.funcao_clinica / g.is_super_admin, pra rota não precisar reler a
-    sessão manualmente. (g.tipo_usuario foi REMOVIDO -- ver g.is_admin
-    e g.funcao_clinica.)
+    sessão manualmente.
     """
     return _requer_papeis()(f)
 
@@ -80,8 +74,6 @@ def ja_logado() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Observação (mantida do arquivo original):
-#
 # requer_admin, requer_papel_clinico, requer_admin_ou_papel_clinico e
 # requer_senha_atualizada (em sessaoPapeis.py / sessaoSenha.py) já
 # chamam _checagem_base_sessao() + _popula_g() internamente -- igual

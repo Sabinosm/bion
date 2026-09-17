@@ -5,15 +5,8 @@ O Literal é cópia manual do db.Enum de ObservacaoTipoSanguineo -- não
 há introspecção automática do schema do banco aqui. Se o Enum do
 model mudar, este arquivo precisa ser atualizado junto.
 
-Este era o único domínio clínico sem NENHUMA validação antes desta
-mudança -- nem obrigatoriedade nem enum; um valor vazio ou fora do
-Enum só falhava no commit(), como erro cru do banco.
-
-ALTERADO: normalização de caixa antes de validar contra o Literal --
-"a+", "A+" e " A+ " agora são todos aceitos e normalizados para "A+".
-Antes, só a grafia exata do Enum passava e qualquer variação de caixa
-(bem provável vindo de input de formulário/mobile) caía como erro de
-formato em vez de ser normalizada.
+Normaliza caixa antes de validar contra o Literal: "a+", "A+" e " A+ "
+são todos aceitos e normalizados para "A+".
 """
 
 from typing import Literal

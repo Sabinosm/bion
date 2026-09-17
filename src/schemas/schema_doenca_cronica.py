@@ -7,14 +7,10 @@ model mudar, este arquivo precisa ser atualizado junto. O mesmo vale
 para o Literal de `motivo_delete` em DoencaCronicaRemoverSchema, cópia
 manual do db.Enum `motivo_delete` do model.
 
-ALTERADO: validação reforçada --
-- codigo_cid10 agora valida o FORMATO CID-10 (letra + 2 dígitos +
-  opcional ".dígito(s)"), além do tamanho -- pega erro de digitação
-  óbvio sem depender de uma tabela CID completa.
-- descricao_cid10/observacoes ganharam strip + rejeição de string
-  vazia/só-espaços (mesmo padrão de substancia em AlergiaCreateSchema).
-- desde não pode ser uma data futura (não existe "doença crônica desde
-  o ano que vem").
+codigo_cid10 valida o FORMATO CID-10 (letra + 2 dígitos + opcional
+".dígito(s)"), além do tamanho -- pega erro de digitação óbvio sem
+depender de uma tabela CID completa. descricao_cid10/observacoes
+rejeitam string vazia/só-espaços. desde não pode ser uma data futura.
 """
 
 import re
@@ -97,13 +93,13 @@ class DoencaCronicaCreateSchema(BaseModel):
 
 
 class DoencaCronicaAtualizarSchema(BaseModel):
-    """NOVO: atualização parcial (PATCH-like) -- todo campo é opcional,
-    só o que vier é validado e aplicado. codigo_cid10/descricao_cid10
-    incluídos como editáveis: diferente de tipo sanguíneo (que separa
-    'novo exame' de 'corrigir'), doença crônica não tem um conceito de
-    'nova ocorrência' -- é o mesmo registro sendo corrigido/atualizado
-    (ex: mudar status de 'ativa' para 'em-remissao' com o tempo, ou
-    corrigir um CID digitado errado).
+    """Atualização parcial (PATCH-like) -- todo campo é opcional, só o
+    que vier é validado e aplicado. codigo_cid10/descricao_cid10 são
+    editáveis: diferente de tipo sanguíneo (que separa 'novo exame' de
+    'corrigir'), doença crônica não tem um conceito de 'nova
+    ocorrência' -- é o mesmo registro sendo corrigido/atualizado (ex:
+    mudar status de 'ativa' para 'em-remissao' com o tempo, ou corrigir
+    um CID digitado errado).
     """
     codigo_cid10: Optional[str] = Field(default=None, min_length=1, max_length=10)
     descricao_cid10: Optional[str] = Field(default=None, min_length=1, max_length=255)
@@ -142,15 +138,14 @@ class DoencaCronicaAtualizarSchema(BaseModel):
 
 
 class DoencaCronicaRemoverSchema(BaseModel):
-    """NOVO: schema de entrada para o soft delete (DELETE) -- motivo é
+    """Schema de entrada para o soft delete (DELETE) -- motivo é
     obrigatório, exige explicitação de por que a doença crônica está
     sendo removida (auditoria/LGPD).
 
-    ALTERADO: motivo_delete='outro' agora exige `observacoes_delete`
-    preenchida (não vazia/só-espaços) -- 'outro' sem nenhum detalhe é
-    inútil pra quem for auditar depois; os outros motivos já são
-    autoexplicativos pelo próprio Enum e não exigem observação, mas
-    aceitam se vier."""
+    motivo_delete='outro' exige `observacoes_delete` preenchida (não
+    vazia/só-espaços) -- 'outro' sem nenhum detalhe é inútil pra quem
+    for auditar depois; os outros motivos já são autoexplicativos pelo
+    próprio Enum e não exigem observação, mas aceitam se vier."""
     motivo_delete: Literal[
         "erro-digitacao",
         "registro-duplicado",

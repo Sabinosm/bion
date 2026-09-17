@@ -2,23 +2,17 @@
 Schema Pydantic de ENTRADA para alergia e reação alérgica.
 
 Cobre os dois juntos porque adicionar_alergia() cria a alergia E a
-primeira reação na mesma chamada (ver Alergia.registrar_reacao) --
-mesmo agrupamento que já existia no código antes da divisão.
+primeira reação na mesma chamada (ver Alergia.registrar_reacao).
 
 Os Literal abaixo são cópia manual dos db.Enum de Alergia/ReacaoAlergia
 -- não há introspecção automática do schema do banco aqui. Se o Enum
 do model mudar, este arquivo precisa ser atualizado junto.
 
-ALTERADO: validação reforçada --
-- descricao_reacao/descricao ganharam max_length (estavam sem limite,
-  indo texto arbitrariamente grande pro banco).
-- strip + rejeição de string vazia/só-espaços em descricao_reacao e
-  descricao, mesmo padrão já usado em substancia.
-- data_ocorrencia não pode ser no futuro (reação já ocorrida, por
-  definição).
-- cross-field validator: anafilaxia é por definição uma reação grave
-  ou moderada no mínimo -- gravidade="leve" com manifestação
-  anafilaxia é inconsistente clinicamente e agora é rejeitado.
+Validações principais: descricao_reacao/descricao têm limite de
+tamanho e rejeitam string vazia/só-espaços; data_ocorrencia não pode
+ser no futuro; um cross-field validator rejeita combinações
+clinicamente inconsistentes (ex: anafilaxia marcada como gravidade
+"leve").
 """
 
 from datetime import date
@@ -128,9 +122,9 @@ class ReacaoAlergiaCreateSchema(BaseModel):
 
 
 class AlergiaAtualizarSchema(BaseModel):
-    """NOVO: atualização parcial (PATCH-like) da ALERGIA em si -- não
-    da reação (isso é ReacaoAlergiaCreateSchema, sem update próprio
-    ainda, já que reação é histórico imutável por natureza: uma reação
+    """Atualização parcial (PATCH-like) da ALERGIA em si -- não da
+    reação (isso é ReacaoAlergiaCreateSchema, sem update próprio ainda,
+    já que reação é histórico imutável por natureza: uma reação
     registrada errada se corrige removendo e recriando, não editando).
 
     substancia NÃO é editável de propósito: a alergia já tem um
@@ -153,10 +147,10 @@ class AlergiaAtualizarSchema(BaseModel):
 
 
 class AlergiaRemoverSchema(BaseModel):
-    """NOVO: schema de entrada para o soft delete (DELETE) de uma
-    alergia -- mesmo padrão de DoencaCronicaRemoverSchema. motivo é
-    obrigatório; motivo_delete='outro' exige observacoes_delete
-    preenchida (não vazia/só-espaços)."""
+    """Schema de entrada para o soft delete (DELETE) de uma alergia --
+    mesmo padrão de DoencaCronicaRemoverSchema. motivo é obrigatório;
+    motivo_delete='outro' exige observacoes_delete preenchida (não
+    vazia/só-espaços)."""
     motivo_delete: Literal[
         "erro-digitacao",
         "registro-duplicado",
