@@ -66,6 +66,7 @@ from src.models.usuarios import (
     ConfiguracaoProtocolo,
     CredencialWebAuthn,
     Usuario,
+    CredencialTOTP,
 )
 
 # ==============================================================================
@@ -134,4 +135,5 @@ __all__ = [
     "CredencialWebAuthn",
     "Usuario",
     "PapelProfissional",
+    "CredencialTOTP",
 ]

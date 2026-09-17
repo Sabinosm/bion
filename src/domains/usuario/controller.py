@@ -1,33 +1,13 @@
 """Rotas JSON do dominio Usuario (CRUD administrativo).
 
-ALTERADO (separação admin/papel clínico, assertivo, sem alias):
-- @requer_papel("admin") SAIU de todas as rotas (5 ocorrências) --
-  substituído por @requer_admin, que checa g.is_admin (sessão) em vez
-  de comparar contra um session["tipo_usuario"] que não existe mais.
-- atualizar(): g.tipo_usuario != "admin" virou `not g.is_admin`, e
-  solicitante_is_admin=(g.tipo_usuario == "admin") virou
-  solicitante_is_admin=g.is_admin. Um médico-admin passa por essas
-  checagens igual a um admin puro -- is_admin nunca depende da função
-  clínica.
-- atualizar() agora exige STEP-UP (reconfirmação de identidade) quando
-  o payload mexe em 'is_admin' ou 'tipo_papel' -- mesmo tratamento de
-  ação sensível que já existia em desativar(). Não dá para decorar a
-  rota inteira com @acao_sensivel/@requer_confirmacao_recente, porque
-  este MESMO endpoint também edita campos triviais (telefone, email)
-  que não deveriam pedir reconfirmação. A checagem é condicional,
-  dentro da view, usando `token_recente_valido()` (extraída de
-  step_up.py -- mesma função que o decorator usa por baixo, sem
-  duplicar a lógica de validação/consumo do token).
-
-ALTERADO (múltiplos admins por empresa, preexistente):
-- criar(): quando o payload pede is_admin=True, a rota exige o
-  super admin -- a checagem fina continua sendo feita dentro do
-  service (que já bloqueia se solicitante_eh_super_admin=False e
-  is_admin=True). O que muda aqui é repassar g.is_super_admin ao
-  service.
-- atualizar()/desativar()/ativar(): passam g.is_super_admin adiante,
-  necessário para o service decidir se o solicitante pode mexer num
-  usuário que já é admin.
+@requer_admin protege as rotas administrativas checando g.is_admin. Em
+atualizar(), a exigencia de reconfirmacao de identidade (step-up) e
+condicional ao conteudo do payload: so dispara quando o usuario tenta
+alterar is_admin ou tipo_papel, ja que o mesmo endpoint tambem edita
+campos triviais (telefone, email) que nao devem pedir reconfirmacao.
+criar()/atualizar()/desativar()/ativar() repassam g.is_super_admin ao
+service, que decide se o solicitante pode mexer num usuario que ja e
+admin.
 """
 
 from flask import Blueprint, request, g
@@ -39,25 +19,23 @@ from src.core.session import requer_login, requer_admin, get_id_empresa_sessao
 from .services.service import UsuarioService
 from src.domains.auth.step_up import StepUp, token_recente_valido
 from src.domains.auditoria.acaoSensivel import acao_sensivel
+
 bp = Blueprint("usuario", __name__)
 _svc = UsuarioService()
 
 
-
 class UsuarioController():
-    
+
     @staticmethod
     @bp.get("/")
     @requer_admin
     def lista():
-        especialidade = request.args.get('especialidade') # 
-        status = request.args.get('status', type=str) # Pendente - Ativo - inativo
+        especialidade = request.args.get('especialidade')
+        status = request.args.get('status', type=str)  # pendente - ativo - inativo
         pagina = request.args.get('pagina', default=0, type=int)
 
-        usuarios = _svc.listar(get_id_empresa_sessao(),offset=int(pagina*8),status=status,especialidade=especialidade)
+        usuarios = _svc.listar(get_id_empresa_sessao(), offset=int(pagina * 8), status=status, especialidade=especialidade)
         return json_success(data=[u.to_dict_few() for u in usuarios])
-
-
 
     @staticmethod
     @bp.get("/<uuid>")
@@ -69,12 +47,10 @@ class UsuarioController():
         except BionException as e:
             return json_error(e.message, e.status_code)
 
-
     @staticmethod
     @bp.post("/")
     @requer_admin
     def criar():
-        
         dados = request.get_json(silent=True) or {}
         try:
             u = _svc.criar(
@@ -85,38 +61,24 @@ class UsuarioController():
             )
             return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
         except ValidationError as e:
-                return json_error(str(e), 422)
+            return json_error(str(e), 422)
         except BionException as e:
             return json_error(e.message, e.status_code)
-
 
     @staticmethod
     @bp.put("/<uuid>")
     @requer_admin
     def atualizar(uuid):
-        # ALTERADO: era g.tipo_usuario != "admin" -- lia o campo errado
-        # (tipo_usuario não existe mais na sessão). is_admin é a fonte
-        # de verdade correta, e é ortogonal à função clínica: um
-        # médico-admin passa por aqui igual a um admin puro.
         if uuid != g.uuid_usuario and not g.is_admin:
             return json_error("Você só pode atualizar o seu próprio cadastro.", 403)
 
         dados = request.get_json(silent=True) or {}
 
-        # ADICIONADO: step-up condicional. Este mesmo endpoint edita
-        # tanto campos triviais (telefone, email) quanto is_admin/
-        # tipo_papel -- só o segundo caso é ação sensível. Diferente de
-        # desativar() (rota inteira dedicada, decorável com
-        # @acao_sensivel sem ambiguidade), aqui a sensibilidade depende
-        # do CONTEÚDO do payload, então a checagem é manual, dentro da
-        # view, usando a mesma função que o decorator usa por baixo
-        # (token_recente_valido -- ver step_up.py).
-        #
-        # DECISÃO CONFIRMADA: só a barreira de step-up por enquanto,
-        # sem LogAlteracao de auditoria -- att() continua commitando
-        # sozinho via repo.save(), sem o contrato (resposta, detalhes)
-        # que @acao_sensivel exigiria. Se auditoria completa for
-        # necessária depois, revisitar junto de service_atualizar.py.
+        # Step-up condicional: só exige reconfirmação de identidade quando
+        # o payload mexe em campos sensíveis (is_admin, tipo_papel). Usa a
+        # mesma função de validação do decorator (token_recente_valido),
+        # sem duplicar a lógica, pois aqui a checagem depende do conteúdo
+        # do payload e não pode ser resolvida com um decorator estático.
         mexe_em_campo_sensivel = "is_admin" in dados or "tipo_papel" in dados
         if mexe_em_campo_sensivel and not token_recente_valido("alterar_papel_usuario"):
             return json_error(
@@ -139,18 +101,16 @@ class UsuarioController():
         except BionException as e:
             return json_error(e.message, e.status_code)
 
-
     @staticmethod
     @bp.post("/<uuid>/desativar")
     @requer_admin
-    @acao_sensivel(acao="desativar_profissional",tabela="Usuarios")
+    @acao_sensivel(acao="desativar_profissional", tabela="Usuarios")
     def desativar(uuid):
         try:
             u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
             return json_success(data=u.to_dict(), message="Usuário desativado.")
         except BionException as e:
             return json_error(e.message, e.status_code)
-
 
     @staticmethod
     @bp.post("/<uuid>/ativar")
@@ -166,23 +126,13 @@ class UsuarioController():
         except BionException as e:
             return json_error(e.message, e.status_code)
 
-
-    # ALTERADO: rota tinha <uuid> E <uuid_usuario>, mas a view só
-    # recebia uuid_usuario -- Flask quebra em runtime quando os
-    # parâmetros da view não batem com os da rota. Removido o <uuid>
-    # (não era usado por nada aqui).
-    #
-    # ADICIONADO: checagem explícita de super admin. @requer_admin só
-    # garante "é admin de alguma empresa" -- resetar 2FA/senha de
-    # terceiros é sensível o bastante pra exigir o super admin
-    # especificamente, não qualquer admin comum (mesmo padrão de
-    # checagem manual já usado em atualizar(), acima, para o step-up
-    # condicional).
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-2fa")
     @requer_admin
     @acao_sensivel(acao="resetar_2fa_usuario", tabela="Usuarios")
     def resetar_2fa(uuid_usuario):
+        # @requer_admin garante só "é admin de alguma empresa"; resetar
+        # 2FA de terceiros exige especificamente o super admin.
         if not g.is_super_admin:
             return json_error(
                 "Apenas o administrador principal pode resetar o 2FA de um usuário.",
@@ -224,11 +174,6 @@ class UsuarioController():
         except BionException as e:
             return json_error(e.message, e.status_code)
 
-    # ADICIONADO (troca de senha, autoatendimento): rota dedicada, sem
-    # campos triviais misturados -- por isso usa o decorator estático
-    # de step-up (igual ativar()), não a checagem condicional que
-    # atualizar() usa. Validação de força/repetição acontece dentro do
-    # service (AlterarSenhaSchema), não aqui -- mesmo padrão de criar().
     @staticmethod
     @bp.put("/senha")
     @requer_login
@@ -243,23 +188,16 @@ class UsuarioController():
         except BionException as e:
             return json_error(e.message, e.status_code)
 
-    # ADICIONADO (reset de senha por admin, isolado): diferente de
-    # resetar_completo (zera 2FA + onboarding + status), aqui SÓ a
-    # senha muda -- WebAuthn e status permanecem intactos. Combina
-    # step-up (prova que é realmente o super admin logado agindo, não
-    # uma sessão sequestrada dele) com auditoria (ação sobre a conta de
-    # OUTRA pessoa -- diferente de alterar_senha(), aqui "quem fez o
-    # quê e quando" tem valor sem o problema de inferência que motivou
-    # não auditar a autotroca). Sem senha temporária pra retornar --
-    # ver decisão em service.py: o usuário define a própria senha no
-    # próximo login, que cai automaticamente no fluxo de onboarding já
-    # existente (onboarding_pendente=True).
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-senha")
     @requer_admin
     @StepUp.requer_confirmacao_recente("resetar_senha_usuario")
     @acao_sensivel(acao="resetar_senha_usuario", tabela="Usuarios")
     def resetar_senha(uuid_usuario):
+        # Reset isolado de senha (diferente de resetar_completo: aqui só
+        # a senha muda, WebAuthn e status permanecem intactos). Sem senha
+        # temporária no retorno: o usuário define a própria no próximo
+        # login, caindo no fluxo de onboarding já existente.
         if not g.is_super_admin:
             return json_error(
                 "Apenas o administrador principal pode resetar a senha de um usuário.",

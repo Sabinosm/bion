@@ -1,17 +1,9 @@
-"""
-ALTERADO: tipo_usuario deixou de existir por completo (nem coluna, nem
-property) -- Usuario.query.filter_by(tipo_usuario=...) NÃO FUNCIONA.
-Nenhum método aqui usava isso (find_all, find_by_login etc filtram por
-outras colunas reais: is_admin, is_super_admin, status), então nada
-quebrou de fato. find_by_tipo_papel() é o substituto para "listar por
-função clínica" (join com PapelProfissional); find_admins() para
-"listar administradores" (filtro por is_admin).
+"""Repositorio de acesso a dados de Usuario.
 
-ALTERADO (separação admin/papel clínico, decisão confirmada):
-- contar_ativos_por_papel(): um admin que também tem função clínica
-  ativa (ex: dono de clínica que atende) agora conta SÓ na categoria
-  da função clínica, nunca em "admin" -- evita contagem duplicada no
-  card de estatística. Ver docstring do método.
+find_by_tipo_papel() lista usuarios por funcao clinica (join com
+PapelProfissional); find_admins() lista administradores (filtro por
+is_admin). tipo_usuario nao existe como coluna nem property, entao
+nenhum filtro aqui pode usa-lo.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -35,9 +27,9 @@ class UsuarioRepository(IRepository[Usuario]):
 
     def find_by_login(self, login: str) -> Optional[Usuario]:
         return Usuario.query.filter(
-    Usuario.user_login == login,
-        or_(Usuario.status == "ativo", Usuario.status == "pendente"),
-    ).first()
+            Usuario.user_login == login,
+            or_(Usuario.status == "ativo", Usuario.status == "pendente"),
+        ).first()
 
     def find_by_cpf_hash(self, cpf_hash: str) -> Optional[Usuario]:
         """Busca por HMAC-SHA256 do CPF (índice determinístico); ver nota em
@@ -49,18 +41,12 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.filter_by(email=email).first()
 
     def find_by_tipo_papel(self, id_empresa: int, tipo_papel: str) -> List[Usuario]:
-        """Substitui o antigo Usuario.query.filter_by(tipo_usuario=...).
-
-        Faz o JOIN explícito com PapelProfissional, já que tipo_usuario
-        não é mais coluna direta de Usuario.
+        """Lista usuários de uma empresa com papel ativo do tipo pedido.
 
         Parâmetros:
             id_empresa: filtra só usuários dessa empresa.
             tipo_papel: 'medico' ou 'enfermeiro' (não serve para 'admin',
                 que não tem PapelProfissional -- usar find_admins abaixo).
-
-        Retorno:
-            Lista de instâncias de Usuario com papel ativo do tipo pedido.
         """
         return (
             Usuario.query
@@ -82,8 +68,8 @@ class UsuarioRepository(IRepository[Usuario]):
         Usuario inteiro -- usado por `requer_senha_atualizada`
         (session.py) nas rotas de leitura sensível que precisam
         comparar contra o valor gravado na sessão a cada requisição.
-        Deliberadamente mais barato que find_by_id: 1 SELECT de uma
-        coluna indexada por PK, sem carregar relacionamentos.
+        Mais barato que find_by_id: 1 SELECT de uma coluna indexada por
+        PK, sem carregar relacionamentos.
 
         Retorno: o inteiro, ou None se o usuário não existir mais
         (ex: deletado entre o login e esta requisição).
@@ -98,9 +84,9 @@ class UsuarioRepository(IRepository[Usuario]):
         (UsuarioService.reset_2fa / reset_total). Diferente da
         autorremoção do próprio usuário (ver
         webauthn_2fa.remover_credencial), aqui NÃO existe a trava de
-        "não pode remover a última" -- o objetivo explícito desta
-        operação é zerar o 2FA por completo, forçando o usuário a
-        cadastrar um dispositivo novo no próximo login.
+        "não pode remover a última" -- o objetivo desta operação é
+        zerar o 2FA por completo, forçando o cadastro de um dispositivo
+        novo no próximo login.
 
         Retorno:
             Quantidade de credenciais removidas.
@@ -117,7 +103,7 @@ class UsuarioRepository(IRepository[Usuario]):
             db.session.add(entity)
             db.session.flush()
         return entity
-    
+
     def save_sem_commit(self, entity):
         return entity
 
@@ -131,61 +117,46 @@ class UsuarioRepository(IRepository[Usuario]):
 
     def find_all(self, id_empresa: int) -> List[Usuario]:
         return Usuario.query.filter_by(id_empresa=id_empresa).all()
-    
-     
-    def find_all_param(self, id_empresa:int, offset: int = 0, especialidade: str = None, status: str = None, nome:str=None, email:str=None,cpf:str=None):
+
+    def find_all_param(self, id_empresa: int, offset: int = 0, especialidade: str = None, status: str = None, nome: str = None, email: str = None, cpf: str = None):
         filtros = {
             "id_empresa": id_empresa,
             "is_super_admin": 0
-                  }
+        }
 
         if especialidade:
             filtros["especialidade"] = especialidade
         if status:
             filtros["status"] = status
-        
-        # TODO 
-       # if cpf:
-          #          filtros["cpf"] = cpf
-             #   if email:
-               #     filtros["email"] = email
-        
-        # if nome:
-          #  Usuario.query.filter(Usuario.nome_completo.ilike(f"%{nome}%")).offset(offset).limit(8)
-        
-        return Usuario.query.filter_by(**filtros).offset(offset).limit(8)
-    
-    def count_no_super_admin_users(self, id_empresa):
-        return Usuario.query.where(Usuario.is_super_admin==False, Usuario.id_empresa==id_empresa).count()
-        
 
-    def count_status_users(self,id_empresa,status):
-        return Usuario.query.where(Usuario.is_super_admin==False, Usuario.id_empresa==id_empresa,Usuario.status==status).count()
-        
-    # --- A4: Efetivo ativo por papel ---
+        # TODO: filtro por cpf, email e nome (nome via ilike, os demais
+        # ainda não implementados)
+
+        return Usuario.query.filter_by(**filtros).offset(offset).limit(8)
+
+    def count_no_super_admin_users(self, id_empresa):
+        return Usuario.query.where(Usuario.is_super_admin == False, Usuario.id_empresa == id_empresa).count()
+
+    def count_status_users(self, id_empresa, status):
+        return Usuario.query.where(Usuario.is_super_admin == False, Usuario.id_empresa == id_empresa, Usuario.status == status).count()
+
     def contar_ativos_por_papel(self, id_empresa: int) -> dict:
         """Contagem de usuários com status='ativo', agrupados por papel
         profissional (medico/enfermeiro), mais admins à parte.
 
         Diferente de find_by_tipo_papel (que retorna instâncias), este
-        método já devolve a contagem agregada -- é o que a estatística
-        precisa, sem carregar objetos Usuario inteiros na memória.
+        método já devolve a contagem agregada, sem carregar objetos
+        Usuario inteiros na memória.
 
-        DECISÃO (separação admin/papel clínico, confirmada): um mesmo
-        usuário nunca é contado em duas categorias. Um admin que também
-        tem função clínica ativa (ex: dono de clínica que atende) conta
-        SÓ como "medico"/"enfermeiro" aqui, nunca como "admin" -- função
-        clínica tem prioridade na contagem deste card, mesmo que
-        is_admin=True. "admin" no resultado representa só quem é
-        exclusivamente admin (sem papel clínico).
+        Um mesmo usuário nunca é contado em duas categorias: um admin
+        que também tem função clínica ativa (ex: dono de clínica que
+        atende) conta só como "medico"/"enfermeiro", nunca como "admin"
+        -- função clínica tem prioridade na contagem deste card. "admin"
+        no resultado representa só quem é exclusivamente admin (sem
+        papel clínico).
 
         Retorna dict, ex: {"medico": 12, "enfermeiro": 8, "admin": 2}
         """
-        from src.models.usuarios.papel_profissional import PapelProfissional
-
-        # Profissionais (médico/enfermeiro) via PapelProfissional ativo.
-        # Inclui quem também é admin -- prioridade da função clínica na
-        # contagem, por decisão confirmada.
         linhas = (
             db.session.query(
                 PapelProfissional.tipo_papel.label("tipo_papel"),
@@ -202,11 +173,6 @@ class UsuarioRepository(IRepository[Usuario]):
         )
         resultado = {linha.tipo_papel: linha.total for linha in linhas}
 
-        # ALTERADO: "admin" agora conta só quem é EXCLUSIVAMENTE admin
-        # (sem PapelProfissional ativo) -- antes de nascer a
-        # possibilidade de admin-médico, todo is_admin=True já era
-        # implicitamente exclusivo, então este filtro extra não mudava
-        # nada; agora evita contar a mesma pessoa em duas categorias.
         total_admins = (
             Usuario.query
             .outerjoin(
@@ -227,12 +193,9 @@ class UsuarioRepository(IRepository[Usuario]):
 
         return resultado
 
-    # --- A5 (fase futura): Engajamento/atividade da equipe ---
     def find_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> List[Usuario]:
         """Usuários (não-super-admin) sem acesso há mais de N dias, ou que
-        nunca acessaram (ultimo_acesso is None). Já deixo pronto porque
-        é praticamente 'de graça' junto com A4, mas A5 em si é fase 1
-        'nice to have' -- confirmar com o time se entra agora.
+        nunca acessaram (ultimo_acesso is None).
         """
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
         return (
@@ -245,17 +208,13 @@ class UsuarioRepository(IRepository[Usuario]):
             )
             .all()
         )
-        
-# --- A5: Engajamento/atividade da equipe (contagem) ---
+
     def contar_inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> int:
         """Conta usuários (não-super-admin, status ativo) sem acesso há mais de
         N dias, ou que nunca acessaram. Par de find_inativos_ha_dias
-        (que retorna a lista completa) -- este devolve só o número, mais
-        barato quando o card só precisa do total.
+        (que retorna a lista completa), mais barato quando o card só
+        precisa do total.
         """
-        from datetime import datetime, timedelta, timezone
-        from sqlalchemy import or_
-
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
         return (
             Usuario.query

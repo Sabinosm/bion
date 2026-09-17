@@ -1,12 +1,4 @@
-"""Funções puras e constantes de apoio ao domínio Usuario.
-
-ALTERADO: monta_atributos_json() e atributos_atuais() trabalhavam com
-JSON solto (atributos_profissionais_json). Agora que isso virou a tabela
-PapelProfissional, essas funções mudam de "montar/ler JSON" para
-"montar/ler dict de campos do papel" — mas os NOMES das funções e o
-formato do dict retornado foram mantidos iguais de propósito, para que
-quem já chama essas funções precise mudar o mínimo possível.
-"""
+"""Funções puras e constantes de apoio ao domínio Usuario."""
 
 CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "nome_completo",
@@ -15,17 +7,10 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "user_login",
 )
 
-# CAMPOS_RESTRITOS_A_ADMIN: as chaves com hífen (numero-crm etc) eram o
-# formato do JSON antigo. Mantidas aqui porque o payload de ENTRADA da
-# API (o que o cliente HTTP manda) não muda — só a forma de PERSISTIR
-# muda. Isso é o núcleo do que discutimos: FHIR/reestruturação interna
-# não obriga a mudar contrato de API já em uso pelo front.
-#
-# ALTERADO (assertivo, sem alias): "tipo_usuario" saiu -- não existe
-# mais como chave de payload. Substituído por "is_admin" e "tipo_papel",
-# os dois campos ortogonais que o tomam o lugar. Ambos continuam
-# restritos a admin, pelo mesmo motivo de antes (são dados sensíveis
-# de permissão/registro profissional).
+# As chaves com hífen (numero-crm etc) são o formato do payload de
+# ENTRADA da API, mantido por compatibilidade com o front. is_admin e
+# tipo_papel são os dois eixos ortogonais de permissão/registro
+# profissional, ambos restritos a admin.
 CAMPOS_RESTRITOS_A_ADMIN = (
     "is_admin",
     "tipo_papel",
@@ -41,8 +26,8 @@ def atributos_atuais(u) -> dict:
         u: instância de Usuario.
 
     Retorno:
-        dict no formato antigo (chaves com hífen), ou {} se não houver
-        papel ativo.
+        dict no formato de payload (chaves com hífen), ou {} se não
+        houver papel ativo.
     """
     papel = u.papel_ativo()
     if not papel:
@@ -67,18 +52,13 @@ def monta_dados_papel(schema) -> dict | None:
     """Monta um dict pronto para criar/atualizar um PapelProfissional,
     a partir do schema validado.
 
-    ALTERADO: lia schema.tipo_usuario (removido). Agora lê
-    schema.tipo_papel, que é ortogonal a is_admin -- um admin com
-    tipo_papel="medico" também gera um dict de papel aqui normalmente,
-    exatamente como um médico não-admin geraria.
-
     Parâmetros:
         schema: instância validada de CadastroUsuarioSchema (ou
             AtualizacaoUsuarioSchema).
 
     Retorno:
         dict com os campos prontos para PapelProfissional(**dict), ou
-        None se tipo_papel for None (usuário sem função clínica —
+        None se tipo_papel for None (usuário sem função clínica,
         tipicamente admin puro).
     """
     if schema.tipo_papel == "medico":

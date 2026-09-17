@@ -1,64 +1,31 @@
 """Regras de negócio do domínio Usuario.
 
 Este módulo concentra o CRUD principal (`UsuarioService`), incluindo as
-rotinas de reset de credenciais (reset_2fa/reset_total). As funções puras
-de apoio ficam em `service_helpers.py`.
+rotinas de reset de credenciais (reset_2fa/reset_total). As funções
+puras de apoio ficam em `service_helpers.py`; as validações de
+autorização em `service_validacoes.py`; a atualização parcial em
+`service_atualizar.py`.
 
-ALTERADO (reset de 2FA/credenciais, WebAuthn):
-- `service_reset.py` (mixin `ResetCredenciaisMixin`) foi DESACOPLADO --
-  UsuarioService não herda mais dele. reset_2fa/reset_total agora vivem
-  direto nesta classe, com isolamento por empresa (id_empresa) e trava
-  de super admin. O mixin antigo tinha dois bugs de coluna (uuid_usuario/
-  uuid_empresa, que não existem nos models) e ficou só como referência
-  histórica -- não é mais importado por lugar nenhum.
+is_admin e tipo_papel são eixos independentes: um usuário pode ter
+is_admin=True e tipo_papel="medico" ao mesmo tempo (admin que também
+atende), e passa pelas mesmas regras de super admin/senha que um admin
+puro. Criar um usuário com is_admin=True exige que o solicitante seja o
+super admin, exceto na criação do primeiro admin de uma empresa nova
+(ver Empresa.cadastrar_com_admin, único fluxo que passa
+is_super_admin=True). Um usuário que já é admin só pode ser
+desativado/ativado/resetado pelo super admin; o próprio super admin
+nunca pode ser desativado ou resetado, por ninguém.
 
-ALTERADO (separação admin/papel clínico, assertivo, sem alias):
-- tipo_usuario (3 valores mutuamente exclusivos) SAIU por completo,
-  inclusive em criar(). Todas as checagens que comparavam
-  schema.tipo_usuario == "admin" agora leem schema.is_admin
-  diretamente -- ortogonal a schema.tipo_papel. Um usuário pode nascer
-  com is_admin=True e tipo_papel="medico" ao mesmo tempo (admin que
-  também atende), e passa pelas MESMAS regras de super admin/senha que
-  um admin puro.
-
-ALTERADO (múltiplos admins por empresa, preexistente):
-- `criar()`: criar um usuário com is_admin=True agora exige que o
-  solicitante seja o super admin (ou que a criação já venha marcada como
-  `is_super_admin=True`, único caso sendo o primeiro admin de uma
-  empresa nova -- ver Empresa.cadastrar_com_admin). Sem isso, um admin
-  comum poderia criar outros admins livremente, o que quebraria a
-  hierarquia combinada (só o super admin cria admin).
-- `desativar()`/`ativar()`: um usuário que já é admin só pode ser
-  desativado/ativado pelo super admin; o próprio super admin nunca pode
-  ser desativado, por ninguém.
-
-ALTERADO (senha do super admin fundador, preexistente):
-- `criar()`: a obrigatoriedade/proibição de senha para is_admin=True
-  saiu do CadastroUsuarioSchema (que não tem como saber se este admin é o
-  super admin fundador ou um admin comum criado depois) e passou pra cá,
-  com base no parâmetro is_super_admin. Só existe um super admin por
-  empresa, e is_super_admin=True só é aceito vindo de
-  Empresa.cadastrar_com_admin -- nunca a partir de um payload de cliente.
-
-ADICIONADO (troca/reset de senha -- ver conversa sobre step-up +
-requer_senha_atualizada em session.py):
-- `alterar_senha()`: autoatendimento, chamado pelo próprio usuário já
-  reconfirmado via step-up (o controller consome o token ANTES de
-  chamar isto -- este método não reautentica nada, só valida força/
-  repetição e persiste).
-- `resetar_senha_usuario()`: reset feito por um super admin na conta de
-  um terceiro. DECISÃO (assertivo): não existe conceito de "senha
-  temporária" gerada pelo sistema -- isso daria ao admin uma senha
-  válida da conta de outra pessoa, abrindo a porta pra ele logar como
-  o usuário e agir em nome dele sem que ele saiba. Em vez disso, o
-  reset zera hash_senha e devolve o usuário ao onboarding -- ele define
-  a própria senha nova, do mesmo jeito que define no cadastro inicial,
-  e essa senha nunca passa pelas mãos de mais ninguém.
-- As duas incrementam `senha_versao` -- é o que torna qualquer sessão
-  aberta (a própria ou de terceiro) com uma versão antiga detectável
-  pelas rotas de leitura sensível decoradas com
-  `@requer_senha_atualizada` (session.py). Sem esse incremento aqui, a
-  coluna nunca muda e aquela checagem nunca dispara.
+alterar_senha() é autoatendimento, chamado pelo próprio usuário já
+reconfirmado via step-up no controller (este método não reautentica
+nada, só valida força/repetição e persiste). resetar_senha_usuario() é
+o reset feito por um super admin na conta de terceiro: não existe
+conceito de "senha temporária" gerada pelo sistema, pois isso daria ao
+admin uma senha válida da conta de outra pessoa; em vez disso o reset
+zera hash_senha e devolve o usuário ao onboarding, para que ele mesmo
+defina a nova senha. Ambas incrementam senha_versao, o que torna
+qualquer sessão aberta com versão antiga detectável pelas rotas de
+leitura sensível decoradas com `@requer_senha_atualizada` (session.py).
 """
 
 from argon2.exceptions import VerifyMismatchError
@@ -67,10 +34,9 @@ from pydantic import ValidationError
 from src.core.security import ph, aes_encrypt, hmac_sha256
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repository import UsuarioRepository
-from .service_helpers import (
-    monta_dados_papel,
-)
+from .service_helpers import monta_dados_papel
 from .service_atualizar import att
+from .service_reset import ResetCredenciaisMixin
 from src.schemas.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, _formatar_erros_pydantic
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
@@ -81,22 +47,22 @@ from .service_validacoes import (
     _valida_alteracao_admin,
 )
 
-class UsuarioService:
-    """Serviço de domínio para o CRUD de usuários e regras associadas."""
+
+class UsuarioService(ResetCredenciaisMixin):
+    """Serviço de domínio para o CRUD de usuários e regras associadas.
+
+    Os métodos de reset de credenciais (reset_2fa, reset_total,
+    resetar_senha_usuario) vêm de ResetCredenciaisMixin (service_reset.py).
+    """
 
     _checar_duplicidade = _checar_duplicidade
     _valida_permissao_edicao = _valida_permissao_edicao
     _valida_troca_tipo = _valida_troca_tipo
-    # ADICIONADO (separação admin/papel clínico): faltava agregar esta
-    # função como atributo de classe -- ela foi criada em
-    # service_validacoes.py mas não estava sendo agregada aqui, o que
-    # quebrava TODO update (att() chama user._valida_alteracao_admin,
-    # e "user" é uma instância desta classe). Pego por teste.
     _valida_alteracao_admin = _valida_alteracao_admin
- 
+
     def __init__(self):
         self.repo = UsuarioRepository()
- 
+
     def buscar_por_uuid(self, uuid: str):
         """Busca um usuário pelo UUID.
 
@@ -113,8 +79,8 @@ class UsuarioService:
         if not u:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
- 
-    def listar(self, id_empresa, offset:int = 0, especialidade:str = 0, status:str = 0):
+
+    def listar(self, id_empresa, offset: int = 0, especialidade: str = 0, status: str = 0):
         """Lista todos os usuários de uma empresa.
 
         Parâmetros:
@@ -123,9 +89,8 @@ class UsuarioService:
         Retorno:
             Lista de instâncias de Usuario.
         """
-        return self.repo.find_all_param(id_empresa=id_empresa, offset=offset, especialidade=especialidade,status=status)
-    
-    
+        return self.repo.find_all_param(id_empresa=id_empresa, offset=offset, especialidade=especialidade, status=status)
+
     def criar(
         self,
         id_empresa,
@@ -135,7 +100,7 @@ class UsuarioService:
         is_super_admin: bool = False,
     ):
         """Cria um novo usuário para a empresa informada.
- 
+
         Parâmetros:
             id_empresa: identificador da empresa dona do cadastro.
             dados: dicionário bruto de entrada, validado internamente
@@ -151,11 +116,11 @@ class UsuarioService:
                 de uma empresa nova) -- nunca a partir de uma requisição
                 de um admin já autenticado. Só existe um super admin por
                 empresa.
- 
+
         Retorno:
             Instância de Usuario criada e salva (com .papeis já populado
             se aplicável).
- 
+
         Levanta:
             DadosInvalidosError: se `dados` não passar na validação do
                 schema, se um usuário admin estiver sendo criado por
@@ -169,32 +134,19 @@ class UsuarioService:
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
 
-        # ADICIONADO: só o super admin cria outros admins. is_super_admin=True
-        # (fluxo de Empresa.cadastrar_com_admin, sem solicitante autenticado)
+        # Só o super admin cria outros admins. is_super_admin=True (fluxo
+        # de Empresa.cadastrar_com_admin, sem solicitante autenticado)
         # também libera -- é a criação do próprio super admin fundador.
-        #
-        # ALTERADO: era schema.tipo_usuario == "admin". Agora is_admin é
-        # ortogonal a tipo_papel -- um médico com is_admin=True (admin
-        # que também atende) precisa da MESMA autorização de super
-        # admin que um admin puro, então a checagem é só sobre is_admin,
-        # independente de o schema também trazer tipo_papel preenchido.
         if schema.is_admin and not solicitante_eh_super_admin and not is_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode criar novos administradores."
             )
 
-        # ADICIONADO: obrigatoriedade/proibição de senha para admin não é
-        # mais decidida pelo schema (que não sabe se este "admin" é o
-        # super admin fundador ou um admin comum) -- é decidida aqui, com
-        # base em is_super_admin, que só chega True vindo de
-        # Empresa.cadastrar_com_admin (nunca de um payload de cliente).
-        # Só existe um super admin por empresa: este é o único ponto do
-        # sistema onde is_super_admin=True é aceito na criação.
-        #
-        # ALTERADO: era schema.tipo_usuario == "admin". A regra de senha
-        # é sobre is_admin isoladamente -- vale tanto para admin puro
-        # quanto para admin que também tem tipo_papel preenchido (a
-        # senha do fundador não depende de ele também atender ou não).
+        # Obrigatoriedade/proibição de senha para admin depende de
+        # is_super_admin (só chega True vindo de
+        # Empresa.cadastrar_com_admin, nunca de payload de cliente).
+        # Vale tanto para admin puro quanto para admin que também tem
+        # tipo_papel preenchido.
         if schema.is_admin:
             if is_super_admin and not schema.senha:
                 raise DadosInvalidosError(
@@ -205,20 +157,10 @@ class UsuarioService:
                     "Administradores não devem informar 'senha' no cadastro; o "
                     "acesso é definido em um fluxo de ativação de conta separado."
                 )
- 
+
         cpf_hash = hmac_sha256(schema.cpf)
         self._checar_duplicidade(cpf_hash=cpf_hash, email=schema.email, login=schema.user_login)
 
-        # ALTERADO: Usuario(...) era instanciado só dentro do
-        # 'if tipo_usuario == "admin"', então médico/enfermeiro batiam
-        # em NameError na linha 'u.papeis.append(...)' logo abaixo (a
-        # variável 'u' nunca chegava a existir para esses tipos). O
-        # cadastro precisa da linha em Usuario para qualquer tipo --
-        # o que muda por tipo é só a associação de PapelProfissional,
-        # que já é tratada à parte, no bloco 'dados_papel' abaixo.
-        
-        
-            
         u = Usuario(
             id_empresa=id_empresa,
             nome_completo=schema.nome_completo,
@@ -227,7 +169,7 @@ class UsuarioService:
             email=schema.email,
             telefone=schema.telefone,
             user_login=schema.user_login,
-            is_admin=schema.is_admin,  # ALTERADO: era (schema.tipo_usuario == "admin")
+            is_admin=schema.is_admin,
             is_super_admin=is_super_admin,
             hash_senha=ph.hash(schema.senha) if schema.senha else None,
             onboarding_pendente=True,
@@ -235,20 +177,20 @@ class UsuarioService:
 
         dados_papel = monta_dados_papel(schema)
         if dados_papel:
-            # Associa via relationship, não via FK manual — o SQLAlchemy
+            # Associa via relationship, não via FK manual -- o SQLAlchemy
             # resolve o id_usuario sozinho no flush/commit, mesmo que
-            # 'u' ainda não tenha id definitivo neste ponto (útil
-            # justamente no caso commitar=False citado acima).
+            # 'u' ainda não tenha id definitivo neste ponto (relevante
+            # quando commitar=False).
             u.papeis.append(PapelProfissional(**dados_papel))
- 
+
         return self.repo.save(u, commitar)
- 
+
     def desativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Desativa um usuário, definindo seu status como 'inativo'.
 
-        ALTERADO (múltiplos admins por empresa): um usuário que já é
-        admin (comum ou super) só pode ser desativado pelo super admin;
-        o próprio super admin nunca pode ser desativado, por ninguém.
+        Um usuário que já é admin (comum ou super) só pode ser
+        desativado pelo super admin; o próprio super admin nunca pode
+        ser desativado, por ninguém.
 
         Parâmetros:
             uuid: identificador do usuário a desativar.
@@ -261,8 +203,7 @@ class UsuarioService:
         Levanta:
             DadosInvalidosError: se o alvo for admin e o solicitante não
                 for o super admin, ou se o alvo for o próprio super admin.
-        """    
-        
+        """
         u = self.buscar_por_uuid(uuid)
 
         if u.is_super_admin:
@@ -274,13 +215,12 @@ class UsuarioService:
             )
 
         u.status = "inativo"
-        return self.repo.save(u, False) # -> Commit feito via decorator ação sensível
- 
+        return self.repo.save(u, False)  # commit feito via decorator de ação sensível
+
     def ativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Reativa um usuário, definindo seu status como 'ativo'.
 
-        ALTERADO (múltiplos admins por empresa): mesma regra de
-        desativar() -- só o super admin ativa outro admin.
+        Mesma regra de desativar(): só o super admin ativa outro admin.
 
         Parâmetros:
             uuid: identificador do usuário a ativar.
@@ -288,7 +228,9 @@ class UsuarioService:
                 super admin da empresa.
 
         Retorno:
-            Instância de Usuario atualizada e salva.
+            Instância de Usuario atualizada e salva, ou None se o
+            usuário estiver 'pendente' (ativação manual não se aplica
+            a esse status).
 
         Levanta:
             DadosInvalidosError: se o alvo for admin e o solicitante não
@@ -301,12 +243,11 @@ class UsuarioService:
                 "Apenas o administrador principal pode ativar um administrador."
             )
 
-        if u.status !="pendente":
+        if u.status != "pendente":
             u.status = "ativo"
             return self.repo.save(u)
         return None
-        
-    
+
     def atualizar(
         self,
         uuid: str,
@@ -317,12 +258,12 @@ class UsuarioService:
     ):
         return att(self, uuid, dados, solicitante_is_admin, solicitante_uuid, solicitante_eh_super_admin)
 
-    # ADICIONADO (troca de senha, autoatendimento): protegido a montante
-    # por step-up no controller (o token já foi consumido antes de
-    # chegar aqui) -- este método não reautentica nada, só valida
-    # força/repetição via schema e persiste.
     def alterar_senha(self, uuid: str, dados: dict):
         """Troca a senha do próprio usuário autenticado.
+
+        Protegido a montante por step-up no controller (o token já foi
+        consumido antes de chegar aqui) -- este método não reautentica
+        nada, só valida força/repetição via schema e persiste.
 
         Parâmetros:
             uuid: uuid do usuário logado (g.uuid_usuario no controller
@@ -330,8 +271,7 @@ class UsuarioService:
                 abrir brecha de trocar a senha de outra pessoa por essa
                 via).
             dados: dict bruto do payload, validado aqui via
-                AlterarSenhaSchema (mesmo padrão de criar(), que também
-                valida o schema dentro do service, não no controller).
+                AlterarSenhaSchema.
 
         Retorno:
             Instância de Usuario atualizada e salva.
@@ -347,8 +287,6 @@ class UsuarioService:
             schema = AlterarSenhaSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(_formatar_erros_pydantic(e))
-        except Exception as e:
-            raise
 
         u = self.buscar_por_uuid(uuid)
 
@@ -362,179 +300,24 @@ class UsuarioService:
                 pass
 
         u.hash_senha = ph.hash(schema.senha_nova)
-        # ADICIONADO: ver docstring do módulo -- é isso que torna
-        # qualquer sessão com a versão antiga detectável pelas rotas
-        # decoradas com @requer_senha_atualizada (session.py).
         u.senha_versao = (u.senha_versao or 1) + 1
         u.deve_trocar_senha = False
         return self.repo.save(u)
 
-    # ADICIONADO (reset de senha por admin, isolado): DECISÃO
-    # (assertivo, sem conceito de "senha temporária"): não existe senha
-    # gerada pelo sistema que passe pelas mãos do admin -- se existisse,
-    # o admin literalmente saberia a senha do usuário e poderia entrar
-    # na conta dele e agir em nome dele sem que ele soubesse. Em vez
-    # disso, resetar a senha simplesmente zera hash_senha e devolve o
-    # usuário ao onboarding (mesmo fluxo que já existe para conta nova
-    # -- ele define a própria senha, que nunca é vista por ninguém
-    # além dele). Diferente de reset_total: NÃO mexe em WebAuthn nem em
-    # status -- só a senha, sem forçar o usuário a recadastrar 2FA.
-    # Mesmas travas de reset_2fa/reset_total (só super admin, só dentro
-    # da própria empresa, alvo super admin bloqueado).
-    def resetar_senha_usuario(
-        self,
-        uuid_usuario: str,
-        id_empresa_solicitante: int,
-        solicitante_eh_super_admin: bool = False,
-    ):
-        """Reseta SÓ a senha de um usuário-alvo, devolvendo-o ao
-        onboarding para que ele mesmo defina a nova senha.
-
-        Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo (ver
-                get_id_empresa_sessao() no controller).
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
-
-        Retorno:
-            Instância de Usuario atualizada e salva.
-
-        Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin,
-                ou se o alvo for o próprio super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
-        """
-        if not solicitante_eh_super_admin:
-            raise DadosInvalidosError(
-                "Apenas o administrador principal pode resetar a senha de um usuário."
-            )
-
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
-
-        if u.is_super_admin:
-            raise DadosInvalidosError(
-                "O administrador principal não pode ter a senha resetada por outra pessoa."
-            )
-
-        u.hash_senha = None
-        u.onboarding_pendente = True
-        # ADICIONADO: mesmo motivo de alterar_senha() -- derruba
-        # qualquer sessão aberta dele nas rotas de leitura sensível
-        # (ver requer_senha_atualizada em session.py). O onboarding em
-        # si já impede uso normal, mas isso cobre também as leituras
-        # sensíveis numa sessão que porventura ainda estivesse com
-        # onboarding_pendente=False em cache local de algum lugar.
-        u.senha_versao = (u.senha_versao or 1) + 1
-        return self.repo.save(u)
-
-    def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
-        """Reseta o 2FA de um usuário: remove TODAS as credenciais
-        WebAuthn cadastradas, forçando o cadastro de um dispositivo novo
-        no próximo login.
-
-        RESTRIÇÕES:
-        - Só o super admin pode chamar isso, para QUALQUER usuário-alvo
-          -- inclusive um usuário sem papel de admin. Diferente de
-          desativar()/ativar() (onde a trava de super admin só entra se
-          o ALVO for admin), aqui a trava é sobre quem SOLICITA, sempre,
-          já que resetar 2FA de terceiros é sensível por si só.
-        - O alvo precisa pertencer à MESMA empresa do solicitante --
-          senão trata como "não encontrado" (RecursoNaoEncontradoError),
-          não como "acesso negado", pra não revelar que o uuid existe em
-          outra empresa.
-
-        Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo (ver
-                get_id_empresa_sessao() no controller).
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
-
-        Retorno:
-            Instância de Usuario (para manter o padrão de retorno do
-            controller, que chama u.to_dict()).
-
-        Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
-        """
-        if not solicitante_eh_super_admin:
-            raise DadosInvalidosError(
-                "Apenas o administrador principal pode resetar o 2FA de um usuário."
-            )
-
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
-
-        self.repo.remover_credenciais_webauthn(u.id)
-        return u
-
-    def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
-        """Reset completo de credenciais de um usuário: remove o 2FA
-        (mesma lógica de reset_2fa) e também zera a senha, devolvendo o
-        usuário ao estado de onboarding pendente -- ele precisa refazer
-        o fluxo de ativação de conta do zero.
-
-        RESTRIÇÕES: mesmas de reset_2fa (só super admin, só dentro da
-        própria empresa), mais uma: o próprio super admin nunca pode ser
-        resetado (nem por ele mesmo), mesma lógica de proteção já
-        aplicada em desativar().
-
-        Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo.
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
-
-        Retorno:
-            Instância de Usuario atualizada e salva.
-
-        Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin,
-                ou se o alvo for o próprio super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
-        """
-        if not solicitante_eh_super_admin:
-            raise DadosInvalidosError(
-                "Apenas o administrador principal pode resetar um usuário por completo."
-            )
-
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
-
-        if u.is_super_admin:
-            raise DadosInvalidosError("O administrador principal não pode ser resetado.")
-
-        self.repo.remover_credenciais_webauthn(u.id)
-        u.hash_senha = None
-        u.onboarding_pendente = True
-        u.status = "pendente"
-        return self.repo.save(u)
-    
     def contagem_profissionais(self, id_empresa):
         return self.repo.count_no_super_admin_users(id_empresa=id_empresa)
-    
+
     def contagem_profissionais_por_status(self, id_empresa, status):
         return self.repo.count_status_users(id_empresa=id_empresa, status=status)
 
-    # --- A4: Efetivo ativo por papel ---
     def efetivo_por_papel(self, id_empresa: int):
-        """Repassa a contagem bruta por papel (medico/enfermeiro/admin).
+        """Contagem bruta de usuários ativos por papel (medico/enfermeiro/admin).
         Sem lógica de negócio aqui -- a leitura/texto fica na camada de
         estatística."""
         return self.repo.contar_ativos_por_papel(id_empresa=id_empresa)
-    
-        # --- A5: Engajamento/atividade da equipe ---
+
     def inativos_ha_dias(self, id_empresa: int, dias: int = 7):
         return self.repo.contar_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
- 
+
     def lista_inativos_ha_dias(self, id_empresa: int, dias: int = 7):
         return self.repo.find_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
