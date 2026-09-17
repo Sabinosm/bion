@@ -1,6 +1,9 @@
+"""Estatísticas de texto livre dos protocolos: ranking aproximado de
+termos mais citados como queixa principal.
+"""
+
 import re
 from collections import Counter
-
 
 from src.domains.protocolos_ia.service import OutputBionService
 
@@ -9,7 +12,7 @@ obs = OutputBionService()
 # stopwords mínimas de português pra não poluir o ranking com preposições
 _STOPWORDS = {
     "de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "em", "no", "na",
-    "com", "sem", "por", "para", "que", "há", "ha", "desde", "um", "uma", "há",
+    "com", "sem", "por", "para", "que", "há", "ha", "desde", "um", "uma",
 }
 
 
@@ -20,9 +23,8 @@ def _tokenizar(texto: str) -> list:
 
 class EstatisticasInputProtocolo:
 
-    # --- C5: Queixas principais mais frequentes ---
     def queixas_mais_frequentes(self, id_empresa, dias=30, top=15):
-        """Ranking aproximado de termos mais citados em queixa_principal.
+        """Ranking aproximado de termos mais citados em queixa_principal (C5).
 
         Importante: isso é frequência de PALAVRAS, não de frases exatas
         -- texto livre não tem padronização, então "dor de cabeça" e

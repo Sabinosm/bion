@@ -1,16 +1,19 @@
-from src.domains.medicamentos.services.service  import InteracoesMedicamentosService
+"""Estatísticas do catálogo de interações medicamentosas cadastradas."""
+
+from src.domains.medicamentos.services.service import InteracoesMedicamentosService
 
 im_svc = InteracoesMedicamentosService()
 
 
 class EstatisticasInteracoesMedicamentos:
 
-    # --- D1: Interações medicamentosas cadastradas por gravidade ---
     def por_gravidade(self):
-        """Retorna: {"por_gravidade": {...}, "total": int, "leitura": str}
+        """Interações medicamentosas cadastradas, agrupadas por gravidade (D1).
 
         Nota: catálogo de referência, não muda por empresa/período --
         não recebe id_empresa nem dias de propósito.
+
+        Retorna: {"por_gravidade": {...}, "total": int, "leitura": str}
         """
         por_gravidade = im_svc.contar_por_gravidade()
         total = sum(por_gravidade.values())

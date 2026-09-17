@@ -1,5 +1,5 @@
 from src.core.exceptions import RecursoNaoEncontradoError
-from ..repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
+from .repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
 
 
 class CatalogoMedicamentosService:

@@ -1,3 +1,7 @@
+"""Estatísticas da base de pacientes: cadastros, doenças crônicas mais
+comuns, uso contínuo de medicação e distribuição de tipo sanguíneo.
+"""
+
 from src.domains.paciente.services.paciente_service import PacienteService
 from src.domains.paciente.services.doenca_cronica_service import DoencaCronicaService
 from src.domains.paciente.services.medicamento_em_uso_service import MedicamentoEmUsoService
@@ -11,17 +15,19 @@ ots = ObservacaoTipoSanguineoService()
 
 
 class EstatisticasPaciente:
+
     def pacientes_cadastrados_hoje(self, id_empresa):
         return ps.count_pacientes_hoje(id_empresa=id_empresa)
 
     def pacientes_cadastrados(self, id_empresa):
         return ps.count_pacientes(id_empresa=id_empresa)
 
-    # --- F1: Doenças crônicas mais comuns na base ---
     def doencas_cronicas_top(self, id_empresa, limite=10):
-        """Grupo 2 -- ranking acumulado da base (sem filtro de dias),
-        sem nivel/comparacao: não há "período anterior" aqui, é o
-        estado atual do cadastro, não um evento datado.
+        """Ranking das doenças crônicas mais comuns na base (F1).
+
+        Ranking acumulado da base (sem filtro de dias); sem nível ou
+        comparação, pois não há "período anterior" — é o estado atual
+        do cadastro, não um evento datado.
 
         Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
@@ -43,16 +49,20 @@ class EstatisticasPaciente:
 
         return {"ranking": ranking, "leitura": leitura, "interpretacao": interpretacao}
 
-    # --- F2: Pacientes em uso contínuo de medicação ---
     def uso_continuo_medicacao(self, id_empresa):
-        """Retorna: {"total_pacientes", "em_uso_continuo", "percentual", "leitura"}"""
+        """Percentual de pacientes em uso contínuo de medicação (F2).
+
+        Retorna: {"total_pacientes", "em_uso_continuo", "percentual", "leitura"}
+        """
         dados = meus.percentual_pacientes_em_uso_continuo(id_empresa=id_empresa)
         leitura = f"{dados['percentual']}% dos pacientes cadastrados estão em uso contínuo de medicação"
         return {**dados, "leitura": leitura}
 
-    # --- F3: Distribuição de tipo sanguíneo na base ---
     def distribuicao_tipo_sanguineo(self, id_empresa):
-        """Retorna: {"distribuicao": {...}, "leitura": str}"""
+        """Distribuição de tipo sanguíneo na base de pacientes (F3).
+
+        Retorna: {"distribuicao": {...}, "leitura": str}
+        """
         distribuicao = ots.distribuicao_tipo_sanguineo(id_empresa=id_empresa)
         total = sum(distribuicao.values())
 

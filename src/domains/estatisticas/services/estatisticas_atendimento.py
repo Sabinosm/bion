@@ -1,3 +1,7 @@
+"""Estatísticas de tempo de atendimento: duração média por tipo,
+tendência de eficiência entre períodos e tempo até o primeiro atendimento.
+"""
+
 from datetime import datetime, timedelta, timezone
 
 from src.domains.atendimento.service import AtendimentoService
@@ -69,19 +73,18 @@ def _aviso_mistura_profissional(id_empresa, dias):
 
 class EstatisticasAtendimento:
 
-    # --- A2: Tempo médio de atendimento por tipo ---
     def tempo_medio_por_tipo(self, id_empresa, dias=30):
-        """Duração média por tipo_atendimento (triagem, avaliacao-medica, etc).
+        """Duração média por tipo_atendimento (triagem, avaliacao-medica,
+        etc.), com tendência vs. período anterior (A2).
 
-        Grupo 2 -- sem nivel (o que é "rápido" varia por tipo de
-        atendimento, não tem threshold universal), mas direcao=alto_ruim
-        (menor tempo é melhor) + comparacao com o período anterior.
+        Sem `nivel`: o que é "rápido" varia por tipo de atendimento, não
+        tem threshold universal — só direção (menor tempo é melhor) e
+        comparação.
 
         Inclui "aviso_mistura_profissional": None, ou um dict com a
         quebra por grupo (mesmo_profissional vs. transferencia) quando
-        a proporção de mesmo_profissional é alta o bastante pra
-        distorcer a leitura da média combinada -- ver
-        _aviso_mistura_profissional.
+        a mistura é grande o bastante pra distorcer a leitura da média
+        combinada — ver `_aviso_mistura_profissional`.
 
         Retorna: {"por_tipo": [{"tipo_atendimento", "media_segundos",
                   "media_formatada", "total"}, ...], "leitura": str,
@@ -101,8 +104,9 @@ class EstatisticasAtendimento:
                 "aviso_mistura_profissional": None,
             }
 
-        # média geral ponderada, para a comparação de período (não por tipo)
         def media_geral(lista):
+            """Média geral ponderada pelo total de cada tipo, usada para
+            a comparação de período (não a leitura por tipo)."""
             total_seg = sum(item["media_segundos"] * item["total"] for item in lista)
             total_n = sum(item["total"] for item in lista)
             return (total_seg / total_n) if total_n else None
@@ -111,7 +115,6 @@ class EstatisticasAtendimento:
 
         bruto_anterior = valor_periodo_anterior(ats.tempo_medio_por_tipo_periodo, id_empresa, dias)
         media_anterior = media_geral(bruto_anterior)
-
 
         principal = max(por_tipo, key=lambda item: item["total"])
         leitura = f"Tempo médio de atendimento ({principal['tipo_atendimento']}): {principal['media_formatada']}"
@@ -129,16 +132,13 @@ class EstatisticasAtendimento:
             "aviso_mistura_profissional": _aviso_mistura_profissional(id_empresa, dias),
         }
 
-    # --- E2: Tendência de eficiência acumulada ---
     def tendencia_eficiencia(self, id_empresa, dias=30):
         """Compara o tempo médio de atendimento em dois períodos
-        CONSECUTIVOS e EXCLUSIVOS de `dias` dias cada.
+        consecutivos e exclusivos de `dias` dias cada (E2).
 
-        Caso especial -- esta rota JÁ É a comparação (não faz sentido
-        comparar a comparação com um "período anterior" dela mesma).
-        nivel fica None (variação %, sem threshold absoluto tipo
-        "85% otimo"); direcao e o texto de comparacao vêm da própria
-        variação calculada.
+        Caso especial: esta rota já é a própria comparação, então não
+        há "período anterior" dela mesma. `nivel` fica None (é variação
+        %, sem threshold absoluto tipo "85% ótimo").
 
         Retorna: {"periodo_atual": [...], "periodo_anterior": [...],
                   "variacao_percentual": float|None, "leitura": str,
@@ -195,9 +195,11 @@ class EstatisticasAtendimento:
             "interpretacao": interpretacao,
         }
 
-    # c4
     def tempo_ate_atendimento(self, id_empresa, dias=30):
-        """Retorna: {"media_horas": float|None, "leitura": str}"""
+        """Tempo médio entre início dos sintomas e atendimento (C4).
+
+        Retorna: {"media_horas": float|None, "leitura": str}
+        """
         media = ats.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
 
         leitura = None

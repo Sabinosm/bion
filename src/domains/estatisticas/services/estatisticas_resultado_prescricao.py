@@ -1,4 +1,7 @@
-from datetime import datetime, timedelta, timezone
+"""Estatísticas epidemiológicas a partir dos resultados de prescrição:
+CID10 mais comuns por região, incidência por 100 mil habitantes e
+evolução temporal de um CID específico.
+"""
 
 from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 from src.domains.prescricao.resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
@@ -8,19 +11,18 @@ ps = ResultadoPrescricaoService()
 
 
 class EstatisticasResultadoPrescricao:
- 
-    # --- C1: Doenças mais comuns por região ---
+
     def top_cid_por_regiao(self, id_empresa, dias=14, limite=10):
-        """Ranking de CID10 por região.
- 
-        Grupo 2 -- sem nivel/comparacao: é multi-dimensional (CID x
-        região), comparar cada par com o período anterior geraria uma
-        matriz grande demais para ser útil num campo simples.
- 
+        """Ranking de CID10 por região (C1).
+
+        Sem nível ou comparação: é multi-dimensional (CID x região) —
+        comparar cada par com o período anterior geraria uma matriz
+        grande demais para ser útil num campo simples.
+
         Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
         ranking = ps.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
- 
+
         leitura = None
         if ranking:
             principal = ranking[0]
@@ -29,31 +31,29 @@ class EstatisticasResultadoPrescricao:
                 f"{principal['descricao_cid10']} ({principal['codigo_cid10']}) "
                 f"na região {principal['regiao']} nos últimos {dias} dias"
             )
- 
+
         interpretacao = interpretacao_sem_nivel(
             texto="Concentração alta de um CID numa região pode sinalizar surto ou fator ambiental local -- vale cruzar com C2 (evolução temporal) para confirmar tendência antes de agir",
             direcao="neutro",
             comparacao=None,
         )
- 
+
         return {"ranking": ranking, "leitura": leitura, "interpretacao": interpretacao}
- 
-    # --- C3 (bônus): incidência por 100 mil habitantes ---
+
     def incidencia_por_regiao(self, id_empresa, dias=14):
-        
-        """Casos totais por região, normalizados pela população estimada.
- 
-        Grupo 2 -- sem nivel (incidência "normal" varia por doença/CID,
-        não dá pra cravar threshold) nem comparacao (ranking multi-região,
-        mesmo caso de C1).
- 
-        Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
- 
+        """Casos totais por região, normalizados pela população estimada
+        (incidência por 100 mil habitantes) (C3).
+
+        Sem nível: incidência "normal" varia por doença/CID, não dá pra
+        cravar threshold. Sem comparação: é ranking multi-região, mesmo
+        caso de C1.
+
         Regiões sem populacao_estimada cadastrada ficam com
         incidencia_por_100mil=None (não dá pra assumir 0, seria enganoso).
+
+        Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
-         # 1 única query pra todas as regiões envolvidas
-         
+        # 1 única query pra todas as regiões envolvidas
         casos_por_regiao = ps.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
         ids_regiao = [item["id_regiao"] for item in casos_por_regiao]
         regioes = {
@@ -75,9 +75,9 @@ class EstatisticasResultadoPrescricao:
                 "populacao_estimada": populacao,
                 "incidencia_por_100mil": incidencia,
             })
- 
+
         ranking.sort(key=lambda x: (x["incidencia_por_100mil"] is None, -(x["incidencia_por_100mil"] or 0)))
- 
+
         leitura = None
         if ranking and ranking[0]["incidencia_por_100mil"] is not None:
             principal = ranking[0]
@@ -85,45 +85,46 @@ class EstatisticasResultadoPrescricao:
                 f"Incidência: {principal['incidencia_por_100mil']} casos por 100 mil habitantes "
                 f"na {principal['regiao']} -- a maior entre as regiões monitoradas"
             )
- 
+
         interpretacao = interpretacao_sem_nivel(
             texto="Incidência 'esperada' varia por tipo de agravo -- use como ranking comparativo entre regiões, não como valor absoluto de bom/ruim",
             direcao="neutro",
             comparacao=None,
         )
- 
+
         return {"ranking": ranking, "leitura": leitura, "interpretacao": interpretacao}
- 
-    # --- C2: Evolução temporal de um CID específico ---
+
     def evolucao_cid(self, id_empresa, codigo_cid10, dias=30):
-        """Grupo 2 -- ESTE ganha comparacao de verdade: é o caso de uso
-        clássico de vigilância epidemiológica, subiu ou caiu o número
-        de casos de 1 CID específico vs. o período anterior. direcao
-        neutro porque "mais casos" não é universalmente ruim (pode ser
-        melhora de sub-notificação, campanha de rastreio, etc) -- mas
-        na prática, para a maioria dos CIDs de vigilância, um aumento
-        acentuado costuma ser motivo de atenção.
- 
+        """Série temporal de casos de um CID10 específico, comparada ao
+        período anterior (C2).
+
+        Caso de uso clássico de vigilância epidemiológica: subiu ou caiu
+        o número de casos vs. o período anterior. `direcao` neutra
+        porque "mais casos" não é universalmente ruim (pode ser melhora
+        de sub-notificação, campanha de rastreio etc.) — mas na prática,
+        para a maioria dos CIDs de vigilância, um aumento acentuado
+        costuma ser motivo de atenção.
+
         Retorna: {"codigo_cid10": str, "serie": [...], "total_periodo": int,
                   "leitura": str, "interpretacao": {...}}
         """
         serie = ps.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
         total = sum(item["total"] for item in serie)
- 
+
         serie_anterior = valor_periodo_anterior(
             ps.evolucao_cid_periodo, id_empresa, dias, codigo_cid10=codigo_cid10
         )
         total_anterior = sum(item["total"] for item in serie_anterior)
- 
+
         leitura = f"{total} casos de {codigo_cid10} registrados nos últimos {dias} dias" if total else \
             f"Nenhum caso de {codigo_cid10} registrado nos últimos {dias} dias"
- 
+
         interpretacao = interpretacao_sem_nivel(
             texto="Aumento acentuado no número de casos merece investigação -- pode indicar surto; queda pode indicar melhora ou sub-notificação, avalie o contexto",
             direcao="neutro",
             comparacao=calcular_comparacao(total, total_anterior, unidade=""),
         )
- 
+
         return {
             "codigo_cid10": codigo_cid10,
             "serie": serie,
@@ -131,4 +132,3 @@ class EstatisticasResultadoPrescricao:
             "leitura": leitura,
             "interpretacao": interpretacao,
         }
- 
