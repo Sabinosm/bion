@@ -1,7 +1,7 @@
 """Regras de negócio da entidade CatalogoFluxogramasMts."""
 
 from src.core.exceptions import RecursoNaoEncontradoError
-from .repository import CatalogoFluxogramasMtsRepository
+from ...catalogo_fluxogramas_mts.repository import CatalogoFluxogramasMtsRepository
 
 
 class CatalogoFluxogramasMtsService:

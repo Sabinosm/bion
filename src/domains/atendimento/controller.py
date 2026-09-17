@@ -15,7 +15,7 @@ class AtendimentoController():
     
     @staticmethod
     @bp_atendimento.get("/")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def lista_atendimentos():
         """Lista todos os Atendimentos cadastrados."""
         itens = _svc.listar()
@@ -24,7 +24,7 @@ class AtendimentoController():
 
     @staticmethod
     @bp_atendimento.get("/<uuid>")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def detalhe_atendimento(uuid):
         """Retorna os detalhes de um Atendimento pelo UUID."""
         try:
@@ -36,7 +36,7 @@ class AtendimentoController():
 
     @staticmethod
     @bp_atendimento.get("/consulta/<uuid_consulta>")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def atendimentos_da_consulta(uuid_consulta):
         """Lista os Atendimentos vinculados a uma Consulta."""
         try:
