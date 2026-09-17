@@ -22,7 +22,7 @@ class ExamesController():
 
     @staticmethod
     @bp_exames.get("/<uuid>")
-    @requer_login
+    @requer_papel_clinico("medico")
     def detalhe_exame(uuid):
         try:
             e = _svc.buscar_por_uuid(uuid)

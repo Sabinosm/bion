@@ -67,8 +67,8 @@ def _registrar_blueprints(app: Flask):
     from src.domains.consulta.controller import bp_consulta as consulta_bp
     from src.domains.atendimento.controller import bp_atendimento as atendimento_bp
     from src.domains.prescricao.prescricao_controller import bp_prescricao as prescricao_bp
-    from src.domains.prescricao.prescricao_exame_controller import bp_prescricao_exame
-    from src.domains.prescricao.resultado_prescricao_controller import bp_resultado_prescricao
+    from src.domains.prescricao.prescricao_exame.prescricao_exame_controller import bp_prescricao_exame
+    from src.domains.prescricao.resultado_prescricao.resultado_prescricao_controller import bp_resultado_prescricao
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.dados_clinicos.controller import bp_dados_clinicos
     

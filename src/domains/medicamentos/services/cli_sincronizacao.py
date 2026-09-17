@@ -21,8 +21,8 @@ import os
 import sys
 
 from src.main import create_app
-from src.domains.medicamentos import sincronizar_catalogo_service
-from src.domains.medicamentos import sincronizar_interacoes_service
+from src.domains.medicamentos.services import sincronizar_catalogo_service
+from src.domains.medicamentos.interacoes import sincronizar_interacoes_service
 
 
 def main():

@@ -14,7 +14,7 @@ class ConsultasController():
     
     @staticmethod
     @bp_consulta.get("/")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def lista_consultas():
         """Lista Consultas. Aceita ?abertas=true para filtrar as não encerradas."""
         apenas_abertas = request.args.get("abertas") == "true"
@@ -24,7 +24,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.get("/<uuid>")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def detalhe_consulta(uuid):
         """Retorna os detalhes de uma Consulta pelo UUID."""
         try:
@@ -36,7 +36,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.get("/paciente/<uuid_paciente>")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def consultas_do_paciente(uuid_paciente):
         """Lista o histórico de Consultas de um paciente."""
         from src.domains.paciente.repositories import PacienteRepository

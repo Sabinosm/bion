@@ -4,7 +4,7 @@ from flask import Blueprint, request, g
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login
+from src.core.session import requer_login, requer_papel_clinico
 from .service import ConfiguracaoService
 
 bp = Blueprint("configuracao", __name__)
@@ -35,7 +35,7 @@ class ConfiguracaoController():
 
     @staticmethod
     @bp.get("/protocolos")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def listar_protocolos():
         protocolos = _svc.listar_protocolos(g.id_usuario)
         return json_success(data=[p.to_dict() for p in protocolos])
@@ -43,7 +43,7 @@ class ConfiguracaoController():
 
     @staticmethod
     @bp.put("/protocolos/<int:id_protocolo>/habilitar")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def habilitar_protocolo(id_protocolo):
         dados = request.get_json(silent=True) or {}
         try:
@@ -57,7 +57,7 @@ class ConfiguracaoController():
 
     @staticmethod
     @bp.put("/protocolos/<int:id_protocolo>/desabilitar")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def desabilitar_protocolo(id_protocolo):
         try:
             protocolo = _svc.desabilitar_protocolo(g.id_usuario, id_protocolo)

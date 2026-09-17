@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
-from src.domains.prescricao.resultado_prescricao_service import ResultadoPrescricaoService
+from src.domains.prescricao.resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
 from src.models.corp.regiao_geografica import RegiaoGeografica
 
 ps = ResultadoPrescricaoService()

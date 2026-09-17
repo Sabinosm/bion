@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from src.models import db
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from src.models.catalogos.log_sincronizacao_catalogo import LogSincronizacaoCatalogo
-from .repository import CatalogoMedicamentosRepository
+from ..repository import CatalogoMedicamentosRepository
 
 
 class AtualizacaoMedicamentosService:

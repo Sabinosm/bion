@@ -32,7 +32,7 @@ Fluxo:
 """
 
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
-from .repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
+from ..repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
 
 
 class AtualizacaoInteracoesService:
