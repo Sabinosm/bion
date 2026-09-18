@@ -23,6 +23,7 @@ class ResetCredenciaisMixin:
         uuid_usuario: str,
         id_empresa_solicitante: int,
         solicitante_eh_super_admin: bool = False,
+        commit: bool = True
     ):
         """Reseta SÓ a senha de um usuário-alvo, devolvendo-o ao
         onboarding para que ele mesmo defina a nova senha.
@@ -70,9 +71,9 @@ class ResetCredenciaisMixin:
         # sensível (ver requer_senha_atualizada em session.py), mesmo
         # que o onboarding em si já impeça uso normal.
         u.senha_versao = (u.senha_versao or 1) + 1
-        return self.repo.save(u)
+        return self.repo.save(u, commit=commit)
 
-    def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
+    def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit:bool=True):
         """Reseta o 2FA de um usuário: remove TODAS as credenciais
         WebAuthn cadastradas, forçando o cadastro de um dispositivo novo
         no próximo login. A senha permanece válida.
@@ -107,10 +108,10 @@ class ResetCredenciaisMixin:
         if u.id_empresa != id_empresa_solicitante:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
 
-        self.repo.remover_credenciais_webauthn(u.id)
+        self.repo.remover_credenciais(u.id, commit=commit)
         return u
 
-    def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False):
+    def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit: bool = True):
         """Reset completo de credenciais de um usuário: remove o 2FA
         (mesma lógica de reset_2fa) e também zera a senha, devolvendo o
         usuário ao estado de onboarding pendente -- ele precisa refazer
@@ -148,8 +149,8 @@ class ResetCredenciaisMixin:
         if u.is_super_admin:
             raise DadosInvalidosError("O administrador principal não pode ser resetado.")
 
-        self.repo.remover_credenciais_webauthn(u.id)
+        self.repo.remover_credenciais(u.id, commit=commit)
         u.hash_senha = None
         u.onboarding_pendente = True
         u.status = "pendente"
-        return self.repo.save(u)
+        return self.repo.save(u, commit=commit)

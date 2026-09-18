@@ -14,6 +14,7 @@ from sqlalchemy import func
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.usuarios import Usuario, CredencialWebAuthn
+from src.models.usuarios.credencial_totp import CredencialTOTP
 from src.models.usuarios.papel_profissional import PapelProfissional
 
 
@@ -77,7 +78,7 @@ class UsuarioRepository(IRepository[Usuario]):
         row = db.session.query(Usuario.senha_versao).filter_by(id=id_usuario).first()
         return row[0] if row else None
 
-    def remover_credenciais_webauthn(self, id_usuario: int) -> int:
+    def remover_credenciais(self, id_usuario: int, commit: bool = True) -> int:
         """Remove TODAS as credenciais WebAuthn de um usuário.
 
         Usado pelo reset de 2FA disparado por um super admin
@@ -92,15 +93,19 @@ class UsuarioRepository(IRepository[Usuario]):
             Quantidade de credenciais removidas.
         """
         apagadas = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).delete()
-        db.session.commit()
+        apagadas += CredencialTOTP.query.filter_by(id_usuario=id_usuario).delete()
+        
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return apagadas
 
     def save(self, entity: Usuario, commit: bool = True) -> Usuario:
-        if commit == True:
-            db.session.add(entity)
+        db.session.add(entity)
+        if commit:
             db.session.commit()
         else:
-            db.session.add(entity)
             db.session.flush()
         return entity
 

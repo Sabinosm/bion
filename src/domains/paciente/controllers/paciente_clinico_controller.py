@@ -143,7 +143,7 @@ class PacienteClinicoController():
     @acao_sensivel(acao="remover_tipo_sanguineo", tabela="observacao_tipo_sanguineo")
     def remover_tipo_sanguineo(uuid, uuid_observacao):
         try:
-            _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao())
+            _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao(), commit=False)
             return json_success(message="Observação de tipo sanguíneo removida.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

@@ -65,7 +65,7 @@ class DoencaCronicaController():
     def remover_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
-            _svc.remover_doenca(uuid_paciente, uuid_doenca, dados, get_id_empresa_sessao())
+            _svc.remover_doenca(uuid_paciente, uuid_doenca, dados, get_id_empresa_sessao(), commmit=False)
             return json_success(message="Doença crônica removida.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

@@ -81,7 +81,7 @@ class DoencaCronicaRepository(IRepository[DoencaCronica]):
         db.session.commit()
         return True
 
-    def soft_delete(self, entity: DoencaCronica, motivo: str, observacoes_delete: Optional[str] = None) -> DoencaCronica:
+    def soft_delete(self, entity: DoencaCronica, motivo: str, observacoes_delete: Optional[str] = None, commit: bool = True) -> DoencaCronica:
         """Marca como removido em vez de apagar a linha. Não mexe em
         `status` -- o campo clínico (ativa/em-remissao) fica preservado
         intacto, só `deletado`/`deletado_em`/`motivo_delete`/
@@ -94,7 +94,10 @@ class DoencaCronicaRepository(IRepository[DoencaCronica]):
         entity.motivo_delete = motivo
         entity.observacoes_delete = observacoes_delete
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return entity
 
     def restaurar(self, entity: DoencaCronica) -> DoencaCronica:

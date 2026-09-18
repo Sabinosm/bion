@@ -78,7 +78,7 @@ class AlergiaRepository(IRepository[Alergia]):
         db.session.commit()
         return True
 
-    def soft_delete(self, entity: Alergia, motivo: str, observacoes_delete: Optional[str] = None) -> Alergia:
+    def soft_delete(self, entity: Alergia, motivo: str, observacoes_delete: Optional[str] = None, commit: bool = True) -> Alergia:
         """Marca a alergia como removida sem apagar a linha nem as
         reações associadas (cascade de delete físico não é acionado
         aqui -- reacoes continuam existindo, vinculadas normalmente,
@@ -90,7 +90,10 @@ class AlergiaRepository(IRepository[Alergia]):
         entity.motivo_delete = motivo
         entity.observacoes_delete = observacoes_delete
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush() # flush sem commit, pra manter atomicidade do log
         return entity
 
     def restaurar(self, entity: Alergia) -> Alergia:

@@ -102,7 +102,7 @@ class DoencaCronicaService:
 
         return self.repo.save(doenca)
 
-    def remover_doenca(self, uuid_paciente: str, uuid_doenca: str, dados: dict, id_empresa: int):
+    def remover_doenca(self, uuid_paciente: str, uuid_doenca: str, dados: dict, id_empresa: int, commit: bool = True):
         """NOVO: soft delete -- doença crônica é dado clínico histórico,
         não pode ser apagada fisicamente (auditoria/LGPD/responsabilidade
         médica). Motivo é obrigatório (validado via
@@ -128,7 +128,7 @@ class DoencaCronicaService:
         except Exception as e:
             raise
 
-        return self.repo.soft_delete(doenca, entrada.motivo_delete, entrada.observacoes_delete)
+        return self.repo.soft_delete(doenca, entrada.motivo_delete, entrada.observacoes_delete, commit=commit)
 
     def restaurar_doenca(self, uuid_paciente: str, uuid_doenca: str, id_empresa: int):
         """NOVO: reverte um soft delete. Usa find_by_uuid_incluindo_deletados

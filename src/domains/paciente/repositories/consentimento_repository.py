@@ -18,9 +18,12 @@ class ConsentimentoRepository(IRepository[Consentimento]):
     def find_ativo_por_paciente(self, id_paciente: int) -> Optional[Consentimento]:
         return Consentimento.query.filter_by(id_paciente=id_paciente, status="ativo").first()
 
-    def save(self, entity: Consentimento) -> Consentimento:
+    def save(self, entity: Consentimento, commit: bool = True) -> Consentimento:
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()  # flush sem commit, pra manter atomicidade do log
         return entity
 
     def delete(self, id: int) -> bool:

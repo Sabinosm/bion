@@ -45,11 +45,10 @@ class EmpresaRepository(IRepository[Empresa]):
         )
 
     def save(self, entity: Empresa, commit: bool = True) -> Empresa:
-        if commit == True:
-            db.session.add(entity)
+        db.session.add(entity)
+        if commit:
             db.session.commit()
         else:
-            db.session.add(entity)
             db.session.flush()
         return entity
 

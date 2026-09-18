@@ -58,7 +58,7 @@ class ConsentimentoService:
         )
         return self.repo.save(c)
 
-    def revogar(self, uuid_paciente: str, dados: dict, id_empresa: int):
+    def revogar(self, uuid_paciente: str, dados: dict, id_empresa: int, commit: bool = True):
         """ALTERADO: recebe dados (dict) em vez de motivo (str) direto
         -- motivo agora passa por ConsentimentoRevogarSchema e é
         obrigatório (antes aceitava None com fallback genérico,
@@ -79,7 +79,7 @@ class ConsentimentoService:
         ativo.status = "revogado"
         ativo.data_revogacao = datetime.now(timezone.utc)
         ativo.observacao = entrada.motivo
-        return self.repo.save(ativo)
+        return self.repo.save(ativo, commit=commit)
 
     def dispensar_por_emergencia(self, uuid_paciente: str, dados: dict, id_usuario: int, id_empresa: int):
         """NOVO: registra que o consentimento foi DISPENSADO por

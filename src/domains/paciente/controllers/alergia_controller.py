@@ -109,15 +109,9 @@ class AlergiaController():
     @requer_papel_clinico("medico", "enfermeiro")
     @acao_sensivel("remover_alergia", tabela="alergia")
     def remover_alergia(uuid_paciente, uuid_alergia):
-        # ATENÇÃO: ver TODO no topo do arquivo -- para o decorator
-        # acima funcionar corretamente, remover_alergia() no service
-        # não pode commitar sozinha, e esta view precisa devolver
-        # (resposta, detalhes) com id_registro/uuid_registro/
-        # justificativa. Ajustar service + retorno abaixo antes de
-        # subir para produção.
         dados = request.get_json(silent=True) or {}
         try:
-            _svc.remover_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao())
+            _svc.remover_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao(), commit=False)
             return json_success(message="Alergia removida.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

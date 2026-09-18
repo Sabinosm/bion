@@ -185,7 +185,7 @@ class UsuarioService(ResetCredenciaisMixin):
 
         return self.repo.save(u, commitar)
 
-    def desativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
+    def desativar(self, uuid: str, solicitante_eh_super_admin: bool = False, commit: bool = True):
         """Desativa um usuário, definindo seu status como 'inativo'.
 
         Um usuário que já é admin (comum ou super) só pode ser
@@ -215,7 +215,7 @@ class UsuarioService(ResetCredenciaisMixin):
             )
 
         u.status = "inativo"
-        return self.repo.save(u, False)  # commit feito via decorator de ação sensível
+        return self.repo.save(u, commit)  # commit feito via decorator de ação sensível
 
     def ativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
         """Reativa um usuário, definindo seu status como 'ativo'.

@@ -67,7 +67,7 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         db.session.commit()
         return True
 
-    def delete_by_uuid(self, uuid_observacao: str) -> bool:
+    def delete_by_uuid(self, uuid_observacao: str, commit: bool=True) -> bool:
         """Mesma operação que delete(), mas pelo UUID público -- forma
         mais comum de chamar isso a partir de uma rota HTTP, já que o
         id interno nunca é exposto na API."""
@@ -75,7 +75,10 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         if not e:
             return False
         db.session.delete(e)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return True
     
     # --- F3: Distribuição de tipo sanguíneo na base ---

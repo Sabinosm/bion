@@ -61,7 +61,7 @@ class ObservacaoTipoSanguineoService:
             raise RecursoNaoEncontradoError(f"Observação de tipo sanguíneo não encontrada: {uuid_observacao}")
         return self.repo.corrigir(uuid_observacao, entrada.tipo_sanguineo)
 
-    def remover_tipo_sanguineo(self, uuid_paciente: str, uuid_observacao: str, id_empresa: int):
+    def remover_tipo_sanguineo(self, uuid_paciente: str, uuid_observacao: str, id_empresa: int, commit: bool = True):
         """Remove um registro de observação por engano (ex: paciente
         errado, duplicata) -- diferente de corrigir_tipo_sanguineo(),
         que edita o valor mantendo o registro."""
@@ -69,4 +69,4 @@ class ObservacaoTipoSanguineoService:
         obs = self.repo.find_by_uuid(uuid_observacao)
         if not obs or obs.id_paciente != paciente.id:
             raise RecursoNaoEncontradoError(f"Observação de tipo sanguíneo não encontrada: {uuid_observacao}")
-        return self.repo.delete_by_uuid(uuid_observacao)
+        return self.repo.delete_by_uuid(uuid_observacao, commit=commit)

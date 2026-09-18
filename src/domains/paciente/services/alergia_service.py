@@ -73,7 +73,7 @@ class AlergiaService:
         )
         return self.repo.save(a)
 
-    def remover_alergia(self, uuid_paciente: str, uuid_alergia: str, dados: dict, id_empresa: int):
+    def remover_alergia(self, uuid_paciente: str, uuid_alergia: str, dados: dict, id_empresa: int, commit: bool = True):
         """ALTERADO: soft delete em vez de delete físico -- alergia é
         dado clínico de segurança (evita reintrodução acidental de uma
         substância que já causou reação), não pode simplesmente sumir
@@ -98,7 +98,7 @@ class AlergiaService:
         except Exception as e:
             raise
 
-        self.repo.soft_delete(alergia, entrada.motivo_delete, entrada.observacoes_delete)
+        self.repo.soft_delete(alergia, entrada.motivo_delete, entrada.observacoes_delete, commit=commit)
         return True
 
     def restaurar_alergia(self, uuid_paciente: str, uuid_alergia: str, id_empresa: int):

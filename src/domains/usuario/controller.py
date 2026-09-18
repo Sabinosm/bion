@@ -107,7 +107,7 @@ class UsuarioController():
     @acao_sensivel(acao="desativar_profissional", tabela="Usuarios")
     def desativar(uuid):
         try:
-            u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
+            u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin, commit=False)
             return json_success(data=u.to_dict(), message="Usuário desativado.")
         except BionException as e:
             return json_error(e.message, e.status_code)
@@ -143,6 +143,7 @@ class UsuarioController():
                 uuid_usuario,
                 id_empresa_solicitante=get_id_empresa_sessao(),
                 solicitante_eh_super_admin=g.is_super_admin,
+                commit=False,
             )
             return json_success(
                 data=u.to_dict(),
@@ -166,6 +167,7 @@ class UsuarioController():
                 uuid_usuario,
                 id_empresa_solicitante=get_id_empresa_sessao(),
                 solicitante_eh_super_admin=g.is_super_admin,
+                commit=False,
             )
             return json_success(
                 data=u.to_dict(),
@@ -208,6 +210,7 @@ class UsuarioController():
                 uuid_usuario,
                 id_empresa_solicitante=get_id_empresa_sessao(),
                 solicitante_eh_super_admin=g.is_super_admin,
+                commit=False,
             )
             return json_success(
                 data=u.to_dict(),

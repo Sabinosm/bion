@@ -115,7 +115,7 @@ class EmpresaService:
             db.session.rollback()
             raise
 
-    def atualizar(self, id_empresa: int, dados: dict, uuid_empresa: str) -> Empresa:
+    def atualizar(self, id_empresa: int, dados: dict, uuid_empresa: str, commit: bool = True) -> Empresa:
         """SEM MUDANÇA nesta função: AtualizacaoEmpresaSchema já bloqueia
         cnpj via extra='forbid', então este método nunca escreve CNPJ."""
 
@@ -138,7 +138,7 @@ class EmpresaService:
             for campo, valor in atualizacoes.items():
                 setattr(empresa, campo, valor)
 
-            return self.repo.save(empresa)
+            return self.repo.save(empresa, commit=commit)
 
         else:
             raise BionException(f"Não é possível alterar outras empresas:")

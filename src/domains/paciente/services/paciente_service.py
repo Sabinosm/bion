@@ -288,7 +288,7 @@ class PacienteService:
         db.session.commit()
         return paciente
 
-    def montar_prontuario_completo(self, uuid: str, id_empresa: int):
+    def montar_prontuario_completo(self, uuid: str, id_empresa: int, commit: bool = False):
         """agrega o paciente + todos os domínios clínicos num
         único dict -- usado SÓ na tela de detalhe (nunca em listagem;
         cada domínio aqui é uma query própria, custo alto demais para
@@ -310,4 +310,4 @@ class PacienteService:
 
         """
         from .montar_prontuario_service import montar_prontuario_completo
-        return montar_prontuario_completo(uuid, id_empresa)
+        return montar_prontuario_completo(uuid, id_empresa, commit=commit)

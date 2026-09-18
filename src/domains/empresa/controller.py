@@ -33,7 +33,7 @@ class EmpresaController():
         uuid = get_uuid_empresa_sessao()
         dados = request.get_json(silent=True) or {}
         try:
-            e = _svc.atualizar(get_id_empresa_sessao(), dados, uuid)
+            e = _svc.atualizar(get_id_empresa_sessao(), dados, uuid, False)
             return json_success(data=e.to_dict(), message="Empresa atualizada.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
