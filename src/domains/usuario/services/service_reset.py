@@ -66,7 +66,6 @@ class ResetCredenciaisMixin:
             )
 
         u.hash_senha = None
-        u.onboarding_pendente = True
         # Derruba qualquer sessão aberta dele nas rotas de leitura
         # sensível (ver requer_senha_atualizada em session.py), mesmo
         # que o onboarding em si já impeça uso normal.
@@ -151,6 +150,5 @@ class ResetCredenciaisMixin:
 
         self.repo.remover_credenciais(u.id, commit=commit)
         u.hash_senha = None
-        u.onboarding_pendente = True
         u.status = "pendente"
         return self.repo.save(u, commit=commit)
