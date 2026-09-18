@@ -1,39 +1,24 @@
 """Rotas de primeiro acesso (onboarding).
 
 Chamadas depois do login (via senha ou Google) quando
-`usuario.onboarding_pendente == True`.
+`usuario.onboarding_pendente == True`. O onboarding tem dois passos:
 
-ALTERADO (2FA sempre obrigatório -- ver mfa.py, login.py, oauth.py):
-o onboarding volta a ter DOIS passos, não um só:
-  1) definir senha (`/definir-senha`, sem mudança de comportamento
-     aqui além do que já existia);
+  1) definir senha (`/definir-senha`);
   2) escolher e confirmar pelo menos um método de 2FA -- WebAuthn OU
      TOTP (`/2fa/escolher`) -- antes de `onboarding_pendente` virar
      False e a sessão ser liberada por completo.
 
-Isso reverte a decisão anterior deste módulo (WebAuthn fora do
-onboarding, cadastrável só depois nas configurações) porque login sem
-2FA algum deixou de existir no sistema -- se o onboarding liberasse a
-sessão sem nenhum fator cadastrado, o usuário nunca mais conseguiria
-logar de novo (login.py e oauth.py agora exigem WebAuthn/TOTP sempre).
+O onboarding exige só UM dos dois métodos de 2FA, não os dois: WebAuthn
+sozinho é inviável para parte do público real (notebooks sem
+Bluetooth, comuns no parque de hardware de clínicas/hospitais no
+Brasil); TOTP não tem essa limitação, mas nem todo usuário
+necessariamente prefere TOTP se já tiver um authenticator de
+plataforma disponível (Windows Hello, Touch ID).
 
-Por que ainda é uma ESCOLHA (não WebAuthn obrigatório fixo)
-----------------------------------------------------------------
-WebAuthn sozinho é inviável para boa parte do público real deste
-sistema (notebooks sem Bluetooth, comum no parque de hardware de
-clínicas/hospitais no Brasil -- ver discussão de produto). TOTP não
-tem essa limitação (só depende de um celular com relógio certo e um
-app gratuito), mas nem todo usuário necessariamente prefere TOTP se
-já tiver um authenticator de plataforma disponível (Windows Hello,
-Touch ID). Por isso o onboarding oferece as duas opções e exige só
-UMA delas -- não as duas -- para não impor o mesmo problema de
-inviabilidade que motivou originalmente tirar o WebAuthn obrigatório
-do onboarding.
-
-As rotas de cadastro em si (gerar desafio WebAuthn / gerar secret
-TOTP e confirmar) continuam vivendo em webauthn_2fa.py e totp_2fa.py
--- este módulo só orquestra QUANDO elas podem ser chamadas durante o
-onboarding e quando o onboarding pode ser considerado concluído.
+As rotas de cadastro em si (gerar desafio WebAuthn / gerar secret TOTP
+e confirmar) vivem em webauthn_2fa.py e totp_2fa.py -- este módulo só
+orquestra QUANDO elas podem ser chamadas durante o onboarding e quando
+o onboarding pode ser considerado concluído.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -48,20 +33,15 @@ from src.core.validacoes import validar_senha
 bp_onboarding = Blueprint("onboarding", __name__)
 ph = PasswordHasher()
 
+
 class Onboarding():
-    
+
     @staticmethod
     @bp_onboarding.route("/definir-senha", methods=["POST"])
     @onboarding_pendente_required
     def definir_senha():
-        """Define a senha inicial do usuário -- PRIMEIRO passo do
-        onboarding, não conclui mais sozinho.
-
-        ALTERADO: antes, definir a senha já liberava a sessão completa
-        (`id_empresa` definido, `onboarding_pendente = False`). Agora
-        isso só acontece depois que o usuário também escolher e
-        confirmar um método de 2FA -- ver `/2fa/escolher` abaixo. Esta
-        rota continua idempotente para quem já tem senha definida (ex:
+        """Define a senha inicial do usuário -- primeiro passo do
+        onboarding. Idempotente para quem já tem senha definida (ex:
         cadastrado por admin): não pede senha de novo, só informa que o
         próximo passo é a escolha do método de 2FA.
 
@@ -82,7 +62,7 @@ class Onboarding():
 
             senha_valida, resposta = validar_senha(nova_senha)
 
-            if senha_valida == False:
+            if not senha_valida:
                 return jsonify(resposta), 400
 
             usuario.hash_senha = ph.hash(nova_senha)
@@ -100,11 +80,10 @@ class Onboarding():
     def status_2fa():
         """Informa se o usuário já tem algum método de 2FA confirmado
         -- usado pelo frontend para decidir se pode concluir o
-        onboarding ou ainda precisa mostrar a tela de escolha.
-
-        Não conclui nada sozinho -- só reporta o estado atual. Útil
-        também para o caso idempotente (usuário já tinha senha e/ou
-        2FA de uma sessão anterior que não terminou de concluir).
+        onboarding ou ainda precisa mostrar a tela de escolha. Não
+        conclui nada sozinho, só reporta o estado atual (útil também
+        para o caso idempotente de uma sessão anterior que não
+        terminou de concluir).
 
         Retorno:
             200 com {"tem_2fa": bool}.
@@ -117,16 +96,15 @@ class Onboarding():
     @bp_onboarding.route("/concluir", methods=["POST"])
     @onboarding_pendente_required
     def concluir_onboarding():
-        """Conclui o onboarding e libera a sessão completa -- SEGUNDO e
+        """Conclui o onboarding e libera a sessão completa -- segundo e
         último passo, chamado depois que a senha já foi definida
         (/definir-senha) e pelo menos um método de 2FA já foi
         confirmado (via /webauthn/registrar/confirmar ou
-        /totp/registrar/confirmar, ambos reaproveitados do fluxo de
+        /totp/registrar/confirmar, reaproveitados do fluxo de
         configurações -- ver webauthn_2fa.py e totp_2fa.py).
 
         Esta rota não cadastra nada, só valida que os pré-requisitos
-        foram cumpridos e, se sim, libera a sessão -- mesmo papel que
-        definir_senha() cumpria sozinho antes desta mudança.
+        foram cumpridos e, se sim, libera a sessão.
 
         Retorno:
             200 com status `onboarding_concluido` e os IDs de
@@ -150,17 +128,12 @@ class Onboarding():
 
         session.pop("onboarding_pendente", None)
         session["id_empresa"] = usuario.id_empresa
-        # CORRIGIDO: login.py e oauth.py só gravam is_admin,
-        # funcao_clinica e is_super_admin no ramo de sessão completa
-        # (quando onboarding_pendente já era False na entrada) -- o
-        # ramo de onboarding_pendente não grava nenhuma dessas chaves,
-        # e este método era o único lugar que "prometia" completar isso
-        # depois (ver comentário em oauth.py sobre is_super_admin), sem
-        # de fato fazê-lo. Resultado: qualquer usuário que conclui o
-        # onboarding (inclusive o admin fundador, que agora sempre
-        # passa por aqui -- ver criação em Empresa.cadastrar_com_admin)
-        # ficava com sessão "completa" mas sem seus privilégios de
-        # papel até deslogar e logar de novo pelo caminho normal.
+        # Grava os privilégios de papel aqui também -- sem isso,
+        # qualquer usuário que conclui o onboarding (inclusive o admin
+        # fundador) ficaria com sessão "completa" mas sem is_admin/
+        # funcao_clinica/is_super_admin até deslogar e logar de novo
+        # pelo caminho normal (login.py/oauth.py só gravam essas
+        # chaves no ramo de sessão já completa na entrada).
         session["is_admin"] = usuario.is_admin
         session["funcao_clinica"] = usuario.funcao_clinica
         session["is_super_admin"] = usuario.is_super_admin
@@ -174,7 +147,7 @@ class Onboarding():
 
 def _usuario_tem_algum_2fa_confirmado(id_usuario) -> bool:
     """Mesma checagem de mfa.py::usuario_tem_algum_2fa, reimplementada
-    aqui em vez de importada para não criar uma dependência cruzada
+    aqui (em vez de importada) para não criar uma dependência cruzada
     entre onboarding.py e mfa.py por causa de uma checagem trivial de
     2 queries -- mfa.py é especificamente sobre decidir método de
     login/step-up, não sobre onboarding. Se essa duplicação incomodar

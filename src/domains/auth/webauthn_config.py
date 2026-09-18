@@ -1,11 +1,9 @@
 """Configuração central do WebAuthn (RP ID e origin esperado).
 
-Centraliza aqui porque `expected_origin` PRECISA ser uma URL completa
-com esquema (ex.: "https://app.bion.com.br"), não um host puro como
-"127.0.0.1" -- é assim que o navegador preenche `clientDataJSON.origin`,
-e é contra esse valor exato que a lib compara. Usar só o host funciona
-por acidente em alguns ambientes de dev e quebra sempre em produção
-com HTTPS real.
+`EXPECTED_ORIGIN` precisa ser uma URL completa com esquema (ex.:
+"https://app.bion.com.br"), nunca um host puro como "127.0.0.1" —
+é assim que o navegador preenche `clientDataJSON.origin`, e é contra
+esse valor exato que a lib compara.
 
 Definido via variáveis de ambiente para não hardcodar por arquivo:
 
@@ -15,9 +13,9 @@ Definido via variáveis de ambiente para não hardcodar por arquivo:
     WEBAUTHN_RP_ID=app.bion.com.br
     WEBAUTHN_ORIGIN=https://app.bion.com.br
 
-Se as variáveis não estiverem definidas, cai em um default de
-desenvolvimento local -- nunca em produção, porque lá elas devem ser
-sempre setadas explicitamente no ambiente do deploy.
+Sem as variáveis, cai em um default de desenvolvimento local — em
+produção elas devem ser sempre setadas explicitamente no ambiente do
+deploy.
 """
 
 import os

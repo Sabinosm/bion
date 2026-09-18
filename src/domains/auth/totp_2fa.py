@@ -1,13 +1,9 @@
 """TOTP como segundo fator alternativo ao WebAuthn.
 
-ALTERADO (2FA sempre obrigatório -- ver mfa.py, login.py, oauth.py,
-onboarding.py): TOTP deixou de ser um fator "extra" que só importava
-com WebAuthn já cadastrado -- agora é uma das duas opções (WebAuthn OU
-TOTP) que o onboarding exige escolher, e ambas continuam disponíveis
-depois via configurações da conta.
-
-Espelha a estrutura de webauthn_2fa.py (mesmo estilo: rotas e lógica
-numa classe só, sem Service/Repository próprios).
+É uma das duas opções (WebAuthn OU TOTP) que o onboarding exige
+escolher; ambas continuam disponíveis depois via configurações da
+conta. Espelha a estrutura de webauthn_2fa.py (rotas e lógica numa
+classe só, sem Service/Repository próprios).
 
 Onde este módulo entra no fluxo (login e step-up)
 ----------------------------------------------------
@@ -16,14 +12,13 @@ Login (webauthn_2fa.py, segundo_fator_iniciar/confirmar):
      cadastrada (até MAX_TENTATIVAS_MFA, em webauthn_2fa.py). Se não
      tiver nenhuma, pula direto para TOTP.
   2. Se WebAuthn esgotar as tentativas (ou não estiver disponível), o
-     FRONTEND chama TOTP como próximo método -- ver `/totp/2fa/iniciar`
+     frontend chama TOTP como próximo método -- ver `/totp/2fa/iniciar`
      e `/totp/2fa/confirmar` abaixo.
-  3. ALTERADO: se TOTP também esgotar (ou o usuário não tiver
-     nenhum), NÃO HÁ MAIS fallback para Google sem 2FA -- todo login
-     (por senha ou Google, ver oauth.py) exige 2FA sempre. Esgotar os
-     dois métodos é tratado como bloqueio: o frontend deve orientar
-     contato com o administrador, não redirecionar para um caminho
-     sem 2FA (esse caminho não existe mais no sistema).
+  3. Se TOTP também esgotar (ou o usuário não tiver nenhum), não há
+     fallback para Google sem 2FA -- todo login (por senha ou Google,
+     ver oauth.py) exige 2FA sempre. Esgotar os dois métodos é tratado
+     como bloqueio: o frontend deve orientar contato com o
+     administrador, não redirecionar para um caminho sem 2FA.
 
 Step-up (step_up.py, stepup_iniciar/confirmar):
   1. WebAuthn é tentado primeiro, se o usuário tiver.
@@ -73,39 +68,19 @@ class Totp():
         """Gera um novo secret TOTP (ainda não confirmado) e devolve a
         URI otpauth:// para o frontend renderizar como QR code.
 
-        ALTERADO: aceita tanto sessão completa (configurações da
-        conta) quanto sessão em onboarding_pendente (ver
-        onboarding.py, que reintroduziu a escolha obrigatória de
-        WebAuthn/TOTP) -- ver requer_login_ou_onboarding_pendente em
-        session.py.
+        Aceita tanto sessão completa (configurações da conta) quanto
+        sessão em onboarding_pendente (ver onboarding.py e
+        session.py::requer_login_ou_onboarding_pendente).
 
-        CORRIGIDO: esta rota costumava sobrescrever `secret` e marcar
-        `confirmado = False` no banco incondicionalmente, mesmo quando
-        já existia um TOTP CONFIRMADO e em uso. Como esta rota só
-        *propõe* um novo cadastro (o usuário ainda pode nunca escanear
-        o QR nem digitar o código), isso já invalidava o fator existente
-        na hora, só por ela ter sido chamada -- bastava abrir a tela de
-        novo (ou o onboarding recair aqui, ver onboarding.js/
-        onboarding.py) para o usuário perder o único 2FA que tinha, sem
-        nenhuma confirmação nova ter de fato acontecido.
-
-        O problema nunca foi o `secret` em si (não é uma chave fixa do
-        sistema, é só o valor gerado para esta credencial -- trocar o
-        `secret` é exatamente o que reconfigurar significa). O problema
-        é que `confirmado` virava False -- ou seja, o fator deixava de
-        valer -- num momento em que nada foi de fato confirmado ainda.
-
-        Por isso o novo secret NUNCA é gravado no banco aqui. Ele fica
-        só na sessão do servidor (`session["totp_secret_pendente"]`),
-        exatamente como o desafio de um WebAuthn em andamento --
-        efêmero, específico desta tentativa de cadastro, descartado se
-        nunca for confirmado. A linha em CredencialTOTP (`secret` e
-        `confirmado`) só é tocada em `/registrar/confirmar`, e só se o
-        código bater -- nunca antes disso. Enquanto isso não acontece,
-        um TOTP já confirmado continua exatamente como estava, e um
-        usuário sem nenhum ainda simplesmente não tem nada até
-        confirmar (nunca um "confirmado=False" órfão pairando no meio
-        do caminho).
+        O novo secret NUNCA é gravado no banco aqui -- fica só na
+        sessão do servidor (`session["totp_secret_pendente"]`), exatamente
+        como o desafio de um WebAuthn em andamento: efêmero, específico
+        desta tentativa de cadastro, descartado se nunca for
+        confirmado. Isso evita invalidar um TOTP já confirmado e em uso
+        só por esta rota ter sido chamada de novo (ela apenas *propõe*
+        um cadastro; o usuário pode nunca chegar a confirmá-lo). A
+        linha em CredencialTOTP (`secret` e `confirmado`) só é tocada
+        em `/registrar/confirmar`, e só se o código bater.
 
         Retorno:
             200 com {"otpauth_uri": "...", "secret_texto": "..."}.
@@ -117,10 +92,6 @@ class Totp():
         usuario = get_usuario_sessao()
 
         secret = pyotp.random_base32()
-        # Efêmero -- nada é persistido no banco até /registrar/confirmar
-        # validar o código. Um novo /registrar/iniciar (ex: usuário
-        # pediu outro QR) simplesmente substitui este valor na sessão;
-        # não há nada no banco para conflitar.
         session["totp_secret_pendente"] = secret
 
         otpauth_uri = pyotp.totp.TOTP(secret).provisioning_uri(
@@ -143,15 +114,12 @@ class Totp():
 
         Corpo esperado (JSON): {"codigo": "123456"}.
 
-        CORRIGIDO: agora que `/registrar/iniciar` guarda o novo secret
-        só na sessão (`totp_secret_pendente`, ver docstring lá), esta
-        rota é o único lugar que efetivamente cria ou substitui a
-        credencial no banco -- e só faz isso depois do código bater.
-        Antes de bater, um TOTP já confirmado continua sendo o válido
-        (nada nele foi tocado); depois de bater, a linha é criada ou
-        atualizada e `confirmado` vira True atomicamente com a troca do
-        secret -- nunca existe um instante em que `confirmado=False`
-        aponta para o fator antigo já descartado.
+        Único lugar que efetivamente cria ou substitui a credencial no
+        banco, e só faz isso depois do código bater: antes disso, um
+        TOTP já confirmado continua sendo o válido; depois, a linha é
+        criada/atualizada e `confirmado` vira True atomicamente com a
+        troca do secret -- nunca existe um instante em que
+        `confirmado=False` aponta para o fator antigo já descartado.
 
         Retorno:
             200 com {"totp": {...}} se o código bater.
@@ -177,10 +145,6 @@ class Totp():
             credencial = CredencialTOTP(id_usuario=usuario.id)
             db.session.add(credencial)
 
-        # Só agora, com o código já validado, o fator anterior (se
-        # havia) é de fato substituído -- secret e confirmado mudam na
-        # mesma transação, então nunca há um estado intermediário sem
-        # 2FA válido.
         credencial.definir_secret(secret_pendente)
         credencial.confirmado = True
         db.session.commit()
@@ -195,13 +159,9 @@ class Totp():
     def remover_totp():
         """Remove o TOTP cadastrado do usuário logado.
 
-        ALTERADO (2FA sempre obrigatório -- bloqueio simétrico ao de
-        remover_credencial em webauthn_2fa.py): diferente da versão
-        anterior deste método (que nunca bloqueava, pois WebAuthn era
-        tratado como obrigatório em separado), agora a remoção só é
-        permitida se o usuário TAMBÉM tiver 1+ credencial WebAuthn
+        Só é permitido se o usuário TAMBÉM tiver 1+ credencial WebAuthn
         cadastrada -- do contrário, ficaria sem 2FA algum, o que não é
-        mais permitido (login sempre exige 2FA).
+        permitido (login sempre exige 2FA).
 
         Retorno:
             200 confirmando a remoção.
@@ -275,14 +235,13 @@ class Totp():
             200 com dados de usuário/empresa se o código for válido.
             401 com tentativas_restantes se o código for inválido.
             429 se as tentativas de TOTP desta sessão se esgotarem --
-            ALTERADO: isto é agora FIM DA LINHA no login (diferente do
-            step-up, ver totp_2fa.py::stepup_totp_confirmar). Não há
-            mais fallback para Google sem 2FA (ver oauth.py/login.py/
-            mfa.py) -- se WebAuthn já tinha esgotado antes disso (ver
-            afterLogin.js), o usuário não tem mais nenhum método
-            disponível nesta tentativa de login. O frontend deve
-            mostrar um estado de bloqueio orientando contato com o
-            administrador.
+            isto é fim da linha no login (diferente do step-up, ver
+            stepup_totp_confirmar abaixo): não há fallback para Google
+            sem 2FA (ver oauth.py/login.py/mfa.py). Se WebAuthn já
+            tinha esgotado antes disso, o usuário não tem mais nenhum
+            método disponível nesta tentativa de login -- o frontend
+            deve mostrar um estado de bloqueio orientando contato com
+            o administrador.
         """
         id_usuario = get_id_usuario_sessao()
 
@@ -315,11 +274,11 @@ class Totp():
         from src.domains.auth.services import AuthService
         usuario = UsuarioRepository().find_by_id(id_usuario)
 
-        # ALTERADO: liberação de sessão centralizada em
+        # Liberação de sessão centralizada em
         # AuthService.liberar_sessao_completa -- mesmo método chamado
         # por webauthn_2fa.py::segundo_fator_confirmar, para não
         # duplicar (e divergir) essa lógica entre os dois módulos.
-        AuthService().liberar_sessao_completa(usuario,db)
+        AuthService().liberar_sessao_completa(usuario, db)
 
         return jsonify({
             "id_usuario": usuario.id,
@@ -380,12 +339,12 @@ class Totp():
             200 com token_confirmacao se o código for válido.
             401 se a ação não corresponder ao desafio iniciado, ou o
             código for inválido (com tentativas_restantes).
-            429 se as tentativas se esgotarem -- ALTERADO: diferente da
-            versão anterior deste módulo, isso NÃO é mais fim de linha.
-            O frontend deve cair para o fallback senha+Google (mesmo
-            fluxo de quando o usuário não tem WebAuthn nem TOTP -- ver
-            docstring de step_up.py), não mostrar um estado de bloqueio.
-            oferecer nenhum "tentar outro método".
+            429 se as tentativas se esgotarem -- diferente do login,
+            isto NÃO é fim de linha: o frontend deve cair para o
+            fallback senha+Google (mesmo fluxo de quando o usuário não
+            tem WebAuthn nem TOTP -- ver docstring de step_up.py), não
+            mostrar um estado de bloqueio nem oferecer "tentar outro
+            método".
         """
         dados = request.get_json(silent=True) or {}
         acao = dados.get("acao")

@@ -4,29 +4,23 @@ Reconfirma a identidade antes de ações sensíveis (excluir prontuário,
 alterar prescrição, conceder acesso admin), mesmo com a sessão já
 totalmente autenticada.
 
-Métodos, conforme o que o usuário tem cadastrado
----------------------------------------------------------
-ALTERADO (2FA sempre obrigatório no login; step-up simplificado --
-ver `src/domains/auth/mfa.py`): a regra de "redundância" (2+ fatores
-para tornar obrigatório) foi abandonada. Como todo usuário agora tem
-WebAuthn e/ou TOTP obrigatoriamente desde o onboarding, o step-up
-simplesmente usa o que o usuário tiver, na ordem:
-
+Métodos, na ordem em que são tentados
+--------------------------------------
 1. WebAuthn, se tiver credencial cadastrada.
 2. TOTP, se tiver (e WebAuthn não estiver disponível, ou tiver
-   esgotado as tentativas -- ver totp_2fa.py, stepup_totp_iniciar/
-   confirmar).
+   esgotado as tentativas -- ver totp_2fa.py,
+   stepup_totp_iniciar/confirmar).
 3. Senha + Google (fallback), se não tiver nenhum dos dois -- ou se
-   WebAuthn e TOTP tiverem esgotado as tentativas. Diferente da
-   versão anterior deste módulo, NÃO há mais um estado de bloqueio
-   sem saída no step-up: mesmo esgotando WebAuthn e TOTP, o fallback
-   senha+Google continua disponível como último recurso. Essa é uma
-   escolha deliberada: no login, perder acesso aos dois fatores é
-   tratado como bloqueio total (ver login.py/oauth.py/mfa.py) porque
-   não sobra nenhum caminho de entrada; no step-up, a pessoa já está
-   autenticada e dentro do sistema -- negar toda e qualquer forma de
-   confirmar uma ação sensível, mesmo com senha+reautenticação Google
-   forçada disponível, seria mais rígido do que o necessário.
+   WebAuthn e TOTP tiverem esgotado as tentativas.
+
+Por que o step-up sempre tem uma saída, diferente do login
+-------------------------------------------------------------
+No login, perder acesso aos dois fatores é bloqueio total (ver
+login.py/oauth.py/mfa.py) -- não sobra caminho de entrada. No step-up
+a pessoa já está autenticada e dentro do sistema, então negar toda e
+qualquer forma de confirmar uma ação sensível seria mais rígido que o
+necessário; por isso o fallback senha+Google continua disponível como
+último recurso, mesmo esgotando WebAuthn e TOTP.
 
 Os métodos em si:
 
@@ -39,18 +33,17 @@ Os métodos em si:
 
 3. Senha + Google (fallback): em duas etapas -- primeiro confirma a
    senha atual, depois reautentica via Google com `prompt=login`
-   (forçando o Google a pedir login de novo, mesmo que já haja uma
-   sessão Google ativa no navegador -- sem isso, a "reautenticação"
-   poderia ser só um SSO silencioso que não prova nada de novo). O
-   estado entre essas duas etapas é persistido na tabela
-   `stepup_reautenticacao` (não na sessão Flask), porque o fluxo
-   atravessa um redirect real de navegador e pode voltar em uma aba
-   diferente da que iniciou.
+   (forçando o Google a pedir login de novo, mesmo com sessão Google
+   já ativa no navegador -- sem isso a "reautenticação" poderia ser só
+   um SSO silencioso que não prova nada de novo). O estado entre as
+   duas etapas é persistido na tabela `stepup_reautenticacao` (não na
+   sessão Flask), porque o fluxo atravessa um redirect real de
+   navegador e pode voltar em uma aba diferente da que iniciou.
 
    Isso é deliberadamente mais fraco que WebAuthn/TOTP: senha + Google
    prova posse de duas credenciais que já autenticaram a sessão
    original (não é um fator independente), enquanto WebAuthn/TOTP
-   provam posse de algo além da sessão em si. É o preço aceito para
+   provam posse de algo além da sessão em si -- é o preço aceito para
    nunca deixar um usuário autenticado incapaz de confirmar uma ação
    sensível, mesmo no pior caso (perdeu WebAuthn e TOTP ao mesmo
    tempo).
@@ -61,14 +54,11 @@ na tabela `stepup_token`. A rota sensível exige esse token via
 decorator `requer_confirmacao_recente`, que não precisa saber qual
 método foi usado para obtê-lo.
 
-ALTERADO (separação admin/papel clínico): extraída a função
-`token_recente_valido(acao)`, com a MESMA lógica que já vivia dentro
-do wrapper de `requer_confirmacao_recente`. Motivo: `usuario/controller.py`
-precisa da mesma checagem de forma CONDICIONAL dentro de `atualizar()`
--- só quando o payload mexe em campos sensíveis (is_admin/tipo_papel),
-não a rota inteira. Um decorator estático não serve para esse caso; a
-função nomeada serve para os dois usos (decorator e checagem manual)
-sem duplicar a query/validação de token.
+`token_recente_valido(acao)` é extraído como função nomeada (não só
+lógica interna do decorator) porque `usuario/controller.py` precisa da
+mesma checagem de forma CONDICIONAL dentro de `atualizar()` -- só
+quando o payload mexe em campos sensíveis (is_admin/tipo_papel), não a
+rota inteira.
 """
 
 import base64
@@ -81,7 +71,7 @@ from flask import Blueprint, request, jsonify, session, redirect, url_for
 from argon2.exceptions import VerifyMismatchError
 
 from src.models import db
-from src.models.usuarios import CredencialWebAuthn, Usuario
+from src.models.usuarios import CredencialWebAuthn
 from src.models.auditoria.stepup import StepUpToken
 from src.models.auditoria.stepup_reautenticacao import StepUpReautenticacao
 from src.core.security import ph
@@ -89,11 +79,11 @@ from src.core.session import requer_login, get_usuario_sessao, get_id_usuario_se
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 from src.domains.auth.frontend_config import FRONTEND_URL
 from src.domains.auth.oauth import oauth
-from src.domains.auth.mfa import usuario_tem_algum_2fa
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
 from src.domains.usuario.repository import UsuarioRepository as ur
+
 bp_step_up = Blueprint("step_up", __name__)
 
 DURACAO_TOKEN_SEGUNDOS = 180
@@ -107,37 +97,37 @@ CAMINHO_APOS_REAUTENTICACAO = "/html/pages/auth/stepup_callback.html"
 
 
 def _emitir_token(id_usuario, acao):
-        """Apaga qualquer token anterior da mesma combinação (usuário,
-        ação) e emite um StepUpToken novo. Compartilhado pelos dois
-        métodos de confirmação (WebAuthn e senha+Google).
-        """
-        StepUpToken.query.filter_by(id_usuario=id_usuario, acao=acao).delete()
+    """Apaga qualquer token anterior da mesma combinação (usuário,
+    ação) e emite um StepUpToken novo. Compartilhado pelos dois
+    métodos de confirmação (WebAuthn e senha+Google).
+    """
+    StepUpToken.query.filter_by(id_usuario=id_usuario, acao=acao).delete()
 
-        token = secrets.token_urlsafe(32)
-        db.session.add(StepUpToken(
-            id_usuario=id_usuario,
-            acao=acao,
-            token=token,
-            expira_em=datetime.now(timezone.utc) + timedelta(seconds=DURACAO_TOKEN_SEGUNDOS),
-        ))
-        db.session.commit()
+    token = secrets.token_urlsafe(32)
+    db.session.add(StepUpToken(
+        id_usuario=id_usuario,
+        acao=acao,
+        token=token,
+        expira_em=datetime.now(timezone.utc) + timedelta(seconds=DURACAO_TOKEN_SEGUNDOS),
+    ))
+    db.session.commit()
 
-        return token
+    return token
 
 
 def token_recente_valido(acao: str) -> bool:
     """Verifica e CONSOME (apaga) um token de step-up recente para a
     ação informada, lendo o header X-Stepup-Token da requisição atual.
 
-    ADICIONADO (separação admin/papel clínico): extraído do corpo do
-    wrapper de `requer_confirmacao_recente` para poder ser chamado
-    tanto pelo decorator (uso normal, rota inteira sensível) quanto
-    de forma condicional dentro de uma view que só é sensível às
-    vezes, dependendo do payload (ex: UsuarioController.atualizar,
-    que também edita campos triviais no mesmo endpoint).
+    Extraída do corpo do wrapper de `requer_confirmacao_recente` para
+    poder ser chamada tanto pelo decorator (uso normal, rota inteira
+    sensível) quanto de forma condicional dentro de uma view que só é
+    sensível às vezes, dependendo do payload (ex:
+    UsuarioController.atualizar, que também edita campos triviais no
+    mesmo endpoint).
 
-    Mesma semântica de sempre: token de uso único -- é apagado assim
-    que lido, independente do resultado, para não permitir reuso.
+    Token de uso único -- é apagado assim que lido, independente do
+    resultado, para não permitir reuso.
 
     Retorno:
         True se havia um token válido e não expirado (e ele já foi
@@ -164,7 +154,7 @@ def token_recente_valido(acao: str) -> bool:
 
 
 class StepUp():
-    
+
     @staticmethod
     @bp_step_up.route("/iniciar", methods=["POST"])
     @requer_login
@@ -197,15 +187,12 @@ class StepUp():
 
         credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
 
-        # ALTERADO (2FA sempre obrigatório no login; step-up simplificado):
-        # a regra de "redundância" (2+ fatores) foi abandonada -- agora
-        # todo usuário tem WebAuthn e/ou TOTP obrigatoriamente desde o
-        # onboarding (ver mfa.py). O step-up usa o que o usuário tiver:
-        # WebAuthn se tiver credencial cadastrada; senão TOTP, se tiver
-        # (ver totp_2fa.py, stepup_totp_iniciar); senão, fallback
-        # senha+Google -- que na prática só deveria ocorrer para contas
-        # legadas ainda não migradas, já que o onboarding atual sempre
-        # exige pelo menos um dos dois métodos.
+        # Usa o que o usuário tiver: WebAuthn se tiver credencial
+        # cadastrada; senão TOTP, se tiver (ver totp_2fa.py,
+        # stepup_totp_iniciar); senão, fallback senha+Google -- que na
+        # prática só deveria ocorrer para contas legadas ainda não
+        # migradas, já que o onboarding atual sempre exige pelo menos
+        # um dos dois métodos.
         if not credenciais:
             return jsonify({"metodo": "senha_google", "acao": acao}), 200
 
@@ -229,7 +216,6 @@ class StepUp():
         import json
         corpo.update(json.loads(options_to_json(opcoes)))
         return jsonify(corpo), 200
-
 
     @staticmethod
     @bp_step_up.route("/confirmar", methods=["POST"])
@@ -284,7 +270,6 @@ class StepUp():
             "expira_em_segundos": DURACAO_TOKEN_SEGUNDOS,
         }), 200
 
-
     @staticmethod
     @bp_step_up.route("/senha/confirmar", methods=["POST"])
     @requer_login
@@ -329,7 +314,6 @@ class StepUp():
         )
 
         return jsonify({"redirect_url": autorizacao["url"]}), 200
-
 
     @staticmethod
     @bp_step_up.route("/google/callback", methods=["GET"])
@@ -388,11 +372,6 @@ class StepUp():
     @staticmethod
     def requer_confirmacao_recente(acao):
         """Decorator que exige um token de step-up recente para a rota.
-
-        ALTERADO: o corpo do wrapper agora delega para
-        `token_recente_valido(acao)` -- mesma função usada para a
-        checagem condicional em UsuarioController.atualizar(). Zero
-        mudança de comportamento aqui, só eliminação de duplicação.
 
         Uso:
             @app.route("/prontuarios/<id>", methods=["DELETE"])

@@ -1,13 +1,10 @@
 """Serviço de autenticação por login e senha."""
 
 from argon2.exceptions import VerifyMismatchError
-from flask import jsonify
-from src.core.exceptions import BionException
 from src.core.security import ph
 from src.domains.usuario.repository import UsuarioRepository
 from src.models.usuarios import Usuario
 from src.core.session import session
-
 
 
 class AuthService:
@@ -49,15 +46,18 @@ class AuthService:
             self.repo.save(usuario)
 
         return usuario, None
-    
 
-    def liberar_sessao_completa(self,usuario: Usuario, db):
+    def liberar_sessao_completa(self, usuario: Usuario, db):
+        """Promove a sessão pendente (mfa_pendente) a sessão completa,
+        após o segundo fator ter sido confirmado. Compartilhado por
+        webauthn_2fa.py e totp_2fa.py para não duplicar essa lógica
+        entre os dois módulos.
+        """
         usuario.status = "ativo"
-        db.session.commit()  # precisa persistir isso, load() original não commitava (bug pré-existente também)
+        db.session.commit()
         session.pop("mfa_pendente", None)
         session.pop("mfa_webauthn_challenge", None)
         session.pop("mfa_tentativas", None)
         session.pop("totp_tentativas", None)
         session["id_empresa"] = usuario.id_empresa
         session["is_super_admin"] = usuario.is_super_admin
-        

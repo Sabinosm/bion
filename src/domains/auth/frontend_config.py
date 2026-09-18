@@ -1,15 +1,12 @@
 """Configuração da URL base do frontend.
 
-O frontend (html/pages/...) roda num servidor separado do Flask
-(ex.: Vite, live-server) -- em dev, tipicamente uma porta diferente
-na mesma máquina (http://localhost:5500), e em produção um domínio
-publicado à parte do backend.
-
-Por isso redirects do backend para páginas do frontend (como depois
-do callback do Google OAuth) não podem usar paths relativos como
-redirect("/paginas/pos-login.html") -- isso é resolvido pelo
-navegador contra a origem atual, que nesse ponto é o Flask
-(localhost:5000), não o frontend. É preciso montar a URL completa.
+O frontend roda num servidor separado do Flask (ex.: Vite,
+live-server), com origem própria — em dev, geralmente outra porta na
+mesma máquina; em produção, outro domínio. Por isso redirects do
+backend para páginas do frontend (ex.: pós-login do Google OAuth)
+precisam montar a URL completa a partir de FRONTEND_URL, nunca um path
+relativo: um path relativo seria resolvido pelo navegador contra a
+origem do Flask, não a do frontend.
 
     FRONTEND_URL=http://localhost:5500        (dev)
     FRONTEND_URL=https://app.bion.com.br      (produção)

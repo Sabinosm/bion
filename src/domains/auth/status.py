@@ -16,16 +16,13 @@ bp_status = Blueprint("status", __name__)
 
 class Status():
 
-    @staticmethod    
+    @staticmethod
     @bp_status.route("/status", methods=["GET"])
     def status_sessao():
         """Retorna o estado atual da sessão sem exigir autenticação completa.
 
-        `onboarding_pendente` só cobre a definição de senha (WebAuthn não
-        faz mais parte do onboarding, fica em configurações). `mfa_pendente`
-        só ocorre após login por senha para usuário com WebAuthn já
-        cadastrado -- login via Google nunca entra nesse estado, libera
-        sessão completa direto (ou onboarding_pendente, se faltar senha).
+        `mfa_pendente` ocorre após qualquer login (senha ou Google)
+        enquanto o segundo fator ainda não foi confirmado.
 
         Retorno:
             200 com `status: autenticado`, `onboarding_pendente` (incluindo
@@ -46,13 +43,9 @@ class Status():
             }), 200
 
         if session.get("mfa_pendente"):
-            # ALTERADO: mfa_pendente agora também expira por tempo fixo
-            # (ver _mfa_pendente_expirado em session.py), não só por
-            # inatividade do cookie Flask -- sem isso, o /auth/status
-            # continuaria reportando "mfa_pendente" indefinidamente
-            # mesmo depois do TTL estourar, mesmo com
-            # mfa_pendente_required já bloqueando as rotas de
-            # confirmação corretamente.
+            # mfa_pendente expira por tempo fixo (ver
+            # _mfa_pendente_expirado em session.py), não só por
+            # inatividade do cookie Flask.
             if _mfa_pendente_expirado():
                 session.clear()
                 return jsonify({"status": "nao_autenticado"}), 401
@@ -70,21 +63,19 @@ class Status():
                 # Mantido por compatibilidade com qualquer leitura antiga
                 # de `metodo` (singular) -- primeiro da lista de preferência.
                 "metodo": metodos[0] if metodos else None,
-                # Novo: lista completa, para a tela de escolha no frontend.
+                # Lista completa, para a tela de escolha no frontend.
                 "metodos_disponiveis": metodos,
                 "tentativas_restantes": tentativas_restantes,
                 "reautenticar_disponivel": tentativas_restantes == 0,
             }), 200
-            
+
         return jsonify({"status": "completa"}), 200
-        
-        
 
     @staticmethod
     @bp_status.get("/me")
     @requer_login
     def me():
-        """Retorna os dados do usuário autenticado na sessão atual e suas configurações. 
+        """Retorna os dados do usuário autenticado na sessão atual e suas configurações.
 
         Retorno:
             200 com os dados do usuário.
@@ -94,34 +85,29 @@ class Status():
         from src.domains.usuario.repository import UsuarioRepository
         from src.domains.configuracao.service import ConfiguracaoService
         from .webauthn_2fa import carregar_configuracoes
-        
+
         usuario = UsuarioRepository().find_by_id(g.id_usuario)
-        
+
         if not usuario:
             session.clear()
             return json_error("Sessão inválida.", 401)
-    
+
         cfg_service = ConfiguracaoService()
         cfg = cfg_service.obter_ou_criar(usuario.id)
-        
-        
-        
+
         return json_success(
             data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict(), "webauthn": carregar_configuracoes()},
             message="Login realizado com sucesso.",
         )
 
-
     @staticmethod
     @bp_status.get("/check-session")
     def ck_session():
-        from src.core.session import ja_logado
-        """Verifica se já existe uma sessão ativa
+        """Verifica se já existe uma sessão ativa.
 
-        
-            Retorno:
-                200 Se já existe
-                401 Se não existe
-                
-            """
+        Retorno:
+            200 se já existe.
+            401 se não existe.
+        """
+        from src.core.session import ja_logado
         return ja_logado()
