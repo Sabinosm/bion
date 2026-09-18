@@ -178,7 +178,7 @@ class Oauth():
         # onboarding_pendente para sempre, mesmo com senha e 2FA já
         # prontos no banco. Fechamos aqui também quando os
         # pré-requisitos já estão satisfeitos.
-        if usuario.onboarding_pendente and usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
+        if usuario.onboarding_pendente and usuario.hash_senha or _usuario_tem_algum_2fa_confirmado(usuario.id):
             usuario.onboarding_pendente = False
             db.session.commit()
 

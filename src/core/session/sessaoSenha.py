@@ -25,8 +25,8 @@ por admin -- ver service.py e usuario.py).
 from functools import wraps
 from flask import session, jsonify
 
-from src.core.sessaoHelpers.sessaoUsuarios import get_id_usuario_sessao, _popula_g
-from src.core.sessaoHelpers.sessaoAutenticacao import _checagem_base_sessao
+from src.core.session.sessaoUsuarios import get_id_usuario_sessao, _popula_g
+from src.core.session.sessaoAutenticacao import _checagem_base_sessao
 
 
 def _senha_sessao_atualizada(id_usuario: int) -> bool:

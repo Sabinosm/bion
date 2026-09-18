@@ -7,8 +7,8 @@ liberam tanto sessão completa quanto onboarding em andamento.
 from functools import wraps
 from flask import session, jsonify
 
-from src.core.sessaoHelpers.sessaoAutenticacao import _checagem_base_sessao
-from src.core.sessaoHelpers.sessaoUsuarios import _popula_g
+from src.core.session.sessaoAutenticacao import _checagem_base_sessao
+from src.core.session.sessaoUsuarios import _popula_g
 
 
 def onboarding_pendente_required(f):

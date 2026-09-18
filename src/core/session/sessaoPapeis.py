@@ -16,13 +16,13 @@ quando a intenção é liberar para qualquer um dos dois (OR).
 from functools import wraps
 from flask import session
 
-from src.core.sessaoHelpers.sessaoUsuarios import (
+from src.core.session.sessaoUsuarios import (
     get_is_admin_sessao,
     get_funcao_clinica_sessao,
     _sem_permissao,
     _popula_g,
 )
-from src.core.sessaoHelpers.sessaoAutenticacao import _checagem_base_sessao
+from src.core.session.sessaoAutenticacao import _checagem_base_sessao
 
 
 def requer_admin(f):

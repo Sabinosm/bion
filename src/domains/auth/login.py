@@ -138,7 +138,7 @@ class Login():
             # confirmado. Aqui fechamos o onboarding no próprio login
             # quando os pré-requisitos já estão de fato satisfeitos, em
             # vez de depender só daquela chamada separada ter ocorrido.
-            if usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
+            if usuario.hash_senha or _usuario_tem_algum_2fa_confirmado(usuario.id):
                 usuario.onboarding_pendente = False
                 db.session.commit()
                 # segue para o fluxo normal abaixo (mfa_pendente) --

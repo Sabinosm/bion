@@ -10,7 +10,7 @@ empilhado com `requer_login` -- ver observação no fim do arquivo.
 from functools import wraps
 from flask import session, jsonify
 
-from src.core.sessaoHelpers.sessaoUsuarios import _nao_autenticado, _popula_g
+from src.core.session.sessaoUsuarios import _nao_autenticado, _popula_g
 
 
 def _checagem_base_sessao():
