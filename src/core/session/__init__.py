@@ -1,3 +1,6 @@
+
+from flask import session, g
+
 from .sessaoUsuarios import (
     get_id_usuario_sessao,
     get_uuid_usuario_sessao,
