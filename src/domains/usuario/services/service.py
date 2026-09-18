@@ -258,7 +258,7 @@ class UsuarioService(ResetCredenciaisMixin):
     ):
         return att(self, uuid, dados, solicitante_is_admin, solicitante_uuid, solicitante_eh_super_admin)
 
-    def alterar_senha(self, uuid: str, dados: dict):
+    def alterar_senha(self, uuid: str, dados: dict, commit: bool = True):
         """Troca a senha do próprio usuário autenticado.
 
         Protegido a montante por step-up no controller (o token já foi
@@ -302,7 +302,7 @@ class UsuarioService(ResetCredenciaisMixin):
         u.hash_senha = ph.hash(schema.senha_nova)
         u.senha_versao = (u.senha_versao or 1) + 1
         u.deve_trocar_senha = False
-        return self.repo.save(u)
+        return self.repo.save(u, commit)
 
     def contagem_profissionais(self, id_empresa):
         return self.repo.count_no_super_admin_users(id_empresa=id_empresa)

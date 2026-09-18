@@ -179,11 +179,11 @@ class UsuarioController():
     @staticmethod
     @bp.put("/senha")
     @requer_login
-    @StepUp.requer_confirmacao_recente("alterar_senha")
+    @acao_sensivel(acao="alterar_senha", tabela="Usuarios")
     def alterar_senha():
         dados = request.get_json(silent=True) or {}
         try:
-            _svc.alterar_senha(g.uuid_usuario, dados)
+            _svc.alterar_senha(g.uuid_usuario, dados, commit=False)
             return json_success(
                 message="Senha alterada. Você precisará entrar novamente em outros dispositivos."
             )
@@ -193,7 +193,6 @@ class UsuarioController():
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-senha")
     @requer_admin
-    @StepUp.requer_confirmacao_recente("resetar_senha_usuario")
     @acao_sensivel(acao="resetar_senha_usuario", tabela="Usuarios")
     def resetar_senha(uuid_usuario):
         # Reset isolado de senha (diferente de resetar_completo: aqui só
