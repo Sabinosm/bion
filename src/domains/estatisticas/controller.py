@@ -1,6 +1,6 @@
 from flask import Blueprint, request, session
 from src.core.responses import json_success, json_error
-from .services.service import EstatisticasService
+from .service import EstatisticasService
 from src.core.session import requer_admin, get_id_empresa_sessao
 
 

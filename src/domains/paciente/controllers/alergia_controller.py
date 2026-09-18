@@ -61,7 +61,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado("alergia", operacao="escrita")
+    @acesso_auditado(recurso="adicionar alergia", operacao="escrita")
     def adicionar_alergia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -76,7 +76,7 @@ class AlergiaController():
     @staticmethod
     @bp.put("/<uuid_paciente>/alergias/<uuid_alergia>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado("alergia", operacao="escrita")
+    @acesso_auditado(recurso="atualizar alergia", operacao="escrita")
     def atualizar_alergia(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -90,7 +90,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/reacoes")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado("reacao_alergia", operacao="escrita")
+    @acesso_auditado(recurso="adicionar reacao", operacao="escrita")
     def adicionar_reacao(uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -127,7 +127,7 @@ class AlergiaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/alergias/<uuid_alergia>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado("alergia", operacao="escrita")
+    @acesso_auditado(recurso="restaurar alergia", operacao="escrita")
     def restaurar_alergia(uuid_paciente, uuid_alergia):
         try:
             a = _svc.restaurar_alergia(uuid_paciente, uuid_alergia, get_id_empresa_sessao())
@@ -141,7 +141,7 @@ class AlergiaController():
     @staticmethod
     @bp.delete("/<uuid_paciente>/alergias/reacoes/<uuid_reacao>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado("reacao_alergia", operacao="exclusao-logica")
+    @acesso_auditado(recurso="remover reacao", operacao="exclusao-logica")
     def remover_reacao(uuid_paciente, uuid_reacao):
         try:
             _svc_reacao.remover_reacao(uuid_paciente, uuid_reacao, get_id_empresa_sessao())

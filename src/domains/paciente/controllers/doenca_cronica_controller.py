@@ -31,7 +31,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(operacao="escrita")
+    @acesso_auditado(recurso="adicionar doenca cronica", operacao="escrita")
     def adicionar_doenca(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -45,7 +45,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.put("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(operacao="escrita")
+    @acesso_auditado(recurso="atualizar doenca cronica", operacao="escrita")
     def atualizar_doenca(uuid_paciente, uuid_doenca):
         dados = request.get_json(silent=True) or {}
         try:
@@ -77,7 +77,7 @@ class DoencaCronicaController():
     @staticmethod
     @bp.post("/<uuid_paciente>/doencas-cronicas/<uuid_doenca>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(operacao="escrita")
+    @acesso_auditado(recurso="restaurar doenca cronica", operacao="exclusao-logica")
     def restaurar_doenca(uuid_paciente, uuid_doenca):
         try:
             d = _svc.restaurar_doenca(uuid_paciente, uuid_doenca, get_id_empresa_sessao())

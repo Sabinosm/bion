@@ -41,9 +41,7 @@ import re
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, ValidationError
-from src.models.corp.empresa import Empresa
 from src.core import validacoes as vl
-from src.core.exeptions import DadosInvalidosError, ConflictoError
 
 
 REGEX_CEP_LIMPO = re.compile(r"^\d{8}$")

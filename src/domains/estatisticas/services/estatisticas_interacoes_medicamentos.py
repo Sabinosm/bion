@@ -1,6 +1,6 @@
 """Estatísticas do catálogo de interações medicamentosas cadastradas."""
 
-from src.domains.medicamentos.services.service import InteracoesMedicamentosService
+from src.domains.medicamentos.service import InteracoesMedicamentosService
 
 im_svc = InteracoesMedicamentosService()
 

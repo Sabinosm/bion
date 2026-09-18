@@ -31,7 +31,7 @@ class LgpdController():
     @staticmethod
     @bp.get("/<uuid_paciente>/consentimentos")
     @requer_login
-    @acesso_auditado(operacao="leitura")
+    @acesso_auditado(recurso="lista de consentimentos", operacao="leitura")
     def listar(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao())
@@ -43,6 +43,7 @@ class LgpdController():
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos")
     @requer_papel_clinico("medico","enfermeiro")
+    @acesso_auditado(recurso="registrar consentimento", operacao="escrita")
     def registrar(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -73,7 +74,7 @@ class LgpdController():
     @staticmethod
     @bp.post("/<uuid_paciente>/consentimentos/dispensar-emergencia")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(operacao="escrita")
+    @acesso_auditado(recurso="dispensar consentimento por emergência", operacao="escrita")
     def dispensar_emergencia(uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
