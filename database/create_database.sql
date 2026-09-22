@@ -50,24 +50,6 @@ CREATE TABLE `catalogo_medicamentos` (
   KEY `idx_catalogo_principio_ativo` (`principio_ativo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- bion_testes.log_sincronizacao_catalogo definition
-
-CREATE TABLE `log_sincronizacao_catalogo` (
-  `id_log_sincronizacao` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_log_sincronizacao` varchar(36) NOT NULL,
-  `id_catalogo` bigint(20) NOT NULL,
-  `tipo_alteracao` enum('criado','atualizado') NOT NULL,
-  `fonte` varchar(255) NOT NULL,
-  `dados_antes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_antes_json`)),
-  `dados_depois_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`dados_depois_json`)),
-  `executado_em` datetime NOT NULL,
-  PRIMARY KEY (`id_log_sincronizacao`),
-  UNIQUE KEY `uq_log_sincronizacao_uuid` (`uuid_log_sincronizacao`),
-  KEY `fk_log_sync_catalogo` (`id_catalogo`),
-  KEY `idx_log_sync_executado_em` (`executado_em`),
-  CONSTRAINT `fk_log_sync_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 -- bion_testes.catalogo_modulos definition
 
@@ -103,7 +85,6 @@ CREATE TABLE `contraindicacoes` (
 CREATE TABLE `indicacoes_terapeuticas` (
   `id_indicacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_indicacao` varchar(36) NOT NULL,
-  `acao` varchar(100) DEFAULT NULL,
   `nome` varchar(255) NOT NULL,
   `sinonimos_busca_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`sinonimos_busca_json`)),
   PRIMARY KEY (`id_indicacao`),
@@ -120,6 +101,31 @@ CREATE TABLE `loinc_sinal_vital` (
   `display_loinc` varchar(150) NOT NULL,
   `unidade_ucum` varchar(20) NOT NULL,
   PRIMARY KEY (`tipo_parametro`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.protocolo_catalogo definition
+
+CREATE TABLE `protocolo_catalogo` (
+  `id_protocolo_catalogo` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_protocolo_catalogo` char(36) NOT NULL,
+  `nome_protocolo` varchar(255) NOT NULL,
+  `sigla` varchar(50) NOT NULL,
+  `tipo_resultado` enum('score-numerico','categoria-cor','nivel-risco','binario') NOT NULL,
+  `escopo_populacao` enum('adulto','pediatrico','obstetrico','neonatal','universal') NOT NULL,
+  `versao_vigente` varchar(50) NOT NULL,
+  `data_vigencia` date NOT NULL,
+  `data_vigencia_fim` date DEFAULT NULL,
+  `referencia_bibliografica` text DEFAULT NULL,
+  `orgao_emissor` varchar(255) DEFAULT NULL,
+  `status` enum('ativo','descontinuado','em-revisao') NOT NULL,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `flag_personalizado` tinyint(1) DEFAULT NULL,
+  `tipo_protocolo` varchar(100) DEFAULT NULL,
+  `escopoUso` enum('triagem','consulta','ambos') DEFAULT NULL,
+  PRIMARY KEY (`id_protocolo_catalogo`),
+  UNIQUE KEY `uuid_protocolo_catalogo` (`uuid_protocolo_catalogo`),
+  UNIQUE KEY `sigla` (`sigla`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -169,6 +175,7 @@ CREATE TABLE `interacoes_medicamentos` (
   `gravidade` varchar(50) DEFAULT NULL,
   `mecanismo_efeito` text DEFAULT NULL,
   `recomendacao` text DEFAULT NULL,
+  `acao` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id_interacao`),
   UNIQUE KEY `uuid_interacao` (`uuid_interacao`),
   UNIQUE KEY `uq_interacao_par` (`id_medicamento_A`,`id_medicamento_B`),
@@ -178,6 +185,54 @@ CREATE TABLE `interacoes_medicamentos` (
   KEY `idx_interacao_medicamento_b` (`id_medicamento_B`),
   CONSTRAINT `interacoes_medicamentos_ibfk_1` FOREIGN KEY (`id_medicamento_A`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`),
   CONSTRAINT `interacoes_medicamentos_ibfk_2` FOREIGN KEY (`id_medicamento_B`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.log_sincronizacao_catalogo definition
+
+CREATE TABLE `log_sincronizacao_catalogo` (
+  `id_log_sincronizacao` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_log_sincronizacao` varchar(36) NOT NULL,
+  `id_catalogo` bigint(20) NOT NULL,
+  `tipo_alteracao` enum('criado','atualizado') NOT NULL,
+  `fonte` varchar(255) NOT NULL,
+  `dados_antes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_antes_json`)),
+  `dados_depois_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`dados_depois_json`)),
+  `executado_em` datetime NOT NULL,
+  PRIMARY KEY (`id_log_sincronizacao`),
+  UNIQUE KEY `uq_log_sincronizacao_uuid` (`uuid_log_sincronizacao`),
+  KEY `fk_log_sync_catalogo` (`id_catalogo`),
+  KEY `idx_log_sync_executado_em` (`executado_em`),
+  CONSTRAINT `fk_log_sync_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.protocolo_mts definition
+
+CREATE TABLE `protocolo_mts` (
+  `id_protocolo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_fluxo_mts` bigint(20) DEFAULT NULL,
+  `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_protocolo_mts`),
+  KEY `id_fluxo_mts` (`id_fluxo_mts`),
+  KEY `id_protocolo_catalogo` (`id_protocolo_catalogo`),
+  CONSTRAINT `protocolo_mts_ibfk_1` FOREIGN KEY (`id_fluxo_mts`) REFERENCES `catalogo_fluxogramas_mts` (`id_fluxo_mts`),
+  CONSTRAINT `protocolo_mts_ibfk_2` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.protocolo_personalizado definition
+
+CREATE TABLE `protocolo_personalizado` (
+  `id_protocolo_personalizado` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_modulo` bigint(20) DEFAULT NULL,
+  `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
+  `codigo_protocolo` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id_protocolo_personalizado`),
+  KEY `id_modulo` (`id_modulo`),
+  KEY `id_protocolo_catalogo` (`id_protocolo_catalogo`),
+  CONSTRAINT `protocolo_personalizado_ibfk_1` FOREIGN KEY (`id_modulo`) REFERENCES `catalogo_modulos` (`id_modulo`),
+  CONSTRAINT `protocolo_personalizado_ibfk_2` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -244,6 +299,7 @@ CREATE TABLE `usuarios` (
   `cpf_hash` varchar(255) NOT NULL,
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
+  `senha_versao` int(11) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `uuid_usuario` (`uuid_usuario`),
   UNIQUE KEY `cpf` (`cpf`),
@@ -266,6 +322,35 @@ CREATE TABLE `configuracao` (
   UNIQUE KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `configuracao_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.configuracao_protocolo definition
+
+CREATE TABLE `configuracao_protocolo` (
+  `id_configuracao_protocolo` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_configuracao` bigint(20) DEFAULT NULL,
+  `id_protocolo` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_configuracao_protocolo`),
+  KEY `id_configuracao` (`id_configuracao`),
+  KEY `fk_configuracao_protocolo_protocolo` (`id_protocolo`),
+  CONSTRAINT `configuracao_protocolo_ibfk_1` FOREIGN KEY (`id_configuracao`) REFERENCES `configuracao` (`id_configuracao`),
+  CONSTRAINT `fk_configuracao_protocolo_protocolo` FOREIGN KEY (`id_protocolo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.credencial_totp definition
+
+CREATE TABLE `credencial_totp` (
+  `id_credencial` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_usuario` bigint(20) NOT NULL,
+  `secret` varchar(255) NOT NULL,
+  `confirmado` tinyint(1) NOT NULL DEFAULT 0,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_credencial`),
+  UNIQUE KEY `uq_credencial_totp_usuario` (`id_usuario`),
+  KEY `idx_credencial_totp_usuario_confirmado` (`id_usuario`,`confirmado`),
+  CONSTRAINT `fk_credencial_totp_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- bion_testes.credencial_webauthn definition
@@ -316,6 +401,7 @@ CREATE TABLE `log_acesso` (
   `ip_origem` varchar(255) NOT NULL,
   `resultado` enum('sucesso','falha-autenticacao','acesso-negado','timeout') NOT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `motivo_negacao` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id_log`),
   UNIQUE KEY `uuid_log` (`uuid_log`),
   KEY `id_usuario` (`id_usuario`),
@@ -668,45 +754,6 @@ CREATE TABLE `coleta_clinica` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.sinal_vital definition
-
-CREATE TABLE `sinal_vital` (
-  `id_sinal_vital` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_sinal_vital` char(36) NOT NULL,
-  `id_atendimento` bigint(20) NOT NULL,
-  `tipo_parametro` varchar(40) NOT NULL,
-  `valor_numerico` decimal(10,2) NOT NULL,
-  `unidade` enum('irpm','%','mmHg','bpm','°C','mg-dL') NOT NULL,
-  `sitio_medicao` enum('axilar','oral','retal','timpanico','oximetria-digital','manguito-braco-direito','manguito-braco-esquerdo') DEFAULT NULL,
-  `data_hora_medicao` timestamp NOT NULL,
-  `coletado_por` bigint(20) NOT NULL,
-  `flag_validacao_faixa` enum('dentro-do-limite','fora-limite-alertado','fora-limite-rejeitado') NOT NULL,
-  `flag_escala_dpoc` tinyint(1) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id_sinal_vital`),
-  UNIQUE KEY `uuid_sinal_vital` (`uuid_sinal_vital`),
-  KEY `id_atendimento` (`id_atendimento`),
-  KEY `coletado_por` (`coletado_por`),
-  KEY `fk_sinal_vital_loinc` (`tipo_parametro`),
-  CONSTRAINT `fk_sinal_vital_loinc` FOREIGN KEY (`tipo_parametro`) REFERENCES `loinc_sinal_vital` (`tipo_parametro`),
-  CONSTRAINT `sinal_vital_ibfk_1` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
-  CONSTRAINT `sinal_vital_ibfk_2` FOREIGN KEY (`coletado_por`) REFERENCES `usuarios` (`id_usuario`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.configuracao_protocolo definition
-
-CREATE TABLE `configuracao_protocolo` (
-  `id_configuracao_protocolo` bigint(20) NOT NULL AUTO_INCREMENT,
-  `id_configuracao` bigint(20) DEFAULT NULL,
-  `id_protocolo` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id_configuracao_protocolo`),
-  KEY `id_configuracao` (`id_configuracao`),
-  KEY `fk_configuracao_protocolo_protocolo` (`id_protocolo`),
-  CONSTRAINT `configuracao_protocolo_ibfk_1` FOREIGN KEY (`id_configuracao`) REFERENCES `configuracao` (`id_configuracao`),
-  CONSTRAINT `fk_configuracao_protocolo_protocolo` FOREIGN KEY (`id_protocolo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- bion_testes.input_protocolo definition
 
 CREATE TABLE `input_protocolo` (
@@ -717,13 +764,10 @@ CREATE TABLE `input_protocolo` (
   `queixa_principal` text DEFAULT NULL,
   `valor_avpu` varchar(20) DEFAULT NULL,
   `dados_criticos_ausentes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_criticos_ausentes_json`)),
-  `tipo_input` enum('triagem','avaliacao-medica') DEFAULT NULL,
-  `id_protocolo_execucao` bigint(20) DEFAULT NULL,
+  `tipo_input` enum('triagem','consulta','avaliacao-medica') DEFAULT NULL,
   PRIMARY KEY (`id_input`),
   UNIQUE KEY `uuid_input` (`uuid_input`),
   KEY `id_coleta_clinica` (`id_coleta_clinica`),
-  KEY `fk_input_protocolo_execucao` (`id_protocolo_execucao`),
-  CONSTRAINT `fk_input_protocolo_execucao` FOREIGN KEY (`id_protocolo_execucao`) REFERENCES `input_protocolo_execucao` (`id_input_execucao`),
   CONSTRAINT `input_protocolo_ibfk_1` FOREIGN KEY (`id_coleta_clinica`) REFERENCES `coleta_clinica` (`id_coleta`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -758,6 +802,57 @@ CREATE TABLE `output_bion` (
   KEY `fk_output_input` (`id_input`),
   KEY `ix_output_bion_criado_input` (`criado_em`,`id_input`),
   CONSTRAINT `fk_output_input` FOREIGN KEY (`id_input`) REFERENCES `input_protocolo` (`id_input`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.resultado_prescricao definition
+
+CREATE TABLE `resultado_prescricao` (
+  `id_resultado` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_resultado` char(36) NOT NULL,
+  `id_atendimento` bigint(20) NOT NULL,
+  `codigo_cid10_principal` varchar(10) NOT NULL,
+  `descricao_cid10_principal` varchar(255) NOT NULL,
+  `certeza_diagnostica` enum('suspeito','provavel','confirmado','descartado') NOT NULL,
+  `formulado_por` bigint(20) NOT NULL,
+  `data_hora_formulacao` timestamp NOT NULL,
+  `tipo_prescricao` enum('farmacologica','nao-farmacologica','encaminhamento','internacao','alta') DEFAULT NULL,
+  `consistente_com_classificacao` tinyint(1) DEFAULT NULL,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `id_output` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_resultado`),
+  UNIQUE KEY `uuid_resultado` (`uuid_resultado`),
+  KEY `id_atendimento` (`id_atendimento`),
+  KEY `formulado_por` (`formulado_por`),
+  KEY `id_output` (`id_output`),
+  CONSTRAINT `resultado_prescricao_ibfk_1` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `resultado_prescricao_ibfk_2` FOREIGN KEY (`formulado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `resultado_prescricao_ibfk_3` FOREIGN KEY (`id_output`) REFERENCES `output_bion` (`id_output`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.sinal_vital definition
+
+CREATE TABLE `sinal_vital` (
+  `id_sinal_vital` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_sinal_vital` char(36) NOT NULL,
+  `id_atendimento` bigint(20) NOT NULL,
+  `tipo_parametro` varchar(40) NOT NULL,
+  `valor_numerico` decimal(10,2) NOT NULL,
+  `unidade` enum('irpm','%','mmHg','bpm','°C','mg-dL') NOT NULL,
+  `sitio_medicao` enum('axilar','oral','retal','timpanico','oximetria-digital','manguito-braco-direito','manguito-braco-esquerdo') DEFAULT NULL,
+  `data_hora_medicao` timestamp NOT NULL,
+  `coletado_por` bigint(20) NOT NULL,
+  `flag_validacao_faixa` enum('dentro-do-limite','fora-limite-alertado','fora-limite-rejeitado') NOT NULL,
+  `flag_escala_dpoc` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id_sinal_vital`),
+  UNIQUE KEY `uuid_sinal_vital` (`uuid_sinal_vital`),
+  KEY `id_atendimento` (`id_atendimento`),
+  KEY `coletado_por` (`coletado_por`),
+  KEY `fk_sinal_vital_loinc` (`tipo_parametro`),
+  CONSTRAINT `fk_sinal_vital_loinc` FOREIGN KEY (`tipo_parametro`) REFERENCES `loinc_sinal_vital` (`tipo_parametro`),
+  CONSTRAINT `sinal_vital_ibfk_1` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `sinal_vital_ibfk_2` FOREIGN KEY (`coletado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -805,94 +900,6 @@ CREATE TABLE `prescricao_exame` (
   CONSTRAINT `prescricao_exame_ibfk_2` FOREIGN KEY (`id_exame`) REFERENCES `catalogo_exames` (`id_catalogo_exame`),
   CONSTRAINT `prescricao_exame_ibfk_3` FOREIGN KEY (`id_output_origem`) REFERENCES `output_bion` (`id_output`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.protocolo_catalogo definition
-
-CREATE TABLE `protocolo_catalogo` (
-  `id_protocolo_catalogo` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_protocolo_catalogo` char(36) NOT NULL,
-  `nome_protocolo` varchar(255) NOT NULL,
-  `sigla` varchar(50) NOT NULL,
-  `tipo_resultado` enum('score-numerico','categoria-cor','nivel-risco','binario') NOT NULL,
-  `escopo_populacao` enum('adulto','pediatrico','obstetrico','neonatal','universal') NOT NULL,
-  `versao_vigente` varchar(50) NOT NULL,
-  `data_vigencia` date NOT NULL,
-  `data_vigencia_fim` date DEFAULT NULL,
-  `referencia_bibliografica` text DEFAULT NULL,
-  `orgao_emissor` varchar(255) DEFAULT NULL,
-  `status` enum('ativo','descontinuado','em-revisao') NOT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  `flag_personalizado` tinyint(1) DEFAULT NULL,
-  `tipo_protocolo` varchar(100) DEFAULT NULL,
-  `escopoUso` enum('triagem','consulta','ambos') DEFAULT NULL,
-  `id_protocolo_execucao` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id_protocolo_catalogo`),
-  UNIQUE KEY `uuid_protocolo_catalogo` (`uuid_protocolo_catalogo`),
-  UNIQUE KEY `sigla` (`sigla`),
-  KEY `fk_protocolo_catalogo_execucao` (`id_protocolo_execucao`),
-  CONSTRAINT `fk_protocolo_catalogo_execucao` FOREIGN KEY (`id_protocolo_execucao`) REFERENCES `input_protocolo_execucao` (`id_input_execucao`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.protocolo_mts definition
-
-CREATE TABLE `protocolo_mts` (
-  `id_protocolo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
-  `id_fluxo_mts` bigint(20) DEFAULT NULL,
-  `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id_protocolo_mts`),
-  KEY `id_fluxo_mts` (`id_fluxo_mts`),
-  KEY `id_protocolo_catalogo` (`id_protocolo_catalogo`),
-  CONSTRAINT `protocolo_mts_ibfk_1` FOREIGN KEY (`id_fluxo_mts`) REFERENCES `catalogo_fluxogramas_mts` (`id_fluxo_mts`),
-  CONSTRAINT `protocolo_mts_ibfk_2` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.protocolo_personalizado definition
-
-CREATE TABLE `protocolo_personalizado` (
-  `id_protocolo_personalizado` bigint(20) NOT NULL AUTO_INCREMENT,
-  `id_modulo` bigint(20) DEFAULT NULL,
-  `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
-  `codigo_protocolo` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id_protocolo_personalizado`),
-  KEY `id_modulo` (`id_modulo`),
-  KEY `id_protocolo_catalogo` (`id_protocolo_catalogo`),
-  CONSTRAINT `protocolo_personalizado_ibfk_1` FOREIGN KEY (`id_modulo`) REFERENCES `catalogo_modulos` (`id_modulo`),
-  CONSTRAINT `protocolo_personalizado_ibfk_2` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.resultado_prescricao definition
-
-CREATE TABLE `resultado_prescricao` (
-  `id_resultado` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_resultado` char(36) NOT NULL,
-  `id_atendimento` bigint(20) NOT NULL,
-  `codigo_cid10_principal` varchar(10) NOT NULL,
-  `descricao_cid10_principal` varchar(255) NOT NULL,
-  `certeza_diagnostica` enum('suspeito','provavel','confirmado','descartado') NOT NULL,
-  `formulado_por` bigint(20) NOT NULL,
-  `data_hora_formulacao` timestamp NOT NULL,
-  `tipo_prescricao` enum('farmacologica','nao-farmacologica','encaminhamento','internacao','alta') DEFAULT NULL,
-  `consistente_com_classificacao` tinyint(1) DEFAULT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  `id_output` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id_resultado`),
-  UNIQUE KEY `uuid_resultado` (`uuid_resultado`),
-  KEY `id_atendimento` (`id_atendimento`),
-  KEY `formulado_por` (`formulado_por`),
-  KEY `id_output` (`id_output`),
-  CONSTRAINT `resultado_prescricao_ibfk_1` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
-  CONSTRAINT `resultado_prescricao_ibfk_2` FOREIGN KEY (`formulado_por`) REFERENCES `usuarios` (`id_usuario`),
-  CONSTRAINT `resultado_prescricao_ibfk_3` FOREIGN KEY (`id_output`) REFERENCES `output_bion` (`id_output`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
-
-
-
 
 
 SET FOREIGN_KEY_CHECKS = 1;
