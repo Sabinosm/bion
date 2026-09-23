@@ -38,18 +38,14 @@ ao fluxo esperado, não rotina -- ver PacienteService.
 registrar_escrita_clinica_excepcional. Tipo sanguíneo (histórico de
 exame) fica só com médico/enfermeiro, sem essa exceção para admin.
 
-ATENÇÃO -- NÃO CORRIGIDO AQUI, PRECISA DE DECISÃO:
-`detalhe()` é GET (leitura pura, não escreve nada) mas usa
-`acao_sensivel`, que é documentado em acaoSensivel.py como destinado a
-ESCRITA/EXCLUSÃO (exige step-up + commit atômico de log). Isso força
-step-up de identidade em toda visualização de prontuário, e o retorno
-de detalhe() nunca teve nem vai ter um "id_registro alterado" de
-verdade -- não há o que persistir atomicamente numa leitura. O padrão
-correto pro resto do arquivo (e do domínio) é `acesso_auditado`, que
-não exige step-up e não exige o contrato de detalhes. Mantive
-`acao_sensivel` aqui só para não alterar comportamento sem
-confirmação -- adicionei o mínimo pra não quebrar (id_registro do
-paciente), mas o certo é avaliar trocar para `acesso_auditado`.
+ATUALIZADO: `detalhe()` trocou de `acao_sensivel` para `acesso_auditado`
+-- decisão confirmada. `acao_sensivel` é para escrita/exclusão (exige
+step-up); numa leitura pura, isso só gerava fricção sem propósito (não
+há alteração pra persistir atomicamente com o log). Agora só registra
+LogAcesso (operacao="leitura"), sem exigir reconfirmação de identidade
+nem o contrato (resposta, detalhes) com id_registro/uuid_registro --
+volta a ser um retorno simples de json_success, como o resto do
+arquivo.
 
 ATUALIZADO: `remover_tipo_sanguineo` agora cumpre o contrato de
 `acao_sensivel` -- devolve (resposta, detalhes).
@@ -83,28 +79,18 @@ class PacienteClinicoController():
     # (paciente + alergias + doenças crônicas + medicamentos em uso +
     # consentimento_ativo como booleano) -- só aqui, nunca em listagem
     #
-    # NOTA: ver aviso no topo do arquivo -- acao_sensivel numa rota GET
-    # é discutível. Mantido, com detalhes mínimos, até decisão.
+    # ATUALIZADO: usa acesso_auditado, não acao_sensivel -- leitura não
+    # exige step-up; só fica registrado como LogAcesso.
     @staticmethod
     @bp.get("/<uuid>")
     @requer_papel_clinico("medico", "enfermeiro", "admin")
-    @acao_sensivel(acao="vizualizar_paciente", tabela="paciente")
+    @acesso_auditado(recurso="visualizar prontuario", operacao="leitura")
     def detalhe(uuid):
         try:
             prontuario = _svc.montar_prontuario_completo(uuid, get_id_empresa_sessao())
-            # NOTA: o dict de montar_prontuario_completo não tem chave
-            # "id" (só "uuid", "sexo_biologico" etc, todos vindos de
-            # Paciente.to_dict()) -- usamos o uuid da própria rota,
-            # já validado dentro do service, como identificador.
-            resposta = json_success(data=prontuario)
-            return resposta, {
-                "id_registro": uuid,
-                "uuid_registro": uuid,
-                "operacao": "SELECT",
-            }
+            return json_success(data=prontuario)
         except BionException as ex:
-            resposta = json_error(ex.message, ex.status_code)
-            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code)
 
 
     # Separado de atualizar_pessoal -- status, falecido, data_obito.

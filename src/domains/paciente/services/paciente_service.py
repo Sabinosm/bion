@@ -272,11 +272,26 @@ class PacienteService:
             "contato_emergencia_telefone": aes_decrypt(p.contato_emergencia_telefone),
         }
 
-    def anonimizar(self, uuid: str, id_empresa: int):
+    def anonimizar(self, uuid: str, id_empresa: int, commit: bool = True):
         """Delega para paciente.anonimizar() do model (já corrigido lá
         para de fato desligar PacienteDadosPessoais), em vez de
         duplicar essa lógica aqui -- uma só fonte de verdade para o
-        que "anonimizar" significa."""
+        que "anonimizar" significa.
+
+        CORRIGIDO: passou a aceitar `commit`, mesmo padrão dos outros
+        métodos usados com acao_sensivel (resetar_senha_usuario,
+        remover_alergia etc). Antes comitava incondicionalmente aqui
+        dentro -- chamado por uma view decorada com acao_sensivel, isso
+        persistia a anonimização (irreversível) ANTES do decorator
+        conseguir registrar o log de auditoria correspondente. Se o
+        registro do log falhasse depois (ou a view não cumprisse o
+        contrato de retorno, como já aconteceu em outras rotas deste
+        domínio), o paciente ficava anonimizado sem nenhum rastro de
+        quem fez ou quando -- exatamente o cenário que a atomicidade de
+        acao_sensivel existe para evitar. Com commit=False (usado pelo
+        controller), a alteração fica pendente na sessão e só é
+        persistida junto com o log, no commit único feito pelo
+        decorator."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
         if not paciente.pessoal:
             raise DadosInvalidosError("Paciente já está anonimizado.")
@@ -285,7 +300,10 @@ class PacienteService:
         paciente.anonimizar(cpf_plaintext)
 
         from src.models import db
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return paciente
 
     def montar_prontuario_completo(self, uuid: str, id_empresa: int, commit: bool = False):
