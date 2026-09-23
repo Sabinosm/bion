@@ -6,6 +6,7 @@ from src.models.pacientes import (
     Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
     DoencaCronica, MedicamentoEmUso, Consentimento, ObservacaoTipoSanguineo,
 )
+from src.models.corp.empresa import Empresa
 from datetime import datetime, time, timezone, timedelta
 from sqlalchemy import func
 
@@ -83,14 +84,38 @@ class PacienteRepository(IRepository[Paciente]):
             .limit(8)
             .all()
         )
-    
+
+    def _limites_do_dia_utc(self, id_empresa: int):
+        """Calcula o início e o fim do dia de HOJE no fuso horário da
+        empresa (ver Empresa.fuso_horario), já convertidos para UTC --
+        necessário porque `criado_em` é gravado em UTC, então a
+        comparação no banco precisa acontecer nesse mesmo referencial.
+
+        Sem isso, "hoje" seria calculado em UTC puro, o que desloca a
+        virada do dia em até algumas horas em relação ao horário local
+        da empresa (ex: consultas perto da meia-noite local caindo no
+        dia errado da contagem).
+        """
+        empresa = db.session.get(Empresa, id_empresa)
+        fuso = empresa.fuso_horario if empresa else timezone.utc
+
+        agora_local = datetime.now(fuso)
+        hoje_local = agora_local.date()
+
+        inicio_local = datetime.combine(hoje_local, time.min, tzinfo=fuso)
+        fim_local = datetime.combine(hoje_local, time.max, tzinfo=fuso)
+
+        return inicio_local.astimezone(timezone.utc), fim_local.astimezone(timezone.utc)
+
     def count_pacientes_hoje(self, id_empresa: int) -> int:
         """SIMPLIFICADO: filtra direto por Paciente.id_empresa, sem JOIN
         com Usuario -- o JOIN via cadastrado_por era um contorno pro fato
-        de Paciente não ter id_empresa próprio (agora tem)."""
-        hoje = datetime.now(timezone.utc).date()
-        inicio_dia = datetime.combine(hoje, time.min, tzinfo=timezone.utc)
-        fim_dia = datetime.combine(hoje, time.max, tzinfo=timezone.utc)
+        de Paciente não ter id_empresa próprio (agora tem).
+
+        ALTERADO: "hoje" agora é calculado no fuso da empresa (ver
+        _limites_do_dia_utc), não em UTC direto.
+        """
+        inicio_dia, fim_dia = self._limites_do_dia_utc(id_empresa)
 
         return (
             db.session.query(func.count(Paciente.id))

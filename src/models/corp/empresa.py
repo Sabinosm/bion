@@ -100,7 +100,29 @@ class Empresa(db.Model):
             from src.models.corp.empresa_identificador import EmpresaIdentificador
             self.identificadores.append(
                 EmpresaIdentificador(tipo_identificador="cnes", valor=valor)
+    
             )
+    @property
+    def fuso_horario(self):
+        """Fuso horário oficial da empresa, resolvido pela UF da
+        região geográfica associada (ver src/core/fusos_brasil.py).
+
+        Cai no fuso padrão (America/Sao_Paulo) se a empresa não tiver
+        região geográfica associada, ou se a região não tiver UF
+        preenchida.
+        """
+        from src.core.fusos_brasil import fuso_por_uf
+        uf = self.regiao_geografica.uf if self.regiao_geografica else None
+        return fuso_por_uf(uf)
+
+    @property
+    def offset_horario(self) -> str:
+        """Offset fixo da empresa como string "+HH:MM"/"-HH:MM", para
+        uso em CONVERT_TZ() do MySQL (ver src/core/fusos_brasil.py)."""
+        from src.core.fusos_brasil import offset_str_por_uf
+        uf = self.regiao_geografica.uf if self.regiao_geografica else None
+        return offset_str_por_uf(uf)
+    
 
     def to_dict(self):
         return {
