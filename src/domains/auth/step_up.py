@@ -80,6 +80,7 @@ from src.domains.auth.mfa import metodo_stepup
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 from src.domains.auth.frontend_config import FRONTEND_URL
 from src.domains.auth.oauth import oauth
+from src.domains.auth.totp_2fa import resetar_tentativas_stepup_totp
 
 from webauthn import generate_authentication_options, verify_authentication_response, options_to_json
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
@@ -177,16 +178,19 @@ class StepUp():
 
         Corpo esperado (JSON): `acao`.
 
-        Retorno:
-            200 com `metodo: "webauthn"` e as opções de autenticação, se o
-            usuário tiver credencial WebAuthn cadastrada.
-            200 com `metodo: "totp"` se não tiver WebAuthn mas tiver TOTP
-            confirmado -- o frontend deve seguir para
-            `/totp/2fa/stepup/iniciar`.
-            200 com `metodo: "senha_google"` se o usuário não tiver
-            nenhum dos dois cadastrado -- o frontend deve seguir para
-            `/stepup/senha/confirmar`.
-            400 se `acao` não for informada.
+        
+        200 com `metodo: "webauthn"` e as opções de autenticação, se o
+        usuário tiver credencial WebAuthn cadastrada.
+        200 com `metodo: "totp"` se não tiver WebAuthn mas tiver TOTP
+        confirmado -- já vem com `tentativas_restantes` (o reset de
+        tentativas já é feito aqui, o frontend NÃO precisa chamar
+        `/totp/2fa/stepup/iniciar` de novo nesse caso -- só usa essa
+        rota se precisar reiniciar o TOTP depois de uma falha do
+        WebAuthn, ver totp.js/stepUpCaminhoWebauthn.js).
+        200 com `metodo: "senha_google"` se o usuário não tiver
+        nenhum dos dois cadastrado -- o frontend deve seguir para
+        `/stepup/senha/confirmar`.
+        
         """
         id_usuario = get_id_usuario_sessao()
 
@@ -198,7 +202,12 @@ class StepUp():
         metodo = metodo_stepup(id_usuario)
 
         if metodo == "totp":
-            return jsonify({"metodo": "totp", "acao": acao}), 200
+            tentativas_restantes = resetar_tentativas_stepup_totp(acao)
+            return jsonify({
+                "metodo": "totp",
+                "acao": acao,
+                "tentativas_restantes": tentativas_restantes,
+            }), 200
 
         if metodo == "senha_google":
             return jsonify({"metodo": "senha_google", "acao": acao}), 200
