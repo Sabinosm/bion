@@ -76,7 +76,15 @@ class StepUpReautenticacao(db.Model):
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def expirado(self):
-        return datetime.now(timezone.utc) > self.expira_em
+        expira_em = self.expira_em
+        # Mesmo problema/fix de StepUpToken.expirado() (stepup.py):
+        # alguns bancos/drivers devolvem o valor lido sem timezone,
+        # mesmo a coluna sendo DateTime(timezone=True) -- normaliza
+        # pra UTC antes de comparar, já que é sempre o que é gravado
+        # (ver stepup_senha_confirmar em step_up.py).
+        if expira_em.tzinfo is None:
+            expira_em = expira_em.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) > expira_em
 
     def __repr__(self):
         return f"<StepUpReautenticacao usuario={self.id_usuario} acao={self.acao}>"
