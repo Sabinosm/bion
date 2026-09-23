@@ -76,6 +76,7 @@ from src.models.auditoria.stepup import StepUpToken
 from src.models.auditoria.stepup_reautenticacao import StepUpReautenticacao
 from src.core.security import ph
 from src.core.session import requer_login, get_usuario_sessao, get_id_usuario_sessao
+from src.domains.auth.mfa import metodo_stepup
 from src.domains.auth.webauthn_config import RP_ID, EXPECTED_ORIGIN
 from src.domains.auth.frontend_config import FRONTEND_URL
 from src.domains.auth.oauth import oauth
@@ -168,13 +169,22 @@ class StepUp():
         ao desafio gerado. Isso impede que alguém inicie um step-up para
         uma ação e confirme com `acao` diferente na segunda chamada.
 
+        A ordem de preferência entre os métodos é decidida por
+        `metodo_stepup` (ver mfa.py) -- mesma regra usada no login
+        (`metodo_2fa_preferencial`), só que resolvendo contas sem
+        nenhum fator cadastrado para o fallback "senha_google" em vez
+        de None.
+
         Corpo esperado (JSON): `acao`.
 
         Retorno:
             200 com `metodo: "webauthn"` e as opções de autenticação, se o
-            usuário tiver credencial cadastrada.
+            usuário tiver credencial WebAuthn cadastrada.
+            200 com `metodo: "totp"` se não tiver WebAuthn mas tiver TOTP
+            confirmado -- o frontend deve seguir para
+            `/totp/2fa/stepup/iniciar`.
             200 com `metodo: "senha_google"` se o usuário não tiver
-            credencial cadastrada -- o frontend deve seguir para
+            nenhum dos dois cadastrado -- o frontend deve seguir para
             `/stepup/senha/confirmar`.
             400 se `acao` não for informada.
         """
@@ -185,17 +195,16 @@ class StepUp():
         if not acao:
             return jsonify({"erro": "acao_nao_especificada"}), 400
 
-        credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
+        metodo = metodo_stepup(id_usuario)
 
-        # Usa o que o usuário tiver: WebAuthn se tiver credencial
-        # cadastrada; senão TOTP, se tiver (ver totp_2fa.py,
-        # stepup_totp_iniciar); senão, fallback senha+Google -- que na
-        # prática só deveria ocorrer para contas legadas ainda não
-        # migradas, já que o onboarding atual sempre exige pelo menos
-        # um dos dois métodos.
-        if not credenciais:
+        if metodo == "totp":
+            return jsonify({"metodo": "totp", "acao": acao}), 200
+
+        if metodo == "senha_google":
             return jsonify({"metodo": "senha_google", "acao": acao}), 200
 
+        # Só resta "webauthn" daqui pra baixo.
+        credenciais = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).all()
         permitir = [
             PublicKeyCredentialDescriptor(id=base64.urlsafe_b64decode(c.credential_id + "=="))
             for c in credenciais

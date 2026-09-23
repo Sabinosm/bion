@@ -38,6 +38,22 @@ def usuario_tem_algum_2fa(id_usuario) -> bool:
     return metodo_2fa_preferencial(id_usuario) is not None
 
 
+def metodo_stepup(id_usuario) -> str:
+    """Retorna qual método o STEP-UP deve tentar primeiro: "webauthn"
+    ou "totp" se o usuário tiver algum dos dois (mesma ordem de
+    preferência de `metodo_2fa_preferencial`), ou "senha_google" caso
+    não tenha nenhum dos dois cadastrado.
+
+    Diferente de `metodo_2fa_preferencial` (que devolve None para
+    contas legadas sem fator migrado e deixa quem chama decidir o que
+    fazer com isso), esta função já resolve esse caso para "senha_google"
+    -- porque, ao contrário do login, o step-up sempre tem uma saída
+    (ver step_up.py para o racional completo do fallback).
+    """
+    metodo = metodo_2fa_preferencial(id_usuario)
+    return metodo or "senha_google"
+
+
 def metodos_2fa_disponiveis(id_usuario) -> list[str]:
     """Retorna TODOS os métodos de 2FA cadastrados e utilizáveis pelo
     usuário, em ordem de preferência de exibição (WebAuthn primeiro).
