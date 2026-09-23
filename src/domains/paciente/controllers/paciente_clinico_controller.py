@@ -37,6 +37,22 @@ essa gravação específica fica registrada em auditoria por ser exceção
 ao fluxo esperado, não rotina -- ver PacienteService.
 registrar_escrita_clinica_excepcional. Tipo sanguíneo (histórico de
 exame) fica só com médico/enfermeiro, sem essa exceção para admin.
+
+ATENÇÃO -- NÃO CORRIGIDO AQUI, PRECISA DE DECISÃO:
+`detalhe()` é GET (leitura pura, não escreve nada) mas usa
+`acao_sensivel`, que é documentado em acaoSensivel.py como destinado a
+ESCRITA/EXCLUSÃO (exige step-up + commit atômico de log). Isso força
+step-up de identidade em toda visualização de prontuário, e o retorno
+de detalhe() nunca teve nem vai ter um "id_registro alterado" de
+verdade -- não há o que persistir atomicamente numa leitura. O padrão
+correto pro resto do arquivo (e do domínio) é `acesso_auditado`, que
+não exige step-up e não exige o contrato de detalhes. Mantive
+`acao_sensivel` aqui só para não alterar comportamento sem
+confirmação -- adicionei o mínimo pra não quebrar (id_registro do
+paciente), mas o certo é avaliar trocar para `acesso_auditado`.
+
+ATUALIZADO: `remover_tipo_sanguineo` agora cumpre o contrato de
+`acao_sensivel` -- devolve (resposta, detalhes).
 """
 
 from flask import Blueprint, request, session
@@ -66,6 +82,9 @@ class PacienteClinicoController():
     # ALTERADO: detalhe() agora devolve o prontuário completo
     # (paciente + alergias + doenças crônicas + medicamentos em uso +
     # consentimento_ativo como booleano) -- só aqui, nunca em listagem
+    #
+    # NOTA: ver aviso no topo do arquivo -- acao_sensivel numa rota GET
+    # é discutível. Mantido, com detalhes mínimos, até decisão.
     @staticmethod
     @bp.get("/<uuid>")
     @requer_papel_clinico("medico", "enfermeiro", "admin")
@@ -73,9 +92,19 @@ class PacienteClinicoController():
     def detalhe(uuid):
         try:
             prontuario = _svc.montar_prontuario_completo(uuid, get_id_empresa_sessao())
-            return json_success(data=prontuario)
+            # NOTA: o dict de montar_prontuario_completo não tem chave
+            # "id" (só "uuid", "sexo_biologico" etc, todos vindos de
+            # Paciente.to_dict()) -- usamos o uuid da própria rota,
+            # já validado dentro do service, como identificador.
+            resposta = json_success(data=prontuario)
+            return resposta, {
+                "id_registro": uuid,
+                "uuid_registro": uuid,
+                "operacao": "SELECT",
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
 
     # Separado de atualizar_pessoal -- status, falecido, data_obito.
@@ -142,8 +171,18 @@ class PacienteClinicoController():
     @requer_papel_clinico("medico", "enfermeiro")
     @acao_sensivel(acao="remover_tipo_sanguineo", tabela="observacao_tipo_sanguineo")
     def remover_tipo_sanguineo(uuid, uuid_observacao):
+        # NOTA: remover_tipo_sanguineo devolve o retorno de
+        # repo.delete_by_uuid(...), não a instância -- usamos
+        # uuid_observacao (já validado dentro do service) como
+        # uuid_registro, mesmo padrão de remover_alergia acima.
         try:
             _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao(), commit=False)
-            return json_success(message="Observação de tipo sanguíneo removida.")
+            resposta = json_success(message="Observação de tipo sanguíneo removida.")
+            return resposta, {
+                "id_registro": uuid_observacao,
+                "uuid_registro": uuid_observacao,
+                "operacao": "DELETE",
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_observacao, "operacao": "NOOP"}

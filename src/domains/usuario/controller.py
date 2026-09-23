@@ -8,6 +8,16 @@ campos triviais (telefone, email) que nao devem pedir reconfirmacao.
 criar()/atualizar()/desativar()/ativar() repassam g.is_super_admin ao
 service, que decide se o solicitante pode mexer num usuario que ja e
 admin.
+
+IMPORTANTE -- contrato com @acao_sensivel:
+Toda view decorada com @acao_sensivel PRECISA retornar
+(resposta_flask, detalhes), com pelo menos 'id_registro' e
+'uuid_registro' em detalhes -- ver acaoSensivel.py. Sem isso, o
+decorator levanta ValueError e faz rollback de QUALQUER alteração
+pendente na sessão, mesmo que a resposta HTTP já tenha sido montada
+como sucesso. Isso vale inclusive para os retornos de erro precoce
+(ex: checagem de super admin) dentro dessas views -- por isso cada
+retorno abaixo, mesmo os de erro, devolve a tupla.
 """
 
 from flask import Blueprint, request, g
@@ -108,9 +118,20 @@ class UsuarioController():
     def desativar(uuid):
         try:
             u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin, commit=False)
-            return json_success(data=u.to_dict(), message="Usuário desativado.")
+            resposta = json_success(data=u.to_dict(), message="Usuário desativado.")
+            return resposta, {
+                "id_registro": u.id,
+                "uuid_registro": u.uuid,
+                "operacao": "UPDATE",
+                "campo_alterado": "status",
+                "valor_novo": "inativo",
+            }
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            # Nenhuma alteração foi feita na sessão -- devolver detalhes
+            # "vazios" mas presentes, só para satisfazer o contrato do
+            # decorator sem fingir que um registro foi afetado.
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
     @staticmethod
     @bp.post("/<uuid>/ativar")
@@ -120,11 +141,20 @@ class UsuarioController():
         try:
             u = _svc.ativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
             if u:
-                return json_success(data=u.to_dict(), message="Usuário ativado.")
+                resposta = json_success(data=u.to_dict(), message="Usuário ativado.")
+                return resposta, {
+                    "id_registro": u.id,
+                    "uuid_registro": u.uuid,
+                    "operacao": "UPDATE",
+                    "campo_alterado": "status",
+                    "valor_novo": "ativo",
+                }
             else:
-                return json_error("Usuário pendente não pode ser ativado manualmente", 422)
+                resposta = json_error("Usuário pendente não pode ser ativado manualmente", 422)
+                return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-2fa")
@@ -134,10 +164,11 @@ class UsuarioController():
         # @requer_admin garante só "é admin de alguma empresa"; resetar
         # 2FA de terceiros exige especificamente o super admin.
         if not g.is_super_admin:
-            return json_error(
+            resposta = json_error(
                 "Apenas o administrador principal pode resetar o 2FA de um usuário.",
                 403,
             )
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
         try:
             u = _svc.reset_2fa(
                 uuid_usuario,
@@ -145,12 +176,20 @@ class UsuarioController():
                 solicitante_eh_super_admin=g.is_super_admin,
                 commit=False,
             )
-            return json_success(
+            resposta = json_success(
                 data=u.to_dict(),
                 message="2FA resetado. O usuário precisará cadastrar um novo dispositivo.",
             )
+            return resposta, {
+                "id_registro": u.id,
+                "uuid_registro": u.uuid,
+                "operacao": "DELETE",
+                "campo_alterado": "credenciais_2fa",
+                "justificativa": "Reset de 2FA solicitado pelo administrador principal.",
+            }
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
 
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-completo")
@@ -158,10 +197,11 @@ class UsuarioController():
     @acao_sensivel(acao="resetar_completo_usuario", tabela="Usuarios")
     def resetar_completo(uuid_usuario):
         if not g.is_super_admin:
-            return json_error(
+            resposta = json_error(
                 "Apenas o administrador principal pode resetar um usuário por completo.",
                 403,
             )
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
         try:
             u = _svc.reset_total(
                 uuid_usuario,
@@ -169,12 +209,20 @@ class UsuarioController():
                 solicitante_eh_super_admin=g.is_super_admin,
                 commit=False,
             )
-            return json_success(
+            resposta = json_success(
                 data=u.to_dict(),
                 message="Usuário resetado por completo. Ele precisará refazer a ativação de conta.",
             )
+            return resposta, {
+                "id_registro": u.id,
+                "uuid_registro": u.uuid,
+                "operacao": "DELETE",
+                "campo_alterado": "credenciais_2fa,hash_senha,status",
+                "justificativa": "Reset completo solicitado pelo administrador principal.",
+            }
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
 
     @staticmethod
     @bp.put("/senha")
@@ -183,12 +231,19 @@ class UsuarioController():
     def alterar_senha():
         dados = request.get_json(silent=True) or {}
         try:
-            _svc.alterar_senha(g.uuid_usuario, dados, commit=False)
-            return json_success(
+            u = _svc.alterar_senha(g.uuid_usuario, dados, commit=False)
+            resposta = json_success(
                 message="Senha alterada. Você precisará entrar novamente em outros dispositivos."
             )
+            return resposta, {
+                "id_registro": u.id,
+                "uuid_registro": u.uuid,
+                "operacao": "UPDATE",
+                "campo_alterado": "hash_senha",
+            }
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": g.uuid_usuario, "operacao": "NOOP"}
 
     @staticmethod
     @bp.post("/<uuid_usuario>/resetar-senha")
@@ -200,10 +255,11 @@ class UsuarioController():
         # temporária no retorno: o usuário define a própria no próximo
         # login, caindo no fluxo de onboarding já existente.
         if not g.is_super_admin:
-            return json_error(
+            resposta = json_error(
                 "Apenas o administrador principal pode resetar a senha de um usuário.",
                 403,
             )
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
         try:
             u = _svc.resetar_senha_usuario(
                 uuid_usuario,
@@ -211,10 +267,18 @@ class UsuarioController():
                 solicitante_eh_super_admin=g.is_super_admin,
                 commit=False,
             )
-            return json_success(
+            resposta = json_success(
                 data=u.to_dict(),
                 message="Senha resetada. O usuário precisará definir uma nova senha "
                         "no próximo login.",
             )
+            return resposta, {
+                "id_registro": u.id,
+                "uuid_registro": u.uuid,
+                "operacao": "UPDATE",
+                "campo_alterado": "hash_senha",
+                "justificativa": "Reset de senha solicitado pelo administrador principal.",
+            }
         except BionException as e:
-            return json_error(e.message, e.status_code)
+            resposta = json_error(e.message, e.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}

@@ -1,5 +1,17 @@
 """
 Rotas JSON de doenças crônicas do paciente (parte do domínio clínico).
+
+CORRIGIDO: `remover_doenca` chamava `_svc.remover_doenca(...,
+commmit=False)` com "commmit" (3 M's) -- a assinatura real do service
+é `commit` (2 M's, default True). Isso não era um bug silencioso: toda
+chamada levantava TypeError (kwarg inesperado), então esta rota nunca
+funcionou. Corrigido para `commit=False`.
+
+ATUALIZADO: `remover_doenca` agora cumpre o contrato de
+`acao_sensivel` -- devolve (resposta, detalhes) com id_registro/
+uuid_registro/justificativa. Como o service devolve o resultado de
+`repo.soft_delete(...)` (não a instância da doença), uuid_doenca -- já
+validado dentro do service -- é usado como identificador.
 """
 
 from flask import Blueprint, request
@@ -63,12 +75,33 @@ class DoencaCronicaController():
     @requer_papel_clinico("medico", "enfermeiro")
     @acao_sensivel(acao="remover_doenca_cronica", tabela="doenca_cronica")
     def remover_doenca(uuid_paciente, uuid_doenca):
+        # NOTA: ainda não confirmei o valor de retorno de
+        # DoencaCronicaService.remover_doenca -- dado que os services
+        # irmãos (AlergiaService.remover_alergia,
+        # ObservacaoTipoSanguineoService.remover_tipo_sanguineo) devolvem
+        # um bool/resultado de repo, não a instância, assumo o mesmo
+        # aqui por cautela e uso uuid_doenca (já validado dentro do
+        # service) como identificador. Ajustar se o service devolver a
+        # instância de verdade.
         dados = request.get_json(silent=True) or {}
         try:
-            _svc.remover_doenca(uuid_paciente, uuid_doenca, dados, get_id_empresa_sessao(), commmit=False)
-            return json_success(message="Doença crônica removida.")
+            # Corrigido: era "commmit" (3 M's), typo que não corresponde
+            # a nenhum parâmetro de DoencaCronicaService.remover_doenca
+            # (assinatura real usa "commit", 2 M's) -- a chamada
+            # levantava TypeError em toda tentativa de remoção.
+            _svc.remover_doenca(uuid_paciente, uuid_doenca, dados, get_id_empresa_sessao(), commit=False)
+            resposta = json_success(message="Doença crônica removida.")
+            return resposta, {
+                "id_registro": uuid_doenca,
+                "uuid_registro": uuid_doenca,
+                "operacao": "DELETE",
+                "campo_alterado": "deletado",
+                "valor_novo": "True",
+                "justificativa": dados.get("motivo_delete") or dados.get("observacoes_delete"),
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_doenca, "operacao": "NOOP"}
 
     # NOVO: reverte um soft delete. POST (não PUT) porque é uma ação,
     # não uma substituição de estado do recurso via corpo -- não tem

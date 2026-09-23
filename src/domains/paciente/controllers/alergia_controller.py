@@ -24,12 +24,13 @@ continuar sendo consultado por engano; as demais (`adicionar_alergia`,
 -- registram log sem exigir reconfirmação de identidade, pra não gerar
 fricção em fluxo clínico de uso frequente.
 
-TODO antes de ativar `acao_sensivel` em remover_alergia: confirmar que
-`AlergiaService.remover_alergia` NÃO chama `db.session.commit()`
-internamente e passa a retornar `(resposta, detalhes)` com pelo menos
-`id_registro`/`uuid_registro` (e `justificativa`, já que é
-soft-delete) -- ver contrato descrito em `acaoSensivel.py`. Sem isso o
-decorator falha silenciosamente ou quebra a atomicidade do log.
+ATUALIZADO: `remover_alergia` agora cumpre o contrato de
+`acao_sensivel` -- devolve (resposta, detalhes) com id_registro/
+uuid_registro/justificativa (soft-delete exige justificativa, ver
+acaoSensivel.py). Sem isso o decorator levantava ValueError e fazia
+rollback silencioso de toda remoção, mesmo com a resposta HTTP já
+tendo saído como sucesso -- ver histórico do domínio de usuário, que
+tinha exatamente esse bug.
 """
 
 from flask import Blueprint, request
@@ -109,12 +110,29 @@ class AlergiaController():
     @requer_papel_clinico("medico", "enfermeiro")
     @acao_sensivel("remover_alergia", tabela="alergia")
     def remover_alergia(uuid_paciente, uuid_alergia):
+        # NOTA: AlergiaService.remover_alergia devolve True (não a
+        # instância) -- não temos o id numérico aqui sem uma consulta
+        # extra. Usamos uuid_alergia (já validado dentro do service,
+        # que levanta RecursoNaoEncontradoError se não existir/não
+        # pertencer ao paciente) como uuid_registro. Se o log de
+        # auditoria precisar do id numérico também, o ideal é o
+        # service passar a devolver a instância, como os outros
+        # métodos de escrita deste mesmo service já fazem.
         dados = request.get_json(silent=True) or {}
         try:
             _svc.remover_alergia(uuid_paciente, uuid_alergia, dados, get_id_empresa_sessao(), commit=False)
-            return json_success(message="Alergia removida.")
+            resposta = json_success(message="Alergia removida.")
+            return resposta, {
+                "id_registro": uuid_alergia,
+                "uuid_registro": uuid_alergia,
+                "operacao": "DELETE",
+                "campo_alterado": "ativo",
+                "valor_novo": "False",
+                "justificativa": dados.get("motivo_delete") or dados.get("observacoes_delete"),
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid_alergia, "operacao": "NOOP"}
 
 
     # NOVO: reverte um soft delete de alergia.

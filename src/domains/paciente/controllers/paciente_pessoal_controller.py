@@ -23,6 +23,22 @@ e o admin lida com isso rotineiramente (mesma razão de existir
 "Gerenciamento"/"Pacientes" no nav dele). Anonimizar (LGPD, direito ao
 esquecimento) fica só com admin -- é decisão de titularidade/
 compliance da empresa, não ato clínico; tirado do médico de propósito.
+
+ATENÇÃO -- NÃO CORRIGIDO AQUI, PRECISA DE DECISÃO (mesma nota de
+paciente_clinico_controller.py):
+`detalhe()` é GET (leitura) mas usa `acao_sensivel`, pensado para
+escrita/exclusão. Mantido por ora com o mínimo pra cumprir o contrato
+-- avaliar trocar para `acesso_auditado`, coerente com o resto do
+domínio de paciente.
+
+`anonimizar()` é uma ação claramente sensível/irreversível (LGPD,
+direito ao esquecimento) mas hoje NÃO usa `acao_sensivel` nem
+`acesso_auditado` -- não tem step-up, nem log de auditoria, nem
+atomicidade. Não alterei isso aqui porque é uma mudança de
+comportamento (adicionar exigência de step-up numa rota que hoje não
+tem), não um fix do contrato -- mas sinalizo por ser provavelmente o
+retrato mais grave neste arquivo: uma remoção irreversível de PII sem
+rastro nenhum na auditoria.
 """
 
 from flask import Blueprint, request, session
@@ -81,6 +97,8 @@ class PacientePessoalController():
         return json_success(data=resultado)
 
 
+    # NOTA: ver aviso no topo do arquivo -- acao_sensivel numa rota GET
+    # é discutível. Mantido, com detalhes mínimos, até decisão.
     @staticmethod
     @bp.get("/<uuid>")
     @requer_login
@@ -89,9 +107,15 @@ class PacientePessoalController():
         com_pii = _pode_ver_clinico()
         try:
             p = _svc.buscar_por_uuid(uuid, get_id_empresa_sessao())
-            return json_success(data=_serializar(p, com_pii))
+            resposta = json_success(data=_serializar(p, com_pii))
+            return resposta, {
+                "id_registro": p.id,
+                "uuid_registro": p.uuid,
+                "operacao": "SELECT",
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
 
     @staticmethod

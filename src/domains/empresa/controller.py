@@ -34,9 +34,15 @@ class EmpresaController():
         dados = request.get_json(silent=True) or {}
         try:
             e = _svc.atualizar(get_id_empresa_sessao(), dados, uuid, False)
-            return json_success(data=e.to_dict(), message="Empresa atualizada.")
+            resposta = json_success(data=e.to_dict(), message="Empresa atualizada.")
+            return resposta, {
+                "id_registro": e.id,
+                "uuid_registro": e.uuid,
+                "operacao": "UPDATE",
+            }
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
 
     # Para acessar tem que ter pago? TODO pensar em ordem de acesso nesse quesito. 
@@ -74,5 +80,3 @@ class EmpresaController():
             return json_success(data={"existe": existe})
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
-        
-
