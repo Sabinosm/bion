@@ -104,9 +104,15 @@ class Oauth():
         session["senha_versao"] = usuario.senha_versao
         session.permanent = True
 
-        # Fecha o onboarding aqui mesmo quando os pré-requisitos já
-        # estão satisfeitos, mesmo motivo e mesma lógica de login.py.
-        if usuario.onboarding_pendente and (usuario.hash_senha or _usuario_tem_algum_2fa_confirmado(usuario.id)):
+        # CORRIGIDO: era `or`, deveria ser `and` -- mesmo bug de
+        # login.py. Com `or`, um usuário que teve só a senha resetada
+        # (hash_senha=None, mas 2FA ainda confirmado) fechava
+        # onboarding_pendente na hora, pulando a etapa de definir senha
+        # nova -- ficava com hash_senha=None permanentemente, sem
+        # nunca ser levado de volta a /definir-senha. Concluir
+        # onboarding exige os dois requisitos presentes, mesma regra
+        # de onboarding.py::concluir_onboarding().
+        if usuario.onboarding_pendente and (usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id)):
             usuario.onboarding_pendente = False
             db.session.commit()
 

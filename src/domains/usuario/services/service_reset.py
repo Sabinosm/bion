@@ -70,6 +70,13 @@ class ResetCredenciaisMixin:
         # sensível (ver requer_senha_atualizada em session.py), mesmo
         # que o onboarding em si já impeça uso normal.
         u.senha_versao = (u.senha_versao or 1) + 1
+        # CORRIGIDO: faltava sinalizar onboarding_pendente=True. Sem
+        # isso, o usuário fica com hash_senha=None mas nenhum estado
+        # que direcione o próximo login para o fluxo de onboarding --
+        # login.py já documentava esse comportamento esperado ("zera
+        # hash_senha e marca onboarding_pendente=True"), mas o service
+        # nunca fazia a segunda parte.
+        u.onboarding_pendente = True
         return self.repo.save(u, commit=commit)
 
     def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit:bool=True):
@@ -108,7 +115,17 @@ class ResetCredenciaisMixin:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
 
         self.repo.remover_credenciais(u.id, commit=commit)
-        return u
+        # CORRIGIDO: mesmo raciocínio de resetar_senha_usuario -- sem
+        # 2FA confirmado, o usuário está com um requisito de onboarding
+        # em falta (senha OK, 2FA não), e login.py/oauth.py só tratam
+        # onboarding como concluído quando os dois estão presentes
+        # (ver correção do "or" -> "and" nesses arquivos). Sem sinalizar
+        # aqui, o usuário reseta o 2FA mas nunca é reconduzido para
+        # recadastrar um método. Usa o mesmo `commit` recebido -- não
+        # força commit aqui, pra não quebrar a atomicidade esperada por
+        # acao_sensivel quando o controller passa commit=False.
+        u.onboarding_pendente = True
+        return self.repo.save(u, commit=commit)
 
     def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit: bool = True):
         """Reset completo de credenciais de um usuário: remove o 2FA
@@ -151,4 +168,9 @@ class ResetCredenciaisMixin:
         self.repo.remover_credenciais(u.id, commit=commit)
         u.hash_senha = None
         u.status = "pendente"
+        # CORRIGIDO: por coerência com resetar_senha_usuario/reset_2fa
+        # -- reset_total zera os dois requisitos (senha e 2FA), então
+        # onboarding_pendente também precisa refletir isso
+        # explicitamente, não só o status="pendente".
+        u.onboarding_pendente = True
         return self.repo.save(u, commit=commit)

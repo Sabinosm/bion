@@ -88,11 +88,17 @@ class Login():
         session["senha_versao"] = usuario.senha_versao
 
         if usuario.onboarding_pendente:
-            # Fecha o onboarding aqui mesmo quando os pré-requisitos já
-            # estão satisfeitos (senha definida e/ou 2FA confirmado),
-            # em vez de depender só de uma chamada separada a
-            # /onboarding/concluir ter ocorrido.
-            if usuario.hash_senha or _usuario_tem_algum_2fa_confirmado(usuario.id):
+            # CORRIGIDO: era `or`, deveria ser `and`. Com `or`, bastava
+            # ter só um dos dois requisitos (senha OU 2FA) para fechar
+            # onboarding_pendente -- isso fecha prematuramente quando o
+            # usuário perdeu só um dos dois (ex: reset de senha por
+            # admin, que zera hash_senha mas mantém o 2FA já
+            # confirmado): a condição batia True pelo 2FA sozinho, e o
+            # usuário nunca era levado a definir a senha nova. A
+            # conclusão do onboarding exige os dois presentes -- mesma
+            # regra que onboarding.py::concluir_onboarding() já aplica
+            # explicitamente (retorna erro se faltar qualquer um).
+            if usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
                 usuario.onboarding_pendente = False
                 db.session.commit()
                 # segue para o fluxo normal abaixo (mfa_pendente)
