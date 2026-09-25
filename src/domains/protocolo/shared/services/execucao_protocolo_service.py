@@ -1,11 +1,4 @@
-"""Orquestrador genérico de execução de protocolo: valida permissão,
-delega o cálculo à Strategy (via Factory), persiste em InputProtocoloExecucao.
-
-Não sabe qual família de protocolo está rodando -- só fala com
-ProtocoloFactory e com os repositórios comuns (catálogo, input_execucao,
-versao). A parte específica do NEWS2 (carregar_estrutura, validar_respostas,
-executar) mora inteiramente na Strategy.
-"""
+# shared/services/execucao_protocolo_service.py
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
@@ -22,20 +15,7 @@ class ExecucaoProtocoloService:
         self.repo_versao = ProtocoloVersaoRepository()
         self.repo_execucao = InputProtocoloExecucaoRepository()
 
-    def executar_e_persistir(
-        self,
-        id_protocolo_catalogo: int,
-        id_input: int,
-        respostas: dict,
-        executor: int,
-        buscar_dado_bruto_config,
-    ) -> InputProtocoloExecucao:
-        """
-        buscar_dado_bruto_config: callable que devolve o Model de configuração
-        específico da família (ex: ProtocoloEscoreConfig), já resolvido por
-        quem chama -- este Service não sabe em qual tabela de config buscar,
-        isso é responsabilidade de cada News2Service/MtsService/etc.
-        """
+    def executar_e_persistir(self, id_protocolo_catalogo, id_input, respostas, executor, buscar_dado_bruto_config):
         catalogo = self.repo_catalogo.find_by_id(id_protocolo_catalogo)
         if not catalogo:
             raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {id_protocolo_catalogo}")
@@ -43,6 +23,7 @@ class ExecucaoProtocoloService:
         if self.repo_execucao.find_por_input_e_protocolo(id_input, id_protocolo_catalogo):
             raise ConflictoError("Este protocolo já foi executado para este input.")
 
+        # "CONTEXTO" = a versão vigente do protocolo, rastreada na execução
         versao_vigente = self.repo_versao.find_vigente(id_protocolo_catalogo)
         if not versao_vigente:
             raise RecursoNaoEncontradoError(f"Nenhuma versão vigente encontrada para o protocolo {id_protocolo_catalogo}")
@@ -56,19 +37,19 @@ class ExecucaoProtocoloService:
         estrutura = strategy.carregar_estrutura(dado_bruto)
 
         try:
-            dados_validados = strategy.validar_respostas(estrutura, respostas)
+            dados_validados = strategy.validar_respostas(estrutura, respostas)  # SCHEMA VALIDA
         except ValueError as ex:
-            raise DadosInvalidosError(str(ex))
+            raise DadosInvalidosError(str(ex))  # DÁ ERRO
 
-        resultado = strategy.executar(estrutura, dados_validados)
+        resultado = strategy.executar(estrutura, dados_validados)  # CALCULA
 
         execucao = InputProtocoloExecucao(
             id_input=id_input,
             id_protocolo_catalogo=id_protocolo_catalogo,
             executor=executor,
             status="concluida" if not resultado.dados_ausentes else "incompleta",
-            id_versao_utilizada=versao_vigente.id,   # <- corrigido: era .id_versao
+            id_versao_utilizada=versao_vigente.id,   # CONTEXTO salvo aqui
             dados_ausentes_json=resultado.dados_ausentes,
             resultado_calculado_json=resultado.model_dump(),
         )
-        return self.repo_execucao.save(execucao)
+        return self.repo_execucao.save(execucao)  # SALVA EXECUÇÃO

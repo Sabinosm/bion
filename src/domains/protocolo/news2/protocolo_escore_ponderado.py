@@ -1,11 +1,12 @@
-"""Strategy da família 'escore-ponderado'. Serve o NEWS2 hoje."""
-from ...shared.strategy.base import ProtocoloStrategy, CampoEsperado
-from ..schemas.schema_protocolo_escore_config import SchemaEscoreConfig, ParametroEscore
-from ...shared.schemas.schema_resultado import SchemaResultado, PassoTrilha
+# news2/strategy/escore_ponderado.py
+
+from ..shared.strategy.base import ProtocoloStrategy, CampoEsperado
+from .schema_protocolo_escore_config import SchemaEscoreConfig, ParametroEscore
+from ..shared.schemas.schema_resultado import SchemaResultado, PassoTrilha
 import json
 
 
-class ProtocoloEscorePonderadoStrategy(ProtocoloStrategy):
+class EscorePonderadoStrategy(ProtocoloStrategy):
 
     def carregar_estrutura(self, dado_bruto) -> SchemaEscoreConfig:
         return SchemaEscoreConfig(
@@ -17,19 +18,25 @@ class ProtocoloEscorePonderadoStrategy(ProtocoloStrategy):
 
     def campos_esperados(self, estrutura: SchemaEscoreConfig) -> list[CampoEsperado]:
         return [
-            CampoEsperado(campo=p.campo, texto=p.rotulo, tipo_campo=p.tipo_campo)
+            CampoEsperado(
+                campo=p.campo,
+                texto=p.rotulo,
+                tipo_campo=p.tipo_campo,
+                opcoes=None,  # NEWS2 hoje só tem campos numéricos; enum entra quando precisar
+            )
             for p in estrutura.parametros
         ]
 
     def validar_respostas(self, estrutura: SchemaEscoreConfig, respostas: dict) -> dict:
+        """SCHEMA VERIFICA OS CAMPOS -- chave desconhecida = erro (P-04)."""
         campos_validos = {p.campo for p in estrutura.parametros}
         chaves_desconhecidas = set(respostas.keys()) - campos_validos
         if chaves_desconhecidas:
             raise ValueError(f"Campos não pertencem a este protocolo: {chaves_desconhecidas}")
-        # dado_ausente explícito (P-04): campo declarado mas não enviado
         return {campo: respostas.get(campo) for campo in campos_validos}
 
     def executar(self, estrutura: SchemaEscoreConfig, dados_validados: dict) -> SchemaResultado:
+        """FAZ OS CÁLCULOS."""
         trilha: list[PassoTrilha] = []
         pontos_por_campo: dict[str, int] = {}
         dados_ausentes: list[str] = []
@@ -57,11 +64,7 @@ class ProtocoloEscorePonderadoStrategy(ProtocoloStrategy):
             classificacao=categoria,
             trilha_explicativa=trilha,
             dados_ausentes=dados_ausentes,
-            metadata={
-                "escore_total": total,
-                "override_disparado": override_disparado,
-                "acao_recomendada": acao,
-            },
+            metadata={"escore_total": total, "override_disparado": override_disparado, "acao_recomendada": acao},
         )
 
     def _pontuar(self, valor: float, parametro: ParametroEscore) -> int:
@@ -87,14 +90,3 @@ class ProtocoloEscorePonderadoStrategy(ProtocoloStrategy):
             if faixa.total_min <= total <= faixa.total_max:
                 return faixa.categoria, faixa.acao_recomendada
         raise ValueError(f"Total {total} não se encaixa em nenhuma faixa de interpretação")
-    
-    def campos_esperados(self, estrutura: SchemaEscoreConfig) -> list[CampoEsperado]:
-        return [
-            CampoEsperado(
-                campo=p.campo,
-                texto=p.rotulo,
-                tipo_campo=p.tipo_campo,
-                opcoes=[f.valor_min for f in p.faixas] if p.tipo_campo == "enum" else None,
-            )
-            for p in estrutura.parametros
-        ]

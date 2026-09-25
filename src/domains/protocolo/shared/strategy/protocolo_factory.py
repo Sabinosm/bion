@@ -1,6 +1,6 @@
 """Único ponto de decisão de qual Strategy usar, a partir de tipo_protocolo."""
 from .base import ProtocoloStrategy
-from ...news2.strategy.protocolo_escore_ponderado import ProtocoloEscorePonderadoStrategy
+from ...news2.protocolo_escore_ponderado import ProtocoloEscorePonderadoStrategy
 
 
 class ProtocoloFactory:
