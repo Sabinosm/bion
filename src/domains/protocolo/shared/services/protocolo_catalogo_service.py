@@ -67,3 +67,38 @@ class ProtocoloCatalogoService:
             flag_personalizado=bool(dados.get("flag_personalizado", False)),
         )
         return self.repo.save(p)
+    
+    # shared/services/protocolo_catalogo_service.py — métodos novos
+
+    def listar_catalogo(self, id_empresa: int):
+        """Página de catálogo, sem filtro -- visão geral com status de liberação."""
+        linhas = self.repo.find_all_com_status_empresa(id_empresa)
+        return [self._montar_resumo(p, ativo, politica) for p, ativo, politica in linhas]
+
+    def listar_catalogo_filtrado(
+        self,
+        id_empresa: int,
+        tipo_protocolo: str = None,
+        escopo_populacao: str = None,
+        escopo_uso: str = None,
+        apenas_liberados: bool = False,
+        offset: int = 0,
+    ):
+        linhas = self.repo.find_all_filtrado(
+            id_empresa, tipo_protocolo, escopo_populacao, escopo_uso, apenas_liberados, offset
+        )
+        return [self._montar_resumo(p, ativo, politica) for p, ativo, politica in linhas]
+
+    def _montar_resumo(self, protocolo, ativo, politica):
+        """DTO de resumo -- não expõe estrutura interna (JSON cru), só o
+        necessário para o card da listagem. Detalhe completo é outra rota."""
+        return {
+            "uuid": protocolo.uuid,
+            "nome_protocolo": protocolo.nome_protocolo,
+            "sigla": protocolo.sigla,
+            "tipo_protocolo": protocolo.tipo_protocolo,
+            "escopo_populacao": protocolo.escopo_populacao,
+            "escopo_uso": protocolo.escopo_uso,
+            "liberado_pela_empresa": bool(ativo),
+            "politica": politica,
+        }

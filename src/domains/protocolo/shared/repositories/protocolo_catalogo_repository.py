@@ -40,3 +40,57 @@ class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
     def find_all(self) -> List[ProtocoloCatalogo]:
         """Lista todos os ProtocoloCatalogo cadastrados, sem filtro."""
         return ProtocoloCatalogo.query.all()
+    # shared/repositories/protocolo_catalogo_repository.py — método novo
+
+    def find_all_com_status_empresa(self, id_empresa: int):
+        """Lista todo o catálogo, com um LEFT JOIN em EmpresaProtocolo para
+        trazer o status de liberação junto -- protocolo nunca tocado pela
+        empresa aparece com vinculo=None, não fica ausente da lista."""
+        from src.models.protocolos import EmpresaProtocolo
+        return (
+            ProtocoloCatalogo.query
+            .outerjoin(
+                EmpresaProtocolo,
+                (EmpresaProtocolo.id_protocolo_catalogo == ProtocoloCatalogo.id) &
+                (EmpresaProtocolo.id_empresa == id_empresa),
+            )
+            .add_columns(EmpresaProtocolo.ativo, EmpresaProtocolo.politica)
+            .filter(ProtocoloCatalogo.status == "ativo")
+            .all()
+        )
+    # shared/repositories/protocolo_catalogo_repository.py — método novo
+
+    def find_all_filtrado(
+        self,
+        id_empresa: int,
+        tipo_protocolo: str = None,
+        escopo_populacao: str = None,
+        escopo_uso: str = None,
+        apenas_liberados: bool = False,
+        offset: int = 0,
+    ):
+        from src.models.protocolos import EmpresaProtocolo
+
+        query = (
+            ProtocoloCatalogo.query
+            .outerjoin(
+                EmpresaProtocolo,
+                (EmpresaProtocolo.id_protocolo_catalogo == ProtocoloCatalogo.id) &
+                (EmpresaProtocolo.id_empresa == id_empresa),
+            )
+            .add_columns(EmpresaProtocolo.ativo, EmpresaProtocolo.politica)
+            .filter(ProtocoloCatalogo.status == "ativo")
+        )
+
+        if tipo_protocolo:
+            query = query.filter(ProtocoloCatalogo.tipo_protocolo == tipo_protocolo)
+        if escopo_populacao:
+            query = query.filter(ProtocoloCatalogo.escopo_populacao == escopo_populacao)
+        if escopo_uso:
+            query = query.filter(
+                (ProtocoloCatalogo.escopo_uso == escopo_uso) | (ProtocoloCatalogo.escopo_uso == "ambos")
+            )
+        if apenas_liberados:
+            query = query.filter(EmpresaProtocolo.ativo == True)
+
+        return query.offset(offset).limit(20).all()
