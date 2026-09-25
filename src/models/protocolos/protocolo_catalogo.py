@@ -1,14 +1,14 @@
 """
 Dominio de Protocolos / IA (motor de triagem e suporte a decisao).
 
-ProtocoloCatalogo era um stub (so id/uuid/criado_em), mas o
-ProtocoloFactory (app/protocolo/factory.py) ja acessava `catalogo.sigla`
-para escolher o motor certo (MTS/NEWS2/PP) -- isso quebraria em runtime
-assim que a factory fosse chamada. Completado aqui com sigla e os demais
-campos do schema.
-
-OutputBion tambem era stub, mas ia/controller.py ja acessava
-`output.output_ia_json` -- tambem completado.
+Atualizado para refletir as migrations de 2026-09-24:
+  - MIGRATION 1: removida a FK fk_protocolo_catalogo_execucao (quebra do
+    ciclo catalogo <-> execucao). ProtocoloCatalogo NAO referencia mais
+    InputProtocoloExecucao; a navegacao correta e sempre
+    execucao -> catalogo.
+  - Novos relacionamentos: versoes (ProtocoloVersao), empresas (via
+    EmpresaProtocolo), condutas (CondutaEnfermagem) e escore_config
+    (ProtocoloEscoreConfig, 1:1).
 """
 
 from datetime import datetime, timezone
@@ -49,7 +49,19 @@ class ProtocoloCatalogo(db.Model):
     protocolos_mts = db.relationship("ProtocoloMts", back_populates="protocolo_catalogo")
     protocolos_personalizados = db.relationship("ProtocoloPersonalizado",
                                                  back_populates="protocolo_catalogo")
-    execucoes = db.relationship("InputProtocoloExecucao", back_populates="protocolo_catalogo")
+
+    # NOTA: relationship "execucoes" removida (MIGRATION 1). O catalogo e
+    # referencia, nao registro -- quem navega ate a execucao e o proprio
+    # InputProtocoloExecucao (protocolo_catalogo = relationship(...)),
+    # nunca o contrario.
+
+    versoes = db.relationship("ProtocoloVersao", back_populates="protocolo_catalogo",
+                               cascade="all, delete-orphan")
+    empresas = db.relationship("EmpresaProtocolo", back_populates="protocolo_catalogo",
+                                cascade="all, delete-orphan")
+    condutas = db.relationship("CondutaEnfermagem", back_populates="protocolo_catalogo")
+    escore_config = db.relationship("ProtocoloEscoreConfig", back_populates="protocolo_catalogo",
+                                     uselist=False, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {

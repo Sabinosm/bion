@@ -32,10 +32,11 @@ from src.models.clinico import (
     ResultadoPrescricao,
     SinalVital,
     PrescricaoExame,
+    CondutaEnfermagem,
 )
 
 # Corporativo
-from src.models.corp import Empresa, RegiaoGeografica, EmpresaIdentificador, TipoJurisdicao
+from src.models.corp import Empresa, RegiaoGeografica, EmpresaIdentificador, TipoJurisdicao, EmpresaProtocolo
 
 # Paciente
 from src.models.pacientes import (
@@ -58,6 +59,8 @@ from src.models.protocolos import (
     ProtocoloCatalogo,
     ProtocoloMts,
     ProtocoloPersonalizado,
+    ProtocoloVersao,
+    ProtocoloEscoreConfig,
 )
 
 # Usuário
@@ -104,12 +107,14 @@ __all__ = [
     "SinalVital",
     "LoincSinalVital",
     "PrescricaoExame",
+    "CondutaEnfermagem",
     
     # Corporativo
     "Empresa",
     "RegiaoGeografica",
-    "EmpresaIdentificicador",
+    "EmpresaIdentificador",
     "TipoJurisdicao",
+    "EmpresaProtocolo",
     
     # Paciente
     "Alergia",
@@ -128,6 +133,8 @@ __all__ = [
     "ProtocoloCatalogo",
     "ProtocoloMts",
     "ProtocoloPersonalizado",
+    "ProtocoloEscoreConfig",
+    "ProtocoloVersao",
     
     # Usuário
     "Configuracao",
