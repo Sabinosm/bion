@@ -37,7 +37,7 @@ from ..repository import UsuarioRepository
 from .service_helpers import monta_dados_papel
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin
-from src.schemas.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, _formatar_erros_pydantic
+from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, _formatar_erros_pydantic
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 from .service_validacoes import (

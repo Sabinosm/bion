@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, DoencaCronicaRepository
-from src.schemas.schema_doenca_cronica import (
+from src.domains.paciente.schemas.schema_doenca_cronica import (
     DoencaCronicaCreateSchema, DoencaCronicaAtualizarSchema,
     DoencaCronicaRemoverSchema, _formatar_erros_pydantic,
 )

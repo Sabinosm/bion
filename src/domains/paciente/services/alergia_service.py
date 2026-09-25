@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, AlergiaRepository
-from src.schemas.schema_alergia import (
+from src.domains.paciente.schemas.schema_alergia import (
     AlergiaCreateSchema, AlergiaAtualizarSchema, AlergiaRemoverSchema, _formatar_erros_pydantic,
 )
 

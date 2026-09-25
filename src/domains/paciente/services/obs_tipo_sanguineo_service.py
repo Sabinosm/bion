@@ -4,7 +4,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repositories import (
     ObservacaoTipoSanguineoRepository, PacienteRepository,
 )
-from src.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, _formatar_erros_pydantic
+from src.domains.paciente.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, _formatar_erros_pydantic
 
     
 class ObservacaoTipoSanguineoService:

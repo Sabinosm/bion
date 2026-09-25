@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
 from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
-from src.schemas.schema_medicamento_em_uso import (
+from src.domains.paciente.schemas.schema_medicamento_em_uso import (
     MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema,
     MedicamentoEmUsoRemoverSchema, _formatar_erros_pydantic,
 )

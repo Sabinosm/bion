@@ -8,7 +8,7 @@ from ..repositories import (
     PacienteRepository,
     ObservacaoTipoSanguineoRepository,
 )
-from src.schemas.schema_paciente import (
+from src.domains.paciente.schemas.schema_paciente import (
     PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, _formatar_erros_pydantic, PacienteCriarSchema, 
 )
 from src.domains.regiao.cep_service import CepService

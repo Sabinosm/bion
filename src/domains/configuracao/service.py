@@ -1,6 +1,6 @@
 from src.core.exceptions import RecursoNaoEncontradoError, BionException
 from .repository import ConfiguracaoRepository
-from src.schemas.schema_config import validar_configuracoes
+from src.domains.configuracao.schema_config import validar_configuracoes
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 
 

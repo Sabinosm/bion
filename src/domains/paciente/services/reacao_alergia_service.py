@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repositories import PacienteRepository, AlergiaRepository, ReacaoAlergiaRepository
-from src.schemas.schema_alergia import ReacaoAlergiaCreateSchema, _formatar_erros_pydantic
+from src.domains.paciente.schemas.schema_alergia import ReacaoAlergiaCreateSchema, _formatar_erros_pydantic
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""

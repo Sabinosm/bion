@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, ConsentimentoRepository
-from src.schemas.schema_consentimento import (
+from src.domains.paciente.schemas.schema_consentimento import (
     ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema,
     ConsentimentoRevogarSchema, _formatar_erros_pydantic,
 )

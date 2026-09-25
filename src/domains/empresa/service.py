@@ -12,10 +12,10 @@ service nunca escreve CNPJ em uma atualização, só na criação.
 from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
-from src.schemas.schema_usuario import _formatar_erros_pydantic
+from src.domains.usuario.schema_usuario import _formatar_erros_pydantic
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
-from ...schemas.schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
+from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
 

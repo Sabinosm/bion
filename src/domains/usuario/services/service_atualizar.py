@@ -7,7 +7,7 @@ from .service_helpers import (
     atributos_atuais,
     monta_dados_papel,
 )
-from src.schemas.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema, _formatar_erros_pydantic
+from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema, _formatar_erros_pydantic
 from src.models.usuarios.papel_profissional import PapelProfissional
 
 
