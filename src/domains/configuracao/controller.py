@@ -45,10 +45,9 @@ class ConfiguracaoController():
     @bp.put("/protocolos/<int:id_protocolo>/habilitar")
     @requer_papel_clinico("medico", "enfermeiro")
     def habilitar_protocolo(id_protocolo):
-        dados = request.get_json(silent=True) or {}
         try:
             protocolo = _svc.habilitar_protocolo(
-                g.id_usuario, id_protocolo, dados.get("configuracoes")
+                g.id_usuario, id_protocolo
             )
             return json_success(data=protocolo.to_dict(), message="Protocolo habilitado.")
         except BionException as ex:
