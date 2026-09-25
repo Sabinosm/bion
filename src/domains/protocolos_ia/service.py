@@ -2,7 +2,7 @@
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from .repository import OutputBionRepository
-from src.domains.protocolo.repository import ProtocoloCatalogoRepository
+from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
 from .motor.factory import ProtocoloFactory
 from .motor.base import InputTriagem, InputConsulta
 

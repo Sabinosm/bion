@@ -5,7 +5,7 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_admin 
-from .service import ProtocoloCatalogoService
+from .shared.services.protocolo_catalogo_service import ProtocoloCatalogoService
 
 bp_protocolo = Blueprint("protocolo", __name__)
 _svc = ProtocoloCatalogoService()

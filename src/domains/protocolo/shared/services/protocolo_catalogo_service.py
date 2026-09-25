@@ -1,7 +1,7 @@
 """Regras de negócio da entidade ProtocoloCatalogo."""
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .repository import ProtocoloCatalogoRepository
+from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
 from src.domains.protocolos_ia.helpers import parse_data
 
 CAMPOS_OBRIGATORIOS_PROTOCOLO = (
