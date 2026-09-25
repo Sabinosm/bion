@@ -5,7 +5,7 @@ from typing import Optional
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.protocolos import InputProtocoloExecucao
+from src.models.clinico import InputProtocoloExecucao
 
 
 class InputProtocoloExecucaoRepository(IRepository[InputProtocoloExecucao]):

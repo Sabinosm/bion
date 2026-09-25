@@ -1,7 +1,7 @@
 """Regras de negócio da execução do protocolo NEWS2."""
 
 from src.core.exceptions import DadosInvalidosError, ConflictoError
-from src.models.corp import EmpresaProtocoloRepository
+from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
 from ...shared.services.execucao_protocolo_service import ExecucaoProtocoloService
 from ..repositories.protocolo_escore_config_repository import ProtocoloEscoreConfigRepository
 from src.domains.configuracao.repository import ConfiguracaoRepository

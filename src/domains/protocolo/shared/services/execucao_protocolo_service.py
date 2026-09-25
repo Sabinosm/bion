@@ -12,7 +12,7 @@ from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoReposi
 from ..repositories.protocolo_versao_repository import ProtocoloVersaoRepository
 from ..repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository
 from ..strategy.protocolo_factory import ProtocoloFactory
-from src.models.protocolos import InputProtocoloExecucao
+from src.models.clinico import InputProtocoloExecucao
 
 
 class ExecucaoProtocoloService:
@@ -67,7 +67,7 @@ class ExecucaoProtocoloService:
             id_protocolo_catalogo=id_protocolo_catalogo,
             executor=executor,
             status="concluida" if not resultado.dados_ausentes else "incompleta",
-            id_versao_utilizada=versao_vigente.id_versao,
+            id_versao_utilizada=versao_vigente.id,   # <- corrigido: era .id_versao
             dados_ausentes_json=resultado.dados_ausentes,
             resultado_calculado_json=resultado.model_dump(),
         )
