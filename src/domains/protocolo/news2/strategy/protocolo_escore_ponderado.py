@@ -87,3 +87,14 @@ class ProtocoloEscorePonderadoStrategy(ProtocoloStrategy):
             if faixa.total_min <= total <= faixa.total_max:
                 return faixa.categoria, faixa.acao_recomendada
         raise ValueError(f"Total {total} não se encaixa em nenhuma faixa de interpretação")
+    
+    def campos_esperados(self, estrutura: SchemaEscoreConfig) -> list[CampoEsperado]:
+        return [
+            CampoEsperado(
+                campo=p.campo,
+                texto=p.rotulo,
+                tipo_campo=p.tipo_campo,
+                opcoes=[f.valor_min for f in p.faixas] if p.tipo_campo == "enum" else None,
+            )
+            for p in estrutura.parametros
+        ]
