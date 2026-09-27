@@ -7,14 +7,17 @@ from .protocolo_escore_config_repository import ProtocoloEscoreConfigRepository
 from .protocolo_escore_ponderado import EscorePonderadoStrategy
 from src.domains.configuracao.repository import ConfiguracaoRepository
 
-
 class News2Service:
-    """Ponto de entrada específico do NEWS2: pesquisa (campos), permissão,
-    e delega a execução ao orquestrador genérico."""
+    """Ponto de entrada específico do NEWS2: pesquisa (campos), permissão
+    institucional, e delega a execução ao orquestrador genérico.
+
+    configuracao_protocolo NÃO é gate de execução -- é só preferência pessoal
+    de atalho (protocolo aparece em destaque na consulta). O único gate real
+    é empresa_protocolo.ativo, controlado pelo admin.
+    """
 
     def __init__(self):
         self.repo_empresa_protocolo = EmpresaProtocoloRepository()
-        self.repo_configuracao = ConfiguracaoRepository()
         self.repo_config = ProtocoloEscoreConfigRepository()
         self.strategy = EscorePonderadoStrategy()
         self.execucao_svc = ExecucaoProtocoloService()
@@ -22,8 +25,6 @@ class News2Service:
     # --- 1. Pesquisa ---
 
     def obter_campos_para_preenchimento(self, id_empresa: int, id_protocolo_catalogo: int):
-        """Só checa liberação institucional -- não exige configuracao_protocolo,
-        que é escolha pessoal de USO, não de leitura/estudo."""
         vinculo_empresa = self.repo_empresa_protocolo.find_por_empresa_e_protocolo(id_empresa, id_protocolo_catalogo)
         if not vinculo_empresa or not vinculo_empresa.ativo:
             raise ConflictoError("Este protocolo não está liberado pela instituição.")
@@ -35,20 +36,14 @@ class News2Service:
         estrutura = self.strategy.carregar_estrutura(config)
         return self.strategy.campos_esperados(estrutura)
 
-    # --- 2. Permissão completa, antes de executar ---
+    # --- 2. Permissão antes de executar -- só o gate institucional ---
 
-    def validar_uso_permitido(self, id_empresa: int, id_usuario: int, id_protocolo_catalogo: int):
+    def validar_uso_permitido(self, id_empresa: int, id_protocolo_catalogo: int):
+        """Único gate real: a empresa precisa ter liberado o protocolo.
+        Preferência pessoal (configuracao_protocolo) nunca bloqueia execução."""
         vinculo_empresa = self.repo_empresa_protocolo.find_por_empresa_e_protocolo(id_empresa, id_protocolo_catalogo)
         if not vinculo_empresa or not vinculo_empresa.ativo:
             raise ConflictoError("Este protocolo não está liberado pela instituição.")
-
-        cfg = self.repo_configuracao.find_by_usuario(id_usuario)
-        if not cfg:
-            raise DadosInvalidosError("Configuração do usuário não encontrada.")
-
-        vinculo_pessoal = self.repo_configuracao.find_protocolo(cfg.id, id_protocolo_catalogo)
-        if not vinculo_pessoal or not vinculo_pessoal.em_uso:
-            raise ConflictoError("Você não tem este protocolo habilitado. Habilite-o em Configurações antes de usar.")
 
     # --- 3+4+5+6. Schema valida -> calcula -> salva execução -> versão usada (contexto) ---
 

@@ -33,7 +33,7 @@ class News2Controller():
     @bp.post("/<int:id_protocolo_catalogo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
     def executar(id_protocolo_catalogo):
-        """Envio dos dados: valida permissão completa, calcula e persiste."""
+        """Envio dos dados: valida liberação institucional, calcula e persiste."""
         dados = request.get_json(silent=True) or {}
         id_input = dados.get("id_input")
         respostas = dados.get("respostas", {})
@@ -45,7 +45,7 @@ class News2Controller():
         id_usuario = get_id_usuario_sessao()
 
         try:
-            _svc.validar_uso_permitido(id_empresa, id_usuario, id_protocolo_catalogo)
+            _svc.validar_uso_permitido(id_empresa, id_protocolo_catalogo)
             execucao = _svc.executar(id_protocolo_catalogo, id_input, respostas, executor=id_usuario)
             return json_success(data=execucao.to_dict(), message="Protocolo executado e registrado.", status=201)
         except BionException as ex:
