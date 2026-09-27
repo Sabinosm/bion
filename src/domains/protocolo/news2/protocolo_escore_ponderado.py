@@ -22,21 +22,12 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
                 campo=p.campo,
                 texto=p.rotulo,
                 tipo_campo=p.tipo_campo,
-                opcoes=None,  # NEWS2 hoje só tem campos numéricos; enum entra quando precisar
+                opcoes=[{"valor": o.valor, "rotulo": o.rotulo} for o in p.opcoes] if p.tipo_campo == "enum" else None,
             )
             for p in estrutura.parametros
         ]
 
-    def validar_respostas(self, estrutura: SchemaEscoreConfig, respostas: dict) -> dict:
-        """SCHEMA VERIFICA OS CAMPOS -- chave desconhecida = erro (P-04)."""
-        campos_validos = {p.campo for p in estrutura.parametros}
-        chaves_desconhecidas = set(respostas.keys()) - campos_validos
-        if chaves_desconhecidas:
-            raise ValueError(f"Campos não pertencem a este protocolo: {chaves_desconhecidas}")
-        return {campo: respostas.get(campo) for campo in campos_validos}
-
     def executar(self, estrutura: SchemaEscoreConfig, dados_validados: dict) -> SchemaResultado:
-        """FAZ OS CÁLCULOS."""
         trilha: list[PassoTrilha] = []
         pontos_por_campo: dict[str, int] = {}
         dados_ausentes: list[str] = []
@@ -47,11 +38,11 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
                 dados_ausentes.append(parametro.campo)
                 continue
 
-            pontos = self._pontuar(valor, parametro)
+            pontos, valor_exibido = self._pontuar(valor, parametro)
             pontos_por_campo[parametro.campo] = pontos
             trilha.append(PassoTrilha(
                 rotulo=parametro.rotulo,
-                valor_observado=f"{valor} {parametro.unidade or ''}".strip(),
+                valor_observado=valor_exibido,
                 peso_ou_resultado=f"{pontos} pontos",
                 ordem=ordem,
             ))
@@ -67,26 +58,18 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
             metadata={"escore_total": total, "override_disparado": override_disparado, "acao_recomendada": acao},
         )
 
-    def _pontuar(self, valor: float, parametro: ParametroEscore) -> int:
+    def _pontuar(self, valor, parametro: ParametroEscore) -> tuple[int, str]:
+        """Devolve (pontos, texto_para_trilha). Ramifica por tipo_campo."""
+        if parametro.tipo_campo == "enum":
+            for opcao in parametro.opcoes:
+                if opcao.valor == valor:
+                    return opcao.pontos, opcao.rotulo
+            raise ValueError(f"Valor '{valor}' não é uma opção válida de {parametro.campo}")
+
         for faixa in parametro.faixas:
             dentro_do_min = faixa.valor_min is None or valor >= faixa.valor_min
             dentro_do_max = faixa.valor_max is None or valor <= faixa.valor_max
             if dentro_do_min and dentro_do_max:
-                return faixa.pontos
+                texto = f"{valor} {parametro.unidade or ''}".strip()
+                return faixa.pontos, texto
         raise ValueError(f"Valor {valor} não se encaixa em nenhuma faixa de {parametro.campo}")
-
-    def _checar_override(self, pontos_por_campo: dict, regra) -> bool:
-        if regra is None:
-            return False
-        if regra.condicao == "qualquer_parametro_score_3":
-            return any(p == 3 for p in pontos_por_campo.values())
-        return False
-
-    def _classificar(self, total: int, override: bool, faixas) -> tuple[str, str]:
-        if override:
-            faixa_override = next((f for f in faixas if f.categoria == "alto"), faixas[-1])
-            return faixa_override.categoria, faixa_override.acao_recomendada
-        for faixa in faixas:
-            if faixa.total_min <= total <= faixa.total_max:
-                return faixa.categoria, faixa.acao_recomendada
-        raise ValueError(f"Total {total} não se encaixa em nenhuma faixa de interpretação")

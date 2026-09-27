@@ -7,8 +7,23 @@ from pydantic import BaseModel, field_validator
 
 
 class FaixaPontuacao(BaseModel):
-    valor_min: float | None = None   # None = sem limite inferior
-    valor_max: float | None = None   # None = sem limite superior
+    """Faixa numérica (usada por tipo_campo='numero')."""
+    valor_min: float | None = None
+    valor_max: float | None = None
+    pontos: int
+
+    @field_validator("pontos")
+    @classmethod
+    def pontos_dentro_da_escala(cls, v: int) -> int:
+        if not (0 <= v <= 3):
+            raise ValueError("pontos deve estar entre 0 e 3 (escala NEWS2)")
+        return v
+
+
+class OpcaoEnum(BaseModel):
+    """Opção categórica (usada por tipo_campo='enum'), ex: estados do ACVPU."""
+    valor: str        # chave enviada pelo front, ex: "alerta", "confusao"
+    rotulo: str        # texto exibido, ex: "Alerta"
     pontos: int
 
     @field_validator("pontos")
@@ -20,28 +35,10 @@ class FaixaPontuacao(BaseModel):
 
 
 class ParametroEscore(BaseModel):
-    campo: str                       # chave usada em 'respostas' (ex: "frequencia_respiratoria")
-    rotulo: str                      # texto exibido ao usuário (ex: "Frequência respiratória")
-    unidade: str | None = None       # ex: "irpm", "%", "bpm", "°C"
-    tipo_campo: str = "numero"       # motor só aceita "numero" ou "enum" (ex: nível de consciência)
-    escala: str | None = None        # discrimina SpO2 Scale 1 vs Scale 2; None para os demais parâmetros
-    faixas: list[FaixaPontuacao]
-
-
-class RegraOverride(BaseModel):
-    condicao: str                    # identificador fixo interpretado pelo motor, ex: "qualquer_parametro_score_3"
-    acao: str                        # ex: "escalonamento_imediato"
-
-
-class FaixaInterpretacao(BaseModel):
-    total_min: int
-    total_max: int
-    categoria: str                   # ex: "baixo", "medio", "alto"
-    acao_recomendada: str
-
-
-class SchemaEscoreConfig(BaseModel):
-    schema_version: str
-    parametros: list[ParametroEscore]
-    regra_override: RegraOverride | None = None
-    faixas_interpretacao: list[FaixaInterpretacao]
+    campo: str
+    rotulo: str
+    unidade: str | None = None
+    tipo_campo: str = "numero"      # "numero" ou "enum"
+    escala: str | None = None
+    faixas: list[FaixaPontuacao] = []     # usado quando tipo_campo == "numero"
+    opcoes: list[OpcaoEnum] = []          # usado quando tipo_campo == "enum"
