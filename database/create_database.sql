@@ -632,6 +632,7 @@ CREATE TABLE `protocolo_catalogo` (
   `sigla` varchar(50) NOT NULL,
   `tipo_resultado` enum('score-numerico','categoria-cor','nivel-risco','binario') NOT NULL,
   `escopo_populacao` enum('adulto','pediatrico','obstetrico','neonatal','universal') NOT NULL,
+  `explicacao_json` JSON NOT NULL,
   `versao_vigente` varchar(50) NOT NULL,
   `data_vigencia` date NOT NULL,
   `data_vigencia_fim` date DEFAULT NULL,

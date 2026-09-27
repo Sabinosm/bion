@@ -1,16 +1,30 @@
-# seeds/seed_news2.py
 """Seed do protocolo NEWS2 (National Early Warning Score 2, RCP UK) no catálogo.
 Roda uma vez, por governança clínica -- nunca é chamado por uma rota da aplicação.
 Usa SpO2 Scale 1 (paciente sem insuficiência respiratória hipercápnica crônica);
 Scale 2 fica para uma revisão futura, exigiria campo condicional retentor_co2.
 """
 
-from ..src.models import db
-from ..src.models.protocolos import ProtocoloCatalogo, ProtocoloVersao, ProtocoloEscoreConfig
+from src.models import db
+from src.models.protocolos import ProtocoloCatalogo, ProtocoloVersao, ProtocoloEscoreConfig
+from src.domains.protocolo.shared.schemas.schema_explicacao_protocolo import ExplicacaoProtocolo
 import uuid, json
 
 
 def seed_news2():
+    explicacao = ExplicacaoProtocolo(
+        o_que_e="Escore de alerta precoce que agrega sete parâmetros fisiológicos "
+                "(frequência respiratória, saturação de O2, uso de oxigênio suplementar, "
+                "temperatura, pressão arterial sistólica, frequência cardíaca e nível de "
+                "consciência) para identificar deterioração clínica em pacientes adultos.",
+        quando_usar="Reavaliação periódica de pacientes internados, ou triagem e "
+                    "monitorização em urgência/emergência. Não validado para gestantes "
+                    "ou população pediátrica.",
+        como_interpretar="A soma dos pontos de cada parâmetro define o risco: 0 é rotina, "
+                          "1-4 é baixo risco, 5-6 é médio risco (resposta em até 1h), 7+ é alto "
+                          "risco (resposta de emergência). Qualquer parâmetro isolado que pontue "
+                          "o máximo (3) já dispara resposta imediata, independente do total.",
+    )
+
     catalogo = ProtocoloCatalogo(
         nome_protocolo="National Early Warning Score 2",
         sigla="NEWS2",
@@ -25,6 +39,7 @@ def seed_news2():
                                   "Updated report of a working party. London: RCP, 2017.",
         orgao_emissor="Royal College of Physicians (RCP UK)",
         status="ativo",
+        explicacao_json=explicacao.model_dump(),
     )
     db.session.add(catalogo)
     db.session.flush()
@@ -152,7 +167,6 @@ def seed_news2():
 
     db.session.commit()
     return catalogo
-
 
 if __name__ == "__main__":
     from src.main import create_app

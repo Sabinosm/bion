@@ -26,6 +26,7 @@ class ProtocoloCatalogo(db.Model):
     uuid = db.Column("uuid_protocolo_catalogo", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_protocolo = db.Column(db.String(255), nullable=False)
+    explicacao_json = db.Column(db.JSON, nullable=False)
     sigla = db.Column(db.String(50), unique=True, nullable=False)  # usado por ProtocoloFactory
     tipo_resultado = db.Column(
         db.Enum("score-numerico", "categoria-cor", "nivel-risco", "binario"),
@@ -73,6 +74,7 @@ class ProtocoloCatalogo(db.Model):
             "escopo_uso": self.escopo_uso,
             "versao_vigente": self.versao_vigente,
             "status": self.status,
+            "explicacao": self.explicacao_json,
         }
 
     def __repr__(self):
