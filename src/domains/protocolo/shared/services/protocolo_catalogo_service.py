@@ -23,16 +23,11 @@ class ProtocoloCatalogoService:
         return e
 
     def buscar_por_id(self, id: int):
-        """
-        Retorna um ProtocoloCatalogo pelo ID.
-
-        FIXME: método não lança RecursoNaoEncontradoError nem retorna `e`
-        quando encontrado — corrigir para espelhar o comportamento de
-        buscar_por_uuid antes de usar em produção.
-        """
+        """Retorna um ProtocoloCatalogo pelo ID ou lança RecursoNaoEncontradoError."""
         e = self.repo.find_by_id(id)
         if not e:
             raise RecursoNaoEncontradoError(f"Protocolo não encontrado {id}")
+        return e
 
     def listar(self):
         """Lista todos os ProtocoloCatalogo cadastrados."""
@@ -64,7 +59,6 @@ class ProtocoloCatalogoService:
             data_vigencia=parse_data(dados["data_vigencia"]),
             referencia_bibliografica=dados.get("referencia_bibliografica"),
             orgao_emissor=dados.get("orgao_emissor"),
-            flag_personalizado=bool(dados.get("flag_personalizado", False)),
         )
         return self.repo.save(p)
     

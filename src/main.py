@@ -101,7 +101,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(protocolo_bp, url_prefix="/v1/api/protocolos")
     app.register_blueprint(ia_bp, url_prefix="/v1/api/ia")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")
-    app.register_blueprint(bp_modulos, url_prefix="/v1/api/protocolos/personalizado")
+    app.register_blueprint(bp_modulos, url_prefix="/v1/api/protocolos/composto")
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")

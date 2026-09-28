@@ -7,7 +7,7 @@ from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 
 class ConfiguracaoService:
 
-    # Protocolos (MTS, NEWS2, personalizados) NÃO ficam no JSON de configuracoes.
+    # Protocolos (MTS, NEWS2, compostos) NÃO ficam no JSON de configuracoes.
     # Cada protocolo habilitado para o usuário vira uma linha em ConfiguracaoProtocolo,
     # restrita pela liberação institucional em EmpresaProtocolo (cascata de restrição:
     # o profissional só pode habilitar o que a empresa já liberou).

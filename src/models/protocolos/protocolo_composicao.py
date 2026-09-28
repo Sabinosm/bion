@@ -1,35 +1,56 @@
 """
 Dominio de Protocolos / IA (motor de triagem e suporte a decisao).
 
-ProtocoloCatalogo era um stub (so id/uuid/criado_em), mas o
-ProtocoloFactory (app/protocolo/factory.py) ja acessava `catalogo.sigla`
-para escolher o motor certo (MTS/NEWS2/PP) -- isso quebraria em runtime
-assim que a factory fosse chamada. Completado aqui com sigla e os demais
-campos do schema.
+Novo (migration 2026-09-28): substitui ProtocoloPersonalizado. A
+composicao pertence a uma VERSAO do protocolo e referencia VERSOES de
+modulo (nunca o modulo "solto"). "ordem" e so exibicao; o motor nao
+depende dela.
 
-OutputBion tambem era stub, mas ia/controller.py ja acessava
-`output.output_ia_json` -- tambem completado.
+Regras que ficam fora do model (ver verificacoes V1..V5 da migration):
+  - o mesmo modulo nao pode aparecer em duas versoes na mesma composicao
+    (o bitmask nao distingue versao);
+  - agregacao deve ser compativel com o tipo_saida dos modulos do grupo.
 """
-
-from datetime import datetime, timezone
-import uuid as _uuid
-import decimal
 
 from src.models import db
 from src.models.types import BigIntPK
 
 
-class ProtocoloPersonalizado(db.Model):
-    __tablename__ = "protocolo_personalizado"
+class ProtocoloComposicao(db.Model):
+    __tablename__ = "protocolo_composicao"
 
-    id = db.Column("id_protocolo_personalizado", BigIntPK, primary_key=True, autoincrement=True)
-    id_modulo = db.Column(db.BigInteger, db.ForeignKey("catalogo_modulos.id_modulo"))
-    id_protocolo_catalogo = db.Column(db.BigInteger, db.ForeignKey("protocolo_catalogo.id_protocolo_catalogo"))
-    codigo_protocolo = db.Column(db.String(100))
+    id = db.Column(BigIntPK, primary_key=True, autoincrement=True)
+    id_protocolo_versao = db.Column(db.BigInteger,
+                                     db.ForeignKey("protocolo_versao.id_versao",
+                                                   ondelete="CASCADE"),
+                                     nullable=False)
+    id_modulo_versao = db.Column(db.BigInteger,
+                                  db.ForeignKey("modulo_versao.id_modulo_versao"),
+                                  nullable=False)
+    papel = db.Column(db.Enum("principal", "gatilho", "informativo"),
+                       nullable=False, default="principal")
+    grupo_agregacao = db.Column(db.String(50))
+    ordem = db.Column(db.Integer, nullable=False, default=0)
 
-    modulo = db.relationship("CatalogoModulos", back_populates="protocolos_personalizados")
-    protocolo_catalogo = db.relationship("ProtocoloCatalogo",
-                                          back_populates="protocolos_personalizados")
+    __table_args__ = (
+        db.UniqueConstraint("id_protocolo_versao", "id_modulo_versao",
+                             name="uq_protocolo_composicao"),
+        db.Index("ix_protocolo_composicao_modulo", "id_modulo_versao"),
+        # gatilho nao participa de agregacao (ele decide aplicabilidade)
+        db.CheckConstraint("papel <> 'gatilho' OR grupo_agregacao IS NULL",
+                            name="ck_pc_gatilho_sem_grupo"),
+    )
+
+    protocolo_versao = db.relationship("ProtocoloVersao", back_populates="composicoes")
+    modulo_versao = db.relationship("ModuloVersao", back_populates="composicoes")
+
+    def to_dict(self):
+        return {
+            "id_modulo_versao": self.id_modulo_versao,
+            "papel": self.papel,
+            "grupo_agregacao": self.grupo_agregacao,
+            "ordem": self.ordem,
+        }
 
     def __repr__(self):
-        return f"<ProtocoloPersonalizado {self.id}>"
+        return f"<ProtocoloComposicao pv={self.id_protocolo_versao} mv={self.id_modulo_versao}>"

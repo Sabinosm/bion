@@ -8,7 +8,7 @@ Documentação da arquitetura de execução de protocolos clínicos (escores, á
 
 ## Visão geral
 
-O sistema precisa suportar múltiplos protocolos clínicos (escores numéricos como NEWS2, árvores de decisão como MTS, PCDTs, protocolos personalizados por composição de módulos) sem que adicionar um protocolo novo exija tocar no código dos protocolos já existentes. A resposta arquitetural é o padrão **Strategy**: cada família de raciocínio clínico — não cada protocolo individual — vira uma implementação própria, escolhida em tempo de execução por uma Factory a partir de um campo do banco (`tipo_protocolo`).
+O sistema precisa suportar múltiplos protocolos clínicos (escores numéricos como NEWS2, árvores de decisão como MTS, PCDTs, protocolos compostoss por composição de módulos) sem que adicionar um protocolo novo exija tocar no código dos protocolos já existentes. A resposta arquitetural é o padrão **Strategy**: cada família de raciocínio clínico — não cada protocolo individual — vira uma implementação própria, escolhida em tempo de execução por uma Factory a partir de um campo do banco (`tipo_protocolo`).
 
 A unidade de generalização certa não é "o protocolo X" mas "a forma matemática do raciocínio": árvore de decisão (pergunta → resposta → próximo nó ou categoria final), soma ponderada com faixas (cada parâmetro vira pontos, soma total, interpreta o total), regra categórica (combinação de condições → conduta direta), e composição de módulos (protocolo montado pelo próprio usuário a partir de blocos declarativos). Dois protocolos publicados por órgãos diferentes, mas com a mesma forma de raciocínio, compartilham a mesma Strategy — só o conteúdo (parâmetros, faixas, pesos) muda, carregado do banco.
 
@@ -16,7 +16,7 @@ A unidade de generalização certa não é "o protocolo X" mas "a forma matemát
 
 **Protocolo oficial** (escores publicados, PCDTs, árvores de triagem padronizadas) nasce fora da aplicação: é conteúdo versionado, aprovado por governança clínica, inserido via seed/migration, e **somente leitura em runtime**. Nenhuma rota da aplicação escreve na estrutura de um protocolo oficial — se a aplicação nunca escreve, o conteúdo não pode ser corrompido pela aplicação. Isso vale tanto para a identidade do protocolo (nome, sigla, órgão emissor, versão vigente) quanto para sua lógica interna (parâmetros e faixas, estrutura de árvore, regras de categoria).
 
-**Protocolo personalizado** nasce dentro da aplicação, por composição de módulos declarativos que o próprio usuário monta — nunca por JSON livre ou código. É o único caminho onde existe uma tela de "criar protocolo".
+**Protocolo composto** nasce dentro da aplicação, por composição de módulos declarativos que o próprio usuário monta — nunca por JSON livre ou código. É o único caminho onde existe uma tela de "criar protocolo".
 
 ## Contrato único de resultado
 
