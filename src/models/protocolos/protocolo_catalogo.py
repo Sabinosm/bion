@@ -6,6 +6,10 @@ Atualizado para refletir as migrations de 2026-09-24:
     ciclo catalogo <-> execucao). ProtocoloCatalogo NAO referencia mais
     InputProtocoloExecucao; a navegacao correta e sempre
     execucao -> catalogo.
+  - MIGRATION 2026-09-28: removidos flag_personalizado (redundante com
+    tipo_protocolo = 'composicao', que a Factory le) e a relationship
+    protocolos_personalizados (tabela dropada; composicao agora vive em
+    ProtocoloVersao -> ProtocoloComposicao).
   - Novos relacionamentos: versoes (ProtocoloVersao), empresas (via
     EmpresaProtocolo), condutas (CondutaEnfermagem) e escore_config
     (ProtocoloEscoreConfig, 1:1).
@@ -26,7 +30,6 @@ class ProtocoloCatalogo(db.Model):
     uuid = db.Column("uuid_protocolo_catalogo", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     nome_protocolo = db.Column(db.String(255), nullable=False)
-    explicacao_json = db.Column(db.JSON, nullable=False)
     sigla = db.Column(db.String(50), unique=True, nullable=False)  # usado por ProtocoloFactory
     tipo_resultado = db.Column(
         db.Enum("score-numerico", "categoria-cor", "nivel-risco", "binario"),
@@ -43,13 +46,10 @@ class ProtocoloCatalogo(db.Model):
                         nullable=False, default="ativo")
     referencia_bibliografica = db.Column(db.Text)
     orgao_emissor = db.Column(db.String(255))
-    flag_personalizado = db.Column(db.Boolean, default=False)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     protocolos_mts = db.relationship("ProtocoloMts", back_populates="protocolo_catalogo")
-    protocolos_personalizados = db.relationship("ProtocoloPersonalizado",
-                                                 back_populates="protocolo_catalogo")
 
     # NOTA: relationship "execucoes" removida (MIGRATION 1). O catalogo e
     # referencia, nao registro -- quem navega ate a execucao e o proprio
@@ -74,7 +74,6 @@ class ProtocoloCatalogo(db.Model):
             "escopo_uso": self.escopo_uso,
             "versao_vigente": self.versao_vigente,
             "status": self.status,
-            "explicacao": self.explicacao_json,
         }
 
     def __repr__(self):

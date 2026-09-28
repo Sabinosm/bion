@@ -1,5 +1,3 @@
-
-
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 
@@ -33,6 +31,7 @@ from src.models.clinico import (
     SinalVital,
     PrescricaoExame,
     CondutaEnfermagem,
+    LoincSinalVital,
 )
 
 # Corporativo
@@ -55,12 +54,16 @@ from src.models.pacientes import (
 from src.models.protocolos import (
     CatalogoFluxogramasMts,
     CatalogoModulos,
+    ModuloVersao,
+    ModuloVersaoCampo,
     OutputBion,
     ProtocoloCatalogo,
-    ProtocoloMts,
-    ProtocoloPersonalizado,
-    ProtocoloVersao,
+    ProtocoloComposicao,
+    ProtocoloComposicaoConfig,
     ProtocoloEscoreConfig,
+    ProtocoloMts,
+    ProtocoloVersao,
+    VariavelClinica,
 )
 
 # Usuário
@@ -70,6 +73,7 @@ from src.models.usuarios import (
     CredencialWebAuthn,
     Usuario,
     CredencialTOTP,
+    PapelProfissional,
 )
 
 # ==============================================================================
@@ -129,12 +133,16 @@ __all__ = [
     # Protocolo
     "CatalogoFluxogramasMts",
     "CatalogoModulos",
+    "ModuloVersao",
+    "ModuloVersaoCampo",
     "OutputBion",
     "ProtocoloCatalogo",
-    "ProtocoloMts",
-    "ProtocoloPersonalizado",
+    "ProtocoloComposicao",
+    "ProtocoloComposicaoConfig",
     "ProtocoloEscoreConfig",
+    "ProtocoloMts",
     "ProtocoloVersao",
+    "VariavelClinica",
     
     # Usuário
     "Configuracao",
