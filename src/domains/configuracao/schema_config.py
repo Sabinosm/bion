@@ -88,7 +88,7 @@ class PreferenciasSchema(BaseModel):
 
 
 class ConfiguracoesSchema(BaseModel):
-    """Schema raiz do payload `configuracoes` recebido em PUT /configuracao.
+    """Schema raiz do payload `configuracoes` recebido em PUT /configuracoes.
 
     Todos os campos são opcionais no schema porque `atualizar()` faz
     merge parcial (o usuário pode mandar só `design`, só `preferencias`,

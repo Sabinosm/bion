@@ -1,9 +1,14 @@
 from typing import Optional, List
 
+from sqlalchemy.exc import IntegrityError
+
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 from src.models.corp import EmpresaProtocolo
+from src.core.exceptions import ConflictoError
+# ASSUNÇÃO 1: caminho de import do model do catálogo -- ajustar ao real.
+from src.models.protocolos import ProtocoloCatalogo
 
 
 class ConfiguracaoRepository(IRepository[Configuracao]):
@@ -51,10 +56,27 @@ class ConfiguracaoRepository(IRepository[Configuracao]):
             id_configuracao=id_configuracao, escopo_default=escopo
         ).first()
 
-    def save_protocolo(self, entity: ConfiguracaoProtocolo) -> ConfiguracaoProtocolo:
+    def save_protocolo(self, entity: ConfiguracaoProtocolo, commit: bool = True) -> ConfiguracaoProtocolo:
+        """commit=False só faz flush: permite trocar o default de escopo
+        (liberar o anterior + ocupar o novo) na MESMA transação.
+
+        Duplo clique/requests concorrentes podem violar uq_config_protocolo
+        ou uq_default_por_escopo -- vira ConflictoError (409) em vez de 500."""
         db.session.add(entity)
-        db.session.commit()
+        try:
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+        except IntegrityError:
+            db.session.rollback()
+            raise ConflictoError("Operação simultânea detectada. Tente novamente.")
         return entity
+
+    # --- Catálogo (só para resolver uuid -> id interno) ---
+
+    def find_catalogo_by_uuid(self, uuid: str) -> Optional[ProtocoloCatalogo]:
+        return ProtocoloCatalogo.query.filter_by(uuid=uuid).first()
 
     # --- EmpresaProtocolo (leitura, para validar a cascata de liberação institucional) ---
 

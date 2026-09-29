@@ -37,13 +37,18 @@ class Configuracao(db.Model):
         """
         return {
             "uuid": self.uuid,
-            "design": self.configuracoes_json["design"],
-            "preferencias": self.configuracoes_json["preferencias"],
+            # .get: linha antiga/parcial no banco não derruba o /me com KeyError
+            "design": (self.configuracoes_json or {}).get("design", {}),
+            "preferencias": (self.configuracoes_json or {}).get("preferencias", {}),
             "protocolos": {
                 (p.protocolo.sigla if p.protocolo else p.id_protocolo): {
                     "nome": p.protocolo.nome_protocolo if p.protocolo else None,
                     "tipo": p.protocolo.tipo_protocolo if p.protocolo else None,
                     "id": p.id_protocolo,
+                    # ASSUNÇÃO 2 (uuid): ProtocoloCatalogo expõe .uuid (o to_dict do detalhe já traz).
+                    "uuid": p.protocolo.uuid if p.protocolo else None,
+                    "em_uso": p.em_uso,
+                    "escopo_default": p.escopo_default,
                 }
                 for p in self.protocolos
             }

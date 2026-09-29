@@ -60,6 +60,8 @@ class ConfiguracaoProtocolo(db.Model):
         return {
             "id": self.id,
             "id_protocolo": self.id_protocolo,
+            "uuid": self.protocolo.uuid if self.protocolo else None,
+            "sigla": self.protocolo.sigla if self.protocolo else None,
             "nome": self.protocolo.nome_protocolo if self.protocolo else None,
             "tipo": self.protocolo.tipo_protocolo if self.protocolo else None,
             "em_uso": self.em_uso,
