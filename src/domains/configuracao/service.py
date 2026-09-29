@@ -5,6 +5,7 @@ from src.core.session import get_id_empresa_sessao
 from .repository import ConfiguracaoRepository
 from src.domains.configuracao.schema_config import validar_configuracoes
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
+from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
 
 
 class ConfiguracaoService:
@@ -29,14 +30,11 @@ class ConfiguracaoService:
         }
     }
 
-    # IDs de protocolo padrão a habilitar para todo usuário novo.
-    # Ajustar para os IDs reais do catálogo (protocolo_catalogo).
-    PROTOCOLOS_PADRAO_IDS: list = []
-
     ESCOPOS_VALIDOS = {"triagem", "consulta", "ambos"}
 
     def __init__(self):
         self.repo = ConfiguracaoRepository()
+        self.repo_catalogo = ProtocoloCatalogoRepository()
 
     def buscar_por_usuario(self, id_usuario: int):
         cfg = self.repo.find_by_usuario(id_usuario)
@@ -56,15 +54,24 @@ class ConfiguracaoService:
             )
             cfg = self.repo.save(cfg)  # precisa existir (com PK) antes de criar as linhas filhas
 
-            for id_protocolo in self.PROTOCOLOS_PADRAO_IDS:
-                protocolo = ConfiguracaoProtocolo(
-                    id_configuracao=cfg.id,
-                    id_protocolo=id_protocolo,
-                    em_uso=True,
-                )
-                self.repo.save_protocolo(protocolo)
+            self._semear_favoritos_institucionais(cfg)
 
         return cfg
+
+    def _semear_favoritos_institucionais(self, cfg):
+        """Usuário novo já nasce com os defaults institucionais entre os favoritos
+        (em_uso=True). NÃO preenche escopo_default pessoal: assim a cadeia de
+        fallback continua viva e uma mudança futura do default da instituição
+        vale para quem nunca escolheu o seu.
+        Depende da sessão (empresa) -- só chamar dentro de uma requisição."""
+        for vinculo in self.repo.find_vinculos_ativos_da_empresa(get_id_empresa_sessao()):
+            if vinculo.escopo_default_institucional is None:
+                continue
+            self.repo.save_protocolo(ConfiguracaoProtocolo(
+                id_configuracao=cfg.id,
+                id_protocolo=vinculo.id_protocolo_catalogo,
+                em_uso=True,
+            ))
 
     def atualizar(self, id_usuario: int, configuracoes: dict):
         try:
@@ -88,7 +95,7 @@ class ConfiguracaoService:
     # --- Protocolos ---
 
     def _resolver_catalogo(self, uuid_protocolo: str):
-        catalogo = self.repo.find_catalogo_by_uuid(uuid_protocolo)
+        catalogo = self.repo_catalogo.find_by_uuid(uuid_protocolo)
         if not catalogo:
             raise RecursoNaoEncontradoError("Protocolo não encontrado.")
         return catalogo
@@ -102,8 +109,7 @@ class ConfiguracaoService:
         só é possível habilitar o que a empresa já liberou (EmpresaProtocolo.ativo=True).
         """
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        # ASSUNÇÃO 3: o model expõe a PK como `.id` (padrão dos outros models).
-        id_protocolo = catalogo.id
+        id_protocolo = catalogo.id_protocolo_catalogo
         id_empresa = get_id_empresa_sessao()
 
         vinculo_empresa = self.repo.find_empresa_protocolo(id_empresa, id_protocolo)
@@ -127,7 +133,7 @@ class ConfiguracaoService:
         (EmpresaProtocolo.politica == 'obrigatorio') — a preferência existe, mas não
         pode ser desligada nesse caso."""
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        id_protocolo = catalogo.id
+        id_protocolo = catalogo.id_protocolo_catalogo
         id_empresa = get_id_empresa_sessao()
 
         cfg = self.obter_ou_criar(id_usuario)
@@ -138,10 +144,15 @@ class ConfiguracaoService:
         vinculo_empresa = self.repo.find_empresa_protocolo(id_empresa, id_protocolo)
         if vinculo_empresa and vinculo_empresa.politica == "obrigatorio":
             raise ConflictoError("Este protocolo é obrigatório e não pode ser desativado.")
+        # O default da instituição nunca some da lista do profissional: é o
+        # protocolo que garante que ninguém fica sem opção (mesma regra que
+        # impede a empresa de desativá-lo).
+        if vinculo_empresa and vinculo_empresa.escopo_default_institucional is not None:
+            raise ConflictoError("Este é o protocolo padrão da instituição e não pode ser desativado.")
 
         protocolo.em_uso = False
-        # Convenção 3 do model: default só existe para protocolo em uso.
-        # Pausado, libera o slot em vez de deixar um default "fantasma".
+        # Convenção 3 do model: default pessoal só existe para protocolo em uso.
+        # Pausado, libera o slot -- o escopo volta ao default da instituição.
         protocolo.escopo_default = None
         return self.repo.save_protocolo(protocolo)
 
@@ -152,7 +163,7 @@ class ConfiguracaoService:
             raise DadosInvalidosError(f"Escopo inválido: '{escopo}'. Valores aceitos: {sorted(self.ESCOPOS_VALIDOS)}.")
 
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        id_protocolo = catalogo.id
+        id_protocolo = catalogo.id_protocolo_catalogo
 
         # Convenção 3 do model: catálogo efetivo = liberado pela empresa + em_uso.
         vinculo_empresa = self.repo.find_empresa_protocolo(get_id_empresa_sessao(), id_protocolo)
@@ -181,11 +192,52 @@ class ConfiguracaoService:
         return self.repo.save_protocolo(protocolo)
 
     def remover_default_pessoal(self, id_usuario: int, uuid_protocolo: str):
-        """Tira o protocolo de default (escopo_default = NULL) sem pausá-lo."""
+        """Tira o protocolo de default pessoal (escopo_default = NULL) sem pausá-lo.
+        O escopo volta ao default da instituição -- ninguém fica sem padrão."""
         catalogo = self._resolver_catalogo(uuid_protocolo)
         cfg = self.obter_ou_criar(id_usuario)
-        protocolo = self.repo.find_protocolo(cfg.id, catalogo.id)
+        protocolo = self.repo.find_protocolo(cfg.id, catalogo.id_protocolo_catalogo)
         if not protocolo:
             raise RecursoNaoEncontradoError("Protocolo não configurado para este usuário.")
         protocolo.escopo_default = None
         return self.repo.save_protocolo(protocolo)
+
+    def resolver_default(self, id_usuario: int, escopo: str):
+        """Protocolo que a consulta deve carregar por padrão para o escopo.
+        Devolve (ProtocoloCatalogo, origem). Cadeia, do mais específico ao mais geral:
+          1. default pessoal do escopo (em uso e ainda liberado pela empresa)
+          2. default pessoal "ambos" (se o escopo pedido não for "ambos")
+          3. default institucional do escopo
+          4. default institucional "ambos"
+          5. primeiro protocolo liberado que sirva ao escopo (favoritos antes)
+        Um protocolo "ambos" serve tanto a triagem quanto a consulta; por isso o
+        slot "ambos" entra como fallback dos dois."""
+        if escopo not in self.ESCOPOS_VALIDOS:
+            raise DadosInvalidosError(f"Escopo inválido: '{escopo}'. Valores aceitos: {sorted(self.ESCOPOS_VALIDOS)}.")
+
+        vinculos = {v.id_protocolo_catalogo: v
+                    for v in self.repo.find_vinculos_ativos_da_empresa(get_id_empresa_sessao())}
+        cfg = self.obter_ou_criar(id_usuario)
+        # Só conta o que ainda está em uso E liberado: se a empresa desativou
+        # depois, o default pessoal "cai" para o próximo da cadeia.
+        em_uso = {p.id_protocolo: p for p in cfg.protocolos
+                  if p.em_uso and p.id_protocolo in vinculos}
+        escopos = [escopo] if escopo == "ambos" else [escopo, "ambos"]
+
+        for esc in escopos:
+            for p in em_uso.values():
+                if p.escopo_default == esc:
+                    return p.protocolo, "pessoal"
+
+        for esc in escopos:
+            for v in vinculos.values():
+                if v.escopo_default_institucional == esc:
+                    return v.protocolo_catalogo, "institucional"
+
+        candidatos = sorted(
+            (v for v in vinculos.values() if v.protocolo_catalogo.escopo_uso in escopos),
+            key=lambda v: (v.id_protocolo_catalogo not in em_uso, v.id_protocolo_catalogo),
+        )
+        if not candidatos:
+            raise RecursoNaoEncontradoError("Nenhum protocolo liberado para este escopo.")
+        return candidatos[0].protocolo_catalogo, "primeiro_liberado"

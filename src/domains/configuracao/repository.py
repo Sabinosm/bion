@@ -7,8 +7,6 @@ from src.core.interfaces import IRepository
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 from src.models.corp import EmpresaProtocolo
 from src.core.exceptions import ConflictoError
-# ASSUNÇÃO 1: caminho de import do model do catálogo -- ajustar ao real.
-from src.models.protocolos import ProtocoloCatalogo
 
 
 class ConfiguracaoRepository(IRepository[Configuracao]):
@@ -73,14 +71,7 @@ class ConfiguracaoRepository(IRepository[Configuracao]):
             raise ConflictoError("Operação simultânea detectada. Tente novamente.")
         return entity
 
-    # --- Catálogo (só para resolver uuid -> id interno) ---
-
-    def find_catalogo_by_uuid(self, uuid: str) -> Optional[ProtocoloCatalogo]:
-        return ProtocoloCatalogo.query.filter_by(uuid=uuid).first()
-
-    # --- EmpresaProtocolo (leitura, para validar a cascata de liberação institucional) ---
-
-    def find_empresa_protocolo(self, id_empresa: int, id_protocolo_catalogo: int) -> Optional[EmpresaProtocolo]:
-        return EmpresaProtocolo.query.filter_by(
-            id_empresa=id_empresa, id_protocolo_catalogo=id_protocolo_catalogo
-        ).first()
+    def find_vinculos_ativos_da_empresa(self, id_empresa: int) -> List[EmpresaProtocolo]:
+        """Protocolos liberados (ativo=True) para a empresa -- base do catálogo
+        efetivo e do fallback institucional do default."""
+        return EmpresaProtocolo.query.filter_by(id_empresa=id_empresa, ativo=True).all()
