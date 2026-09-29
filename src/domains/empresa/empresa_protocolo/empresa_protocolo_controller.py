@@ -1,4 +1,9 @@
-"""Rotas JSON do domínio EmpresaProtocolo (liberação institucional de protocolos)."""
+"""Rotas JSON do domínio EmpresaProtocolo (liberação institucional de protocolos).
+
+Prefixo: /v1/api/liberacao-protocolos (ver main.py). Os protocolos são
+identificados pelo UUID do catálogo -- o mesmo que a página de catálogo usa;
+o id numérico só aparece internamente e no registro de auditoria.
+"""
 
 from flask import Blueprint, request
 
@@ -10,6 +15,10 @@ from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("empresa_protocolo", __name__)
 _svc = EmpresaProtocoloService()
+
+
+def _auditoria(id_registro, operacao):
+    return {"id_registro": id_registro, "uuid_registro": None, "operacao": operacao}
 
 
 class EmpresaProtocoloController():
@@ -31,39 +40,39 @@ class EmpresaProtocoloController():
         ])
 
     @staticmethod
-    @bp.put("/<int:id_protocolo_catalogo>/status")
+    @bp.put("/<uuid_protocolo>/status")
     @requer_admin
     @acao_sensivel(acao="alterar_status_protocolo", tabela="empresa_protocolo")
-    def alterar_status(id_protocolo_catalogo):
+    def alterar_status(uuid_protocolo):
+        """Body: {"ativo": bool, "politica": "obrigatorio"|"opcional" (opcional)}"""
         dados = request.get_json(silent=True) or {}
         id_empresa = get_id_empresa_sessao()
+        id_registro = None  # protocolo inexistente: NOOP sem id
         try:
-            vinculo = _svc.alterar_status(id_empresa, id_protocolo_catalogo, dados)
-            resposta = json_success(data=vinculo.to_dict(), message="Status do protocolo atualizado.")
-            return resposta, {
-                "id_registro": id_protocolo_catalogo,
-                "uuid_registro": None,
-                "operacao": "UPDATE",
-            }
+            id_registro = _svc.resolver_catalogo(uuid_protocolo).id_protocolo_catalogo
+            vinculo = _svc.alterar_status(id_empresa, id_registro, dados)
+            resposta = json_success(
+                data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
+                message="Status do protocolo atualizado.")
+            return resposta, _auditoria(id_registro, "UPDATE")
         except BionException as ex:
-            resposta = json_error(ex.message, ex.status_code)
-            return resposta, {"id_registro": id_protocolo_catalogo, "uuid_registro": None, "operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")
 
     @staticmethod
-    @bp.put("/<int:id_protocolo_catalogo>/default")
+    @bp.put("/<uuid_protocolo>/default")
     @requer_admin
     @acao_sensivel(acao="definir_default_institucional", tabela="empresa_protocolo")
-    def definir_default(id_protocolo_catalogo):
+    def definir_default(uuid_protocolo):
+        """Body: {"escopo": "triagem"|"consulta"|"ambos"}"""
         dados = request.get_json(silent=True) or {}
         id_empresa = get_id_empresa_sessao()
+        id_registro = None
         try:
-            vinculo = _svc.definir_default_institucional(id_empresa, id_protocolo_catalogo, dados)
-            resposta = json_success(data=vinculo.to_dict(), message="Protocolo padrão institucional definido.")
-            return resposta, {
-                "id_registro": id_protocolo_catalogo,
-                "uuid_registro": None,
-                "operacao": "UPDATE",
-            }
+            id_registro = _svc.resolver_catalogo(uuid_protocolo).id_protocolo_catalogo
+            vinculo = _svc.definir_default_institucional(id_empresa, id_registro, dados)
+            resposta = json_success(
+                data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
+                message="Protocolo padrão institucional definido.")
+            return resposta, _auditoria(id_registro, "UPDATE")
         except BionException as ex:
-            resposta = json_error(ex.message, ex.status_code)
-            return resposta, {"id_registro": id_protocolo_catalogo, "uuid_registro": None, "operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")

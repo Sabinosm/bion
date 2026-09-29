@@ -2,7 +2,10 @@
 
 from typing import Optional, List
 
+from sqlalchemy.exc import IntegrityError
+
 from src.models import db
+from src.core.exceptions import ConflictoError
 from src.core.interfaces import IRepository
 from src.models.corp import EmpresaProtocolo
 
@@ -37,10 +40,16 @@ class EmpresaProtocoloRepository(IRepository[EmpresaProtocolo]):
 
     def save(self, entity: EmpresaProtocolo, commit: bool = True) -> EmpresaProtocolo:
         db.session.add(entity)
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
+        try:
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+        except IntegrityError:
+            # PK composta (dois admins criando o mesmo vínculo) ou UNIQUE do
+            # default por escopo: 409 em vez de 500.
+            db.session.rollback()
+            raise ConflictoError("Operação simultânea detectada. Tente novamente.")
         return entity
 
     def delete(self, id: int) -> bool:
