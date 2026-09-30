@@ -202,6 +202,19 @@ class ConfiguracaoService:
         protocolo.escopo_default = None
         return self.repo.save_protocolo(protocolo)
 
+    def mapa_estado_pessoal(self, id_usuario: int) -> dict:
+        """{id_protocolo_catalogo: {"em_uso": bool, "escopo_default": str|None}}
+        para o catálogo pintar a estrela de cada card numa única consulta.
+        Somente leitura: usuário sem configuração ainda simplesmente não tem
+        favoritos (a configuração é criada no /me, não numa listagem)."""
+        cfg = self.repo.find_by_usuario(id_usuario)
+        if not cfg:
+            return {}
+        return {
+            p.id_protocolo: {"em_uso": p.em_uso, "escopo_default": p.escopo_default}
+            for p in cfg.protocolos
+        }
+
     def resolver_default(self, id_usuario: int, escopo: str):
         """Protocolo que a consulta deve carregar por padrão para o escopo.
         Devolve (ProtocoloCatalogo, origem). Cadeia, do mais específico ao mais geral:
