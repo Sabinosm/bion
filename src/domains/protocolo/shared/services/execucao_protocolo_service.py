@@ -1,4 +1,22 @@
 # shared/services/execucao_protocolo_service.py
+#
+# UNICA MUDANCA vs. o arquivo original: buscar_dado_bruto_config passa a
+# receber a versao vigente como argumento.
+#
+#   antes:  dado_bruto = buscar_dado_bruto_config()
+#   agora:  dado_bruto = buscar_dado_bruto_config(versao_vigente)
+#
+# Motivo: o NEWS2 le a config pelo catalogo (nao versionada), mas o
+# protocolo-composto pendura a composicao em protocolo_versao -- sem a
+# versao em maos, o callback do composto teria que rebuscar a versao
+# vigente por conta propria, duplicando a consulta e abrindo uma janela
+# em que a versao usada no calculo poderia divergir da gravada em
+# id_versao_utilizada. Passando a versao que o Service ja buscou, as
+# duas ficam garantidamente a mesma instancia.
+#
+# Compatibilidade: para o NEWS2 (ou qualquer strategy futura que nao
+# precise da versao), o callback so ignora o argumento -- ver o exemplo
+# de callback do composto logo abaixo do Service.
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
@@ -30,7 +48,10 @@ class ExecucaoProtocoloService:
 
         strategy = ProtocoloFactory.obter(catalogo.tipo_protocolo)
 
-        dado_bruto = buscar_dado_bruto_config()
+        # MUDANCA: versao_vigente passa a ser argumento do callback, para
+        # composto e NEWS2 compartilharem a mesma instancia de versao que
+        # sera gravada em id_versao_utilizada mais abaixo.
+        dado_bruto = buscar_dado_bruto_config(versao_vigente)
         if not dado_bruto:
             raise RecursoNaoEncontradoError(f"Configuração não encontrada para o protocolo {id_protocolo_catalogo}")
 
@@ -53,3 +74,27 @@ class ExecucaoProtocoloService:
             resultado_calculado_json=resultado.model_dump(),
         )
         return self.repo_execucao.save(execucao)  # SALVA EXECUÇÃO
+
+
+# ---------------------------------------------------------------------
+# Exemplos de callback, para o chamador (controller/rota) que hoje monta
+# `buscar_dado_bruto_config`. Nao faz parte da classe -- e so referencia
+# de como cada strategy passa a receber o argumento novo.
+# ---------------------------------------------------------------------
+
+def callback_news2(repo_escore_config):
+    """NEWS2: a config nao e versionada, vive pelo catalogo. Ignora o
+    argumento `versao` -- e por isso que o parametro tem default None,
+    para nao quebrar uma chamada antiga que ainda nao passe nada."""
+    def _buscar(versao=None):
+        return repo_escore_config.find_by_protocolo(id_protocolo_catalogo=...)
+    return _buscar
+
+
+def callback_protocolo_composto(repo_composicao):
+    """protocolo-composto: PRECISA da versao, porque e nela que
+    protocolo_versao.codigo_composicao e a composicao (protocolo_composicao)
+    estao penduradas."""
+    def _buscar(versao):
+        return repo_composicao.carregar_dado_bruto(versao)
+    return _buscar
