@@ -15,6 +15,8 @@ class EmpresaProtocoloRepository(IRepository[EmpresaProtocolo]):
     def find_by_id(self, id: int) -> Optional[EmpresaProtocolo]:
         return db.session.get(EmpresaProtocolo, id)
 
+    def find_by_uuid(self, uuid):
+        return super().find_by_uuid(uuid)
     def find_por_empresa_e_protocolo(self, id_empresa: int, id_protocolo_catalogo: int) -> Optional[EmpresaProtocolo]:
         return EmpresaProtocolo.query.filter_by(
             id_empresa=id_empresa, id_protocolo_catalogo=id_protocolo_catalogo
