@@ -3,8 +3,8 @@ ou por mapeamento categorico) e aplica a interpretacao final, se houver.
 
 Funcao pura: (ModuloDef, dados) -> ResultadoModulo. Nunca acessa banco.
 """
-from ..schemas.config_schemas import ConfigPontuador, Faixa
-from ..schemas.protocolo_composto_schemas import ItemTrilha, ModuloDef, ResultadoModulo
+from ..schemas.config_schemas import ConfigPontuador, Faixa, InterpretacaoSegmentada
+from ..schemas import ItemTrilha, ModuloDef, ResultadoModulo
 
 
 class ValorNaoComparavel(Exception):
@@ -81,7 +81,23 @@ def avaliar_pontuador(modulo: ModuloDef, dados: dict) -> ResultadoModulo:
     classificacao = None
     gravidade = None
     if config.interpretacao is not None:
-        faixa_final = _faixa_para(total, config.interpretacao.faixas)
+        if isinstance(config.interpretacao, InterpretacaoSegmentada):
+            chave_segmento = dados.get(config.interpretacao.segmentada_por)
+            interpretacao_efetiva = config.interpretacao.por_valor.get(str(chave_segmento)) if chave_segmento is not None else None
+            if interpretacao_efetiva is None:
+                # variavel de segmentacao ausente ou valor sem interpretacao
+                # mapeada: sem ela nao ha total interpretavel -- o modulo
+                # inteiro fica nao_calculavel (nao "calculado sem classificacao")
+                ausentes.append(config.interpretacao.segmentada_por)
+                return ResultadoModulo(
+                    sigla_modulo=modulo.sigla, versao=modulo.versao, status="nao_calculavel",
+                    tipo_saida=modulo.tipo_saida, ausentes=ausentes,
+                    motivo="variável de segmentação da interpretação ausente ou com valor não mapeado",
+                )
+        else:
+            interpretacao_efetiva = config.interpretacao
+
+        faixa_final = _faixa_para(total, interpretacao_efetiva.faixas)
         if faixa_final is not None:
             classificacao = faixa_final.classificacao
             gravidade = faixa_final.gravidade

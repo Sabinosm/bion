@@ -22,7 +22,7 @@ from ..logic.condicao_protocolo_composto import CondicaoInvalida, validar_estrut
 class Faixa(BaseModel):
     min: float | None = None
     max: float | None = None
-    pontos: int | None = None            # usado no pontuador
+    pontos: float | None = None           # usado no pontuador; aceita fracoes (ex.: Wells usa 1.5, 3.0)
     classificacao: str | None = None     # usado no classificador
     gravidade: int | None = None         # ordem de gravidade p/ pior_categoria
 
@@ -82,7 +82,7 @@ class ParametroFaixas(BaseModel):
 class ParametroMapeamento(BaseModel):
     variavel: str
     tipo: Literal["mapeamento"]
-    mapa: dict[str, int]
+    mapa: dict[str, float]
 
 
 class InterpretacaoPontuador(BaseModel):
@@ -97,10 +97,25 @@ class InterpretacaoPontuador(BaseModel):
         return self
 
 
+class InterpretacaoSegmentada(BaseModel):
+    """Interpretacao do TOTAL que depende de uma variavel categorica de
+    ENTRADA (ex.: corte do AUDIT-C difere por sexo biologico). A variavel
+    de segmentacao precisa estar entre os campos do modulo, mas NAO entra
+    na soma -- so escolhe qual conjunto de faixas usar."""
+    segmentada_por: str
+    por_valor: dict[str, InterpretacaoPontuador]
+
+    @model_validator(mode="after")
+    def _exige_ao_menos_um_valor(self):
+        if not self.por_valor:
+            raise ValueError("interpretacao segmentada exige ao menos 1 valor em 'por_valor'")
+        return self
+
+
 class ConfigPontuador(BaseModel):
     familia: Literal["pontuador"]
     parametros: list[ParametroFaixas | ParametroMapeamento]
-    interpretacao: InterpretacaoPontuador | None = None
+    interpretacao: InterpretacaoPontuador | InterpretacaoSegmentada | None = None
 
     @model_validator(mode="after")
     def _sem_variavel_duplicada(self):
@@ -111,7 +126,10 @@ class ConfigPontuador(BaseModel):
         return self
 
     def variaveis_usadas(self) -> set[str]:
-        return {p.variavel for p in self.parametros}
+        base = {p.variavel for p in self.parametros}
+        if isinstance(self.interpretacao, InterpretacaoSegmentada):
+            base.add(self.interpretacao.segmentada_por)
+        return base
 
 
 # ---------------------------------------------------------------------
