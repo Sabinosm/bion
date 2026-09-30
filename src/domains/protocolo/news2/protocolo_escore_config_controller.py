@@ -6,15 +6,15 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao
 from .protocolo_escore_config_service import News2Service
+from ..protocolo_catalogo_controller import bp_protocolo as bp
 
-bp = Blueprint("news2", __name__)
 _svc = News2Service()
 
 
 class News2Controller():
 
     @staticmethod
-    @bp.get("/<int:id_protocolo_catalogo>/campos")
+    @bp.get("/news2/<int:id_protocolo_catalogo>/campos")
     @requer_login
     def campos(id_protocolo_catalogo):
         """Pesquisa: retorna os campos que o protocolo exige, se a empresa o liberou.
@@ -30,7 +30,7 @@ class News2Controller():
             return json_error(ex.message, ex.status_code)
 
     @staticmethod
-    @bp.post("/<int:id_protocolo_catalogo>/executar")
+    @bp.post("/news2/<int:id_protocolo_catalogo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
     def executar(id_protocolo_catalogo):
         """Envio dos dados: valida liberação institucional, calcula e persiste."""

@@ -9,15 +9,15 @@ from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao
 from .protocolo_composto_service import ProtocoloCompostoService
+from ..protocolo_catalogo_controller import bp_protocolo as bp
 
-bp = Blueprint("protocolo-composto", __name__)
 _svc = ProtocoloCompostoService()
 
 
 class ProtocoloCompostoController():
 
     @staticmethod
-    @bp.get("/<int:id_protocolo_catalogo>/campos")
+    @bp.get("/protocolo-composto/<int:id_protocolo_catalogo>/campos")
     @requer_login
     def campos(id_protocolo_catalogo):
         """Pesquisa: retorna os campos que o protocolo exige (união das
@@ -34,7 +34,7 @@ class ProtocoloCompostoController():
             return json_error(ex.message, ex.status_code)
 
     @staticmethod
-    @bp.post("/<int:id_protocolo_catalogo>/executar")
+    @bp.post("/protocolo-composto/<int:id_protocolo_catalogo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
     def executar(id_protocolo_catalogo):
         """Envio dos dados: valida liberação institucional, calcula e persiste."""
