@@ -16,7 +16,7 @@ A unidade de generalização certa não é "o protocolo X" mas "a forma matemát
 
 **Protocolo oficial** (escores publicados, PCDTs, árvores de triagem padronizadas) nasce fora da aplicação: é conteúdo versionado, aprovado por governança clínica, inserido via seed/migration, e **somente leitura em runtime**. Nenhuma rota da aplicação escreve na estrutura de um protocolo oficial — se a aplicação nunca escreve, o conteúdo não pode ser corrompido pela aplicação. Isso vale tanto para a identidade do protocolo (nome, sigla, órgão emissor, versão vigente) quanto para sua lógica interna (parâmetros e faixas, estrutura de árvore, regras de categoria).
 
-**Protocolo composto** nasce dentro da aplicação, por composição de módulos declarativos que o próprio usuário monta — nunca por JSON livre ou código. É o único caminho onde existe uma tela de "criar protocolo".
+**Protocolo composto** nasce dentro da aplicação, por composição de módulos declarativos que o próprio usuário monta — nunca por JSON livre ou código.
 
 ## Contrato único de resultado
 
