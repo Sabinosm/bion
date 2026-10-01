@@ -7,7 +7,7 @@ Atualizado para refletir as migrations de 2026-09-24:
     InputProtocoloExecucao; a navegacao correta e sempre
     execucao -> catalogo.
   - MIGRATION 2026-09-28: removidos flag_personalizado (redundante com
-    tipo_protocolo = 'composicao', que a Factory le) e a relationship
+    tipo_protocolo = 'protocolo-composto', que a Factory le) e a relationship
     protocolos_personalizados (tabela dropada; composicao agora vive em
     ProtocoloVersao -> ProtocoloComposicao).
   - Novos relacionamentos: versoes (ProtocoloVersao), empresas (via
@@ -35,6 +35,7 @@ class ProtocoloCatalogo(db.Model):
         db.Enum("score-numerico", "categoria-cor", "nivel-risco", "binario"),
         nullable=False)
     tipo_protocolo = db.Column(db.String(100))
+    explicacao_json=db.Column(db.JSON, comment="explicacao do protocolo, para exibir no app",nullable=False)
     escopo_populacao = db.Column(
         db.Enum("adulto", "pediatrico", "obstetrico", "neonatal", "universal"),
         nullable=False, default="universal")
@@ -74,6 +75,10 @@ class ProtocoloCatalogo(db.Model):
             "escopo_uso": self.escopo_uso,
             "versao_vigente": self.versao_vigente,
             "status": self.status,
+            "referencia_bibliografica": self.referencia_bibliografica,
+            "orgao_emissor": self.orgao_emissor,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+            "explicacao_json": self.explicacao_json,
         }
 
     def __repr__(self):

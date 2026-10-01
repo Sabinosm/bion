@@ -61,7 +61,6 @@ def _registrar_blueprints(app: Flask):
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
     from src.domains.protocolo.protocolo_catalogo_controller import bp_protocolo as protocolo_bp
     from src.domains.empresa.empresa_protocolo.empresa_protocolo_controller import bp as empresa_protocolo_bp
-    from src.domains.catalogo_modulos.controller import bp_catalogo_modulos as bp_modulos
     from src.domains.catalogo_fluxogramas_mts.controller import bp_catalogo_fluxogramas_mts as bp_mts
     from src.domains.consulta.controller import bp_consulta as consulta_bp
     from src.domains.atendimento.controller import bp_atendimento as atendimento_bp
@@ -101,7 +100,6 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(empresa_protocolo_bp, url_prefix="/v1/api/liberacao-protocolos")
     app.register_blueprint(ia_bp, url_prefix="/v1/api/ia")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")
-    app.register_blueprint(bp_modulos, url_prefix="/v1/api/protocolos/composto")
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")
