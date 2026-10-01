@@ -136,3 +136,8 @@ class ProtocoloCatalogoService:
             # Escopo em que é o padrão pessoal, ou null.
             "default_pessoal": None if estado_pessoal is None else estado_pessoal.get("escopo_default"),
         }
+    
+    def detalhar(self, uuid: str, id_empresa: int):
+        """Retorna o detalhe do catálogo + resumo (liberação/favoritos) + versão ativa."""
+        from .protocolo_detalhe_service import ProtocoloDetalheService
+        return ProtocoloDetalheService().obter_detalhe(uuid, id_empresa)

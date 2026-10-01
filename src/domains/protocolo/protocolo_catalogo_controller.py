@@ -22,15 +22,16 @@ class ProtocoloController():
         itens = _svc.listar()
         return json_success(data=[p.to_dict() for p in itens])
 
-
+    
     @staticmethod
-    @bp_protocolo.get("/<uuid>")
+    @bp_protocolo.get("/catalogo/<uuid_protocolo>")
     @requer_login
-    def detalhe_protocolo(uuid):
-        """Retorna os detalhes de um ProtocoloCatalogo pelo UUID."""
+    def detalhe_catalogo(uuid_protocolo):
+        """Detalhe + resumo (liberação/favoritos) + versão ativa. Aberto a
+        qualquer logado: estudar um protocolo não é usá-lo."""
         try:
-            p = _svc.buscar_por_uuid(uuid)
-            return json_success(data=p.to_dict())
+            dados = _svc.detalhar(uuid_protocolo, get_id_empresa_sessao())
+            return json_success(data=dados)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
     

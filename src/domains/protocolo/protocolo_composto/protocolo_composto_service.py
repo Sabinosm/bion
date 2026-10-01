@@ -31,9 +31,9 @@ class ProtocoloCompostoService:
 
     # --- 1. Pesquisa ---
 
-    def obter_campos_para_preenchimento(self, id_empresa: int, id_protocolo_catalogo: int):
-        self._checar_liberacao_institucional(id_empresa, id_protocolo_catalogo)
-
+    def obter_campos_para_preenchimento(self, id_protocolo_catalogo: int):
+        """União das variáveis de todos os módulos. SEM gate de liberação: ver
+        os campos é estudo, não uso -- o gate real fica em validar_uso_permitido."""
         versao_vigente = self.repo_versao.find_vigente(id_protocolo_catalogo)
         if not versao_vigente:
             raise RecursoNaoEncontradoError(
@@ -48,6 +48,73 @@ class ProtocoloCompostoService:
 
         estrutura = self.strategy.carregar_estrutura(dado_bruto)
         return self.strategy.campos_esperados(estrutura)
+
+    def obter_composicao(self, id_protocolo_catalogo: int) -> dict:
+        """Estrutura do composto para a página de detalhe (só leitura): agregação,
+        gatilhos e, por módulo, papel/família/saída/explicação/referência e os
+        campos DAQUELE módulo, já completos (nome, tipo, unidade, opções, faixa).
+        Não expõe configuracao_json (a lógica interna do módulo)."""
+        versao = self.repo_versao.find_vigente(id_protocolo_catalogo)
+        if not versao:
+            raise RecursoNaoEncontradoError(
+                f"Nenhuma versão vigente encontrada para o protocolo {id_protocolo_catalogo}"
+            )
+        if not versao.composicoes:
+            raise RecursoNaoEncontradoError(
+                f"Composição não encontrada para o protocolo {id_protocolo_catalogo}"
+            )
+
+        config = versao.composicao_config
+        modulos = []
+        for comp in versao.composicoes:  # já ordenadas por `ordem` (relationship)
+            mv = comp.modulo_versao
+            m = mv.modulo
+            modulos.append({
+                "papel": comp.papel,
+                "grupo_agregacao": comp.grupo_agregacao,
+                "ordem": comp.ordem,
+                "modulo": {
+                    "uuid": m.uuid,
+                    "nome_modulo": m.nome_modulo,
+                    "sigla": m.sigla,
+                    "tipo_modulo": m.tipo_modulo,
+                    "familia_calculo": m.familia_calculo,
+                    "tipo_saida": m.tipo_saida,
+                    "descricao": m.descricao,
+                    "referencia_bibliografica": m.referencia_bibliografica,
+                },
+                "numero_versao": mv.numero_versao,
+                "explicacao": mv.explicacao_json,
+                # Campo completo (VariavelClinica) + obrigatoriedade neste módulo.
+                "campos": [self._montar_campo(cm) for cm in mv.campos],  # já ordenados por `ordem`
+            })
+
+        return {
+            "versao": {
+                "numero_versao": versao.numero_versao,
+                "vigente_desde": versao.vigente_desde.isoformat() if versao.vigente_desde else None,
+            },
+            "agregacao": config.agregacao if config else "nenhuma",
+            "regra_gatilho": config.regra_gatilho_json if config else None,
+            "modulos": modulos,
+        }
+
+    @staticmethod
+    def _montar_campo(campo_modulo) -> dict:
+        """ModuloVersaoCampo -> dict de exibição, com a VariavelClinica embutida.
+        tipo_dado: numerico | categorico | booleano. Sem codigo_loinc (não é exibição)."""
+        v = campo_modulo.variavel
+        return {
+            "codigo": v.codigo if v else None,
+            "nome": v.nome if v else None,
+            "tipo_dado": v.tipo_dado if v else None,
+            "unidade": v.unidade if v else None,
+            "opcoes": v.opcoes_json if v else None,
+            "valor_min": float(v.valor_min) if v and v.valor_min is not None else None,
+            "valor_max": float(v.valor_max) if v and v.valor_max is not None else None,
+            "obrigatorio": campo_modulo.obrigatorio,
+            "ordem": campo_modulo.ordem,
+        }
 
     # --- 2. Permissão antes de executar -- só o gate institucional ---
 
