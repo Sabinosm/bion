@@ -24,11 +24,9 @@ class News2Service:
 
     # --- 1. Pesquisa ---
 
-    def obter_campos_para_preenchimento(self, id_empresa: int, id_protocolo_catalogo: int):
-        vinculo_empresa = self.repo_empresa_protocolo.find_por_empresa_e_protocolo(id_empresa, id_protocolo_catalogo)
-        if not vinculo_empresa or not vinculo_empresa.ativo:
-            raise ConflictoError("Este protocolo não está liberado pela instituição.")
-
+    def obter_campos_para_preenchimento(self, id_protocolo_catalogo: int):
+        """Campos que o protocolo exige. SEM gate de liberação: ver os campos é
+        estudo, não uso -- o único gate real fica em validar_uso_permitido/executar."""
         config = self.repo_config.find_by_protocolo_catalogo(id_protocolo_catalogo)
         if not config:
             raise RecursoNaoEncontradoError(f"Configuração NEWS2 não encontrada para protocolo {id_protocolo_catalogo}")
