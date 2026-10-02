@@ -15,7 +15,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, Dados
 from src.domains.usuario.schema_usuario import _formatar_erros_pydantic
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
-from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
+from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema, _formatar_erros_pydantic
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
 
@@ -30,15 +30,18 @@ class EmpresaService:
         try:
             schema = CadastroEmpresaSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(
+                _formatar_erros_pydantic(e),
+                erros=_formatar_erros_pydantic(e, campo_geral="cnpj"),
+            )
         except Exception as e:
             raise
 
-        if self.repo.find_by_cnpj(schema.cnpj):
-            raise ConflictoError("CNPJ já cadastrado.")
+        if schema.cnpj and self.repo.find_by_cnpj(schema.cnpj):
+            raise ConflictoError("CNPJ já cadastrado.", campo="cnpj")
 
         if schema.cnes and self.repo.find_by_cnes(schema.cnes):
-            raise ConflictoError("CNES já cadastrado.")
+            raise ConflictoError("CNES já cadastrado.", campo="cnes")
 
         empresa = Empresa(
             nome_fantasia=schema.nome_fantasia,
@@ -52,7 +55,8 @@ class EmpresaService:
             status_plano=schema.status_plano,
             plano=schema.plano,
         )
-        empresa.definir_cnpj(schema.cnpj)
+        if schema.cnpj:
+            empresa.definir_cnpj(schema.cnpj)
         if schema.cnes:
             empresa.definir_cnes(schema.cnes)
         return self.repo.save(empresa)
@@ -67,17 +71,20 @@ class EmpresaService:
         try:
             schema_empresa = CadastroEmpresaSchema(**dados_empresa)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(
+                _formatar_erros_pydantic(e),
+                erros=_formatar_erros_pydantic(e, campo_geral="cnpj"),
+            )
         except Exception as e:
             raise
 
         dados_admin = {**dados_admin, "is_admin": True}
 
-        if self.repo.find_by_cnpj(schema_empresa.cnpj):
-            raise ConflictoError("CNPJ já cadastrado.")
+        if schema_empresa.cnpj and self.repo.find_by_cnpj(schema_empresa.cnpj):
+            raise ConflictoError("CNPJ já cadastrado.", campo="cnpj")
 
         if schema_empresa.cnes and self.repo.find_by_cnes(schema_empresa.cnes):
-            raise ConflictoError("CNES já cadastrado.")
+            raise ConflictoError("CNES já cadastrado.", campo="cnes")
 
         try:
             from src.domains.regiao.cep_service import CepService
@@ -85,7 +92,10 @@ class EmpresaService:
             regiao = cps.regiao_por_cep(schema_empresa.cep)
             
         except RecursoNaoEncontradoError:
-            raise DadosInvalidosError(f"Região geográfica não encontrada para cep: {schema_empresa.cep}")
+            raise DadosInvalidosError(
+                f"Região geográfica não encontrada para cep: {schema_empresa.cep}",
+                campo="cep",
+            )
         
         try:
             empresa = Empresa(
@@ -100,7 +110,8 @@ class EmpresaService:
                 plano=schema_empresa.plano,
             )
             
-            empresa.definir_cnpj(schema_empresa.cnpj)
+            if schema_empresa.cnpj:
+                empresa.definir_cnpj(schema_empresa.cnpj)
             if schema_empresa.cnes:
                 empresa.definir_cnes(schema_empresa.cnes)
             self.repo.save(empresa, False)

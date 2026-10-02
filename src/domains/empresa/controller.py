@@ -59,7 +59,7 @@ class EmpresaController():
             e,a = _svc.cadastrar_com_admin(dados_empresa,dados_admin)
             return json_success(data={"empresa":e.to_dict(), "admin": a.to_dict()}, message="Empresa e admin criados com sucesso.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
 
     @staticmethod

@@ -40,7 +40,7 @@ AtualizacaoEmpresaSchema divide os campos por sensibilidade:
 import re
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, ValidationError
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
 from src.core import validacoes as vl
 
 
@@ -55,22 +55,25 @@ def _formatar_erros_pydantic(exc: ValidationError) -> str:
     """
     partes = []
     for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
+        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
+        partes.append(f"{campo}: {erro['msg']}")
     return "; ".join(partes)
 
 
 class CadastroEmpresaSchema(BaseModel):
     """Usado na criação: campos obrigatórios permanecem obrigatórios."""
 
-    nome_fantasia: str = Field(..., min_length=2, max_length=150)
-    razao_social: Optional[str] = Field(None, max_length=150)
-    cnpj: str
+    # Tamanhos alinhados com o model Empresa (255/255/150) e com o front.
+    nome_fantasia: str = Field(..., min_length=2, max_length=255)
+    razao_social: Optional[str] = Field(None, max_length=255)
+    # CNPJ e CNES: pelo menos UM dos dois é obrigatório (ver
+    # exige_cnpj_ou_cnes abaixo). Estabelecimentos de saúde de pessoa
+    # física, por exemplo, têm CNES mas não têm CNPJ.
+    cnpj: Optional[str] = None
     cnes: Optional[str] = Field(None, max_length=20)
     numero: Optional[str] = Field(None, max_length=10)
     bairro: Optional[str] = Field(None, max_length=100)
-    complemento: Optional[str] = Field(None, max_length=100)
+    complemento: Optional[str] = Field(None, max_length=150)
     cep: Optional[str] = None
     status_plano: str = "ativo"
     plano: Optional[str] = None
@@ -82,7 +85,9 @@ class CadastroEmpresaSchema(BaseModel):
 
     @field_validator("cnpj")
     @classmethod
-    def valida_e_limpa_cnpj(cls, v: str) -> str:
+    def valida_e_limpa_cnpj(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
         if not vl.validar_cnpj(v):
             raise ValueError("O CNPJ está incorreto.")
         return re.sub(r"\D", "", v)
@@ -114,13 +119,21 @@ class CadastroEmpresaSchema(BaseModel):
             raise ValueError(f"status_plano deve ser um de: {', '.join(sorted(permitidos))}.")
         return v
 
+    @model_validator(mode="after")
+    def exige_cnpj_ou_cnes(self):
+        # Erro sem campo específico: aparece como "(corpo): ..." na
+        # mensagem formatada (ver _formatar_erros_pydantic).
+        if not self.cnpj and not self.cnes:
+            raise ValueError("Informe o CNPJ ou o CNES.")
+        return self
+
 
 class AtualizacaoEmpresaSchema(BaseModel):
     """Atualização parcial de Empresa -- ver docstring do módulo para a
     divisão entre campos autogerenciáveis e restritos."""
 
     # -- Autogerenciáveis pelo admin da própria empresa ----------------
-    nome_fantasia: Optional[str] = Field(None, min_length=2, max_length=150)
+    nome_fantasia: Optional[str] = Field(None, min_length=2, max_length=255)
     numero: Optional[str] = Field(None, max_length=10)
     bairro: Optional[str] = Field(None, max_length=100)
     complemento: Optional[str] = Field(None, max_length=150)
