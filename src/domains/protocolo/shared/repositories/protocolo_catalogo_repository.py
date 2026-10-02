@@ -69,7 +69,7 @@ class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
         apenas_liberados: bool = False,
         offset: int = 0,
     ):
-        from src.models.protocolos import EmpresaProtocolo
+        from src.models.corp import EmpresaProtocolo
 
         query = (
             ProtocoloCatalogo.query
