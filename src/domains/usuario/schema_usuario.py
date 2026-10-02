@@ -48,7 +48,7 @@ def _formatar_erros_pydantic(exc: ValidationError) -> str:
 
 
 # Regras de formato reaproveitáveis
-REGEX_LOGIN = re.compile(r"^[a-zA-Z0-9._-]{3,30}$")
+REGEX_LOGIN = re.compile(r"^[a-zA-Z0-9._@-]{3,30}$")
 REGEX_UF = re.compile(r"^[A-Z]{2}$")
 
 
@@ -109,7 +109,7 @@ class CadastroUsuarioSchema(BaseModel):
         if not REGEX_LOGIN.match(v):
             raise ValueError(
                 "Login deve ter 3-30 caracteres e conter apenas letras, "
-                "números, ponto, hífen ou underline."
+                "números, ponto, hífen, underline ou @."
             )
         return v.lower()
 
@@ -318,13 +318,15 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
         if not REGEX_LOGIN.match(v):
             raise ValueError(
                 "Login deve ter 3-30 caracteres e conter apenas letras, "
-                "números, ponto, hífen ou underline."
+                "números, ponto, hífen, underline ou @."
             )
         return v.lower()
 
     @field_validator("senha")
     @classmethod
     def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         senha_valida, resposta = vl.validar_senha(v)
         if senha_valida:
             return v
