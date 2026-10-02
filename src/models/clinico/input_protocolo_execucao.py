@@ -34,7 +34,7 @@ class InputProtocoloExecucao(db.Model):
     input_protocolo = db.relationship("InputProtocolo", back_populates="execucoes")
     protocolo_catalogo = db.relationship("ProtocoloCatalogo")
     versao_utilizada = db.relationship("ProtocoloVersao", back_populates="execucoes")
-    usuario_executor = db.relationship("Usuarios", foreign_keys=[executor])
+    usuario_executor = db.relationship("Usuario", foreign_keys=[executor])
 
     def to_dict(self):
         return {
