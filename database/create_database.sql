@@ -130,7 +130,7 @@ CREATE TABLE `protocolo_catalogo` (
   `status` enum('ativo','descontinuado','em-revisao') NOT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `tipo_protocolo` varchar(100) DEFAULT NULL,
-  `escopoUso` enum('triagem','consulta','ambos') DEFAULT NULL,
+  `escopo_uso` enum('triagem','consulta','ambos') DEFAULT NULL,
   `explicacao_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`explicacao_json`)),
   PRIMARY KEY (`id_protocolo_catalogo`),
   UNIQUE KEY `uuid_protocolo_catalogo` (`uuid_protocolo_catalogo`),
