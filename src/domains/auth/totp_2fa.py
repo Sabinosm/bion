@@ -74,31 +74,51 @@ def resetar_tentativas_stepup_totp(acao: str) -> int:
 
 class Totp():
 
+        # ============================================
+    # Cadastro (sessão completa, @requer_login -- mesmo padrão de
+    # registrar_dispositivo_iniciar/confirmar em webauthn_2fa.py)
     # ============================================
+
     @staticmethod
     @bp_totp_2fa.post("/registrar/iniciar")
     @requer_login_ou_onboarding_pendente
-    def stepup_totp_iniciar(self):
-        
-            dados = request.get_json(silent=True) or {}
-            acao = dados.get("acao")
-            if not acao:
-                return jsonify({"erro": "acao_nao_especificada"}), 400
-    
-            id_usuario = get_id_usuario_sessao()
-            credencial = CredencialTOTP.query.filter_by(
-                id_usuario=id_usuario, confirmado=True
-            ).first()
-            if not credencial:
-                return jsonify({"erro": "totp_nao_cadastrado"}), 400
-    
-            tentativas_restantes = resetar_tentativas_stepup_totp(acao)
-    
-            return jsonify({
-                "metodo": "totp",
-                "acao": acao,
-                "tentativas_restantes": tentativas_restantes,
-            }), 200
+    def registrar_totp_iniciar():
+        """Gera um novo secret TOTP (ainda não confirmado) e devolve a
+        URI otpauth:// para o frontend renderizar como QR code.
+
+        Aceita tanto sessão completa (configurações da conta) quanto
+        sessão em onboarding_pendente (ver onboarding.py e
+        session.py::requer_login_ou_onboarding_pendente).
+
+        O novo secret NUNCA é gravado no banco aqui -- fica só na
+        sessão do servidor (`session["totp_secret_pendente"]`), exatamente
+        como o desafio de um WebAuthn em andamento: efêmero, específico
+        desta tentativa de cadastro, descartado se nunca for
+        confirmado. Isso evita invalidar um TOTP já confirmado e em uso
+        só por esta rota ter sido chamada de novo. A linha em
+        CredencialTOTP só é tocada em `/registrar/confirmar`, e só se
+        o código bater.
+
+        Retorno:
+            200 com {"otpauth_uri": "...", "secret_texto": "..."}.
+            `secret_texto` é devolvido só nesta etapa (para digitação
+            manual caso o QR não possa ser escaneado) -- depois de
+            confirmado, o secret nunca mais é exposto por nenhuma rota.
+        """
+        usuario = get_usuario_sessao()
+
+        secret = pyotp.random_base32()
+        session["totp_secret_pendente"] = secret
+
+        otpauth_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=usuario.email,
+            issuer_name=RP_NAME,
+        )
+
+        return jsonify({
+            "otpauth_uri": otpauth_uri,
+            "secret_texto": secret,
+        }), 200
         
     
         
@@ -315,13 +335,12 @@ class Totp():
         if not credencial:
             return jsonify({"erro": "totp_nao_cadastrado"}), 400
 
-        session["stepup_totp_tentativas"] = 0
-        session["stepup_totp_acao"] = acao
+        tentativas_restantes = resetar_tentativas_stepup_totp(acao)
 
         return jsonify({
             "metodo": "totp",
             "acao": acao,
-            "tentativas_restantes": MAX_TENTATIVAS_TOTP,
+            "tentativas_restantes": tentativas_restantes,
         }), 200
 
     @staticmethod
