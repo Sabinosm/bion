@@ -34,7 +34,7 @@ class ProtocoloEscoreConfig(db.Model):
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
     protocolo_catalogo = db.relationship("ProtocoloCatalogo", back_populates="escore_config")
-    publicador = db.relationship("Usuarios", foreign_keys=[publicado_por])
+    publicador = db.relationship("Usuario", foreign_keys=[publicado_por])
 
     def to_dict(self):
         return {

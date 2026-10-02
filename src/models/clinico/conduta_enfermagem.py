@@ -27,7 +27,7 @@ class CondutaEnfermagem(db.Model):
 
     atendimento = db.relationship("Atendimento", back_populates="condutas_enfermagem")
     protocolo_catalogo = db.relationship("ProtocoloCatalogo", back_populates="condutas")
-    profissional = db.relationship("Usuarios", foreign_keys=[realizado_por])
+    profissional = db.relationship("Usuario", foreign_keys=[realizado_por])
 
     def to_dict(self):
         return {

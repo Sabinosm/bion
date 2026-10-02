@@ -56,7 +56,7 @@ class EmpresaProtocolo(db.Model):
 
     protocolo_catalogo = db.relationship("ProtocoloCatalogo", back_populates="empresas")
     empresa = db.relationship("Empresas", foreign_keys=[id_empresa])
-    aprovador = db.relationship("Usuarios", foreign_keys=[aprovado_por])
+    aprovador = db.relationship("Usuario", foreign_keys=[aprovado_por])
 
     def to_dict(self):
         return {

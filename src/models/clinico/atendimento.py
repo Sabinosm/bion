@@ -48,6 +48,8 @@ class Atendimento(db.Model):
                                              cascade="all, delete-orphan")
     sinais_vitais = db.relationship("SinalVital", back_populates="atendimento",
                                      cascade="all, delete-orphan")
+    condutas_enfermagem = db.relationship("CondutaEnfermagem", back_populates="atendimento",
+                                       cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
