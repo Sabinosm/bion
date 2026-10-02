@@ -46,7 +46,7 @@ class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
         """Lista todo o catálogo, com um LEFT JOIN em EmpresaProtocolo para
         trazer o status de liberação junto -- protocolo nunca tocado pela
         empresa aparece com vinculo=None, não fica ausente da lista."""
-        from src.models.protocolos import EmpresaProtocolo
+        from src.models.corp import EmpresaProtocolo
         return (
             ProtocoloCatalogo.query
             .outerjoin(
