@@ -37,7 +37,7 @@ from ..repository import UsuarioRepository
 from .service_helpers import monta_dados_papel
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin
-from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, _formatar_erros_pydantic
+from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, erros_pydantic_por_campo
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 from .service_validacoes import (
@@ -132,7 +132,7 @@ class UsuarioService(ResetCredenciaisMixin):
         try:
             schema = CadastroUsuarioSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         # Só o super admin cria outros admins. is_super_admin=True (fluxo
         # de Empresa.cadastrar_com_admin, sem solicitante autenticado)
@@ -286,7 +286,7 @@ class UsuarioService(ResetCredenciaisMixin):
         try:
             schema = AlterarSenhaSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         u = self.buscar_por_uuid(uuid)
 

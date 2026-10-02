@@ -7,7 +7,7 @@ from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
 from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 from src.domains.paciente.schemas.schema_medicamento_em_uso import (
     MedicamentoEmUsoCreateSchema, MedicamentoEmUsoAtualizarSchema,
-    MedicamentoEmUsoRemoverSchema, _formatar_erros_pydantic,
+    MedicamentoEmUsoRemoverSchema, erros_pydantic_por_campo,
 )
 
 def _parse_data(valor):
@@ -57,7 +57,7 @@ class MedicamentoEmUsoService:
         try:
             entrada = MedicamentoEmUsoCreateSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -98,7 +98,7 @@ class MedicamentoEmUsoService:
         try:
             entrada = MedicamentoEmUsoAtualizarSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -124,7 +124,7 @@ class MedicamentoEmUsoService:
         try:
             entrada = MedicamentoEmUsoRemoverSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
         

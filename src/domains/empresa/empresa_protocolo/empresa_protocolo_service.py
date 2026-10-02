@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
 from src.core.session import get_id_usuario_sessao
-from src.domains.usuario.schema_usuario import _formatar_erros_pydantic
+from src.domains.empresa.schema_empresa import erros_pydantic_por_campo
 from .empresa_protocolo_repository import EmpresaProtocoloRepository
 from src.models.corp import EmpresaProtocolo
 from .schema_empresa_protocolo import (
@@ -50,7 +50,7 @@ class EmpresaProtocoloService:
         try:
             schema = AlterarStatusEmpresaProtocoloSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         catalogo = self.repo_catalogo.find_by_id(id_protocolo_catalogo)
         if not catalogo:
@@ -90,7 +90,7 @@ class EmpresaProtocoloService:
         try:
             schema = DefinirDefaultInstitucionalSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         catalogo = self.repo_catalogo.find_by_id(id_protocolo_catalogo)
         if not catalogo:

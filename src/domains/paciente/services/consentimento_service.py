@@ -6,7 +6,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, 
 from ..repositories import PacienteRepository, ConsentimentoRepository
 from src.domains.paciente.schemas.schema_consentimento import (
     ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema,
-    ConsentimentoRevogarSchema, _formatar_erros_pydantic,
+    ConsentimentoRevogarSchema, erros_pydantic_por_campo,
 )
 
 class ConsentimentoService:
@@ -36,7 +36,7 @@ class ConsentimentoService:
         try:
             entrada = ConsentimentoCreateSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -72,7 +72,7 @@ class ConsentimentoService:
         try:
             entrada = ConsentimentoRevogarSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -100,7 +100,7 @@ class ConsentimentoService:
         try:
             entrada = ConsentimentoDispensaEmergenciaSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 

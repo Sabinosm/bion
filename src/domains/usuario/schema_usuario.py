@@ -29,23 +29,12 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
 from src.core import validacoes as vl
-
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 class DadosInvalidosError(Exception):
     """Erro de validação de dados de entrada (camada de negócio)."""
 
     pass
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Converte os erros do Pydantic em uma mensagem curta, uma linha por
-    campo (ex.: 'Campos obrigatórios ausentes: x, y')."""
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
-    return "; ".join(partes)
 
 
 # Regras de formato reaproveitáveis

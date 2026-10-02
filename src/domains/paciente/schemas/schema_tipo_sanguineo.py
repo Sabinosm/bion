@@ -10,7 +10,7 @@ são todos aceitos e normalizados para "A+".
 """
 
 from typing import Literal
-
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from pydantic import BaseModel, ValidationError, field_validator
 
 _TIPOS_VALIDOS = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "DESCONHECIDO"}
@@ -19,19 +19,6 @@ _TIPOS_VALIDOS = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "DESCONHECID
 # depois de normalizar a entrada.
 _MAPA_NORMALIZACAO = {v: v for v in _TIPOS_VALIDOS if v != "DESCONHECIDO"}
 _MAPA_NORMALIZACAO["DESCONHECIDO"] = "desconhecido"
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
-    return "; ".join(partes)
 
 
 class TipoSanguineoCreateSchema(BaseModel):

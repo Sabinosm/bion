@@ -18,25 +18,12 @@ from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 # Formato CID-10: uma letra (categoria) + dois dígitos + opcionalmente
 # ".x" ou ".xx" (subcategoria). Ex.: E11, E11.9, J45.0. Case-insensitive
 # na entrada, normalizado para maiúsculo.
 _REGEX_CID10 = re.compile(r"^[A-Z]\d{2}(\.\d{1,2})?$")
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
-    return "; ".join(partes)
-
 
 def _validar_formato_cid10(v: str) -> str:
     v = v.strip().upper()

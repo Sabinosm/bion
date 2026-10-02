@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, AlergiaRepository
 from src.domains.paciente.schemas.schema_alergia import (
-    AlergiaCreateSchema, AlergiaAtualizarSchema, AlergiaRemoverSchema, _formatar_erros_pydantic,
+    AlergiaCreateSchema, AlergiaAtualizarSchema, AlergiaRemoverSchema, erros_pydantic_por_campo,
 )
 
 def _parse_data(valor):
@@ -56,7 +56,7 @@ class AlergiaService:
         try:
             entrada = AlergiaCreateSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -94,7 +94,7 @@ class AlergiaService:
         try:
             entrada = AlergiaRemoverSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -141,7 +141,7 @@ class AlergiaService:
         try:
             entrada = AlergiaAtualizarSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 

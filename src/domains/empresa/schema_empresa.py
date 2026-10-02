@@ -42,22 +42,11 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
 from src.core import validacoes as vl
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 
 REGEX_CEP_LIMPO = re.compile(r"^\d{8}$")
 REGEX_NUMERO_ENDERECO = re.compile(r"^[A-Za-z0-9°ºª\s\-/.,]{1,20}$")
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
-        partes.append(f"{campo}: {erro['msg']}")
-    return "; ".join(partes)
 
 
 class CadastroEmpresaSchema(BaseModel):
@@ -122,7 +111,6 @@ class CadastroEmpresaSchema(BaseModel):
     @model_validator(mode="after")
     def exige_cnpj_ou_cnes(self):
         # Erro sem campo específico: aparece como "(corpo): ..." na
-        # mensagem formatada (ver _formatar_erros_pydantic).
         if not self.cnpj and not self.cnes:
             raise ValueError("Informe o CNPJ ou o CNES.")
         return self

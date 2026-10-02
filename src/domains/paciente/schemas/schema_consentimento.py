@@ -14,22 +14,9 @@ import re
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 _REGEX_SHA256_HEX = re.compile(r"^[0-9a-fA-F]{64}$")
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
-    return "; ".join(partes)
-
 
 def _validar_texto_obrigatorio(v: str) -> str:
     v = v.strip()

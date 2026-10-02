@@ -22,6 +22,7 @@ from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 # status_uso que são coerentes com cada valor de flag_em_uso. Usado só
 # para rejeitar combinações claramente contraditórias quando AMBOS os
@@ -30,18 +31,6 @@ _STATUS_COERENTES_COM_FLAG = {
     True: {"ativo"},
     False: {"interrompido", "concluido"},
 }
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
-        partes.append(f"{campo}: {erro['msg']}")
-    return "; ".join(partes)
 
 
 def _validar_texto_obrigatorio(v: str) -> str:

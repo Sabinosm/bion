@@ -7,7 +7,7 @@ from .service_helpers import (
     atributos_atuais,
     monta_dados_papel,
 )
-from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema, _formatar_erros_pydantic
+from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AtualizacaoUsuarioSchema, erros_pydantic_por_campo
 from src.models.usuarios.papel_profissional import PapelProfissional
 
 
@@ -102,7 +102,7 @@ def att(
     try:
         schema_parcial = AtualizacaoUsuarioSchema(**dados)
     except ValidationError as e:
-        raise DadosInvalidosError(_formatar_erros_pydantic(e))
+        raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
     campos_enviados = schema_parcial.model_dump(exclude_unset=True, exclude_none=True)
     if not campos_enviados:

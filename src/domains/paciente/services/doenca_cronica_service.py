@@ -6,7 +6,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, 
 from ..repositories import PacienteRepository, DoencaCronicaRepository
 from src.domains.paciente.schemas.schema_doenca_cronica import (
     DoencaCronicaCreateSchema, DoencaCronicaAtualizarSchema,
-    DoencaCronicaRemoverSchema, _formatar_erros_pydantic,
+    DoencaCronicaRemoverSchema, erros_pydantic_por_campo,
 )
 
 def _parse_data(valor):
@@ -52,7 +52,7 @@ class DoencaCronicaService:
         try:
             entrada = DoencaCronicaCreateSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -93,7 +93,7 @@ class DoencaCronicaService:
         try:
             entrada = DoencaCronicaAtualizarSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 
@@ -124,7 +124,7 @@ class DoencaCronicaService:
         try:
             entrada = DoencaCronicaRemoverSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 

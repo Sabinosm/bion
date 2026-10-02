@@ -9,7 +9,7 @@ from ..repositories import (
     ObservacaoTipoSanguineoRepository,
 )
 from src.domains.paciente.schemas.schema_paciente import (
-    PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, _formatar_erros_pydantic, PacienteCriarSchema, 
+    PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, erros_pydantic_por_campo, PacienteCriarSchema, 
 )
 from src.domains.regiao.cep_service import CepService
 
@@ -89,7 +89,7 @@ class PacienteService:
         try:
             entrada = PacienteCriarSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
     
@@ -191,7 +191,7 @@ class PacienteService:
             except Exception as e:
                 raise
             except ValidationError as e:
-                raise DadosInvalidosError(_formatar_erros_pydantic(e))
+                raise DadosInvalidosError(erros_pydantic_por_campo(e))
     
             campos = entrada.campos_informados()
             campos_texto_cifrado = ("nome_completo", "telefone", "email", "logradouro", "cep",
@@ -222,7 +222,7 @@ class PacienteService:
         try:
             entrada = PacienteAtualizarClinicoSchema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
         except Exception as e:
             raise
 

@@ -19,6 +19,7 @@ from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from src.core.erros_pydantic import erros_pydantic_por_campo
 
 _MANIFESTACOES = Literal["cutanea", "respiratoria", "anafilaxia",
                           "gastrointestinal", "cardiovascular", "sistemica"]
@@ -31,20 +32,6 @@ _GRAVIDADES = Literal["leve", "moderada", "grave"]
 _GRAVIDADE_MINIMA_POR_MANIFESTACAO = {
     "anafilaxia": {"moderada", "grave"},
 }
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"])
-        msg = erro["msg"].removeprefix("Value error, ")
-        partes.append(f"{campo}: {msg}" if campo else msg)
-    return "; ".join(partes)
-
 
 def _strip_ou_none(v: Optional[str]) -> Optional[str]:
     """Normaliza campo de texto opcional: string só com espaços vira

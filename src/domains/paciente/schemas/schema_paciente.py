@@ -25,7 +25,7 @@ contato_emergencia_nome rejeitam string vazia/só-espaços. Datas
 (data_obito, data_nascimento, data_primeiro_atendimento) não aceitam
 valor futuro. cpf é validado com dígito verificador (validar_cpf).
 
-_formatar_erros_pydantic e _strip_ou_none aparecem duplicadas abaixo
+erros_pydantic_por_campo e _strip_ou_none aparecem duplicadas abaixo
 (uma vez para o bloco de atualização, outra para o de criação) de
 propósito: um import cruzado entre os dois blocos criaria acoplamento
 desnecessário para funções de poucas linhas. Se crescerem, viram um
@@ -49,23 +49,8 @@ from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, ValidationError, field_validator, model_validator
-
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.validacoes import validar_e_devolver_cep, validar_telefone_br, validar_cpf
-
-
-def _formatar_erros_pydantic(exc: ValidationError) -> str:
-    """Transforma a lista de erros do Pydantic numa mensagem curta,
-    uma linha por campo -- consistente com o formato que
-    DadosInvalidosError já usava ('Campos obrigatórios ausentes: x, y').
-    """
-    partes = []
-    for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
-        msg = erro["msg"]
-        if msg.startswith("Value error, "):
-            msg = msg[len("Value error, "):]
-        partes.append(f"{campo}: {msg}")
-    return "; ".join(partes)
 
 
 def _strip_ou_none(v: Optional[str]) -> Optional[str]:

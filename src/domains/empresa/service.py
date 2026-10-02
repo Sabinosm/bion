@@ -12,10 +12,9 @@ service nunca escreve CNPJ em uma atualização, só na criação.
 from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
-from src.domains.usuario.schema_usuario import _formatar_erros_pydantic
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
-from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema, _formatar_erros_pydantic
+from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema, erros_pydantic_por_campo
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
 
@@ -31,8 +30,8 @@ class EmpresaService:
             schema = CadastroEmpresaSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(
-                _formatar_erros_pydantic(e),
-                erros=_formatar_erros_pydantic(e, campo_geral="cnpj"),
+                erros_pydantic_por_campo(e),
+                erros=erros_pydantic_por_campo(e, campo_geral="cnpj"),
             )
         except Exception as e:
             raise
@@ -72,8 +71,8 @@ class EmpresaService:
             schema_empresa = CadastroEmpresaSchema(**dados_empresa)
         except ValidationError as e:
             raise DadosInvalidosError(
-                _formatar_erros_pydantic(e),
-                erros=_formatar_erros_pydantic(e, campo_geral="cnpj"),
+                erros_pydantic_por_campo(e),
+                erros=erros_pydantic_por_campo(e, campo_geral="cnpj"),
             )
         except Exception as e:
             raise
@@ -138,7 +137,7 @@ class EmpresaService:
             except Exception as e:
                 raise
             except ValidationError as e:
-                raise DadosInvalidosError(_formatar_erros_pydantic(e))
+                raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
             empresa = self.repo.find_by_id(id_empresa)
             if not empresa:

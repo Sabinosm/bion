@@ -4,7 +4,7 @@ from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repositories import (
     ObservacaoTipoSanguineoRepository, PacienteRepository,
 )
-from src.domains.paciente.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, _formatar_erros_pydantic
+from src.domains.paciente.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, erros_pydantic_por_campo
 
     
 class ObservacaoTipoSanguineoService:
@@ -36,7 +36,7 @@ class ObservacaoTipoSanguineoService:
         try:
             entrada = TipoSanguineoCreateSchema(tipo_sanguineo=valor)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
         paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario)
@@ -53,7 +53,7 @@ class ObservacaoTipoSanguineoService:
         try:
             entrada = TipoSanguineoCreateSchema(tipo_sanguineo=novo_valor)
         except ValidationError as e:
-            raise DadosInvalidosError(_formatar_erros_pydantic(e))
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
         obs = self.repo.find_by_uuid(uuid_observacao)
