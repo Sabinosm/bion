@@ -75,27 +75,32 @@ def resetar_tentativas_stepup_totp(acao: str) -> int:
 class Totp():
 
     # ============================================
-
+    @staticmethod
+    @bp_totp_2fa.post("/registrar/iniciar")
+    @requer_login_ou_onboarding_pendente
     def stepup_totp_iniciar(self):
-        dados = request.get_json(silent=True) or {}
-        acao = dados.get("acao")
-        if not acao:
-            return jsonify({"erro": "acao_nao_especificada"}), 400
-
-        id_usuario = get_id_usuario_sessao()
-        credencial = CredencialTOTP.query.filter_by(
-            id_usuario=id_usuario, confirmado=True
-        ).first()
-        if not credencial:
-            return jsonify({"erro": "totp_nao_cadastrado"}), 400
-
-        tentativas_restantes = resetar_tentativas_stepup_totp(acao)
-
-        return jsonify({
-            "metodo": "totp",
-            "acao": acao,
-            "tentativas_restantes": tentativas_restantes,
-        }), 200
+        
+            dados = request.get_json(silent=True) or {}
+            acao = dados.get("acao")
+            if not acao:
+                return jsonify({"erro": "acao_nao_especificada"}), 400
+    
+            id_usuario = get_id_usuario_sessao()
+            credencial = CredencialTOTP.query.filter_by(
+                id_usuario=id_usuario, confirmado=True
+            ).first()
+            if not credencial:
+                return jsonify({"erro": "totp_nao_cadastrado"}), 400
+    
+            tentativas_restantes = resetar_tentativas_stepup_totp(acao)
+    
+            return jsonify({
+                "metodo": "totp",
+                "acao": acao,
+                "tentativas_restantes": tentativas_restantes,
+            }), 200
+        
+    
         
     @staticmethod
     @bp_totp_2fa.post("/registrar/confirmar")
