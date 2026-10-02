@@ -40,8 +40,9 @@ def _formatar_erros_pydantic(exc: ValidationError) -> str:
     """
     partes = []
     for erro in exc.errors():
-        campo = ".".join(str(p) for p in erro["loc"]) or "(corpo)"
-        partes.append(f"{campo}: {erro['msg']}")
+        campo = ".".join(str(p) for p in erro["loc"])
+        msg = erro["msg"].removeprefix("Value error, ")
+        partes.append(f"{campo}: {msg}" if campo else msg)
     return "; ".join(partes)
 
 
