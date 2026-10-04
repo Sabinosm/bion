@@ -60,6 +60,8 @@ def _registrar_blueprints(app: Flask):
 
     from src.domains.protocolos_ia.controller import bp_ia as ia_bp
     from src.domains.protocolo.protocolo_catalogo_controller import bp_protocolo as protocolo_bp
+    from src.domains.protocolo.news2 import protocolo_escore_config_controller 
+    from src.domains.protocolo.protocolo_composto import protocolo_composto_controller 
     from src.domains.empresa.empresa_protocolo.empresa_protocolo_controller import bp as empresa_protocolo_bp
     from src.domains.catalogo_fluxogramas_mts.controller import bp_catalogo_fluxogramas_mts as bp_mts
     from src.domains.consulta.controller import bp_consulta as consulta_bp
