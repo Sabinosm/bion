@@ -5,7 +5,7 @@ from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import E
 from ..shared.services.execucao_protocolo_service import ExecucaoProtocoloService
 from .protocolo_escore_config_repository import ProtocoloEscoreConfigRepository
 from .protocolo_escore_ponderado import EscorePonderadoStrategy
-from src.domains.configuracao.repository import ConfiguracaoRepository
+
 
 class News2Service:
     """Ponto de entrada específico do NEWS2: pesquisa (campos), permissão
