@@ -28,3 +28,10 @@ class InputProtocoloExecucaoRepository(IRepository[InputProtocoloExecucao]):
         else:
             db.session.flush()
         return entity
+    
+    def delete():
+        pass
+    
+    def find_by_uuid():
+        pass
+    
