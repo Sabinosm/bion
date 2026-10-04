@@ -11,9 +11,9 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
     def carregar_estrutura(self, dado_bruto) -> SchemaEscoreConfig:
         return SchemaEscoreConfig(
             schema_version=dado_bruto.schema_version,
-            parametros=json.loads(dado_bruto.parametros_json),
-            regra_override=json.loads(dado_bruto.regra_override_json) if dado_bruto.regra_override_json else None,
-            faixas_interpretacao=json.loads(dado_bruto.faixas_interpretacao_json),
+            parametros=dado_bruto.parametros_json,
+            regra_override=dado_bruto.regra_override_json,
+            faixas_interpretacao=dado_bruto.faixas_interpretacao_json,
         )
 
     def campos_esperados(self, estrutura: SchemaEscoreConfig) -> list[CampoEsperado]:
