@@ -7,8 +7,6 @@ Scale 2 fica para uma revisão futura, exigiria campo condicional retentor_co2.
 from src.models import db
 from src.models.protocolos import ProtocoloCatalogo, ProtocoloVersao, ProtocoloEscoreConfig
 from src.domains.protocolo.shared.schemas.schema_explicacao_protocolo import ExplicacaoProtocolo
-import uuid, json
-
 
 def seed_news2():
     explicacao = ExplicacaoProtocolo(
@@ -22,7 +20,7 @@ def seed_news2():
         como_interpretar="A soma dos pontos de cada parâmetro define o risco: 0 é rotina, "
                           "1-4 é baixo risco, 5-6 é médio risco (resposta em até 1h), 7+ é alto "
                           "risco (resposta de emergência). Qualquer parâmetro isolado que pontue "
-                          "o máximo (3) já dispara resposta imediata, independente do total.",
+                          "o máximo (3) já dispara avaliação clínica urgente, independente do total.",
     )
 
     catalogo = ProtocoloCatalogo(
@@ -94,11 +92,13 @@ def seed_news2():
             "rotulo": "Temperatura",
             "unidade": "°C",
             "tipo_campo": "numero",
+            # Intervalos semiabertos [min, max): min <= x < max, sem lacunas decimais.
+            "intervalo": "min_inclusivo_max_exclusivo",
             "faixas": [
-                {"valor_min": None, "valor_max": 35.0, "pontos": 3},
-                {"valor_min": 35.1, "valor_max": 36.0, "pontos": 1},
-                {"valor_min": 36.1, "valor_max": 38.0, "pontos": 0},
-                {"valor_min": 38.1, "valor_max": 39.0, "pontos": 1},
+                {"valor_min": None, "valor_max": 35.1, "pontos": 3},
+                {"valor_min": 35.1, "valor_max": 36.1, "pontos": 1},
+                {"valor_min": 36.1, "valor_max": 38.1, "pontos": 0},
+                {"valor_min": 38.1, "valor_max": 39.1, "pontos": 1},
                 {"valor_min": 39.1, "valor_max": None, "pontos": 2},
             ],
         },
@@ -151,21 +151,23 @@ def seed_news2():
         {"total_min": 7, "total_max": 20, "categoria": "alto", "acao_recomendada": "Resposta de emergência: avaliação médica imediata, considerar UTI/cuidados críticos."},
     ]
 
+    # Colunas db.JSON: passar objetos Python direto (sem json.dumps).
     config = ProtocoloEscoreConfig(
-        uuid_escore_config=str(uuid.uuid4()),
         id_protocolo_catalogo=catalogo.id,
-        parametros_json=json.dumps(parametros, ensure_ascii=False),
-        regra_override_json=json.dumps(
-            {"condicao": "qualquer_parametro_score_3", "acao": "escalonamento_imediato"},
-            ensure_ascii=False,
-        ),
-        faixas_interpretacao_json=json.dumps(faixas_interpretacao, ensure_ascii=False),
-        schema_version="1.0",
+        parametros_json=parametros,
+        regra_override_json={
+            "condicao": "qualquer_parametro_score_3",
+            "acao": "avaliacao_clinica_urgente",
+            "descricao": "Avaliação urgente por clínico, mesmo com total 0-4.",
+        },
+        faixas_interpretacao_json=faixas_interpretacao,
+        schema_version="1.1",
         status="ativo",
     )
     db.session.add(config)
 
     db.session.commit()
+    print("ok")
     return catalogo
 
 if __name__ == "__main__":
