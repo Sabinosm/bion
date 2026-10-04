@@ -1,7 +1,7 @@
 # news2/services/news2_service.py
 
 from src.core.exceptions import DadosInvalidosError, ConflictoError, RecursoNaoEncontradoError
-from src.domains.empresa.repository import EmpresaProtocoloRepository
+from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
 from ..shared.services.execucao_protocolo_service import ExecucaoProtocoloService
 from .protocolo_escore_config_repository import ProtocoloEscoreConfigRepository
 from .protocolo_escore_ponderado import EscorePonderadoStrategy

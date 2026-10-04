@@ -13,7 +13,7 @@ configuracao_protocolo (preferencia pessoal) NAO e gate de execucao --
 mesma regra do NEWS2: o unico gate real e empresa_protocolo.ativo.
 """
 from src.core.exceptions import DadosInvalidosError, ConflictoError, RecursoNaoEncontradoError
-from src.domains.empresa.repository import EmpresaProtocoloRepository
+from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
 from ..shared.services.execucao_protocolo_service import ExecucaoProtocoloService
 from ..shared.repositories.protocolo_versao_repository import ProtocoloVersaoRepository
 from .protocolo_composto_repository import ProtocoloComposicaoRepository

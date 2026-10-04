@@ -8,7 +8,7 @@ Local: src/domains/protocolo/ (ao lado de protocolo_catalogo_controller.py).
 Somente leitura -- ver não é usar: qualquer usuário logado, liberado ou não.
 """
 
-from src.domains.empresa.empresa_protocolo.empresa_protocolo_service import EmpresaProtocoloRepository
+from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
 from .protocolo_catalogo_service import ProtocoloCatalogoService
 from ..repositories.protocolo_versao_repository import ProtocoloVersaoRepository
 
