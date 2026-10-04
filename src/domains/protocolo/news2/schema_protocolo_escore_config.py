@@ -22,7 +22,7 @@ Exemplo de estrutura esperada (já desserializada):
         {"categoria": "baixo",  "escore_min": 0, "escore_max": 4, "acao_recomendada": "..."},
         {"categoria": "medio",  "escore_min": 5, "escore_max": 6, "acao_recomendada": "..."},
         {"categoria": "alto",   "escore_min": 7, "acao_recomendada": "..."},
-        {"categoria": "baixo_medio", "aplicada_por_override": True, "acao_recomendada": "..."},
+        {"categoria": "baixo_medio", "aplicada_por_override": True, "escore_max": 4, "acao_recomendada": "..."},
     ]
 """
 import json
@@ -152,7 +152,9 @@ class FaixaInterpretacao(BaseModel):
     escore_min: int | None = None
     escore_max: int | None = None
     acao_recomendada: str | None = None
-    aplicada_por_override: bool = False   # True: só é usada quando o override dispara
+    # True: só vale quando o override dispara E escore_total <= escore_max (None = sempre).
+    # Acima disso a faixa normal do total já é mais grave e prevalece.
+    aplicada_por_override: bool = False
 
     @model_validator(mode="after")
     def consistencia(self):
