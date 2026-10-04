@@ -109,7 +109,7 @@ class ConfiguracaoService:
         só é possível habilitar o que a empresa já liberou (EmpresaProtocolo.ativo=True).
         """
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        id_protocolo = catalogo.id_protocolo_catalogo
+        id_protocolo = catalogo.id
         id_empresa = get_id_empresa_sessao()
 
         vinculo_empresa = self.repo.find_empresa_protocolo(id_empresa, id_protocolo)
@@ -133,7 +133,7 @@ class ConfiguracaoService:
         (EmpresaProtocolo.politica == 'obrigatorio') — a preferência existe, mas não
         pode ser desligada nesse caso."""
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        id_protocolo = catalogo.id_protocolo_catalogo
+        id_protocolo = catalogo.id
         id_empresa = get_id_empresa_sessao()
 
         cfg = self.obter_ou_criar(id_usuario)
@@ -163,7 +163,7 @@ class ConfiguracaoService:
             raise DadosInvalidosError(f"Escopo inválido: '{escopo}'. Valores aceitos: {sorted(self.ESCOPOS_VALIDOS)}.")
 
         catalogo = self._resolver_catalogo(uuid_protocolo)
-        id_protocolo = catalogo.id_protocolo_catalogo
+        id_protocolo = catalogo.id
 
         # Convenção 3 do model: catálogo efetivo = liberado pela empresa + em_uso.
         vinculo_empresa = self.repo.find_empresa_protocolo(get_id_empresa_sessao(), id_protocolo)
@@ -196,7 +196,7 @@ class ConfiguracaoService:
         O escopo volta ao default da instituição -- ninguém fica sem padrão."""
         catalogo = self._resolver_catalogo(uuid_protocolo)
         cfg = self.obter_ou_criar(id_usuario)
-        protocolo = self.repo.find_protocolo(cfg.id, catalogo.id_protocolo_catalogo)
+        protocolo = self.repo.find_protocolo(cfg.id, catalogo.id)
         if not protocolo:
             raise RecursoNaoEncontradoError("Protocolo não configurado para este usuário.")
         protocolo.escopo_default = None

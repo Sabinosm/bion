@@ -106,8 +106,8 @@ class ProtocoloCatalogoService:
         return [
             self._montar_resumo(
                 p, ativo, politica,
-                escopo_default_institucional=padroes.get(p.id_protocolo_catalogo),
-                estado_pessoal=None if mapa is None else mapa.get(p.id_protocolo_catalogo, {}),
+                escopo_default_institucional=padroes.get(p.id),
+                estado_pessoal=None if mapa is None else mapa.get(p.id, {}),
             )
             for p, ativo, politica in linhas
         ]

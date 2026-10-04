@@ -42,7 +42,7 @@ class EmpresaProtocoloService:
         catalogo = self.repo_catalogo.find_all()
         vinculos = {v.id_protocolo_catalogo: v for v in self.repo.find_all_por_empresa(id_empresa)}
         return [
-            {"protocolo": p, "vinculo": vinculos.get(p.id_protocolo_catalogo)}
+            {"protocolo": p, "vinculo": vinculos.get(p.id)}
             for p in catalogo
         ]
 
