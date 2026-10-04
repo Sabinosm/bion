@@ -19,3 +19,12 @@ class ProtocoloVersaoRepository(IRepository[ProtocoloVersao]):
         return ProtocoloVersao.query.filter_by(
             id_protocolo_catalogo=id_protocolo_catalogo, status="ativa"
         ).first()
+    
+    def delete():
+        pass
+    
+    def find_by_uuid():
+        pass
+    
+    def save():
+        pass
