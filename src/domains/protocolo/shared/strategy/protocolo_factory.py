@@ -1,11 +1,13 @@
 """Único ponto de decisão de qual Strategy usar, a partir de tipo_protocolo."""
 from .base import ProtocoloStrategy
-from ...news2.protocolo_escore_ponderado import ProtocoloEscorePonderadoStrategy
+from ...news2.protocolo_escore_ponderado import EscorePonderadoStrategy
+from ...protocolo_composto.protocolo_composto_strategy import ProtocoloCompostoStrategy
 
 
 class ProtocoloFactory:
     _registro: dict[str, type[ProtocoloStrategy]] = {
-        "escore-ponderado": ProtocoloEscorePonderadoStrategy
+        "escore-ponderado": EscorePonderadoStrategy,
+        "protocolo-composto": ProtocoloCompostoStrategy,  
     }
 
     @classmethod
