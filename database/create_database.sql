@@ -745,13 +745,53 @@ CREATE TABLE `consentimento_lgpd` (
   `data_revogacao` timestamp NULL DEFAULT NULL,
   `observacao` text DEFAULT NULL,
   `hash_documento` char(64) DEFAULT NULL,
+  `pdf_final_path` varchar(500) DEFAULT NULL,
+  `assinatura_imagem_path` varchar(500) DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `ativo_unico` tinyint(4) GENERATED ALWAYS AS (if(`status` = 'ativo',1,NULL)) STORED,
   PRIMARY KEY (`id_consentimento`),
   UNIQUE KEY `uuid_consentimento` (`uuid_consentimento`),
+  UNIQUE KEY `uq_consentimento_ativo_paciente` (`id_paciente`,`ativo_unico`),
   KEY `id_paciente` (`id_paciente`),
   KEY `coletado_por` (`coletado_por`),
   CONSTRAINT `consentimento_lgpd_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
   CONSTRAINT `consentimento_lgpd_ibfk_2` FOREIGN KEY (`coletado_por`) REFERENCES `usuarios` (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.consentimento_sessao_assinatura definition
+
+CREATE TABLE `consentimento_sessao_assinatura` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `token` varchar(64) NOT NULL,
+  `id_paciente` bigint(20) NOT NULL,
+  `id_consentimento` bigint(20) DEFAULT NULL,
+  `id_unidade` int(11) NOT NULL,
+  `id_medico_gerador` bigint(20) NOT NULL,
+  `versao_termo` varchar(50) NOT NULL,
+  `pdf_termo_path` varchar(500) NOT NULL,
+  `hash_pdf_original` varchar(64) NOT NULL,
+  `texto_termo_snapshot` text NOT NULL,
+  `criado_em` datetime NOT NULL,
+  `expira_em` datetime NOT NULL,
+  `usado_em` datetime DEFAULT NULL,
+  `ip_geracao` varchar(45) DEFAULT NULL,
+  `ip_assinatura` varchar(45) DEFAULT NULL,
+  `user_agent_assinatura` text DEFAULT NULL,
+  `geo_assinatura` varchar(200) DEFAULT NULL,
+  `geo_divergente` tinyint(1) DEFAULT 0,
+  `status` enum('pendente','usado','expirado') DEFAULT 'pendente',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token` (`token`),
+  KEY `idx_expira` (`expira_em`),
+  KEY `idx_status` (`status`),
+  KEY `fk_sessao_consentimento` (`id_consentimento`),
+  KEY `fk_sessao_medico` (`id_medico_gerador`),
+  KEY `idx_sessao_paciente_status` (`id_paciente`,`status`),
+  KEY `idx_sessao_status_expira` (`status`,`expira_em`),
+  CONSTRAINT `fk_sessao_consentimento` FOREIGN KEY (`id_consentimento`) REFERENCES `consentimento_lgpd` (`id_consentimento`),
+  CONSTRAINT `fk_sessao_medico` FOREIGN KEY (`id_medico_gerador`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_sessao_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -1081,6 +1121,7 @@ CREATE TABLE `prescricao_exame` (
   CONSTRAINT `prescricao_exame_ibfk_2` FOREIGN KEY (`id_exame`) REFERENCES `catalogo_exames` (`id_catalogo_exame`),
   CONSTRAINT `prescricao_exame_ibfk_3` FOREIGN KEY (`id_output_origem`) REFERENCES `output_bion` (`id_output`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- Reativar verificação de FK
 SET FOREIGN_KEY_CHECKS = 1;

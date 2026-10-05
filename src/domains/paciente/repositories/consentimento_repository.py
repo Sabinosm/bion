@@ -4,6 +4,7 @@ from src.models import db
 from src.core.interfaces import IRepository
 from src.models.pacientes import Consentimento
 
+
 class ConsentimentoRepository(IRepository[Consentimento]):
 
     def find_by_id(self, id: int) -> Optional[Consentimento]:
@@ -16,7 +17,20 @@ class ConsentimentoRepository(IRepository[Consentimento]):
         return Consentimento.query.filter_by(id_paciente=id_paciente).all()
 
     def find_ativo_por_paciente(self, id_paciente: int) -> Optional[Consentimento]:
-        return Consentimento.query.filter_by(id_paciente=id_paciente, status="ativo").first()
+        # order_by: se por legado houver mais de um ativo, pega o mais recente
+        return (
+            Consentimento.query
+            .filter_by(id_paciente=id_paciente, status="ativo")
+            .order_by(Consentimento.id.desc())
+            .first()
+        )
+
+    # NOVO: todos os ativos (normalmente 0 ou 1; mais de 1 = dado legado sujo)
+    def find_ativos_por_paciente(self, id_paciente: int, for_update: bool = False) -> List[Consentimento]:
+        q = Consentimento.query.filter_by(id_paciente=id_paciente, status="ativo")
+        if for_update:
+            q = q.with_for_update()
+        return q.all()
 
     def save(self, entity: Consentimento, commit: bool = True) -> Consentimento:
         db.session.add(entity)

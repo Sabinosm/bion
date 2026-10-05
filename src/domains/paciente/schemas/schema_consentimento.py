@@ -5,6 +5,11 @@ O Literal de `canal_coleta` é cópia manual do db.Enum de Consentimento
 -- não há introspecção automática do schema do banco aqui. Se o Enum
 do model mudar, este arquivo precisa ser atualizado junto.
 
+Canais que o registro MANUAL não aceita (só nascem por fluxo próprio):
+- "presencial-digital": fluxo de assinatura por QR code
+  (ver schema_consentimento_digital.ConsentimentoDigitalCreateSchema)
+- "dispensa-emergencia": ConsentimentoDispensaEmergenciaSchema
+
 motivo (dispensa/revogação) tem strip + rejeição de string só-espaços.
 hash_documento é validado como hex de 64 caracteres (SHA-256), formato
 assumido pelo domínio -- ajustar aqui se o algoritmo usado mudar.
@@ -27,9 +32,19 @@ def _validar_texto_obrigatorio(v: str) -> str:
 
 class ConsentimentoCreateSchema(BaseModel):
     versao_termo: str = Field(min_length=1, max_length=50)
-    canal_coleta: Literal["presencial-papel", "presencial-digital", "portal-online", "totem"]
+    canal_coleta: Literal["presencial-papel", "portal-online", "totem"]
     escopo_consentimento: Optional[dict] = None
     hash_documento: Optional[str] = Field(default=None, max_length=64)
+
+    @field_validator("canal_coleta", mode="before")
+    @classmethod
+    def _canal_digital_reservado(cls, v):
+        # mensagem clara em vez do erro genérico do Literal
+        if v == "presencial-digital":
+            raise ValueError(
+                "o canal 'presencial-digital' é reservado ao fluxo de assinatura por QR code"
+            )
+        return v
 
     @field_validator("versao_termo")
     @classmethod

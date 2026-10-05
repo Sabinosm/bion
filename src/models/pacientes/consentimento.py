@@ -10,12 +10,20 @@ aqui. Consentimento era stub; completado.
 from datetime import datetime, timezone
 import uuid as _uuid
 
+from sqlalchemy.dialects.mysql import TINYINT
+
 from src.models import db
 from src.models.types import BigIntPK
 
 
 class Consentimento(db.Model):
     __tablename__ = "consentimento_lgpd"
+    # Espelha o índice criado em migracao_refatoracao.sql (passo 2): garante UM
+    # consentimento ativo por paciente. MySQL não tem índice único parcial,
+    # então usa a coluna gerada ativo_unico (1 se ativo, NULL nos demais).
+    __table_args__ = (
+        db.UniqueConstraint("id_paciente", "ativo_unico", name="uq_consentimento_ativo_paciente"),
+    )
 
     id = db.Column("id_consentimento", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_consentimento", db.String(36), unique=True, nullable=False,
@@ -28,22 +36,19 @@ class Consentimento(db.Model):
         db.Enum("presencial-papel", "presencial-digital", "portal-online", "totem",
                 "dispensa-emergencia"),
         nullable=False)
-    # ALTERADO: status ganhou "dispensado_emergencia" -- registra que o
-    # consentimento foi dispensado por urgência/emergência (base legal
-    # LGPD art. 11, II, f -- tutela da saúde, não depende de
-    # consentimento do titular), diferente de simplesmente não ter
-    # nenhum registro (que é indistinguível de "esqueceram de coletar").
     status = db.Column(db.Enum("ativo", "revogado", "expirado", "dispensado_emergencia"),
                         nullable=False, default="ativo")
     escopo_consentimento_json = db.Column(db.JSON)
     data_revogacao = db.Column(db.DateTime(timezone=True))
-    # RENOMEADO: motivo_revogacao -> observacao. Passou a guardar tanto
-    # o motivo de uma revogação quanto o motivo de uma dispensa por
-    # emergência -- "motivo_revogacao" não descrevia bem o segundo caso
-    # (dispensa não é revogação). Nome do atributo Python muda; nome da
-    # coluna no banco também muda via SQL (ver migração em anexo).
     observacao = db.Column("observacao", db.Text)
     hash_documento = db.Column(db.String(64))
+    
+    pdf_final_path = db.Column(db.String(500), nullable=True)
+    assinatura_imagem_path = db.Column(db.String(500), nullable=True)
+
+    # Coluna GERADA pelo banco: o ORM nunca grava nela (Computed).
+    ativo_unico = db.Column(TINYINT, db.Computed("IF(status = 'ativo', 1, NULL)", persisted=True))
+    
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -58,11 +63,10 @@ class Consentimento(db.Model):
             "canal_coleta": self.canal_coleta,
             "status": self.status,
             "data_revogacao": self.data_revogacao.isoformat() if self.data_revogacao else None,
-            # NOVO: antes motivo_revogacao não era exposto no to_dict();
-            # agora que o campo também carrega o motivo de uma dispensa
-            # por emergência, esconder essa informação faz menos
-            # sentido -- é o único lugar onde o "porquê" fica registrado.
             "observacao": self.observacao,
+            # caminhos do servidor NÃO saem na API; só se há PDF e como baixá-lo
+            "possui_pdf": bool(self.pdf_final_path),
+            "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{self.uuid}" if self.pdf_final_path else None,
         }
 
     def __repr__(self):

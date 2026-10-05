@@ -5,3 +5,4 @@ from .medicamento_em_uso_repository import MedicamentoEmUsoRepository
 from .obs_tipo_sanguineo_repository import ObservacaoTipoSanguineoRepository
 from .reacao_alergia_repository import ReacaoAlergiaRepository
 from .paciente_repository import PacienteRepository
+from .consentimento_sessao_assinatura_repository import ConsentimentoSessaoAssinaturaRepository

@@ -6,6 +6,7 @@ from .doenca_cronica import DoencaCronica
 from .medicamento_em_uso import MedicamentoEmUso
 from .paciente import Paciente
 from .paciente_dados_pessoais import PacienteDadosPessoais
+from .consentimento_sessao_assinatura import ConsentimentoSessaoAssinatura
 
 __all__ = [
     "Alergia",
@@ -15,5 +16,6 @@ __all__ = [
     "MedicamentoEmUso",
     "Paciente",
     "PacienteDadosPessoais",
-    "ObservacaoTipoSanguineo"
+    "ObservacaoTipoSanguineo",
+    "ConsentimentoSessaoAssinatura"
 ]

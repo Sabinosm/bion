@@ -1,13 +1,16 @@
 from datetime import datetime, timezone
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
+from src.models import db
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, ConsentimentoRepository
 from src.domains.paciente.schemas.schema_consentimento import (
     ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema,
     ConsentimentoRevogarSchema, erros_pydantic_por_campo,
 )
+
 
 class ConsentimentoService:
 
@@ -25,45 +28,75 @@ class ConsentimentoService:
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         return self.repo.find_por_paciente(p.id)
 
-    def registrar(self, uuid_paciente: str, dados: dict, id_usuario_coletor: int, id_empresa: int):
-        """ALTERADO: validação movida para ConsentimentoCreateSchema --
-        antes checava só presença de versao_termo/canal_coleta, não se
-        canal_coleta batia com o Enum do banco
-        (presencial-papel|presencial-digital|portal-online|totem)."""
+    # ------------------------------------------------------------------
+    # PONTO ÚNICO de criação de consentimento ativo.
+    # Qualquer fluxo (manual, QR code, futuro portal) passa por aqui, para
+    # que a regra "um ativo por paciente" seja a mesma em todos.
+    # ------------------------------------------------------------------
+    def ativar_novo(
+        self,
+        id_paciente: int,
+        *,
+        coletado_por: int,
+        versao_termo: str,
+        canal_coleta: str,
+        escopo=None,
+        hash_documento: str = None,
+        pdf_final_path: str = None,
+        assinatura_imagem_path: str = None,
+        commit: bool = False,
+    ):
+        """Revoga TODOS os ativos anteriores do paciente e cria o novo.
+        commit=False: só faz flush -- o chamador comita junto com o resto
+        (ex.: fechar a sessão de assinatura na mesma transação)."""
         from src.models.pacientes import Consentimento
+
+        agora = datetime.now(timezone.utc)
+        try:
+            for antigo in self.repo.find_ativos_por_paciente(id_paciente, for_update=True):
+                antigo.status = "revogado"
+                antigo.data_revogacao = agora
+                antigo.observacao = "Substituído por novo termo de consentimento."
+                self.repo.save(antigo, commit=False)
+
+            c = Consentimento(
+                id_paciente=id_paciente,
+                coletado_por=coletado_por,
+                versao_termo=versao_termo,
+                data_consentimento=agora,
+                canal_coleta=canal_coleta,
+                escopo_consentimento_json=escopo,
+                hash_documento=hash_documento,
+                pdf_final_path=pdf_final_path,
+                assinatura_imagem_path=assinatura_imagem_path,
+            )
+            return self.repo.save(c, commit=commit)
+        except IntegrityError:
+            # unique (id_paciente, ativo_unico) -- ver migração SQL
+            db.session.rollback()
+            raise ConflictoError("Já existe um consentimento ativo sendo registrado para este paciente. Tente novamente.")
+
+    def registrar(self, uuid_paciente: str, dados: dict, id_usuario_coletor: int, id_empresa: int):
+        """Registro manual. O canal 'presencial-digital' é rejeitado pelo
+        ConsentimentoCreateSchema: só nasce do fluxo de assinatura por QR code."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
 
         try:
             entrada = ConsentimentoCreateSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
-        except Exception as e:
-            raise
 
-        ativo = self.repo.find_ativo_por_paciente(p.id)
-        if ativo:
-            ativo.status = "revogado"
-            ativo.data_revogacao = datetime.now(timezone.utc)
-            ativo.observacao = "Substituído por novo termo de consentimento."
-            self.repo.save(ativo)
-
-        c = Consentimento(
-            id_paciente=p.id,
+        return self.ativar_novo(
+            p.id,
             coletado_por=id_usuario_coletor,
             versao_termo=entrada.versao_termo,
-            data_consentimento=datetime.now(timezone.utc),
             canal_coleta=entrada.canal_coleta,
-            escopo_consentimento_json=entrada.escopo_consentimento,
+            escopo=entrada.escopo_consentimento,
             hash_documento=entrada.hash_documento,
+            commit=True,
         )
-        return self.repo.save(c)
 
     def revogar(self, uuid_paciente: str, dados: dict, id_empresa: int, commit: bool = True):
-        """ALTERADO: recebe dados (dict) em vez de motivo (str) direto
-        -- motivo agora passa por ConsentimentoRevogarSchema e é
-        obrigatório (antes aceitava None com fallback genérico,
-        inconsistente com dispensar_por_emergencia, que já exigia
-        motivo)."""
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         ativo = self.repo.find_ativo_por_paciente(p.id)
         if not ativo:
@@ -73,8 +106,6 @@ class ConsentimentoService:
             entrada = ConsentimentoRevogarSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
-        except Exception as e:
-            raise
 
         ativo.status = "revogado"
         ativo.data_revogacao = datetime.now(timezone.utc)
@@ -82,18 +113,8 @@ class ConsentimentoService:
         return self.repo.save(ativo, commit=commit)
 
     def dispensar_por_emergencia(self, uuid_paciente: str, dados: dict, id_usuario: int, id_empresa: int):
-        """NOVO: registra que o consentimento foi DISPENSADO por
-        urgência/emergência -- base legal LGPD art. 11, II, "f" (tutela
-        da saúde), que não depende de consentimento do titular. Não
-        bloqueia nada (nenhum insert clínico verificava consentimento
-        antes, e continua não verificando) -- a diferença é que agora
-        fica registrado QUEM decidiu dispensar, QUANDO e POR QUÊ, em vez
-        de simplesmente não haver registro nenhum (o que hoje é
-        indistinguível de "esqueceram de coletar").
-
-        Não usa find_ativo_por_paciente/revoga nada -- dispensa não é
-        "substituir" um consentimento ativo, é registrar que a coleta
-        normal foi propositalmente pulada desta vez."""
+        """Registra dispensa por urgência/emergência (LGPD art. 11, II, "f").
+        Não substitui nem revoga consentimento ativo."""
         from src.models.pacientes import Consentimento
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
 
@@ -101,8 +122,6 @@ class ConsentimentoService:
             entrada = ConsentimentoDispensaEmergenciaSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
-        except Exception as e:
-            raise
 
         c = Consentimento(
             id_paciente=p.id,
