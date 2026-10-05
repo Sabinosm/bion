@@ -4,7 +4,7 @@ ou por mapeamento categorico) e aplica a interpretacao final, se houver.
 Funcao pura: (ModuloDef, dados) -> ResultadoModulo. Nunca acessa banco.
 """
 from ..schemas.config_schemas import ConfigPontuador, Faixa, InterpretacaoSegmentada
-from ..schemas import ItemTrilha, ModuloDef, ResultadoModulo
+from ..schemas.protocolo_composto_schemas import ItemTrilha, ModuloDef, ResultadoModulo
 
 
 class ValorNaoComparavel(Exception):

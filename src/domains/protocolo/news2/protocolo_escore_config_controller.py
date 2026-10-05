@@ -18,7 +18,7 @@ class News2Controller():
     @staticmethod
     @bp.get("/news2/<uuid_protocolo>/campos")
     @requer_login
-    def campos(uuid_protocolo):
+    def news2_campos(uuid_protocolo):
         """Pesquisa: campos que o protocolo exige. Aberto a qualquer usuário
         logado, liberado ou não -- é estudo, não uso clínico (o gate é só na execução).
         Identificado pelo uuid do catálogo, como o resto da página."""
@@ -35,7 +35,7 @@ class News2Controller():
     @staticmethod
     @bp.post("/news2/<int:id_protocolo_catalogo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
-    def executar(id_protocolo_catalogo):
+    def news2_executar(id_protocolo_catalogo):
         """Envio dos dados: valida liberação institucional, calcula e persiste."""
         dados = request.get_json(silent=True) or {}
         id_input = dados.get("id_input")

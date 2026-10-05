@@ -21,7 +21,7 @@ class ProtocoloCompostoController():
     @staticmethod
     @bp.get("/protocolo-composto/<uuid_protocolo>/campos")
     @requer_login
-    def campos(uuid_protocolo):
+    def protocolo_composto_campos(uuid_protocolo):
         """Pesquisa: campos que o protocolo exige. Aberto a qualquer usuário
         logado, liberado ou não -- é estudo, não uso clínico (o gate é só na execução).
         Identificado pelo uuid do catálogo, como o resto da página."""
@@ -38,7 +38,7 @@ class ProtocoloCompostoController():
     @staticmethod
     @bp.get("/protocolo-composto/<uuid_protocolo>/composicao")
     @requer_login
-    def composicao(uuid_protocolo):
+    def protocolo_composto_composicao(uuid_protocolo):
         """Estrutura do composto (agregação, gatilhos, módulos e os campos de
         cada módulo). Só leitura, aberto a qualquer logado."""
         try:
@@ -50,7 +50,7 @@ class ProtocoloCompostoController():
     @staticmethod
     @bp.post("/protocolo-composto/<int:id_protocolo_catalogo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
-    def executar(id_protocolo_catalogo):
+    def protocolo_composto_executar(id_protocolo_catalogo):
         """Envio dos dados: valida liberação institucional, calcula e persiste."""
         dados = request.get_json(silent=True) or {}
         id_input = dados.get("id_input")

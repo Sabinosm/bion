@@ -23,3 +23,9 @@ class ProtocoloEscoreConfigRepository(IRepository[ProtocoloEscoreConfig]):
         db.session.add(entity)
         db.session.commit()
         return entity
+    
+    def delete():
+        pass
+
+    def find_by_uuid():
+        pass
