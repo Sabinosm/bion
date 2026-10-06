@@ -43,8 +43,11 @@ class Consulta(db.Model):
     paciente = db.relationship("Paciente", back_populates="consultas")
     usuario_iniciou = db.relationship("Usuario", foreign_keys=[iniciada_por])
     usuario_finalizou = db.relationship("Usuario", foreign_keys=[finalizada_por])
-    atendimentos = db.relationship("Atendimento", back_populates="consulta",
-                                    cascade="all, delete-orphan")
+    atendimentos = db.relationship(
+                    "Atendimento", back_populates="consulta",
+                    cascade="save-update, merge",   # sem delete e sem delete-orphan
+                    passive_deletes="all",          # o SQLAlchemy não tenta zerar o id_consulta dos filhos
+                    )
 
     def to_dict(self):
         return {
