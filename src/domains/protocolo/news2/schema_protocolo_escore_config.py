@@ -117,7 +117,9 @@ class ParametroEscore(BaseModel):
         for anterior, atual in zip(ordenadas, ordenadas[1:]):
             max_ant = float("inf") if anterior.valor_max is None else anterior.valor_max
             min_atu = float("-inf") if atual.valor_min is None else atual.valor_min
-            if max_ant >= min_atu:
+            
+            # Aqui estava max_ant >= min_atu
+            if max_ant > min_atu:
                 raise ValueError(f"'{self.campo}': faixas sobrepostas")
 
 
