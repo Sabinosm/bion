@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 from sqlalchemy.exc import IntegrityError
 
-from src.models import db
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from .repository import ConsultaRepository
 
@@ -103,11 +102,10 @@ class ConsultaService:
                 iniciada_por=id_usuario,
             )
             try:
-                db.session.add(consulta)
-                db.session.flush()
+                self.repo.save(consulta, commit=False)   # flush: o índice único é checado aqui
             except IntegrityError:
-                # uq_consulta_aberta_por_paciente: corrida entre duas aberturas
-                db.session.rollback()
+                # uq_consulta_aberta_por_paciente: corrida entre duas aberturas.
+                # O rollback (inclusive do paciente recém-cadastrado) é feito no except externo.
                 raise ConflictoError("Paciente já possui consulta aberta.")
 
             if sem_id:
@@ -116,10 +114,10 @@ class ConsultaService:
                     id_usuario, commit=False,
                 )
 
-            db.session.commit()
+            self.repo.confirmar(commit=True)   # único commit: paciente + consulta + consentimento
             return consulta
         except Exception:
-            db.session.rollback()
+            self.repo.rollback()
             raise
 
     # ----------------------------------------------------------- encerrar

@@ -2,7 +2,6 @@
 
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional, List
-import uuid
 
 from sqlalchemy import func
 
@@ -14,7 +13,35 @@ from src.models.corp.empresa import Empresa
 
 
 class ConsultaRepository(IRepository[Consulta]):
-    """Encapsula todo acesso a dados de Consulta via SQLAlchemy."""
+    """Encapsula todo acesso a dados de Consulta via SQLAlchemy.
+
+    TENANT: Consulta tem id_empresa próprio; toda busca por UUID e toda
+    listagem exige id_empresa (da sessão). find_by_id é interno, para
+    quem já validou a posse por outro caminho (ex: Atendimento.id_consulta).
+
+    TRANSAÇÃO: commit/flush/rollback vivem aqui, nunca no service.
+    save(commit=False) só faz flush, para o service compor várias
+    escritas (paciente + consulta + consentimento, ou Atendimento +
+    status da Consulta) num único commit.
+    """
+
+    # ------------------------------------------------------------ transação
+    def confirmar(self, commit: bool = True) -> None:
+        """Commit, ou só flush se o chamador vai comitar depois."""
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    def rollback(self) -> None:
+        db.session.rollback()
+
+    # ---------------------------------------------------------------- leitura
+    def find_by_id(self, id: int) -> Optional[Consulta]:
+        """Busca pela chave primária. SEM filtro de empresa: só use com
+        um id que já veio de um registro validado (ex: o id_consulta de
+        um Atendimento da empresa)."""
+        return db.session.get(Consulta, id)
 
     def find_by_uuid(self, uuid: str, id_empresa: int) -> Optional[Consulta]:
         return Consulta.query.filter_by(uuid=uuid, id_empresa=id_empresa).first()
@@ -35,6 +62,7 @@ class ConsultaRepository(IRepository[Consulta]):
         return (Consulta.query.filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
                 .filter(Consulta.status_consulta != "encerrada").first())
 
+    # --------------------------------------------------------------- escrita
     def nova(self, *, id_paciente, id_empresa, origem_encaminhamento, iniciada_por) -> Consulta:
         """Só instancia; quem controla a transação é o service."""
         return Consulta(id_paciente=id_paciente, id_empresa=id_empresa,
@@ -45,25 +73,20 @@ class ConsultaRepository(IRepository[Consulta]):
 
     def save(self, entity: Consulta, commit: bool = True) -> Consulta:
         db.session.add(entity)
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
+        self.confirmar(commit)
         return entity
 
     def delete(self, id: int) -> bool:
-        """Remove uma Consulta pelo ID. Retorna False se não existir."""
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
+        """Consulta é registro clínico: não se apaga. Com
+        cascade="all, delete-orphan" em Consulta.atendimentos, apagar uma
+        Consulta levaria TODO o histórico clínico junto. Para encerrar
+        use ConsultaService.encerrar/evadir. O método existe só para
+        cumprir IRepository."""
+        raise NotImplementedError(
+            "Consulta não pode ser removida; encerre-a (ConsultaService.encerrar/evadir)."
+        )
 
-    def find_all(self) -> List[Consulta]:
-        """Lista todas as Consultas cadastradas, sem filtro."""
-        return Consulta.query.all()
-
+    # ---------------------------------------------------------- estatísticas
     def _empresa_e_offset(self, id_empresa: int):
         """Busca a Empresa e devolve (empresa, offset_str). offset_str
         é "+00:00" (UTC) se a empresa não existir ou não tiver UF
@@ -94,7 +117,6 @@ class ConsultaRepository(IRepository[Consulta]):
         """"hoje" calculado no fuso da empresa (ver _limites_do_dia_utc),
         não em UTC direto.
         """
-        from src.models.usuarios.usuario import Usuario
         inicio_dia, fim_dia = self._limites_do_dia_utc(id_empresa)
 
         return (
@@ -109,17 +131,15 @@ class ConsultaRepository(IRepository[Consulta]):
     def contar_consultas_por_dia(self, id_empresa: int, dias: int = 30) -> List[dict]:
         """Volume de Consultas iniciadas por dia, nos últimos N dias.
 
-        ALTERADO: o agrupamento por dia agora usa CONVERT_TZ() para
-        converter `data_hora_inicio` (gravado em UTC) para o fuso da
-        empresa ANTES de extrair a data -- sem isso, `func.date()`
-        agrupa pelo dia em UTC, deslocando consultas de fim/início de
-        dia local para o dia errado (ver Empresa.offset_horario).
+        O agrupamento por dia usa CONVERT_TZ() para converter
+        `data_hora_inicio` (gravado em UTC) para o fuso da empresa ANTES
+        de extrair a data -- sem isso, `func.date()` agrupa pelo dia em
+        UTC, deslocando consultas de fim/início de dia local para o dia
+        errado (ver Empresa.offset_horario).
 
         Retorna lista de dicts [{"data": date, "total": int}, ...]
         ordenada do dia mais antigo para o mais recente.
         """
-        from src.models.usuarios.usuario import Usuario
-
         _, offset_str = self._empresa_e_offset(id_empresa)
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
         dia_local = func.date(func.convert_tz(Consulta.data_hora_inicio, "+00:00", offset_str))
@@ -138,12 +158,8 @@ class ConsultaRepository(IRepository[Consulta]):
     def contar_consultas_por_dia_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
         """Mesma agregação de contar_consultas_por_dia, mas com
         data_inicio/data_fim explícitos -- usado para o total do
-        período ANTERIOR na comparação de A1.
-
-        ALTERADO: mesmo ajuste de fuso de contar_consultas_por_dia.
+        período ANTERIOR na comparação de A1. Mesmo ajuste de fuso.
         """
-        from src.models.usuarios.usuario import Usuario
-
         _, offset_str = self._empresa_e_offset(id_empresa)
         dia_local = func.date(func.convert_tz(Consulta.data_hora_inicio, "+00:00", offset_str))
 
@@ -163,12 +179,13 @@ class ConsultaRepository(IRepository[Consulta]):
         """Contagem de Consultas por status_consulta, nos últimos N dias.
 
         Retorna dict {status_consulta: total}, ex:
-        {"encerrada": 130, "em-atendimento": 8, "evasao": 4, ...}
+        {"encerrada": 130, "em-atendimento": 8, "em-triagem": 4, ...}
+        Evasão NÃO é um status: é um desfecho_final de uma Consulta
+        "encerrada". Para separar evasões de altas, agrupe por
+        desfecho_final (não por status_consulta).
         Base para calcular a taxa de conclusão no service (contagem
         pura aqui; % é responsabilidade da camada de estatística).
         """
-        from src.models.usuarios.usuario import Usuario
-
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
 
         linhas = (
@@ -189,8 +206,6 @@ class ConsultaRepository(IRepository[Consulta]):
         data_inicio/data_fim explícitos -- usado para calcular o
         percentual do período ANTERIOR (comparação de A3).
         """
-        from src.models.usuarios.usuario import Usuario
-
         linhas = (
             db.session.query(
                 Consulta.status_consulta.label("status"),
