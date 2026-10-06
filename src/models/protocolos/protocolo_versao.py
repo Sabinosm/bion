@@ -32,7 +32,7 @@ class ProtocoloVersao(db.Model):
     codigo_composicao = db.Column(
         db.BigInteger().with_variant(BIGINT(unsigned=True), "mysql"),
         unique=True, nullable=True)
-    vigente_desde = db.Column(db.DateTime(timezone=True), nullable=False)
+    vigente_desde = db.Column(db.DateTime(timezone=True),default=lambda: datetime.now(timezone.utc), nullable=False)
     vigente_ate = db.Column(db.DateTime(timezone=True), nullable=True)
     status = db.Column(db.Enum("ativa", "descontinuada"), nullable=False, default="ativa")
     observacoes = db.Column(db.Text, nullable=True)

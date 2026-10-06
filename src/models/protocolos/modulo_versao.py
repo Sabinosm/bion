@@ -23,7 +23,7 @@ class ModuloVersao(db.Model):
     configuracao_json = db.Column(db.JSON, nullable=False)
     explicacao_json = db.Column(db.JSON, nullable=False)
     status = db.Column(db.Enum("ativa", "descontinuada"), nullable=False, default="ativa")
-    vigente_desde = db.Column(db.DateTime(timezone=True), nullable=False)
+    vigente_desde = db.Column(db.DateTime(timezone=True),default=lambda: datetime.now(timezone.utc), nullable=False)
     vigente_ate = db.Column(db.DateTime(timezone=True), nullable=True)
     observacoes = db.Column(db.Text)
     criado_em = db.Column(db.DateTime(timezone=True),

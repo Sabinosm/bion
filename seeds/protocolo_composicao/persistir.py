@@ -101,10 +101,10 @@ def _upsert_modulos_e_versoes(
         db.session.flush()  # garante id_modulo
 
         versao = ModuloVersao.query.filter_by(
-            id_modulo=modulo.id_modulo, numero_versao=dado["versao"]
+            id_modulo=modulo.id, numero_versao=dado["versao"]
         ).first()
         if versao is None:
-            versao = ModuloVersao(id_modulo=modulo.id_modulo, numero_versao=dado["versao"])
+            versao = ModuloVersao(id_modulo=modulo.id, numero_versao=dado["versao"])
             db.session.add(versao)
         elif versao.status == "ativa":
             # versao ja publicada: nao sobrescreve config/explicacao em
@@ -136,19 +136,19 @@ def _sincronizar_campos(
     campos: list[tuple[str, bool]],
     variaveis_por_codigo: dict[str, VariavelClinica],
 ) -> None:
-    existentes = {c.id_variavel: c for c in ModuloVersaoCampo.query.filter_by(
-        id_modulo_versao=versao.id_modulo_versao
+    existentes = {c.id: c for c in ModuloVersaoCampo.query.filter_by(
+        id_modulo_versao=versao.id
     ).all()}
     desejados_ids = set()
 
     for ordem, (codigo_variavel, obrigatorio) in enumerate(campos):
         variavel = variaveis_por_codigo[codigo_variavel]  # ja validado antes de chegar aqui
-        desejados_ids.add(variavel.id_variavel)
-        existente = existentes.get(variavel.id_variavel)
+        desejados_ids.add(variavel.id)
+        existente = existentes.get(variavel.id)
         if existente is None:
             db.session.add(ModuloVersaoCampo(
-                id_modulo_versao=versao.id_modulo_versao,
-                id_variavel=variavel.id_variavel,
+                id_modulo_versao=versao,
+                id_variavel=variavel.id,
                 obrigatorio=obrigatorio,
                 ordem=ordem,
             ))
@@ -213,7 +213,7 @@ def _sincronizar_composicao_linhas(versao, comp, versao_por_sigla_modulo) -> Non
     for ordem, (sigla_modulo, papel, grupo) in enumerate(comp["modulos"]):
         db.session.add(ProtocoloComposicao(
             id_protocolo_versao=versao.id,
-            id_modulo_versao=versao_por_sigla_modulo[sigla_modulo].id_modulo_versao,
+            id_modulo_versao=versao_por_sigla_modulo[sigla_modulo].id,
             papel=papel,
             grupo_agregacao=grupo,
             ordem=ordem,
@@ -261,20 +261,23 @@ def persistir(dry_run: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="Só valida e mostra o plano, sem gravar.")
-    args = parser.parse_args()
+    from src.main import create_app
+    with create_app().app_context():
 
-    try:
-        resultado = persistir(dry_run=args.dry_run)
-    except SeedInvalido as ex:
-        print(f"SEED INVÁLIDO — nada foi gravado.\n{ex}", file=sys.stderr)
-        sys.exit(1)
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--dry-run", action="store_true", help="Só valida e mostra o plano, sem gravar.")
+        args = parser.parse_args()
 
-    modo = "DRY-RUN (nada foi gravado)" if not resultado["aplicado"] else "APLICADO"
-    print(f"[{modo}]")
-    print(f"Variáveis: {resultado['total_variaveis']}")
-    print(f"Módulos: {resultado['total_modulos']}")
-    print(f"Composições: {resultado['total_composicoes']}")
-    for sigla, codigo in resultado["codigos_composicao"].items():
-        print(f"  {sigla}: codigo_composicao={codigo}")
+        try:
+            resultado = persistir(dry_run=args.dry_run)
+        except SeedInvalido as ex:
+            print(f"SEED INVÁLIDO — nada foi gravado.\n{ex}", file=sys.stderr)
+            sys.exit(1)
+
+        modo = "DRY-RUN (nada foi gravado)" if not resultado["aplicado"] else "APLICADO"
+        print(f"[{modo}]")
+        print(f"Variáveis: {resultado['total_variaveis']}")
+        print(f"Módulos: {resultado['total_modulos']}")
+        print(f"Composições: {resultado['total_composicoes']}")
+        for sigla, codigo in resultado["codigos_composicao"].items():
+            print(f"  {sigla}: codigo_composicao={codigo}")
