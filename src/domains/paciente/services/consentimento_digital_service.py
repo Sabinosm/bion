@@ -23,7 +23,6 @@ from src.core.exceptions import (
     DadosInvalidosError,
     ConflictoError,
 )
-from src.models import db
 from src.models.pacientes import ConsentimentoSessaoAssinatura
 from src.domains.paciente.repositories import (
     PacienteRepository,
@@ -40,6 +39,18 @@ from src.domains.paciente.schemas.schema_consentimento_digital import (
     ConsentimentoDigitalCreateSchema,
 )
 from .consentimento_service import ConsentimentoService
+from src.core.security import aes_decrypt
+
+def _formatar_cpf(cpf) -> str:
+    d = re.sub(r"\D", "", cpf or "")
+    return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else (cpf or "-")
+
+
+def _mascarar_cpf(cpf) -> str:
+    """***.456.789-** -- a rota publica (token) mostra o suficiente para o
+    titular reconhecer o proprio CPF, sem expor o numero completo."""
+    d = re.sub(r"\D", "", cpf or "")
+    return f"***.{d[3:6]}.{d[6:9]}-**" if len(d) == 11 else "-"
 
 
 class ConsentimentoDigitalService:
@@ -68,17 +79,26 @@ class ConsentimentoDigitalService:
         return p
 
     @staticmethod
+    def _identificacao(paciente) -> tuple:
+        """(nome, cpf) em texto claro. Paciente NAO tem .nome/.cpf: a PII
+        fica cifrada em paciente.pessoal. Sem dados pessoais (emergencia
+        nao identificada, ou anonimizado) nao ha quem assine o termo --
+        nesses casos o caminho e a dispensa por emergencia."""
+        pessoal = paciente.pessoal
+        if not pessoal:
+            raise DadosInvalidosError(
+                "Paciente sem dados pessoais (nao identificado ou anonimizado): "
+                "identifique-o antes de coletar o termo, ou registre a dispensa por emergencia."
+            )
+        return aes_decrypt(pessoal.nome_completo), aes_decrypt(pessoal.cpf)
+
+    @staticmethod
     def _expirado(sessao) -> bool:
         """MySQL costuma devolver datetime naive; assume UTC (como gravamos)."""
         exp = sessao.expira_em
         if exp.tzinfo is None:
             exp = exp.replace(tzinfo=timezone.utc)
         return datetime.now(timezone.utc) > exp
-
-    @staticmethod
-    def _formatar_cpf(cpf) -> str:
-        d = re.sub(r"\D", "", cpf or "")
-        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else (cpf or "-")
 
     def _resolver_pdf_termo(self, pdf_termo_path: str) -> Path:
         """O PDF só pode estar dentro de CONSENT_PDF_TERMOS (evita ler/copiar
@@ -98,7 +118,7 @@ class ConsentimentoDigitalService:
         if sessao.status == "expirado" or self._expirado(sessao):
             if sessao.status != "expirado":
                 sessao.status = "expirado"
-                db.session.commit()
+                self.sessao_repo.save(sessao, commit=True)
             raise DadosInvalidosError(msg_expirado)
 
     # ------------------------------------------------------------ gerar link
@@ -122,6 +142,7 @@ class ConsentimentoDigitalService:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        nome, cpf = self._identificacao(p)   # falha cedo, antes de expirar links anteriores
         caminho_pdf = self._resolver_pdf_termo(entrada.pdf_termo_path)
 
         hash_pdf = ConsentimentoSessaoAssinatura.calcular_hash_pdf(str(caminho_pdf))
@@ -149,8 +170,8 @@ class ConsentimentoDigitalService:
             "token": sessao.token,
             "url_assinatura": f"/v1/api/pacientes/lgpd/assinar/{sessao.token}",
             "expira_em": sessao.expira_em.isoformat(),
-            "paciente_nome": p.nome,
-            "paciente_cpf": p.cpf,
+            "paciente_nome": nome,
+            "paciente_cpf": _formatar_cpf(cpf),
         }
 
     # ------------------------------------------------- rota pública (GET)
@@ -163,10 +184,11 @@ class ConsentimentoDigitalService:
             "Este link já foi utilizado para assinatura.",
             "Link de assinatura expirado. Solicite um novo ao médico.",
         )
+        nome, cpf = self._identificacao(sessao.paciente)
         return {
             "token": sessao.token,
-            "paciente_nome": sessao.paciente.nome,
-            "paciente_cpf": sessao.paciente.cpf,
+            "paciente_nome": nome,
+            "paciente_cpf": _mascarar_cpf(cpf),
             "escopos_disponiveis": [
                 {"codigo": k, "descricao": d} for k, d in ESCOPOS_VALIDOS.items()
             ],
@@ -277,9 +299,11 @@ class ConsentimentoDigitalService:
             sessao.geo_divergente = geo_divergente
             sessao.id_consentimento = consentimento.id
 
-            db.session.commit()   # único commit: revogação + consentimento + sessão
+            # único commit: revogação + consentimento (flush) + sessão
+            self.sessao_repo.save(sessao, commit=True)
         except Exception:
-            db.session.rollback()
+            # mesma sessão do SQLAlchemy: o rollback do PacienteRepository desfaz tudo
+            self.paciente_repo.rollback()
             for arq in arquivos_criados:
                 Path(arq).unlink(missing_ok=True)
             raise
@@ -305,6 +329,7 @@ class ConsentimentoDigitalService:
         from reportlab.pdfgen import canvas as rl_canvas
         from pypdf import PdfReader, PdfWriter
 
+        nome, cpf = self._identificacao(sessao.paciente)
         agora = contexto["data"]
         try:
             from zoneinfo import ZoneInfo
@@ -340,8 +365,8 @@ class ConsentimentoDigitalService:
                 y -= 4.5 * mm
             return y - 1.5 * mm
 
-        y = campo("Paciente:", sessao.paciente.nome, y)
-        y = campo("CPF:", self._formatar_cpf(sessao.paciente.cpf), y)
+        y = campo("Paciente:", nome, y)
+        y = campo("CPF:", _formatar_cpf(cpf), y)
         y = campo("Versão do termo:", sessao.versao_termo, y)
         y = campo("Data/hora:", f"{data_local} - {data_utc}" if data_local else data_utc, y)
         y = campo("IP:", contexto.get("ip"), y)
