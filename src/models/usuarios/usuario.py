@@ -114,3 +114,12 @@ class Usuario(db.Model):
             "status": self.status,
             "is_admin": self.is_admin,
         }
+    
+    def to_dict_session(self):
+        return{
+            "uuid": self.uuid,
+            "funcao_clinica": self.funcao_clinica,
+            "is_admin": self.is_admin,
+            "is_super_admin": self.is_super_admin,
+            "status": self.status,
+        }
