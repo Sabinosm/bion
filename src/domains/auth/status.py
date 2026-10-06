@@ -9,7 +9,7 @@ em JSON, mesmo sendo uma rota de apoio à navegação.
 
 from flask import Blueprint, session, jsonify, g
 from src.core.responses import json_error, json_success
-from src.core.session import requer_login, get_usuario_sessao, _mfa_pendente_expirado
+from src.core.session import get_usuario_sessao, _mfa_pendente_expirado
 
 bp_status = Blueprint("status", __name__)
 
@@ -62,7 +62,8 @@ def _resposta_se_incompleta():
     return None
     
 class Status():
-
+    
+    @staticmethod
     @bp_status.get("/status")
     def status_sessao():
         """Estado da sessão, sem exigir autenticação completa e sem dados do usuário.
@@ -77,7 +78,7 @@ class Status():
         """
         return _resposta_se_incompleta() or (jsonify({"status": "completa"}), 200)
     
-    
+    @staticmethod
     @bp_status.get("/status_completo")
     def status_completo():
         """Igual a `/status`, mas no estado `completa` inclui `usuario`.
@@ -112,7 +113,7 @@ class Status():
         from src.domains.configuracao.service import ConfiguracaoService
         from .webauthn_2fa import carregar_configuracoes
 
-        usuario = UsuarioRepository().find_by_id(g.id_usuario)
+        usuario = get_usuario_sessao()
 
         if not usuario:
             session.clear()
