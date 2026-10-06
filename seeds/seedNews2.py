@@ -93,7 +93,6 @@ def seed_news2():
             "unidade": "°C",
             "tipo_campo": "numero",
             # Intervalos semiabertos [min, max): min <= x < max, sem lacunas decimais.
-            "intervalo": "min_inclusivo_max_exclusivo",
             "faixas": [
                 {"valor_min": None, "valor_max": 35.1, "pontos": 3},
                 {"valor_min": 35.1, "valor_max": 36.1, "pontos": 1},
@@ -145,19 +144,30 @@ def seed_news2():
     ]
 
     faixas_interpretacao = [
-        {"total_min": 0, "total_max": 0, "categoria": "baixo", "acao_recomendada": "Monitorização de rotina (mínimo 12/12h)."},
-        {"total_min": 1, "total_max": 4, "categoria": "baixo", "acao_recomendada": "Avaliação por enfermeiro; considerar aumento da frequência de monitorização."},
-        {"total_min": 5, "total_max": 6, "categoria": "medio", "acao_recomendada": "Resposta urgente: avaliação médica em até 1h."},
-        {"total_min": 7, "total_max": 20, "categoria": "alto", "acao_recomendada": "Resposta de emergência: avaliação médica imediata, considerar UTI/cuidados críticos."},
+        # CORREÇÃO: escore_min / escore_max
+        {"escore_min": 0, "escore_max": 0, "categoria": "baixo", "acao_recomendada": "Monitorização de rotina (mínimo 12/12h)."},
+        {"escore_min": 1, "escore_max": 4, "categoria": "baixo", "acao_recomendada": "Avaliação por enfermeiro; considerar aumento da frequência de monitorização."},
+        
+        # CORREÇÃO: Faixa com aplicada_por_override=True (Obrigatória quando existe regra_override)
+        {
+            "categoria": "baixo_medio", 
+            "escore_max": 4, 
+            "aplicada_por_override": True, 
+            "acao_recomendada": "Avaliação clínica urgente (parâmetro isolado com 3 pontos)."
+        },
+        
+        {"escore_min": 5, "escore_max": 6, "categoria": "medio", "acao_recomendada": "Resposta urgente: avaliação médica em até 1h."},
+        {"escore_min": 7, "escore_max": 20, "categoria": "alto", "acao_recomendada": "Resposta de emergência: avaliação médica imediata, considerar UTI/cuidados críticos."},
     ]
 
     # Colunas db.JSON: passar objetos Python direto (sem json.dumps).
     config = ProtocoloEscoreConfig(
         id_protocolo_catalogo=catalogo.id,
         parametros_json=parametros,
+        # CORREÇÃO: Chaves compatíveis com o Schema (tipo e pontos_minimos)
         regra_override_json={
-            "condicao": "qualquer_parametro_score_3",
-            "acao": "avaliacao_clinica_urgente",
+            "tipo": "parametro_individual",
+            "pontos_minimos": 3,
             "descricao": "Avaliação urgente por clínico, mesmo com total 0-4.",
         },
         faixas_interpretacao_json=faixas_interpretacao,
