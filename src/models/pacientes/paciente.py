@@ -45,6 +45,7 @@ class Paciente(db.Model):
     # NOVO: espelha Patient.deceasedBoolean/deceasedDateTime do FHIR
     falecido = db.Column(db.Boolean, nullable=False, default=False)
     data_obito = db.Column(db.Date, nullable=True)
+    nao_identificado = db.Column(db.Boolean, nullable=False, default=False)
 
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -111,6 +112,7 @@ class Paciente(db.Model):
             "status": self.status,
             "data_primeiro_atendimento": self.data_primeiro_atendimento.isoformat()
             if self.data_primeiro_atendimento else None,
+            "nao_identificado": self.nao_identificado,
             # NOVO: quem cadastrou -- nome_completo de Usuario não é
             # cifrado (confirmado), então pode ir direto sem passar
             # pelo service para descriptografar.
@@ -139,7 +141,12 @@ class Paciente(db.Model):
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
             "sexo_biologico": self.sexo_biologico,
             "status": self.status,
+            "nao_identificado": self.nao_identificado,
         }
 
     def __repr__(self):
         return f"<Paciente {self.uuid}>"
+
+    def esta_anonimizado(self):
+        # sem pessoal E não é emergência pendente de identificação
+        return self.pessoal is None and not self.nao_identificado

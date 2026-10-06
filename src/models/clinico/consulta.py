@@ -21,12 +21,8 @@ class Consulta(db.Model):
     uuid = db.Column("uuid_consulta",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_paciente = db.Column("id_paciente",db.BigInteger, db.ForeignKey("paciente.id_paciente"), nullable=False)
-    # tipo_consulta removido: era decidido antes de qualquer Atendimento
-    # existir e duplicava (de forma inconsistente) o que já é capturado
-    # por Atendimento.tipo_atendimento. status_consulta agora é o único
-    # campo de estado, e é sempre derivado via
-    # src.domains.consulta.status_sync.sincronizar_status_consulta --
-    # nunca setado manualmente fora dali.
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"),
+                       nullable=False, index=True)
     origem_encaminhamento = db.Column(
         db.Enum("espontanea", "SAMU", "transferencia", "regulacao"),
         nullable=False, default="espontanea")

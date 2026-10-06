@@ -2,6 +2,7 @@
 
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional, List
+import uuid
 
 from sqlalchemy import func
 
@@ -15,31 +16,39 @@ from src.models.corp.empresa import Empresa
 class ConsultaRepository(IRepository[Consulta]):
     """Encapsula todo acesso a dados de Consulta via SQLAlchemy."""
 
-    def find_by_id(self, id: int) -> Optional[Consulta]:
-        """Busca uma Consulta pelo ID interno (chave primária)."""
-        return db.session.get(Consulta, id)
+    def find_by_uuid(self, uuid: str, id_empresa: int) -> Optional[Consulta]:
+        return Consulta.query.filter_by(uuid=uuid, id_empresa=id_empresa).first()
 
-    def find_by_uuid(self, uuid: str) -> Optional[Consulta]:
-        """Busca uma Consulta pelo UUID público exposto na API."""
-        return Consulta.query.filter_by(uuid=uuid).first()
+    def find_por_paciente(self, id_paciente: int, id_empresa: int) -> List[Consulta]:
+        return (Consulta.query
+                .filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
+                .order_by(Consulta.data_hora_inicio.desc()).all())
 
-    def find_por_paciente(self, id_paciente: int) -> List[Consulta]:
-        """Lista todas as Consultas de um paciente, mais recente primeiro."""
-        return (
-            Consulta.query
-            .filter_by(id_paciente=id_paciente)
-            .order_by(Consulta.data_hora_inicio.desc())
-            .all()
-        )
+    def find_abertas(self, id_empresa: int) -> List[Consulta]:
+        return (Consulta.query.filter_by(id_empresa=id_empresa)
+                .filter(Consulta.status_consulta != "encerrada").all())
 
-    def find_abertas(self) -> List[Consulta]:
-        """Lista todas as Consultas que ainda não foram encerradas."""
-        return Consulta.query.filter(Consulta.status_consulta != "encerrada").all()
+    def find_all(self, id_empresa: int) -> List[Consulta]:
+        return Consulta.query.filter_by(id_empresa=id_empresa).all()
 
-    def save(self, entity: Consulta) -> Consulta:
-        """Persiste (insert ou update) uma Consulta e commita a transação."""
+    def find_aberta_por_paciente(self, id_paciente: int, id_empresa: int) -> Optional[Consulta]:
+        return (Consulta.query.filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
+                .filter(Consulta.status_consulta != "encerrada").first())
+
+    def nova(self, *, id_paciente, id_empresa, origem_encaminhamento, iniciada_por) -> Consulta:
+        """Só instancia; quem controla a transação é o service."""
+        return Consulta(id_paciente=id_paciente, id_empresa=id_empresa,
+                        origem_encaminhamento=origem_encaminhamento,
+                        status_consulta="aguardando-triagem",
+                        data_hora_inicio=datetime.now(timezone.utc),
+                        iniciada_por=iniciada_por)
+
+    def save(self, entity: Consulta, commit: bool = True) -> Consulta:
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return entity
 
     def delete(self, id: int) -> bool:
@@ -90,8 +99,7 @@ class ConsultaRepository(IRepository[Consulta]):
 
         return (
             db.session.query(func.count(Consulta.id))
-            .join(Usuario, Consulta.iniciada_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= inicio_dia)
             .filter(Consulta.data_hora_inicio <= fim_dia)
             .scalar() or 0
@@ -118,8 +126,7 @@ class ConsultaRepository(IRepository[Consulta]):
 
         linhas = (
             db.session.query(dia_local.label("data"), func.count(Consulta.id).label("total"))
-            .join(Usuario, Consulta.iniciada_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= limite)
             .group_by(dia_local)
             .order_by(dia_local.asc())
@@ -142,8 +149,7 @@ class ConsultaRepository(IRepository[Consulta]):
 
         linhas = (
             db.session.query(dia_local.label("data"), func.count(Consulta.id).label("total"))
-            .join(Usuario, Consulta.iniciada_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= data_inicio)
             .filter(Consulta.data_hora_inicio < data_fim)
             .group_by(dia_local)
@@ -170,8 +176,7 @@ class ConsultaRepository(IRepository[Consulta]):
                 Consulta.status_consulta.label("status"),
                 func.count(Consulta.id).label("total"),
             )
-            .join(Usuario, Consulta.iniciada_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= limite)
             .group_by(Consulta.status_consulta)
             .all()
@@ -191,8 +196,7 @@ class ConsultaRepository(IRepository[Consulta]):
                 Consulta.status_consulta.label("status"),
                 func.count(Consulta.id).label("total"),
             )
-            .join(Usuario, Consulta.iniciada_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= data_inicio)
             .filter(Consulta.data_hora_inicio < data_fim)
             .group_by(Consulta.status_consulta)
