@@ -13,39 +13,19 @@ from src.core.session import requer_login, get_usuario_sessao, _mfa_pendente_exp
 
 bp_status = Blueprint("status", __name__)
 
-
-class Status():
-
-    @staticmethod
-    @bp_status.route("/status", methods=["GET"])
-    def status_sessao():
-        """Retorna o estado atual da sessão sem exigir autenticação completa.
-
-        `mfa_pendente` ocorre após qualquer login (senha ou Google)
-        enquanto o segundo fator ainda não foi confirmado.
-
-        Retorno:
-            200 com `status: autenticado`, `onboarding_pendente` (incluindo
-            `senha_definida: bool` para o frontend saber se pode pular a
-            etapa de senha) ou `mfa_pendente` (incluindo `metodo` e
-            `tentativas_restantes`, para o frontend decidir entre tentar de
-            novo ou oferecer reautenticação por senha ou Google).
-            401 com `status: nao_autenticado` se não houver sessão iniciada.
-        """
-        if not get_usuario_sessao():
+def _resposta_se_incompleta():
+        """Devolve (resposta, código) se a sessão não estiver completa; senão None."""
+        usuario = get_usuario_sessao()
+        if not usuario:
             return jsonify({"status": "nao_autenticado"}), 401
 
         if session.get("onboarding_pendente"):
-            usuario = get_usuario_sessao()
             return jsonify({
                 "status": "onboarding_pendente",
                 "senha_definida": usuario.hash_senha is not None,
             }), 200
 
         if session.get("mfa_pendente"):
-            # mfa_pendente expira por tempo fixo (ver
-            # _mfa_pendente_expirado em session.py), não só por
-            # inatividade do cookie Flask.
             if _mfa_pendente_expirado():
                 session.clear()
                 return jsonify({"status": "nao_autenticado"}), 401
@@ -53,27 +33,28 @@ class Status():
             from src.domains.auth.mfa import metodos_2fa_disponiveis
             from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
 
-            usuario = get_usuario_sessao()
             metodos = metodos_2fa_disponiveis(usuario.id)
-            tentativas = session.get("mfa_tentativas", 0)
-            tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
-
+            restantes = max(0, MAX_TENTATIVAS_MFA - session.get("mfa_tentativas", 0))
             return jsonify({
                 "status": "mfa_pendente",
-                # Mantido por compatibilidade com qualquer leitura antiga
-                # de `metodo` (singular) -- primeiro da lista de preferência.
-                "metodo": metodos[0] if metodos else None,
-                # Lista completa, para a tela de escolha no frontend.
+                "metodo": metodos[0] if metodos else None,  # compatibilidade
                 "metodos_disponiveis": metodos,
-                "tentativas_restantes": tentativas_restantes,
-                "reautenticar_disponivel": tentativas_restantes == 0,
+                "tentativas_restantes": restantes,
+                "reautenticar_disponivel": restantes == 0,
             }), 200
 
-        return jsonify({"status": "completa"}), 200
+        return None
+    
+class Status():
+
+    @staticmethod
+    @bp_status.route("/status", methods=["GET"])
+    def status_sessao():
+        """Estado da sessão, sem dados do usuário."""
+        return _resposta_se_incompleta() or (jsonify({"status": "completa"}), 200)
 
     @staticmethod
     @bp_status.get("/me")
-    @requer_login
     def me():
         """Retorna os dados do usuário autenticado na sessão atual e suas configurações.
 
@@ -100,63 +81,16 @@ class Status():
             message="Login realizado com sucesso.",
         )
 
-    @staticmethod
-    @requer_login
     @bp_status.get("/status_completo")
     def status_completo():
-            """Retorna o estado atual da sessão com informações detalhadas do usuário
-    
-            Retorno:
-                200 com `status: autenticado`, `onboarding_pendente` (incluindo
-                `senha_definida: bool` para o frontend saber se pode pular a
-                etapa de senha) ou `mfa_pendente` (incluindo `metodo` e
-                `tentativas_restantes`, para o frontend decidir entre tentar de
-                novo ou oferecer reautenticação por senha ou Google).
-                401 com `status: nao_autenticado` se não houver sessão iniciada.
-            """
-            if not get_usuario_sessao():
-                return jsonify({"status": "nao_autenticado"}), 401
-    
-            if session.get("onboarding_pendente"):
-                usuario = get_usuario_sessao()
-                return jsonify({
-                    "status": "onboarding_pendente",
-                    "senha_definida": usuario.hash_senha is not None,
-                }), 200
-    
-            if session.get("mfa_pendente"):
-                # mfa_pendente expira por tempo fixo (ver
-                # _mfa_pendente_expirado em session.py), não só por
-                # inatividade do cookie Flask.
-                if _mfa_pendente_expirado():
-                    session.clear()
-                    return jsonify({"status": "nao_autenticado"}), 401
-    
-                from src.domains.auth.mfa import metodos_2fa_disponiveis
-                from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
-    
-                usuario = get_usuario_sessao()
-                metodos = metodos_2fa_disponiveis(usuario.id)
-                tentativas = session.get("mfa_tentativas", 0)
-                tentativas_restantes = max(0, MAX_TENTATIVAS_MFA - tentativas)
-    
-                return jsonify({
-                    "status": "mfa_pendente",
-                    # Mantido por compatibilidade com qualquer leitura antiga
-                    # de `metodo` (singular) -- primeiro da lista de preferência.
-                    "metodo": metodos[0] if metodos else None,
-                    # Lista completa, para a tela de escolha no frontend.
-                    "metodos_disponiveis": metodos,
-                    "tentativas_restantes": tentativas_restantes,
-                    "reautenticar_disponivel": tentativas_restantes == 0,
-                }), 200
-
-            
-            
-            return jsonify({
-                "status": "completa",
-                "usuario": get_usuario_sessao().to_dict_session()
-                            }), 200
+        """Estado da sessão; quando `completa`, inclui `usuario` (to_dict_session)."""
+        resposta = _resposta_se_incompleta()
+        if resposta:
+            return resposta
+        return jsonify({
+            "status": "completa",
+            "usuario": get_usuario_sessao().to_dict_session(),
+        }), 200
         
     
     @staticmethod
