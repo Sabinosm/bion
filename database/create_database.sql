@@ -1,6 +1,6 @@
 CREATE DATABASE `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 
-CREATE DATABASE `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
+use `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 
 -- Desativar verificação de FK
 SET FOREIGN_KEY_CHECKS = 0;
@@ -587,6 +587,7 @@ CREATE TABLE `paciente` (
   `data_obito` date DEFAULT NULL,
   `bairro` varchar(100) DEFAULT NULL,
   `id_empresa` bigint(20) NOT NULL,
+  `nao_identificado` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_paciente`),
   UNIQUE KEY `uuid_paciente` (`uuid_paciente`),
   KEY `id_regiao_geografica` (`id_regiao_geografica`),
@@ -802,6 +803,7 @@ CREATE TABLE `consulta` (
   `uuid_consulta` char(36) NOT NULL,
   `iniciada_por` bigint(20) DEFAULT NULL,
   `id_paciente` bigint(20) NOT NULL,
+  `id_empresa` bigint(20) NOT NULL,
   `data_hora_inicio` timestamp NOT NULL,
   `data_hora_fim` timestamp NULL DEFAULT NULL,
   `origem_encaminhamento` enum('espontanea','SAMU','transferencia','regulacao') NOT NULL,
@@ -809,14 +811,18 @@ CREATE TABLE `consulta` (
   `desfecho_final` enum('alta','internacao','transferencia','obito','evasao') DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `finalizada_por` bigint(20) DEFAULT NULL,
+  `aberta_unica` bigint(20) GENERATED ALWAYS AS (if(`status_consulta` <> 'encerrada',`id_paciente`,NULL)) STORED,
   PRIMARY KEY (`id_consulta`),
   UNIQUE KEY `uuid_consulta` (`uuid_consulta`),
+  UNIQUE KEY `uq_consulta_aberta_por_paciente` (`aberta_unica`),
   KEY `iniciada_por` (`iniciada_por`),
   KEY `id_paciente` (`id_paciente`),
   KEY `finalizada_por` (`finalizada_por`),
+  KEY `ix_consulta_empresa_inicio` (`id_empresa`,`data_hora_inicio`),
   CONSTRAINT `consulta_ibfk_1` FOREIGN KEY (`iniciada_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `consulta_ibfk_2` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
-  CONSTRAINT `consulta_ibfk_3` FOREIGN KEY (`finalizada_por`) REFERENCES `usuarios` (`id_usuario`)
+  CONSTRAINT `consulta_ibfk_3` FOREIGN KEY (`finalizada_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_consulta_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id_empresa`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
