@@ -3,12 +3,28 @@
 
 Cada composicao e uma lista de (sigla_modulo, papel, grupo_agregacao).
 codigo_composicao e calculado, nunca escrito a mao (ver montar_seed.py).
+
+tipo_resultado: campo NOT NULL de ProtocoloCatalogo, enum
+('score-numerico', 'categoria-cor', 'nivel-risco', 'binario'). Pensado
+originalmente para protocolos de familia unica (NEWS2='score-numerico',
+MTS='categoria-cor'). Para composto, nao ha uma unica leitura certa --
+cada composicao declara o que melhor descreve a NATUREZA do seu
+resultado principal, mesmo quando agregacao='nenhuma' (paralelo):
+  - AGB: modulos de naturezas variadas (flag, categoria), sem
+    agregacao -- 'nivel-risco' e o mais genérico das 4 opcoes.
+  - TSM: tres pontuadores com faixas de gravidade -- 'nivel-risco'
+    tambem, porque o resultado nao e um unico score, sao tres.
+  - RCV: idem -- RISCO_CV_SIMPLIFICADO e pontuador, mas a composicao
+    inteira nao produz um score unico (agregacao='nenhuma').
+Se uma composicao futura usar agregacao='soma'/'maximo' sobre um unico
+grupo pontuavel, 'score-numerico' passa a ser a leitura mais correta.
 """
 
 COMPOSICAO_AVALIACAO_GERIATRICA = dict(
     sigla_protocolo="AGB",
     nome_protocolo="Avaliação Geriátrica Básica",
     escopo_uso="consulta",
+    tipo_resultado="nivel-risco",
     agregacao="nenhuma",
     modulos=[
         ("POLIFARMACIA", "principal", None),
@@ -28,6 +44,7 @@ COMPOSICAO_SAUDE_MENTAL = dict(
     sigla_protocolo="TSM",
     nome_protocolo="Triagem de Saúde Mental",
     escopo_uso="consulta",
+    tipo_resultado="nivel-risco",
     agregacao="nenhuma",
     modulos=[
         ("ELEGIBILIDADE_ADULTO", "gatilho", None),
@@ -54,6 +71,7 @@ COMPOSICAO_RISCO_CARDIOVASCULAR = dict(
     sigla_protocolo="RCV",
     nome_protocolo="Rastreio de Risco Cardiovascular e Metabólico",
     escopo_uso="consulta",
+    tipo_resultado="nivel-risco",
     agregacao="nenhuma",
     modulos=[
         ("RISCO_CV_SIMPLIFICADO", "principal", None),

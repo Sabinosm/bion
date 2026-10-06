@@ -15,12 +15,21 @@ SEMPRE valida com rodar_validacao_completa() ANTES de tocar o banco --
 se o seed estiver inconsistente, nada e escrito (aborta antes do primeiro
 INSERT, nao no meio).
 
+Campos de vigencia (preenchidos com o momento em que o seed roda, e
+estaveis entre rodadas -- ver nota em _upsert_modulos_e_versoes e
+_upsert_composicoes sobre por que NAO sao atualizados a cada rodada):
+    ModuloVersao.vigente_desde
+    ProtocoloVersao.vigente_desde
+    ProtocoloCatalogo.data_vigencia
+    ProtocoloCatalogo.versao_vigente  (= numero_versao da versao ativa, "1.0")
+
 Uso:
     python -m seed.persistir_seed            # aplica
     python -m seed.persistir_seed --dry-run  # so valida e mostra o plano
 """
 import argparse
 import sys
+from datetime import date, datetime, timezone
 
 from src.models import db
 from src.models.protocolos import (
@@ -104,7 +113,10 @@ def _upsert_modulos_e_versoes(
             id_modulo=modulo.id, numero_versao=dado["versao"]
         ).first()
         if versao is None:
-            versao = ModuloVersao(id_modulo=modulo.id, numero_versao=dado["versao"])
+            versao = ModuloVersao(
+                id_modulo=modulo.id, numero_versao=dado["versao"],
+                vigente_desde=datetime.now(timezone.utc),
+            )
             db.session.add(versao)
         elif versao.status == "ativa":
             # versao ja publicada: nao sobrescreve config/explicacao em
@@ -147,7 +159,7 @@ def _sincronizar_campos(
         existente = existentes.get(variavel.id)
         if existente is None:
             db.session.add(ModuloVersaoCampo(
-                id_modulo_versao=versao,
+                id_modulo_versao=versao.id,
                 id_variavel=variavel.id,
                 obrigatorio=obrigatorio,
                 ordem=ordem,
@@ -168,21 +180,36 @@ def _upsert_composicoes(versao_por_sigla_modulo: dict[str, ModuloVersao]) -> dic
 
     for comp in COMPOSICOES:
         catalogo = ProtocoloCatalogo.query.filter_by(sigla=comp["sigla_protocolo"]).first()
-        if catalogo is None:
+        eh_novo_catalogo = catalogo is None
+        if eh_novo_catalogo:
             catalogo = ProtocoloCatalogo(sigla=comp["sigla_protocolo"])
             db.session.add(catalogo)
 
         catalogo.nome_protocolo = comp["nome_protocolo"]
         catalogo.tipo_protocolo = "protocolo-composto"
         catalogo.escopo_uso = comp["escopo_uso"]
+        catalogo.tipo_resultado = comp["tipo_resultado"]
         catalogo.status = "ativo"
+        catalogo.explicacao_json = comp["explicacao_json"]
+        # versao_vigente (string) acompanha a numero_versao ativa, hoje
+        # sempre "1.0" -- se um dia houver "1.1", atualizar aqui junto.
+        catalogo.versao_vigente = "1.0"
+        if eh_novo_catalogo:
+            # data_vigencia e a data de publicacao do protocolo -- fixada
+            # na criacao, nunca reescrita em rodadas seguintes (senao um
+            # protocolo ja em uso pareceria ter sido "revalidado" a cada
+            # seed, o que nao e verdade).
+            catalogo.data_vigencia = date.today()
         db.session.flush()  # garante id_protocolo_catalogo
 
         versao = ProtocoloVersao.query.filter_by(
             id_protocolo_catalogo=catalogo.id, numero_versao="1.0"
         ).first()
         if versao is None:
-            versao = ProtocoloVersao(id_protocolo_catalogo=catalogo.id, numero_versao="1.0")
+            versao = ProtocoloVersao(
+                id_protocolo_catalogo=catalogo.id, numero_versao="1.0",
+                vigente_desde=datetime.now(timezone.utc),
+            )
             db.session.add(versao)
 
         codigo = 0

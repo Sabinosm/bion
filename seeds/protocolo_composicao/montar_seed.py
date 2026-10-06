@@ -25,6 +25,9 @@ class SeedInvalido(Exception):
     """Qualquer violacao encontrada aqui deve travar o deploy do seed."""
 
 
+TIPOS_RESULTADO_VALIDOS = {"score-numerico", "categoria-cor", "nivel-risco", "binario"}
+
+
 def _variaveis_por_codigo():
     codigos = [v["codigo"] for v in VARIAVEIS]
     dups = {c for c in codigos if codigos.count(c) > 1}
@@ -89,6 +92,15 @@ def validar_composicoes() -> dict[str, int]:
         # 1. escopo_uso precisa ser 'consulta' (decisao fechada no projeto)
         if comp["escopo_uso"] != "consulta":
             raise SeedInvalido(f"[{comp['sigla_protocolo']}] composicao precisa ter escopo_uso='consulta'")
+
+        # 1b. tipo_resultado precisa ser um dos 4 valores do Enum do banco
+        # (NOT NULL em protocolo_catalogo; pega erro de digitacao aqui,
+        # nao como IntegrityError na hora de gravar)
+        if comp.get("tipo_resultado") not in TIPOS_RESULTADO_VALIDOS:
+            raise SeedInvalido(
+                f"[{comp['sigla_protocolo']}] tipo_resultado invalido ou ausente: "
+                f"{comp.get('tipo_resultado')!r} (precisa ser um de {sorted(TIPOS_RESULTADO_VALIDOS)})"
+            )
 
         # 2. modulo referenciado precisa existir no catalogo
         desconhecidos = set(siglas) - set(MODULOS_POR_SIGLA)
