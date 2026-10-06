@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -13,7 +13,31 @@ from sqlalchemy import func
 
 
 class PacienteRepository(IRepository[Paciente]):
+    """Acesso a dados de Paciente.
 
+    TRANSAÇÃO: todo commit/flush/rollback do domínio Paciente vive AQUI,
+    nunca no service. Os métodos de escrita aceitam `commit`:
+      - commit=True  (padrão): confirma a transação.
+      - commit=False: só faz flush (gera ids, detecta violação de
+        constraint) e deixa a transação aberta para o chamador -- usado
+        quando a escrita faz parte de uma operação maior e atômica
+        (ex: abrir consulta + cadastrar paciente, ou acao_sensivel, que
+        comita junto com o log de auditoria).
+    """
+
+    # ------------------------------------------------------------ transação
+    def confirmar(self, commit: bool = True) -> None:
+        """Fecha a unidade de trabalho: commit, ou só flush se o chamador
+        vai comitar depois."""
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    def rollback(self) -> None:
+        db.session.rollback()
+
+    # ---------------------------------------------------------------- leitura
     def find_by_id(self, id: int) -> Optional[Paciente]:
         return db.session.get(Paciente, id)
 
@@ -38,18 +62,35 @@ class PacienteRepository(IRepository[Paciente]):
         ).first()
         return pessoal.paciente if pessoal else None
 
-    def save(self, entity: Paciente) -> Paciente:
+    # --------------------------------------------------------------- escrita
+    def save(self, entity: Union[Paciente, PacienteDadosPessoais], commit: bool = True):
+        """Persiste Paciente OU PacienteDadosPessoais (mesma sessão, mesma
+        transação). Ver `commit` na docstring da classe."""
         db.session.add(entity)
-        db.session.commit()
+        self.confirmar(commit)
         return entity
 
-    def delete(self, id: int) -> bool:
+    def delete(self, id: int, commit: bool = True) -> bool:
         e = self.find_by_id(id)
         if not e:
             return False
         db.session.delete(e)
-        db.session.commit()
+        self.confirmar(commit)
         return True
+
+    def registrar_auditoria(self, id_usuario: int, acao: str, uuid_paciente: str,
+                            commit: bool = True) -> None:
+        """Linha em RegistroAuditoria sobre um paciente. Import local: o
+        domínio de auditoria não deve ser carregado junto com o
+        repository de paciente em toda importação."""
+        from src.models.auditoria import RegistroAuditoria
+        db.session.add(RegistroAuditoria(
+            id_usuario=id_usuario,
+            acao=acao,
+            entidade="paciente",
+            entidade_uuid=uuid_paciente,
+        ))
+        self.confirmar(commit)
 
     def find_all(self, id_empresa: int) -> List[Paciente]:
         """ALTERADO: escopado por empresa -- sem isso, `listar()` do

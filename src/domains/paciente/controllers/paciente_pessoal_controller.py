@@ -70,7 +70,17 @@ class PacientePessoalController():
         pacientes = _svc.listar(get_id_empresa_sessao())
         return json_success(data=[_serializar(p, com_pii) for p in pacientes])
 
-
+    @staticmethod
+    @bp.post("/<uuid>/identificar")
+    @requer_papel_clinico("medico","enfermeiro")
+    def identificar(uuid):
+        dados = request.get_json(silent=True) or {}
+        try:
+            p = _svc.identificar(uuid, dados, get_id_usuario_sessao(), get_id_empresa_sessao())
+            return json_success(data=_serializar(p, True), message="Paciente identificado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+    
     # Listagem enxuta e paginada (to_dict_few) -- pra telas de
     # busca/seleção de paciente, onde não faz sentido carregar o
     # detalhe completo de cada um. Aberta a qualquer logado (decisão
