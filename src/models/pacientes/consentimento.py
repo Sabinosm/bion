@@ -42,7 +42,8 @@ class Consentimento(db.Model):
     data_revogacao = db.Column(db.DateTime(timezone=True))
     observacao = db.Column("observacao", db.Text)
     hash_documento = db.Column(db.String(64))
-    
+    pdf_final_path = db.Column(db.String(500), nullable=True)
+    assinatura_imagem_path = db.Column(db.String(500), nullable=True)
     pdf_final_path = db.Column(db.String(500), nullable=True)
     assinatura_imagem_path = db.Column(db.String(500), nullable=True)
 
