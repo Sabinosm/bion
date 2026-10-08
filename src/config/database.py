@@ -40,7 +40,7 @@ class Config:
     SESSION_PERMANENT = True
     SESSION_COOKIE_HTTPONLY = True   # JS do front não acessa o cookie
     SESSION_COOKIE_SAMESITE = "None"  # Proteção CSRF básica # ou "None" se front e back tiverem domínios diferentes
-         
+    SESSION_COOKIE_SECURE = True
     
     GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
     GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
@@ -64,7 +64,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", DATABASE_URL_DEFAULT)
     
     # Segurança de produção ativa
-    SESSION_COOKIE_SECURE = True # Cookie só trafega via HTTPS # True obrigatório se SAMESITE="None", mas exige HTTPs
+    SESSION_COOKIE_SECURE = False # Cookie só trafega via HTTPS # True obrigatório se SAMESITE="None", mas exige HTTPs
 
 
 class TestingConfig(Config):
