@@ -302,8 +302,8 @@ class ConsentimentoDigitalService:
             # único commit: revogação + consentimento (flush) + sessão
             self.sessao_repo.save(sessao, commit=True)
         except Exception:
-            # mesma sessão do SQLAlchemy: o rollback do PacienteRepository desfaz tudo
-            self.paciente_repo.rollback()
+            # desfaz revogação + consentimento + sessão (mesma transação)
+            self.consentimento_repo.rollback()
             for arq in arquivos_criados:
                 Path(arq).unlink(missing_ok=True)
             raise

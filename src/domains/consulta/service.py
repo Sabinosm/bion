@@ -129,7 +129,8 @@ class ConsultaService:
         if desfecho not in DESFECHOS_VALIDOS:
             raise DadosInvalidosError(f"Desfecho inválido. Use um de: {', '.join(DESFECHOS_VALIDOS)}")
 
-        pendentes = [a for a in AtendimentoRepository().find_por_consulta(c.id)
+        atendimento_repo = AtendimentoRepository()
+        pendentes = [a for a in atendimento_repo.find_por_consulta(c.id)
                      if a.status == "em-andamento"]
         if pendentes:
             if not cancelar_pendentes:
@@ -141,6 +142,8 @@ class ConsultaService:
             # cancelado não pode entrar nessa média.
             for a in pendentes:
                 a.status = "cancelado"
+                # salvamento explícito pelo repository (flush); o commit sai junto com a Consulta
+                atendimento_repo.save(a, commit=False)
 
         c.status_consulta = "encerrada"
         c.desfecho_final = desfecho
