@@ -44,7 +44,7 @@ def _resposta_se_incompleta():
         # não só por inatividade do cookie Flask.
         if _mfa_pendente_expirado():
             session.clear()
-            return jsonify({"status": "nao_autenticado"}), 401
+            return jsonify({"status": "nao_autenticado"}), 404
 
         from src.domains.auth.mfa import metodos_2fa_disponiveis
         from src.domains.auth.webauthn_2fa import MAX_TENTATIVAS_MFA
