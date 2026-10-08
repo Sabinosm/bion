@@ -16,7 +16,7 @@ antes de concluir, independente do primeiro login ter sido por senha
 ou por Google.
 """
 
-from flask import Blueprint, session, redirect, url_for
+from flask import Blueprint, current_app, session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
 from src.models.usuarios import Usuario
 from src.models import db
@@ -32,7 +32,7 @@ bp_oauth = Blueprint("oauth", __name__)
 # afterLogin.html realmente mora.
 CAMINHO_APOS_LOGIN = "/html/pages/auth/oauth_callback.html"
 CAMINHO_LOGIN = "/html/pages/auth/login.html"
-
+GOOGLE_REDIRECT_URI = "https://bion-one.vercel.app/v1/api/auth/google/callback"
 
 def init_oauth(app):
     oauth.init_app(app)
@@ -50,7 +50,7 @@ class Oauth():
     @staticmethod
     @bp_oauth.route("/login")
     def google_login():
-        redirect_uri = url_for("oauth.google_callback", _external=True)
+        redirect_uri = current_app.config["GOOGLE_REDIRECT_URI"]
         return oauth.google.authorize_redirect(redirect_uri)
 
     @staticmethod
