@@ -12,15 +12,7 @@ def create_app(config_name: str = "development") -> Flask:
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
-    # 1. Configura o ProxyFix para o Flask entender a conexão HTTPS do Cloudflare
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-    # 2. Permite envio de cookies de sessão em requisições Cross-Site (Origin != Tunnel)
-    app.config.update(
-        SESSION_COOKIE_SAMESITE="None",
-        SESSION_COOKIE_SECURE=True,
-        SESSION_COOKIE_HTTPONLY=True,
-    )
 
     db.init_app(app)
     migrate.init_app(app, db)
