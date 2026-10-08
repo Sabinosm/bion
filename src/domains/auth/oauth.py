@@ -32,7 +32,6 @@ bp_oauth = Blueprint("oauth", __name__)
 # afterLogin.html realmente mora.
 CAMINHO_APOS_LOGIN = "/html/pages/auth/oauth_callback.html"
 CAMINHO_LOGIN = "/html/pages/auth/login.html"
-GOOGLE_REDIRECT_URI = "https://bion-one.vercel.app/v1/api/auth/google/callback"
 
 def init_oauth(app):
     oauth.init_app(app)
@@ -50,7 +49,9 @@ class Oauth():
     @staticmethod
     @bp_oauth.route("/login")
     def google_login():
-        redirect_uri = current_app.config["GOOGLE_REDIRECT_URI"]
+        redirect_uri = current_app.config.get("GOOGLE_REDIRECT_URI") or url_for(
+                "oauth.google_callback", _external=True
+            )
         return oauth.google.authorize_redirect(redirect_uri)
 
     @staticmethod
