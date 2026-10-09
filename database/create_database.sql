@@ -590,6 +590,7 @@ CREATE TABLE `paciente` (
   `nao_identificado` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_paciente`),
   UNIQUE KEY `uuid_paciente` (`uuid_paciente`),
+  UNIQUE KEY `uq_paciente_id_empresa` (`id_paciente`,`id_empresa`),
   KEY `id_regiao_geografica` (`id_regiao_geografica`),
   KEY `cadastrado_por` (`cadastrado_por`),
   KEY `ix_paciente_id_empresa` (`id_empresa`),
@@ -605,6 +606,7 @@ CREATE TABLE `paciente_dados_pessoais` (
   `id_paciente_p` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_paciente_p` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
+  `id_empresa` bigint(20) NOT NULL,
   `nome_completo` varchar(255) NOT NULL,
   `cpf` varchar(255) DEFAULT NULL,
   `cpf_hash` varchar(255) NOT NULL,
@@ -619,8 +621,9 @@ CREATE TABLE `paciente_dados_pessoais` (
   PRIMARY KEY (`id_paciente_p`),
   UNIQUE KEY `uuid_paciente_p` (`uuid_paciente_p`),
   UNIQUE KEY `id_paciente` (`id_paciente`),
-  UNIQUE KEY `uq_paciente_dados_pessoais_cpf_hash` (`cpf_hash`),
-  UNIQUE KEY `cpf` (`cpf`),
+  UNIQUE KEY `uq_paciente_pessoal_empresa_cpf` (`id_empresa`,`cpf_hash`),
+  KEY `fk_pdp_paciente_empresa` (`id_paciente`,`id_empresa`),
+  CONSTRAINT `fk_pdp_paciente_empresa` FOREIGN KEY (`id_paciente`, `id_empresa`) REFERENCES `paciente` (`id_paciente`, `id_empresa`),
   CONSTRAINT `paciente_dados_pessoais_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

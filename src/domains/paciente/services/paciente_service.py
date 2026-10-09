@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, date
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from src.core.security import aes_encrypt, aes_decrypt, hmac_sha256
@@ -119,12 +120,17 @@ class PacienteService:
         return id_regiao_geografica, bairro
 
     @staticmethod
-    def _montar_pessoal(id_paciente: int, e: PacienteCriarSchema):
+    def _montar_pessoal(id_paciente: int, id_empresa: int, e: PacienteCriarSchema):
         """Monta PacienteDadosPessoais com PII cifrada (AES) + cpf_hash
-        (HMAC) para busca exata. Só instancia; não persiste."""
+        (HMAC) para busca exata. Só instancia; não persiste.
+
+        id_empresa: SEMPRE o de Paciente (paciente.id_empresa / empresa da
+        sessão), nunca do payload -- é o que sustenta a UNIQUE composta
+        (id_empresa, cpf_hash) no banco."""
         from src.models.pacientes import PacienteDadosPessoais
         return PacienteDadosPessoais(
             id_paciente=id_paciente,
+            id_empresa=id_empresa,
             nome_completo=aes_encrypt(e.nome_completo),
             cpf=aes_encrypt(e.cpf),
             cpf_hash=hmac_sha256(e.cpf),
@@ -178,10 +184,16 @@ class PacienteService:
                     entrada.tipo_sanguineo, registrado_por=id_usuario_cadastro
                 )
 
-            pessoal = self._montar_pessoal(paciente.id, entrada)
+            pessoal = self._montar_pessoal(paciente.id, id_empresa, entrada)
             paciente.pessoal = pessoal
             self.repo.save(pessoal, commit=commit)  # único commit do cadastro
             return paciente
+        except IntegrityError as e:
+            # Corrida entre duas requisições com o mesmo CPF: a checagem de
+            # _validar_criar passou nas duas, a UNIQUE composta barrou a 2ª.
+            if commit:
+                self.repo.rollback()
+            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
         except Exception:
             if commit:
                 self.repo.rollback()
@@ -222,6 +234,13 @@ class PacienteService:
         data_primeiro_atendimento NÃO é sobrescrita: vale o dia em que a
         pessoa de fato chegou, não o que veio no corpo."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
+        # Guard de óbito: identificar é fluxo operacional/clínico de quem
+        # está sendo atendido. (atualizar_pessoal e anonimizar ficam SEM
+        # este guard de propósito: corrigir cadastro de falecido é legítimo.)
+        if paciente.esta_falecido():
+            raise ConflictoError(
+                "Paciente com óbito registrado não pode ser identificado por este fluxo."
+            )
         if not paciente.nao_identificado:
             raise ConflictoError("Paciente já está identificado.")
 
@@ -238,10 +257,14 @@ class PacienteService:
             if entrada.tipo_sanguineo:
                 paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario)
 
-            pessoal = self._montar_pessoal(paciente.id, entrada)
+            pessoal = self._montar_pessoal(paciente.id, paciente.id_empresa, entrada)
             paciente.pessoal = pessoal
             self.repo.save(pessoal, commit=False)
             return self.repo.save(paciente, commit=commit)
+        except IntegrityError as e:
+            if commit:
+                self.repo.rollback()
+            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
         except Exception:
             if commit:
                 self.repo.rollback()
@@ -287,15 +310,16 @@ class PacienteService:
         return self._salvar(paciente, commit)
 
     def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int, commit: bool = True):
-        """Status, falecido e data_obito são decisões clínicas.
+        """Altera apenas `status`, entre "ativo" e "inativo".
+
+        Óbito NÃO passa por aqui: status="obito", falecido e data_obito
+        só mudam via marcar_obito / reverter_obito, que mantêm os três
+        campos sempre sincronizados. O schema rejeita (422) falecido,
+        data_obito e status="obito" neste payload.
+
         Reservado por padrão a médico/enfermeiro no controller; admin
         só entra aqui em caso excepcional, e essa chamada específica
-        fica registrada (ver registrar_escrita_clinica_excepcional).
-
-        Validação em PacienteAtualizarClinicoSchema -- status é Literal.
-        O schema também aplica a regra confirmada: falecido=True força
-        status="obito" (mão única -- status="obito" sozinho não obriga
-        falecido=True nem data_obito)."""
+        fica registrada (ver registrar_escrita_clinica_excepcional)."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
 
         try:
@@ -303,14 +327,73 @@ class PacienteService:
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
+        if paciente.esta_falecido():
+            raise ConflictoError(
+                "Paciente com óbito registrado: use reverter_obito antes de alterar o status."
+            )
+
         campos = entrada.campos_informados()
         if "status" in campos:
             paciente.status = campos["status"]
-        if "falecido" in campos:
-            paciente.falecido = campos["falecido"]
-        if "data_obito" in campos:
-            paciente.data_obito = campos["data_obito"]
 
+        return self._salvar(paciente, commit)
+
+    def _tem_consulta_aberta(self, paciente) -> bool:
+        """PENDENTE -- único ponto que falta ligar. Deve devolver True se
+        o paciente tem consulta aberta (use o repositório/serviço de
+        Consulta e o critério de "aberta" que já existe lá). Levanta
+        NotImplementedError de propósito: ignorar em silêncio uma trava
+        clínica seria pior do que falhar alto."""
+        raise NotImplementedError(
+            "Ligar _tem_consulta_aberta ao repositório de Consulta antes de usar marcar_obito."
+        )
+
+    def marcar_obito(self, uuid: str, data_obito, id_empresa: int, commit: bool = True):
+        """Registra o óbito mantendo status, falecido e data_obito
+        sincronizados -- é a única via de entrada para esses três campos.
+
+        Regras: data_obito obrigatória, não futura e não anterior ao
+        nascimento; o paciente não pode já estar falecido nem ter
+        consulta aberta (a consulta deve ser encerrada antes)."""
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
+        if paciente.esta_falecido():
+            raise ConflictoError("Paciente já está com óbito registrado.")
+
+        data = _parse_data(data_obito)
+        if data is None:
+            raise DadosInvalidosError("data_obito é obrigatória.")
+        if data > datetime.now(timezone.utc).date():
+            raise DadosInvalidosError("data_obito não pode ser uma data futura.")
+        if paciente.data_nascimento and data < paciente.data_nascimento:
+            raise DadosInvalidosError("data_obito não pode ser anterior à data de nascimento.")
+
+        if self._tem_consulta_aberta(paciente):
+            raise ConflictoError(
+                "Paciente tem consulta aberta; encerre-a antes de registrar o óbito."
+            )
+
+        paciente.status = "obito"
+        paciente.falecido = True
+        paciente.data_obito = data
+        return self._salvar(paciente, commit)
+
+    def reverter_obito(self, uuid: str, id_empresa: int, status_destino: str = "ativo",
+                       commit: bool = True):
+        """Desfaz um óbito marcado por engano. O status anterior não é
+        guardado (foi sobrescrito por "obito"), por isso o destino é
+        informado: "ativo" (padrão) ou "inativo". Limpa falecido e
+        data_obito. No controller é acao_sensivel (step-up + justificativa
+        + log atômico), por isso aceita commit=False."""
+        if status_destino not in ("ativo", "inativo"):
+            raise DadosInvalidosError("status_destino deve ser 'ativo' ou 'inativo'.")
+
+        paciente = self.buscar_por_uuid(uuid, id_empresa)
+        if not paciente.esta_falecido():
+            raise ConflictoError("Paciente não está com óbito registrado.")
+
+        paciente.status = status_destino
+        paciente.falecido = False
+        paciente.data_obito = None
         return self._salvar(paciente, commit)
 
     def _salvar(self, paciente, commit: bool):

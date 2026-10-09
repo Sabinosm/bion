@@ -12,6 +12,10 @@ ALTERADO:
 3. Campos falecido/data_obito adicionados (status='obito' ganha
    representação própria, equivalente a Patient.deceasedBoolean/
    deceasedDateTime do FHIR).
+4. esta_falecido() adicionado (falecido OU status='obito'); to_dict()
+   passa a expor falecido/data_obito; removida a primeira definição
+   duplicada de esta_anonimizado() (a de baixo, que considera
+   nao_identificado, é a que valia).
 """
 
 from datetime import datetime, timezone
@@ -90,8 +94,12 @@ class Paciente(db.Model):
         nova = ObservacaoTipoSanguineo(tipo_sanguineo=valor, registrado_por=registrado_por)
         self.observacoes_tipo_sanguineo.insert(0, nova)
 
-    def esta_anonimizado(self):
-        return self.pessoal is None
+    def esta_falecido(self) -> bool:
+        """True se o óbito está registrado em QUALQUER dos dois campos.
+        Usar este método nos guards, nunca só `status` ou só `falecido`:
+        marcar_obito/reverter_obito mantêm os dois sincronizados, mas
+        dados antigos podem ter só um deles."""
+        return bool(self.falecido) or self.status == "obito"
 
     def anonimizar(self, cpf_plaintext: str):
         """CORRIGIDO: antes só gerava identificacao_anonima, sem de fato
@@ -113,6 +121,8 @@ class Paciente(db.Model):
             "data_primeiro_atendimento": self.data_primeiro_atendimento.isoformat()
             if self.data_primeiro_atendimento else None,
             "nao_identificado": self.nao_identificado,
+            "falecido": self.falecido,
+            "data_obito": self.data_obito.isoformat() if self.data_obito else None,
             # NOVO: quem cadastrou -- nome_completo de Usuario não é
             # cifrado (confirmado), então pode ir direto sem passar
             # pelo service para descriptografar.

@@ -40,15 +40,15 @@ preenchido a partir da resolução de CEP quando ausente, mas tem
 prioridade quando informado explicitamente.
 
 status/falecido/data_obito propositalmente NÃO entram em
-PacienteCriarSchema: são campos clínicos, e a única via de entrada
-para eles é atualizar_clinico -- cadastro sempre cria com o default do
+PacienteCriarSchema: são campos clínicos, e só entram por
+atualizar_clinico (status) e marcar_obito/reverter_obito (óbito) -- cadastro sempre cria com o default do
 model (status="ativo", falecido=False).
 """
 
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationError, field_validator
 from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.validacoes import validar_e_devolver_cep, validar_telefone_br, validar_cpf
 
@@ -116,33 +116,20 @@ class PacienteAtualizarPessoalSchema(BaseModel):
 
 
 class PacienteAtualizarClinicoSchema(BaseModel):
-    """PATCH parcial. status é Literal (valor fora do Enum é rejeitado
-    aqui, não vira IntegrityError cru no commit()).
+    """PATCH do eixo clínico: só `status`, e só entre "ativo" e "inativo".
 
-    Regra de consistência: falecido=True FORÇA status="obito"
-    automaticamente -- não é uma via de mão dupla. Não é exigido
-    data_obito nem o inverso (status="obito" não obriga falecido=True
-    nem data_obito); só a direção falecido->status é garantida.
+    Óbito (status="obito", falecido, data_obito) NÃO é aceito aqui: tem
+    operações próprias (PacienteService.marcar_obito / reverter_obito),
+    que mantêm os três campos sincronizados. `extra="forbid"` faz o
+    cliente que mandar falecido/data_obito receber 422 em vez de ter o
+    campo ignorado em silêncio.
     """
-    status: Optional[Literal["ativo", "inativo", "obito"]] = None
-    falecido: Optional[bool] = None
-    data_obito: Optional[date] = None
+    model_config = ConfigDict(extra="forbid")
 
-    @field_validator("data_obito")
-    @classmethod
-    def _data_obito_nao_futura(cls, v: Optional[date]) -> Optional[date]:
-        if v is not None and v > date.today():
-            raise ValueError("não pode ser uma data futura")
-        return v
-
-    @model_validator(mode="after")
-    def _falecido_forca_status_obito(self):
-        if self.falecido is True:
-            self.status = "obito"
-        return self
+    status: Optional[Literal["ativo", "inativo"]] = None
 
     def campos_informados(self) -> dict:
-        return self.model_dump(exclude_none=True, exclude_unset=False)
+        return self.model_dump(exclude_none=True)
 
 
 class PacienteCriarSchema(BaseModel):

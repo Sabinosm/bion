@@ -56,7 +56,12 @@ class PacienteRepository(IRepository[Paciente]):
         ALTERADO: escopado por id_empresa -- o mesmo CPF pode existir
         legitimamente como pacientes distintos em empresas diferentes;
         buscar sem esse filtro vazaria a existência do paciente entre
-        tenants, mesmo sem vazar PII."""
+        tenants, mesmo sem vazar PII.
+
+        id_empresa vive em PacienteDadosPessoais (desnormalizado de
+        Paciente.id_empresa) para sustentar a UNIQUE composta
+        (id_empresa, cpf_hash) no banco -- ver migração
+        03_paciente_id_empresa_dados_pessoais.sql."""
         pessoal = PacienteDadosPessoais.query.filter_by(
             cpf_hash=cpf_hash, id_empresa=id_empresa
         ).first()
@@ -71,12 +76,13 @@ class PacienteRepository(IRepository[Paciente]):
         return entity
 
     def delete(self, id: int, commit: bool = True) -> bool:
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        self.confirmar(commit)
-        return True
+        """Paciente nunca é apagado fisicamente: prontuário e consultas
+        dependem dele (e apagar levaria o histórico clínico junto pelo
+        cascade). Para LGPD use PacienteService.anonimizar(); para
+        encerrar acompanhamento, status='inativo'."""
+        raise NotImplementedError(
+            "Paciente não é removido fisicamente; use anonimizar() (LGPD) ou status='inativo'."
+        )
 
     def registrar_auditoria(self, id_usuario: int, acao: str, uuid_paciente: str,
                             commit: bool = True) -> None:

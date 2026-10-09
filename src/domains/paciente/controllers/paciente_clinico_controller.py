@@ -49,6 +49,13 @@ arquivo.
 
 ATUALIZADO: `remover_tipo_sanguineo` agora cumpre o contrato de
 `acao_sensivel` -- devolve (resposta, detalhes).
+
+ATUALIZADO: óbito ganhou rotas próprias -- POST /<uuid>/obito
+(marcar_obito) e POST /<uuid>/obito/reverter (reverter_obito, que é
+`acao_sensivel` e exige justificativa). PUT /<uuid> (atualizar_clinico)
+agora só altera status entre ativo/inativo; falecido, data_obito e
+status="obito" são rejeitados com 422. Assim status, falecido e
+data_obito nunca ficam dessincronizados.
 """
 
 from flask import Blueprint, request, session
@@ -93,7 +100,7 @@ class PacienteClinicoController():
             return json_error(ex.message, ex.status_code)
 
 
-    # Separado de atualizar_pessoal -- status, falecido, data_obito.
+    # Separado de atualizar_pessoal -- só status (ativo/inativo); óbito tem rotas próprias abaixo.
     # Admin tem permissão técnica (caso o médico responsável peça apoio
     # pontual), mas essa gravação específica é registrada em auditoria
     # por ser exceção, não fluxo normal.
@@ -111,6 +118,58 @@ class PacienteClinicoController():
             return json_success(data=_serializar_clinico(p), message="Dados clínicos atualizados.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+
+
+    # Registra o óbito: status="obito", falecido=True e data_obito sempre
+    # juntos (ver PacienteService.marcar_obito). Mesma regra de papel de
+    # atualizar_clinico: admin só como exceção, e essa gravação fica
+    # registrada em auditoria.
+    @staticmethod
+    @bp.post("/<uuid>/obito")
+    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @acesso_auditado(recurso="marcar obito", operacao="escrita")
+    def marcar_obito(uuid):
+        dados = request.get_json(silent=True) or {}
+        try:
+            p = _svc.marcar_obito(uuid, dados.get("data_obito"), get_id_empresa_sessao())
+            if not _pode_ver_clinico():
+                _svc.registrar_escrita_clinica_excepcional(
+                    uuid, get_id_usuario_sessao(), acao="marcar_obito"
+                )
+            return json_success(data=_serializar_clinico(p), message="Óbito registrado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    # Desfaz um óbito marcado por engano. Ação sensível: step-up +
+    # justificativa obrigatória + log atômico com a alteração.
+    # Corpo: {"justificativa": "...", "status_destino": "ativo"|"inativo"}
+    @staticmethod
+    @bp.post("/<uuid>/obito/reverter")
+    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @acao_sensivel(acao="reverter_obito", tabela="paciente")
+    def reverter_obito(uuid):
+        dados = request.get_json(silent=True) or {}
+        justificativa = dados.get("justificativa")
+        if not justificativa:
+            resposta = json_error("justificativa é obrigatória.", 422)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
+        try:
+            p = _svc.reverter_obito(
+                uuid, get_id_empresa_sessao(),
+                dados.get("status_destino", "ativo"), commit=False,
+            )
+            resposta = json_success(data=_serializar_clinico(p), message="Óbito revertido.")
+            return resposta, {
+                "id_registro": p.id,
+                "uuid_registro": p.uuid,
+                "operacao": "UPDATE",
+                "campo_alterado": "falecido",
+                "justificativa": justificativa,
+            }
+        except BionException as ex:
+            resposta = json_error(ex.message, ex.status_code)
+            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
 
     # Registra novo exame/resultado de tipo sanguíneo (preserva histórico)

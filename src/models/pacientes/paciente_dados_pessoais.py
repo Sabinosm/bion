@@ -24,7 +24,7 @@ class PacienteDadosPessoais(db.Model):
         # Paciente na criação) só para permitir essa constraint composta
         # no banco -- fonte de verdade de posse continua sendo
         # Paciente.id_empresa.
-        db.UniqueConstraint( "cpf_hash", name="uq_paciente_pessoal_empresa_cpf"),
+        db.UniqueConstraint("id_empresa", "cpf_hash", name="uq_paciente_pessoal_empresa_cpf"),
     )
 
     id = db.Column("id_paciente_p", BigIntPK, primary_key=True, autoincrement=True)
@@ -32,9 +32,14 @@ class PacienteDadosPessoais(db.Model):
                       default=lambda: str(_uuid.uuid4()))
     id_paciente = db.Column(db.BigInteger, db.ForeignKey("paciente.id_paciente"),
                              unique=True, nullable=False)
+    # Desnormalizado de Paciente.id_empresa (que segue sendo a fonte de
+    # verdade da posse) so para sustentar a UNIQUE composta
+    # (id_empresa, cpf_hash). Sempre copiado de paciente.id_empresa na
+    # criacao (ver PacienteService._montar_pessoal); nunca vem do payload.
+    id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
     nome_completo = db.Column(db.String(500), nullable=False)   # AES-256
     cpf = db.Column(db.String(500))                             # AES-256 (valor exibível)
-    cpf_hash = db.Column(db.String(64), nullable=False, index=True)  # HMAC-SHA256
+    cpf_hash = db.Column(db.String(64), nullable=False)             # HMAC-SHA256
     rg = db.Column(db.String(100))
     telefone = db.Column(db.String(200))                        # AES-256
     email = db.Column(db.String(500))                           # AES-256
