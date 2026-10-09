@@ -67,6 +67,26 @@ class PacienteRepository(IRepository[Paciente]):
         ).first()
         return pessoal.paciente if pessoal else None
 
+    def tem_consulta_aberta(self, id_paciente: int, id_empresa: int) -> bool:
+        """True se o paciente tem Consulta aberta (status_consulta != 'encerrada',
+        o mesmo critério do índice único de consulta aberta do Bloco 1).
+
+        Escopado por empresa. A classe Consulta é obtida pelo relationship
+        Paciente.consultas para este repository não depender do módulo onde
+        Consulta mora. Quando houver um método equivalente em
+        ConsultaRepository, troque por ele e apague este: o critério de
+        "aberta" deve viver num lugar só."""
+        Consulta = Paciente.consultas.property.mapper.class_
+        return db.session.query(
+            db.session.query(Paciente.id)
+            .filter(
+                Paciente.id == id_paciente,
+                Paciente.id_empresa == id_empresa,
+                Paciente.consultas.any(Consulta.status_consulta != "encerrada"),
+            )
+            .exists()
+        ).scalar()
+
     # --------------------------------------------------------------- escrita
     def save(self, entity: Union[Paciente, PacienteDadosPessoais], commit: bool = True):
         """Persiste Paciente OU PacienteDadosPessoais (mesma sessão, mesma

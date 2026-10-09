@@ -24,6 +24,17 @@ def _parse_data(valor):
         raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
 
 
+_CONSTRAINT_CPF_EMPRESA = "uq_paciente_pessoal_empresa_cpf"
+
+
+def _violou_cpf_unico(e: IntegrityError) -> bool:
+    """True só quando o IntegrityError é a UNIQUE (id_empresa, cpf_hash).
+    Qualquer outra violação (FK, enum, NOT NULL) NÃO pode ser traduzida
+    para "CPF duplicado": esconderia o erro real. O nome da constraint
+    aparece na mensagem do driver tanto no MySQL quanto no Postgres."""
+    return _CONSTRAINT_CPF_EMPRESA in str(getattr(e, "orig", e))
+
+
 class PacienteService:
     """Regras de negócio de Paciente.
 
@@ -69,6 +80,23 @@ class PacienteService:
                 cpf_inicio = aes_decrypt(p.pessoal.cpf)[:4]
             resultado.append(p.to_dict_few(nome_completo=nome, cpf_inicio=cpf_inicio))
         return resultado
+
+    def buscar_valido(self, uuid: str, id_empresa: int):
+        """Paciente da empresa que PODE receber atendimento: 404 se não
+        existe (mesmo 404 de "outra empresa"), 409 com o motivo se existe
+        mas não é válido. Para abrir consulta."""
+        return self.exigir_valido(self.buscar_por_uuid(uuid, id_empresa))
+
+    @staticmethod
+    def exigir_valido(paciente):
+        """Guard para quem já carregou o paciente (ex: Atendimento, que o
+        obtém por atendimento -> consulta -> paciente). Critério único em
+        Paciente.pode_receber_atendimento(); aqui só se escolhe a mensagem.
+        Não vale para leitura de prontuário: histórico de falecido é
+        consultável."""
+        if paciente.pode_receber_atendimento():
+            return paciente
+        raise ConflictoError("Paciente com óbito registrado não pode receber atendimento.")
 
     def buscar_por_cpf(self, cpf_plaintext: str, id_empresa: int):
         p = self.repo.find_por_cpf_hash(hmac_sha256(cpf_plaintext), id_empresa)
@@ -149,10 +177,10 @@ class PacienteService:
 
     # ------------------------------------------------------------ cadastro
     def cadastrar(self, dados: dict, id_usuario_cadastro: int, id_empresa: int, commit: bool = True):
-        """Cadastra Paciente + PacienteDadosPessoais (+ tipo sanguíneo
-        inicial, se vier) numa ÚNICA transação -- antes eram dois commits
-        separados, e uma falha no segundo deixava um Paciente órfão, sem
-        dados pessoais.
+        """Cadastra Paciente + PacienteDadosPessoais numa ÚNICA transação --
+        antes eram dois commits separados, e uma falha no segundo deixava
+        um Paciente órfão, sem dados pessoais. Tipo sanguíneo NÃO entra
+        aqui: é dado clínico, registrado dentro de um Atendimento.
 
         Validação de formato em PacienteCriarSchema. Região derivada do
         cep e bairro com prioridade para o payload: ver _regiao_e_bairro.
@@ -177,13 +205,6 @@ class PacienteService:
             )
             self.repo.save(paciente, commit=False)  # flush: precisa do id
 
-            # Cadastro já com tipo_sanguineo (ex: paciente transferido de
-            # outro sistema, com exame feito) entra como 1ª observação.
-            if entrada.tipo_sanguineo:
-                paciente.registrar_tipo_sanguineo(
-                    entrada.tipo_sanguineo, registrado_por=id_usuario_cadastro
-                )
-
             pessoal = self._montar_pessoal(paciente.id, id_empresa, entrada)
             paciente.pessoal = pessoal
             self.repo.save(pessoal, commit=commit)  # único commit do cadastro
@@ -191,9 +212,13 @@ class PacienteService:
         except IntegrityError as e:
             # Corrida entre duas requisições com o mesmo CPF: a checagem de
             # _validar_criar passou nas duas, a UNIQUE composta barrou a 2ª.
+            # Com commit=False a sessão fica inutilizável até o rollback, e
+            # quem controla a transação (ex: ConsultaService.abrir) é quem o faz.
             if commit:
                 self.repo.rollback()
-            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+            if _violou_cpf_unico(e):
+                raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+            raise
         except Exception:
             if commit:
                 self.repo.rollback()
@@ -254,9 +279,6 @@ class PacienteService:
             paciente.id_regiao_geografica = id_regiao
             paciente.nao_identificado = False
 
-            if entrada.tipo_sanguineo:
-                paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario)
-
             pessoal = self._montar_pessoal(paciente.id, paciente.id_empresa, entrada)
             paciente.pessoal = pessoal
             self.repo.save(pessoal, commit=False)
@@ -264,7 +286,9 @@ class PacienteService:
         except IntegrityError as e:
             if commit:
                 self.repo.rollback()
-            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+            if _violou_cpf_unico(e):
+                raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+            raise
         except Exception:
             if commit:
                 self.repo.rollback()
@@ -345,14 +369,9 @@ class PacienteService:
         return self._salvar_com_auditoria(paciente, commit, auditar_excecao_por, "atualizar_clinico")
 
     def _tem_consulta_aberta(self, paciente) -> bool:
-        """PENDENTE -- único ponto que falta ligar. Deve devolver True se
-        o paciente tem consulta aberta (use o repositório/serviço de
-        Consulta e o critério de "aberta" que já existe lá). Levanta
-        NotImplementedError de propósito: ignorar em silêncio uma trava
-        clínica seria pior do que falhar alto."""
-        raise NotImplementedError(
-            "Ligar _tem_consulta_aberta ao repositório de Consulta antes de usar marcar_obito."
-        )
+        """True se o paciente tem Consulta aberta (não encerrada) na
+        empresa dele. O critério vive em PacienteRepository.tem_consulta_aberta."""
+        return self.repo.tem_consulta_aberta(paciente.id, paciente.id_empresa)
 
     def marcar_obito(self, uuid: str, data_obito, id_empresa: int, commit: bool = True,
                      auditar_excecao_por: int = None):
@@ -430,17 +449,6 @@ class PacienteService:
             if commit:
                 self.repo.rollback()
             raise
-
-    def registrar_escrita_clinica_excepcional(self, uuid: str, id_usuario: int, acao: str,
-                                              commit: bool = True):
-        """Chamado pelo controller quando um admin (não
-        médico/enfermeiro) grava algo clínico -- caso excepcional
-        previsto (ex: médico responsável pediu apoio do admin), não um
-        fluxo de rotina. Não logamos leitura nem escrita pessoal (ruído
-        alto, sinal baixo); este é o único ponto de log, justamente
-        porque é a única situação em que o papel de quem escreveu
-        diverge do que se espera pra aquele tipo de dado."""
-        self.repo.registrar_auditoria(id_usuario, acao, uuid, commit=commit)
 
     # ------------------------------------------------------------------ PII
     def dados_pessoais_descriptografados(self, paciente):

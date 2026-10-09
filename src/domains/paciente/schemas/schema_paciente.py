@@ -150,7 +150,9 @@ class PacienteCriarSchema(BaseModel):
 
     # ---- Opcionais: Paciente ----
     data_primeiro_atendimento: Optional[date] = None
-    tipo_sanguineo: Optional[str] = Field(default=None, max_length=10)
+    # tipo_sanguineo NÃO é campo de cadastro: é dado clínico, registrado
+    # dentro de um Atendimento (com atendimento de origem). Se vier no
+    # payload, o Pydantic o ignora em silêncio (extra="ignore" é o padrão).
 
     # ---- Opcionais: PacienteDadosPessoais ----
     telefone: Optional[str] = Field(default=None, max_length=20)

@@ -31,12 +31,12 @@ tenant / IDOR).
 
 Permissões deste arquivo (eixo clínico): ler e escrever ficam por
 padrão com médico/enfermeiro -- é trabalho clínico. Admin tem
-permissão técnica para PUT /<uuid> (status, falecido, data_obito),
+permissão técnica para PUT /<uuid> (status) e POST /<uuid>/obito,
 pensado pro caso de apoio pontual pedido pelo médico responsável, mas
 essa gravação específica fica registrada em auditoria por ser exceção
-ao fluxo esperado, não rotina -- ver PacienteService.
-registrar_escrita_clinica_excepcional. Tipo sanguíneo (histórico de
-exame) fica só com médico/enfermeiro, sem essa exceção para admin.
+ao fluxo esperado, não rotina -- ver o parâmetro auditar_excecao_por
+de PacienteService. Tipo sanguíneo (histórico de exame) fica só com
+médico/enfermeiro, sem essa exceção para admin.
 
 ATUALIZADO: `detalhe()` trocou de `acao_sensivel` para `acesso_auditado`
 -- decisão confirmada. `acao_sensivel` é para escrita/exclusão (exige
