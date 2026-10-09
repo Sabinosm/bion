@@ -56,6 +56,11 @@ ATUALIZADO: óbito ganhou rotas próprias -- POST /<uuid>/obito
 agora só altera status entre ativo/inativo; falecido, data_obito e
 status="obito" são rejeitados com 422. Assim status, falecido e
 data_obito nunca ficam dessincronizados.
+
+ATUALIZADO: a auditoria de escrita excepcional de admin (PUT /<uuid> e
+POST /<uuid>/obito) deixou de ser uma segunda chamada com commit
+próprio. O controller passa `auditar_excecao_por` ao service, que grava
+a alteração e a linha de auditoria na MESMA transação.
 """
 
 from flask import Blueprint, request, session
@@ -73,6 +78,13 @@ _svc_tipo_sanguineo = ObservacaoTipoSanguineoService()
 
 def _pode_ver_clinico() -> bool:
     return session.get("funcao_clinica") in ("medico", "enfermeiro")
+
+
+def _id_admin_excecao():
+    """id do usuário quando quem grava NÃO é médico/enfermeiro (ou seja,
+    admin em escrita excepcional); None caso contrário. O service grava
+    escrita + auditoria na mesma transação com esse valor."""
+    return None if _pode_ver_clinico() else get_id_usuario_sessao()
 
 
 def _serializar_clinico(paciente):
@@ -110,11 +122,10 @@ class PacienteClinicoController():
     def atualizar_clinico(uuid):
         dados = request.get_json(silent=True) or {}
         try:
-            p = _svc.atualizar_clinico(uuid, dados, get_id_empresa_sessao())
-            if not _pode_ver_clinico():
-                _svc.registrar_escrita_clinica_excepcional(
-                    uuid, get_id_usuario_sessao(), acao="atualizar_clinico"
-                )
+            p = _svc.atualizar_clinico(
+                uuid, dados, get_id_empresa_sessao(),
+                auditar_excecao_por=_id_admin_excecao(),
+            )
             return json_success(data=_serializar_clinico(p), message="Dados clínicos atualizados.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -131,11 +142,10 @@ class PacienteClinicoController():
     def marcar_obito(uuid):
         dados = request.get_json(silent=True) or {}
         try:
-            p = _svc.marcar_obito(uuid, dados.get("data_obito"), get_id_empresa_sessao())
-            if not _pode_ver_clinico():
-                _svc.registrar_escrita_clinica_excepcional(
-                    uuid, get_id_usuario_sessao(), acao="marcar_obito"
-                )
+            p = _svc.marcar_obito(
+                uuid, dados.get("data_obito"), get_id_empresa_sessao(),
+                auditar_excecao_por=_id_admin_excecao(),
+            )
             return json_success(data=_serializar_clinico(p), message="Óbito registrado.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

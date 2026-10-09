@@ -309,7 +309,8 @@ class PacienteService:
 
         return self._salvar(paciente, commit)
 
-    def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int, commit: bool = True):
+    def atualizar_clinico(self, uuid: str, dados: dict, id_empresa: int, commit: bool = True,
+                          auditar_excecao_por: int = None):
         """Altera apenas `status`, entre "ativo" e "inativo".
 
         Óbito NÃO passa por aqui: status="obito", falecido e data_obito
@@ -319,7 +320,12 @@ class PacienteService:
 
         Reservado por padrão a médico/enfermeiro no controller; admin
         só entra aqui em caso excepcional, e essa chamada específica
-        fica registrada (ver registrar_escrita_clinica_excepcional)."""
+        fica registrada.
+
+        auditar_excecao_por: id do usuário admin que está gravando como
+        exceção (None para médico/enfermeiro). Quando informado, a
+        alteração e a linha de auditoria são gravadas na MESMA
+        transação: ou entram as duas, ou nenhuma."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
 
         try:
@@ -336,7 +342,7 @@ class PacienteService:
         if "status" in campos:
             paciente.status = campos["status"]
 
-        return self._salvar(paciente, commit)
+        return self._salvar_com_auditoria(paciente, commit, auditar_excecao_por, "atualizar_clinico")
 
     def _tem_consulta_aberta(self, paciente) -> bool:
         """PENDENTE -- único ponto que falta ligar. Deve devolver True se
@@ -348,13 +354,17 @@ class PacienteService:
             "Ligar _tem_consulta_aberta ao repositório de Consulta antes de usar marcar_obito."
         )
 
-    def marcar_obito(self, uuid: str, data_obito, id_empresa: int, commit: bool = True):
+    def marcar_obito(self, uuid: str, data_obito, id_empresa: int, commit: bool = True,
+                     auditar_excecao_por: int = None):
         """Registra o óbito mantendo status, falecido e data_obito
         sincronizados -- é a única via de entrada para esses três campos.
 
         Regras: data_obito obrigatória, não futura e não anterior ao
         nascimento; o paciente não pode já estar falecido nem ter
-        consulta aberta (a consulta deve ser encerrada antes)."""
+        consulta aberta (a consulta deve ser encerrada antes).
+
+        auditar_excecao_por: id do admin gravando como exceção (None para
+        médico/enfermeiro); escrita e auditoria na mesma transação."""
         paciente = self.buscar_por_uuid(uuid, id_empresa)
         if paciente.esta_falecido():
             raise ConflictoError("Paciente já está com óbito registrado.")
@@ -375,7 +385,7 @@ class PacienteService:
         paciente.status = "obito"
         paciente.falecido = True
         paciente.data_obito = data
-        return self._salvar(paciente, commit)
+        return self._salvar_com_auditoria(paciente, commit, auditar_excecao_por, "marcar_obito")
 
     def reverter_obito(self, uuid: str, id_empresa: int, status_destino: str = "ativo",
                        commit: bool = True):
@@ -400,6 +410,22 @@ class PacienteService:
         """save com rollback automático quando o service é quem comita."""
         try:
             return self.repo.save(paciente, commit=commit)
+        except Exception:
+            if commit:
+                self.repo.rollback()
+            raise
+
+    def _salvar_com_auditoria(self, paciente, commit: bool, id_usuario_excecao, acao: str):
+        """Grava o paciente e, se id_usuario_excecao vier, a linha de
+        auditoria da escrita excepcional de admin, tudo na mesma
+        transação: flush das duas e UM confirmar no fim. Com commit=False
+        o chamador (ex: acao_sensivel) continua dono do commit."""
+        try:
+            self.repo.save(paciente, commit=False)
+            if id_usuario_excecao is not None:
+                self.repo.registrar_auditoria(id_usuario_excecao, acao, paciente.uuid, commit=False)
+            self.repo.confirmar(commit)
+            return paciente
         except Exception:
             if commit:
                 self.repo.rollback()
