@@ -3,14 +3,21 @@
 Permissões: eixo clínico, por NÍVEL MÍNIMO (ver src/core/papeis.py).
 "enfermeiro" já inclui médico (superset). is_admin não entra aqui.
 Toda rota passa id_empresa da sessão -- UUID sozinho não prova posse.
+Corpos de entrada são validados por schema_consulta (Pydantic) antes de
+chegar ao service.
 """
 
 from flask import Blueprint, request
+from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
 from src.domains.auditoria.acaoSensivel import acesso_auditado
+from .schema_consulta import (
+    ConsultaAbrirSchema, ConsultaEncerrarSchema, ConsultaEvadirSchema,
+)
 from .service import ConsultaService
 
 bp_consulta = Blueprint("consulta", __name__)
@@ -26,6 +33,9 @@ def _meta_update(c, campo, justificativa=None):
         "justificativa": justificativa,
     }
 
+
+def _meta_noop(uuid):
+    return {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
 class ConsultasController():
 
@@ -59,14 +69,19 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
-    # ---- abertura: uma rota, três formas de corpo (ver ConsultaService.abrir)
+    # ---- abertura: uma rota, três formas de corpo (ver ConsultaAbrirSchema)
     @staticmethod
     @bp_consulta.post("/")
     @requer_papel_clinico("enfermeiro","medico")
     def abrir_consulta():
         dados = request.get_json(silent=True) or {}
         try:
-            c = _svc.abrir(dados, get_id_usuario_sessao(), get_id_empresa_sessao())
+            corpo = ConsultaAbrirSchema.model_validate(dados)
+        except ValidationError as ex:
+            return erros_pydantic_por_campo(ex)
+        try:
+            c = _svc.abrir(corpo.model_dump(exclude_unset=True),
+                           get_id_usuario_sessao(), get_id_empresa_sessao())
             return json_success(data=c.to_dict(), message="Consulta aberta.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -79,12 +94,19 @@ class ConsultasController():
         dados = dict(request.get_json(silent=True) or {})
         dados["uuid_paciente"] = uuid_paciente
         try:
-            c = _svc.abrir(dados, get_id_usuario_sessao(), get_id_empresa_sessao())
+            corpo = ConsultaAbrirSchema.model_validate(dados)
+        except ValidationError as ex:
+            return erros_pydantic_por_campo(ex)
+        try:
+            c = _svc.abrir(corpo.model_dump(exclude_unset=True),
+                           get_id_usuario_sessao(), get_id_empresa_sessao())
             return json_success(data=c.to_dict(), message="Consulta aberta.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
     # ---- encerramento: step-up + log atômico (service com commit=False)
+    # Erro de validação também devolve (resposta, meta NOOP): o decorator
+    # acesso_auditado espera a tupla.
     @staticmethod
     @bp_consulta.post("/<uuid>/encerrar")
     @requer_papel_clinico("enfermeiro","medico")
@@ -92,13 +114,16 @@ class ConsultasController():
     def encerrar_consulta(uuid):
         dados = request.get_json(silent=True) or {}
         try:
-            c = _svc.encerrar(uuid, dados.get("desfecho_final"), get_id_usuario_sessao(),
+            corpo = ConsultaEncerrarSchema.model_validate(dados)
+        except ValidationError as ex:
+            return erros_pydantic_por_campo(ex), _meta_noop(uuid)
+        try:
+            c = _svc.encerrar(uuid, corpo.desfecho_final, get_id_usuario_sessao(),
                               get_id_empresa_sessao(), commit=False)
             resposta = json_success(data=c.to_dict(), message="Consulta encerrada.")
-            return resposta, _meta_update(c, "status_consulta", dados.get("justificativa"))
+            return resposta, _meta_update(c, "status_consulta", corpo.justificativa)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), {
-                "id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code), _meta_noop(uuid)
 
     @staticmethod
     @bp_consulta.post("/<uuid>/evadir")
@@ -107,12 +132,15 @@ class ConsultasController():
     def evadir_consulta(uuid):
         dados = request.get_json(silent=True) or {}
         try:
+            corpo = ConsultaEvadirSchema.model_validate(dados)
+        except ValidationError as ex:
+            return erros_pydantic_por_campo(ex), _meta_noop(uuid)
+        try:
             c = _svc.evadir(uuid, get_id_usuario_sessao(), get_id_empresa_sessao(), commit=False)
             resposta = json_success(data=c.to_dict(), message="Evasão registrada; atendimentos em andamento cancelados.")
-            return resposta, _meta_update(c, "status_consulta", dados.get("justificativa"))
+            return resposta, _meta_update(c, "status_consulta", corpo.justificativa)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), {
-                "id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code), _meta_noop(uuid)
 
     # ---- consentimento (bloqueante antes do 1º Atendimento)
     @staticmethod

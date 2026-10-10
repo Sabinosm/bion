@@ -94,6 +94,9 @@ class Paciente(db.Model):
         nova = ObservacaoTipoSanguineo(tipo_sanguineo=valor, registrado_por=registrado_por)
         self.observacoes_tipo_sanguineo.insert(0, nova)
 
+    def pode_receber_atendimento(self) -> bool:
+       return not self.esta_falecido()   # inativo pode; só óbito bloqueia
+    
     def esta_falecido(self) -> bool:
         """True se o óbito está registrado em QUALQUER dos dois campos.
         Usar este método nos guards, nunca só `status` ou só `falecido`:
