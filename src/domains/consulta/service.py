@@ -6,10 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from .repository import ConsultaRepository
-
-DESFECHOS_VALIDOS = ("alta", "internacao", "transferencia", "obito", "evasao")
-ORIGENS_VALIDAS = ("espontanea", "SAMU", "transferencia", "regulacao")
-
+from .schema_consulta import DESFECHOS_VALIDOS, ORIGENS_VALIDAS
 
 class ConsultaService:
     """Abertura, consulta e encerramento de Consultas."""
