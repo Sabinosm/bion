@@ -42,12 +42,13 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/")
     @requer_papel_clinico("enfermeiro","medico")
+    @acesso_auditado(recurso="lista de consultas", operacao="leitura")
     def lista_consultas():
         """?abertas=true filtra as não encerradas."""
         apenas_abertas = request.args.get("abertas") == "true"
-        itens = _svc.listar(get_id_empresa_sessao(), apenas_abertas)
-        return json_success(data=[c.to_dict() for c in itens])
-
+        itens = _svc.listar_resumo(get_id_empresa_sessao(), apenas_abertas)
+        return json_success(data=itens)
+    
     @staticmethod
     @bp_consulta.get("/<uuid>")
     @requer_papel_clinico("enfermeiro","medico")
@@ -57,9 +58,10 @@ class ConsultasController():
             return json_success(data=_svc.buscar_por_uuid(uuid, get_id_empresa_sessao()).to_dict())
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+        
 
     @staticmethod
-    @bp_consulta.get("/paciente/<uuid_paciente>")
+    @bp_consulta.get("/paciente/historico/<uuid_paciente>")
     @requer_papel_clinico("enfermeiro","medico")
     @acesso_auditado(recurso="historico de consultas do paciente", operacao="leitura")
     def consultas_do_paciente(uuid_paciente):
@@ -68,6 +70,8 @@ class ConsultasController():
             return json_success(data=[c.to_dict() for c in itens])
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+        
+        
 
     # ---- abertura: uma rota, três formas de corpo (ver ConsultaAbrirSchema)
     @staticmethod
@@ -85,6 +89,8 @@ class ConsultasController():
             return json_success(data=c.to_dict(), message="Consulta aberta.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+        
+        
 
     # Compatibilidade com o front atual: atalho para {"uuid_paciente": ...}
     @staticmethod
@@ -104,6 +110,8 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
+    
+    
     # ---- encerramento: step-up + log atômico (service com commit=False)
     # Erro de validação também devolve (resposta, meta NOOP): o decorator
     # acesso_auditado espera a tupla.
@@ -125,6 +133,8 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code), _meta_noop(uuid)
 
+    
+    
     @staticmethod
     @bp_consulta.post("/<uuid>/evadir")
     @requer_papel_clinico("enfermeiro","medico")
@@ -142,6 +152,8 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code), _meta_noop(uuid)
 
+    
+    
     # ---- consentimento (bloqueante antes do 1º Atendimento)
     @staticmethod
     @bp_consulta.get("/<uuid>/consentimento")
@@ -152,6 +164,8 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
+    
+    
     @staticmethod
     @bp_consulta.post("/<uuid>/consentimento")
     @requer_papel_clinico("enfermeiro","medico")
@@ -163,6 +177,8 @@ class ConsultasController():
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
+    
+    
     @staticmethod
     @bp_consulta.post("/<uuid>/consentimento/dispensar")
     @requer_papel_clinico("enfermeiro","medico")

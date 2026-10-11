@@ -46,6 +46,41 @@ class ConsultaService:
             return self.repo.find_abertas(id_empresa)
         return self.repo.find_all(id_empresa)
 
+    def listar_resumo(self, id_empresa: int, apenas_abertas: bool = False) -> list[dict]:
+        """Itens da lista de consultas: Consulta.to_dict() + `paciente`
+        (nome descriptografado) + `consentimento`.
+
+        Nome é PII: só chega aqui por rota de médico/enfermeiro (ver
+        controller). Descriptografar é responsabilidade do service.
+
+        `consentimento` só é calculado para consulta aberta (em encerrada
+        não importa mais); vale 'ativo' | 'dispensado_emergencia' |
+        'pendente'. Custo: 1 a 2 queries por consulta aberta. Aceitável
+        para o volume de abertas de uma empresa; se pesar, trocar por
+        uma consulta em lote no ConsentimentoRepository."""
+        from src.core.security import aes_decrypt
+
+        consentimento_svc = self._consentimento_svc()
+        resultado = []
+        for c in self.listar(id_empresa, apenas_abertas):
+            d = c.to_dict()
+            p = c.paciente
+            tem_pessoal = bool(p and p.pessoal)
+            d["paciente"] = {
+                "uuid": p.uuid if p else None,
+                "nome": aes_decrypt(p.pessoal.nome_completo) if tem_pessoal else None,
+                "nao_identificado": bool(p and p.nao_identificado),
+                "anonimizado": bool(p and not tem_pessoal and not p.nao_identificado),
+            }
+            if c.status_consulta == "encerrada":
+                d["consentimento"] = None
+            else:
+                d["consentimento"] = (
+                    consentimento_svc.situacao(c.id_paciente, desde=c.data_hora_inicio) or "pendente"
+                )
+            resultado.append(d)
+        return resultado
+    
     def listar_por_paciente(self, uuid_paciente: str, id_empresa: int):
         paciente = self._paciente_svc().buscar_por_uuid(uuid_paciente, id_empresa)
         return self.repo.find_por_paciente(paciente.id, id_empresa)
@@ -83,7 +118,7 @@ class ConsultaService:
         pac_svc = self._paciente_svc()
         try:
             if uuid_paciente:
-                paciente = pac_svc.buscar_por_uuid(uuid_paciente, id_empresa)
+                paciente = pac_svc.buscar_valido(uuid_paciente, id_empresa)
                 self._barrar_se_aberta(paciente.id, id_empresa)
             elif novo:
                 paciente = pac_svc.cadastrar(novo, id_usuario, id_empresa, commit=False)

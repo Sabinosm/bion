@@ -163,3 +163,19 @@ class Paciente(db.Model):
     def esta_anonimizado(self):
         # sem pessoal E não é emergência pendente de identificação
         return self.pessoal is None and not self.nao_identificado
+    
+    def pode_receber_atendimento(self) -> bool:
+        """Só óbito bloqueia. 'inativo' PODE receber atendimento
+        (volta a ativo ao ser atendido, se for a regra do sistema).
+
+        Checa os três sinais de óbito, porque o schema não garante que
+        status='obito', falecido e data_obito andem juntos: qualquer um
+        marcado já basta para bloquear.
+        """
+        if self.status == "obito":
+            return False
+        if getattr(self, "falecido", False):
+            return False
+        if getattr(self, "data_obito", None) is not None:
+            return False
+        return True

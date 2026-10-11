@@ -13,6 +13,13 @@ from src.domains.paciente.schemas.schema_paciente import (
     PacienteAtualizarPessoalSchema, PacienteAtualizarClinicoSchema, erros_pydantic_por_campo, PacienteCriarSchema,
 )
 from src.domains.regiao.cep_service import CepService
+import unicodedata
+
+
+def _normalizar(texto: str) -> str:
+    """Minúsculo e sem acento, para busca por nome."""
+    sem_acento = unicodedata.normalize("NFD", texto or "")
+    return "".join(ch for ch in sem_acento if unicodedata.category(ch) != "Mn").lower().strip()
 
 def _parse_data(valor):
     """Aceita date/datetime já convertidos ou string ISO 'YYYY-MM-DD' vinda do JSON."""
@@ -63,23 +70,56 @@ class PacienteService:
     def listar(self, id_empresa: int):
         return self.repo.find_all(id_empresa)
 
+        POR_PAGINA_RESUMO = 8  # mesmo valor que o controller usa (pagina * 8)
+
+    def _resumo_de(self, p) -> dict:
+        """Paciente.to_dict_few com nome e início do CPF descriptografados."""
+        nome = aes_decrypt(p.pessoal.nome_completo) if p.pessoal else None
+        cpf_inicio = None
+        if p.pessoal and p.pessoal.cpf:
+            cpf_inicio = aes_decrypt(p.pessoal.cpf)[:4]
+        return p.to_dict_few(nome_completo=nome, cpf_inicio=cpf_inicio)
+
     def listar_resumo(self, id_empresa: int, offset: int = 0, status: str = None,
-                       sexo_biologico: str = None):
+                      sexo_biologico: str = None, q: str = None):
         """Listagem paginada já no formato enxuto (to_dict_few).
         Fica aqui e não no controller porque descriptografar nome/CPF
-        é acesso a PII -- centralizado no service."""
+        é acesso a PII -- centralizado no service.
+
+        `q` (opcional): CPF completo (11 dígitos, busca exata pelo hash)
+        ou parte do nome (sem distinção de acento/maiúscula)."""
+        if q and q.strip():
+            return self._buscar_resumo(id_empresa, q.strip(), offset, status, sexo_biologico)
+
         pacientes = self.repo.find_all_param(
             id_empresa=id_empresa, offset=offset, status=status,
             sexo_biologico=sexo_biologico,
         )
-        resultado = []
-        for p in pacientes:
-            nome = aes_decrypt(p.pessoal.nome_completo) if p.pessoal else None
-            cpf_inicio = None
-            if p.pessoal and p.pessoal.cpf:
-                cpf_inicio = aes_decrypt(p.pessoal.cpf)[:4]
-            resultado.append(p.to_dict_few(nome_completo=nome, cpf_inicio=cpf_inicio))
-        return resultado
+        return [self._resumo_de(p) for p in pacientes]
+
+    def _buscar_resumo(self, id_empresa: int, q: str, offset: int, status, sexo_biologico):
+        digitos = "".join(ch for ch in q if ch.isdigit())
+        so_numerico = not any(ch.isalpha() for ch in q)
+
+        if so_numerico and len(digitos) == 11:
+            p = self.repo.find_por_cpf_hash(hmac_sha256(digitos), id_empresa)
+            candidatos = [p] if p else []
+        elif so_numerico:
+            return []  # CPF parcial não é pesquisável (só existe o hash do CPF inteiro)
+        else:
+            alvo = _normalizar(q)
+            candidatos = [
+                p for p in self.repo.find_all(id_empresa)
+                if p.pessoal and alvo in _normalizar(aes_decrypt(p.pessoal.nome_completo))
+            ]
+
+        if status:
+            candidatos = [p for p in candidatos if p.status == status]
+        if sexo_biologico:
+            candidatos = [p for p in candidatos if p.sexo_biologico == sexo_biologico]
+
+        pagina = candidatos[offset:offset + self.POR_PAGINA_RESUMO]
+        return [self._resumo_de(p) for p in pagina]
 
     def buscar_valido(self, uuid: str, id_empresa: int):
         """Paciente da empresa que PODE receber atendimento: 404 se não

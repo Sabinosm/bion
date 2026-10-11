@@ -53,14 +53,17 @@ class ConsultaRepository(IRepository[Consulta]):
 
     def find_abertas(self, id_empresa: int) -> List[Consulta]:
         return (Consulta.query.filter_by(id_empresa=id_empresa)
-                .filter(Consulta.status_consulta != "encerrada").all())
+                .filter(Consulta.status_consulta != "encerrada")
+                .order_by(Consulta.data_hora_inicio.desc()).all())
 
     def find_all(self, id_empresa: int) -> List[Consulta]:
-        return Consulta.query.filter_by(id_empresa=id_empresa).all()
+        return (Consulta.query.filter_by(id_empresa=id_empresa)
+                .order_by(Consulta.data_hora_inicio.desc()).all())
 
     def find_aberta_por_paciente(self, id_paciente: int, id_empresa: int) -> Optional[Consulta]:
         return (Consulta.query.filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
-                .filter(Consulta.status_consulta != "encerrada").first())
+                .filter(Consulta.status_consulta != "encerrada")
+                .order_by(Consulta.data_hora_inicio.desc()).first())
 
     # --------------------------------------------------------------- escrita
     def nova(self, *, id_paciente, id_empresa, origem_encaminhamento, iniciada_por) -> Consulta:

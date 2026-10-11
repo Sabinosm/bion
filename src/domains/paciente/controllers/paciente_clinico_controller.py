@@ -131,6 +131,25 @@ class PacienteClinicoController():
             return json_error(ex.message, ex.status_code)
 
 
+    @staticmethod
+    @bp.get("/resumo")
+    @requer_papel_clinico("enfermeiro","medico")
+    def lista_resumo():
+        status = request.args.get("status", type=str)
+        sexo_biologico = request.args.get("sexo_biologico", type=str)
+        q = request.args.get("q", type=str)
+        pagina = request.args.get("pagina", default=0, type=int)
+
+        resultado = _svc.listar_resumo(
+            get_id_empresa_sessao(),
+            offset=int(pagina * 8),
+            status=status,
+            sexo_biologico=sexo_biologico,
+            q=q,
+        )
+        return json_success(data=resultado)
+    
+    
     # Registra o óbito: status="obito", falecido=True e data_obito sempre
     # juntos (ver PacienteService.marcar_obito). Mesma regra de papel de
     # atualizar_clinico: admin só como exceção, e essa gravação fica
