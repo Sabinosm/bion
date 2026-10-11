@@ -46,32 +46,37 @@ class ConsultaService:
             return self.repo.find_abertas(id_empresa)
         return self.repo.find_all(id_empresa)
 
-    def listar_resumo(self, id_empresa: int, apenas_abertas: bool = False) -> list[dict]:
-        """Itens da lista de consultas: Consulta.to_dict() + `paciente`
-        (nome descriptografado) + `consentimento`.
+    def _com_paciente(self, c) -> dict:
+        """Consulta.to_dict() + bloco `paciente` (nome descriptografado).
 
-        Nome é PII: só chega aqui por rota de médico/enfermeiro (ver
-        controller). Descriptografar é responsabilidade do service.
-
-        `consentimento` só é calculado para consulta aberta (em encerrada
-        não importa mais); vale 'ativo' | 'dispensado_emergencia' |
-        'pendente'. Custo: 1 a 2 queries por consulta aberta. Aceitável
-        para o volume de abertas de uma empresa; se pesar, trocar por
-        uma consulta em lote no ConsentimentoRepository."""
+        Nome é PII: só use em rota de médico/enfermeiro."""
         from src.core.security import aes_decrypt
 
+        d = c.to_dict()
+        p = c.paciente
+        tem_pessoal = bool(p and p.pessoal)
+        d["paciente"] = {
+            "uuid": p.uuid if p else None,
+            "nome": aes_decrypt(p.pessoal.nome_completo) if tem_pessoal else None,
+            "nao_identificado": bool(p and p.nao_identificado),
+            "anonimizado": bool(p and not tem_pessoal and not p.nao_identificado),
+        }
+        return d
+
+    def buscar_resumo(self, uuid: str, id_empresa: int) -> dict:
+        """Detalhe da consulta já com o paciente (404 igual para
+        'não existe' e 'outra empresa')."""
+        return self._com_paciente(self.buscar_por_uuid(uuid, id_empresa))
+
+    def listar_resumo(self, id_empresa: int, apenas_abertas: bool = False) -> list[dict]:
+        """Itens da lista: _com_paciente + `consentimento`. Só é
+        calculado para consulta aberta; vale 'ativo' |
+        'dispensado_emergencia' | 'pendente'. Custo: 1 a 2 queries por
+        consulta aberta."""
         consentimento_svc = self._consentimento_svc()
         resultado = []
         for c in self.listar(id_empresa, apenas_abertas):
-            d = c.to_dict()
-            p = c.paciente
-            tem_pessoal = bool(p and p.pessoal)
-            d["paciente"] = {
-                "uuid": p.uuid if p else None,
-                "nome": aes_decrypt(p.pessoal.nome_completo) if tem_pessoal else None,
-                "nao_identificado": bool(p and p.nao_identificado),
-                "anonimizado": bool(p and not tem_pessoal and not p.nao_identificado),
-            }
+            d = self._com_paciente(c)
             if c.status_consulta == "encerrada":
                 d["consentimento"] = None
             else:

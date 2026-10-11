@@ -55,7 +55,7 @@ class ConsultasController():
     @acesso_auditado(recurso="visualizar consulta", operacao="leitura")
     def detalhe_consulta(uuid):
         try:
-            return json_success(data=_svc.buscar_por_uuid(uuid, get_id_empresa_sessao()).to_dict())
+            return json_success(data=_svc.buscar_resumo(uuid, get_id_empresa_sessao()))
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
         
