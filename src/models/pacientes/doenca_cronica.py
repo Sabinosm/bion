@@ -1,10 +1,22 @@
 """
 Dominio Paciente.
 
-SEM ALTERAÇÃO -- confirmado no SQL (07_doenca_cronica_migration.sql):
-esta tabela já estava bem modelada, mapeamento para Condition é quase
-1:1. Incluído aqui apenas para deixar o domínio completo, idêntico ao
-original.
+ALTERADO (Bloco 2): histórico clínico completo, no mesmo molde de Alergia.
+
+- Autoria: criado_por, id_atendimento_origem.
+- Soft delete: deletado, deletado_em, motivo_delete, observacoes_delete,
+  deletado_por, id_atendimento_delecao. `deletado` é "o registro nunca
+  deveria ter existido / saiu da visão"; continua independente do status
+  clínico (ativa | em-remissao).
+- Encerramento (fechar + criar novo): mudar status, CID ou desde NÃO edita
+  a linha. A linha vigente é FECHADA (encerrado_em, encerrado_por,
+  id_atendimento_encerramento, id_substituida_por -> linha nova) e uma
+  nova nasce com os valores revisados. Assim "estava ativa até o
+  atendimento X, depois entrou em remissão" fica no banco, sem depender
+  do log de auditoria.
+- Vigente (aberta) = encerrado_em IS NULL AND deletado = False.
+- Relationship com Paciente: sem delete-orphan nem cascade de delete
+  (nada se apaga): passive_deletes="all" + FK ON DELETE RESTRICT.
 """
 
 from datetime import datetime, timezone
@@ -16,10 +28,11 @@ from src.models.types import BigIntPK
 
 class DoencaCronica(db.Model):
     __tablename__ = "doenca_cronica"
-      
+
     __table_args__ = (
         db.Index("idx_doenca_cronica_deletado", "deletado"),
         db.Index("idx_doenca_cronica_paciente_deletado", "id_paciente", "deletado"),
+        db.Index("idx_doenca_cronica_paciente_aberta", "id_paciente", "deletado", "encerrado_em"),
     )
 
     id = db.Column("id_doenca_cronica", BigIntPK, primary_key=True, autoincrement=True)
@@ -33,25 +46,27 @@ class DoencaCronica(db.Model):
     observacoes = db.Column(db.Text)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
-    # NOVO: soft delete -- dado clínico histórico não pode ser apagado
-    # fisicamente (auditoria/LGPD/responsabilidade médica). `deletado`
-    # é um campo separado do status clínico (ativa/em-remissao) de
-    # propósito: um dos motivos de delete é 'solicitacao-paciente',
-    # onde o registro em si continua clinicamente válido (o paciente só
-    # pediu pra remover por privacidade) -- se "deletado" fosse um
-    # valor do mesmo Enum de status, essa remoção apagaria também a
-    # informação de se a doença estava ativa ou em remissão no momento,
-    # o que pode importar depois numa auditoria/disputa. Boolean (não
-    # timestamp) por pedido explícito: index simples, filtro direto em
-    # queries (`deletado == False`); deletado_em abaixo continua tendo
-    # o "quando".
+
+    # NOVO (Bloco 2): autoria e atendimento de origem do registro.
+    criado_por = db.Column(db.BigInteger,
+                            db.ForeignKey("usuarios.id_usuario", ondelete="RESTRICT"))
+    id_atendimento_origem = db.Column(db.BigInteger,
+                                       db.ForeignKey("atendimento.id_atendimento", ondelete="RESTRICT"))
+
+    # NOVO (Bloco 2): encerramento por revisão (fechar + criar novo).
+    encerrado_em = db.Column(db.DateTime(timezone=True), nullable=True)
+    encerrado_por = db.Column(db.BigInteger,
+                               db.ForeignKey("usuarios.id_usuario", ondelete="RESTRICT"), nullable=True)
+    id_atendimento_encerramento = db.Column(
+        db.BigInteger, db.ForeignKey("atendimento.id_atendimento", ondelete="RESTRICT"), nullable=True)
+    # Aponta para a linha que SUBSTITUIU esta (a revisão mais nova).
+    id_substituida_por = db.Column(
+        db.BigInteger, db.ForeignKey("doenca_cronica.id_doenca_cronica", ondelete="RESTRICT"),
+        nullable=True)
+
+    # Soft delete (ver docstring do módulo).
     deletado = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
     deletado_em = db.Column(db.DateTime(timezone=True), nullable=True)
-    # NOVO: motivo estruturado do soft delete -- Enum em vez de texto
-    # livre pra manter consistência em relatórios/auditoria futuros.
-    # nullable pq só se aplica quando deletado_em não é nulo (não dá
-    # pra forçar NOT NULL condicional só com db.Column; a garantia
-    # "sempre vem junto" fica a cargo do service, não do schema).
     motivo_delete = db.Column(
         db.Enum(
             "erro-digitacao",
@@ -62,14 +77,27 @@ class DoencaCronica(db.Model):
         ),
         nullable=True,
     )
-    # NOVO: detalhe em texto livre do motivo do delete -- obrigatório
-    # apenas quando motivo_delete='outro' (garantido pelo schema, não
-    # aqui). Campo separado de `observacoes` (que é clínico, sobre a
-    # doença em si) de propósito: não faz sentido sobrescrever a
-    # observação clínica original com o motivo do delete.
+    # Detalhe do motivo do delete -- separado de `observacoes` (clínica).
     observacoes_delete = db.Column(db.Text, nullable=True)
+    # NOVO (Bloco 2): quem removeu e em qual Atendimento.
+    deletado_por = db.Column(db.BigInteger,
+                              db.ForeignKey("usuarios.id_usuario", ondelete="RESTRICT"), nullable=True)
+    id_atendimento_delecao = db.Column(db.BigInteger,
+                                        db.ForeignKey("atendimento.id_atendimento", ondelete="RESTRICT"),
+                                        nullable=True)
 
     paciente = db.relationship("Paciente", back_populates="doencas")
+    usuario_criacao = db.relationship("Usuario", foreign_keys=[criado_por])
+    atendimento_origem = db.relationship("Atendimento", foreign_keys=[id_atendimento_origem])
+    substituta = db.relationship(
+        "DoencaCronica", foreign_keys=[id_substituida_por],
+        remote_side="DoencaCronica.id", uselist=False,
+    )
+
+    @property
+    def aberta(self) -> bool:
+        """Vigente: não encerrada por revisão e não removida."""
+        return self.encerrado_em is None and not self.deletado
 
     def to_dict(self):
         return {
@@ -79,6 +107,12 @@ class DoencaCronica(db.Model):
             "desde": self.desde.isoformat() if self.desde else None,
             "status": self.status,
             "observacoes": self.observacoes,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+            "criado_por": self.usuario_criacao.nome_completo if self.usuario_criacao else None,
+            "atendimento_origem_uuid": self.atendimento_origem.uuid if self.atendimento_origem else None,
+            "encerrada": self.encerrado_em is not None,
+            "encerrado_em": self.encerrado_em.isoformat() if self.encerrado_em else None,
+            "substituida_por_uuid": self.substituta.uuid if self.substituta else None,
         }
 
     def __repr__(self):
