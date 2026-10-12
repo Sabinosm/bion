@@ -58,7 +58,8 @@ class CepService:
     def buscar_endereco_por_cep(self, cep: str) -> dict | None:
         """
         Consulta o CEP (BrasilAPI primeiro, ViaCEP como fallback) e
-        devolve {"bairro": str | None, "codigo_ibge": str | None,
+        devolve {"bairro": str | None, "logradouro": str | None,
+        "codigo_ibge": str | None,
         "latitude": float | None, "longitude": float | None}, ou None
         se o CEP for inválido em formato, não existir, ou se ambas as
         fontes falharem.
@@ -86,6 +87,12 @@ class CepService:
         """Atalho para quem só precisa do bairro."""
         endereco = self.buscar_endereco_por_cep(cep)
         return endereco["bairro"] if endereco else None
+
+    def buscar_logradouro_por_cep(self, cep: str) -> str | None:
+        """Atalho para quem só precisa da rua. None em CEP 'geral' (cidade
+        pequena com CEP único) -- nesses casos a API não tem rua."""
+        endereco = self.buscar_endereco_por_cep(cep)
+        return endereco.get("logradouro") if endereco else None
 
     def buscar_codigo_ibge_por_cep(self, cep: str) -> str | None:
         """Atalho para quem só precisa do código IBGE do município."""
@@ -150,6 +157,7 @@ class CepService:
 
             return {
                 "bairro": bairro if bairro else None,
+                "logradouro": dados.get("street") or None,
                 "codigo_ibge": codigo_ibge,
                 "latitude": latitude,
                 "longitude": longitude,
@@ -184,6 +192,7 @@ class CepService:
             codigo_ibge = dados.get("ibge")
             return {
                 "bairro": bairro if bairro else None,
+                "logradouro": dados.get("logradouro") or None,
                 "codigo_ibge": codigo_ibge if codigo_ibge else None,
                 "latitude": None,
                 "longitude": None,
