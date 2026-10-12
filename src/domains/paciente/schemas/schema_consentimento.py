@@ -20,6 +20,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from src.core.erros_pydantic import erros_pydantic_por_campo
+from src.domains.paciente.schemas.schema_consentimento_digital import _validar_escopos
 
 _REGEX_SHA256_HEX = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -50,6 +51,18 @@ class ConsentimentoCreateSchema(BaseModel):
     @classmethod
     def _versao_termo_sem_espacos_vazios(cls, v: str) -> str:
         return _validar_texto_obrigatorio(v)
+
+    @field_validator("escopo_consentimento")
+    @classmethod
+    def _escopo_formato(cls, v: Optional[dict]) -> Optional[dict]:
+        """Formato único com o fluxo digital: {"escopo": [códigos de ESCOPOS_VALIDOS]}.
+        Sem isso, um registro manual não consegue ligar/desligar o apoio_ia."""
+        if v is None:
+            return None
+        if set(v) != {"escopo"} or not isinstance(v["escopo"], list) \
+                or not all(isinstance(e, str) for e in v["escopo"]):
+            raise ValueError('esperado {"escopo": ["codigo", ...]}')
+        return {"escopo": _validar_escopos(v["escopo"])}
 
     @field_validator("hash_documento")
     @classmethod

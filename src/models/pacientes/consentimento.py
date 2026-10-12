@@ -44,8 +44,6 @@ class Consentimento(db.Model):
     hash_documento = db.Column(db.String(64))
     pdf_final_path = db.Column(db.String(500), nullable=True)
     assinatura_imagem_path = db.Column(db.String(500), nullable=True)
-    pdf_final_path = db.Column(db.String(500), nullable=True)
-    assinatura_imagem_path = db.Column(db.String(500), nullable=True)
 
     # Coluna GERADA pelo banco: o ORM nunca grava nela (Computed).
     ativo_unico = db.Column(TINYINT, db.Computed("IF(status = 'ativo', 1, NULL)", persisted=True))
@@ -55,7 +53,19 @@ class Consentimento(db.Model):
 
     paciente = db.relationship("Paciente", back_populates="consentimentos")
 
+    def _resumo_escopos(self):
+        """(aceitos, recusados) a partir do JSON. recusados = None quando não dá para
+        saber o que foi oferecido (registro manual/antigo, sem escopos_oferecidos).
+        Só lê as listas de escopo: IP, user-agent e geo (audit) nunca saem por aqui."""
+        j = self.escopo_consentimento_json if isinstance(self.escopo_consentimento_json, dict) else {}
+        aceitos = j.get("escopo") if isinstance(j.get("escopo"), list) else []
+        oferecidos = j.get("escopos_oferecidos")
+        if not isinstance(oferecidos, list) or not oferecidos:
+            return aceitos, None
+        return aceitos, [e for e in oferecidos if e not in aceitos]
+
     def to_dict(self):
+        aceitos, recusados = self._resumo_escopos()
         return {
             "uuid": self.uuid,
             "versao_termo": self.versao_termo,
@@ -65,6 +75,8 @@ class Consentimento(db.Model):
             "status": self.status,
             "data_revogacao": self.data_revogacao.isoformat() if self.data_revogacao else None,
             "observacao": self.observacao,
+            "escopos_aceitos": aceitos,
+            "escopos_recusados": recusados,
             # caminhos do servidor NÃO saem na API; só se há PDF e como baixá-lo
             "possui_pdf": bool(self.pdf_final_path),
             "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{self.uuid}" if self.pdf_final_path else None,

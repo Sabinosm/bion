@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 
 from pydantic import ValidationError
@@ -9,6 +10,13 @@ from src.domains.paciente.schemas.schema_consentimento import (
     ConsentimentoCreateSchema, ConsentimentoDispensaEmergenciaSchema,
     ConsentimentoRevogarSchema, erros_pydantic_por_campo,
 )
+
+
+def _consentimento_bloqueia_consulta() -> bool:
+    """Chave ÚNICA da regra "consulta x consentimento". Padrão: NÃO bloqueia
+    (a consulta abre com ou sem consentimento). Para voltar a exigir, defina
+    CONSENT_BLOQUEIA_CONSULTA=true no ambiente: nenhuma mudança de código."""
+    return os.getenv("CONSENT_BLOQUEIA_CONSULTA", "false").strip().lower() in ("1", "true", "sim", "yes")
 
 
 class ConsentimentoService:
@@ -163,7 +171,8 @@ class ConsentimentoService:
             raise
 
     # ------------------------------------------------------------------
-    # Gancho do Bloco 2: o Atendimento só abre com consentimento válido.
+    # Gancho do Bloco 2: o Atendimento pode exigir consentimento válido.
+    # Por padrão NÃO exige (ver _consentimento_bloqueia_consulta).
     # ------------------------------------------------------------------
     @staticmethod
     def _utc(dt):
@@ -187,8 +196,30 @@ class ConsentimentoService:
         return None
 
     def exigir_valido(self, id_paciente: int, desde=None):
-        """Lança ConflictoError (409) se não há consentimento válido."""
-        if self.situacao(id_paciente, desde) is None:
+        """Devolve a situação ('ativo' | 'dispensado_emergencia' | None).
+        None = ciência pendente (paciente ainda não assinou/registrou).
+        Só lança ConflictoError (409) se CONSENT_BLOQUEIA_CONSULTA estiver ligado;
+        com o padrão (desligado) quem chama pode ignorar o retorno ou usá-lo para
+        sinalizar a pendência. Finalidades opcionais (IA etc.) seguem desligadas sem
+        consentimento: ver escopo_permitido, que independe desta chave."""
+        situacao = self.situacao(id_paciente, desde)
+        if situacao is None and _consentimento_bloqueia_consulta():
             raise ConflictoError(
                 "Consentimento LGPD pendente: colete o termo ou registre a dispensa por emergência."
             )
+        return situacao
+
+    # ------------------------------------------------------------------
+    # Gate por escopo (finalidades opcionais). Ex.: o código da IA chama
+    #   if not ConsentimentoService().escopo_permitido(id_paciente, "apoio_ia"): ...
+    # ------------------------------------------------------------------
+    def escopo_permitido(self, id_paciente: int, escopo: str) -> bool:
+        """True só se há consentimento ATIVO que inclui `escopo`.
+        Falha fechada: sem consentimento, recusa, revogação, dispensa por
+        emergência ou JSON fora do formato => False. Consulta o banco a cada
+        chamada (sem cache), então uma revogação vale na hora."""
+        ativo = self.repo.find_ativo_por_paciente(id_paciente)
+        if not ativo or not isinstance(ativo.escopo_consentimento_json, dict):
+            return False
+        escopos = ativo.escopo_consentimento_json.get("escopo")
+        return isinstance(escopos, list) and escopo in escopos
