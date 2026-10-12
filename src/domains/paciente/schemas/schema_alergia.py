@@ -134,7 +134,7 @@ class AlergiaAtualizarSchema(BaseModel):
         return self.model_dump(exclude_unset=True)
 
 
-class AlergiaRemoverSchema(BaseModel):
+class AlergiaRemoverSchema(BaseModel):  # também usado para remover REAÇÃO (mesmo contrato)
     """Schema de entrada para o soft delete (DELETE) de uma alergia --
     mesmo padrão de DoencaCronicaRemoverSchema. motivo é obrigatório;
     motivo_delete='outro' exige observacoes_delete preenchida (não

@@ -28,83 +28,84 @@ class AlergiaRepository(IRepository[Alergia]):
         )
 
     def find_by_uuid_incluindo_deletados(self, uuid: str) -> Optional[Alergia]:
-        """NOVO: busca sem filtrar deletado -- usado quando o service
-        precisa distinguir 'não existe' de 'existe mas está
-        soft-deletado' (bloquear update, ou achar o registro pra
-        restaurar). Ver mesmo padrão em DoencaCronicaRepository."""
+        """Busca sem filtrar deletado: distingue 'não existe' de 'está removida'."""
         return Alergia.query.filter_by(uuid=uuid).first()
 
     def find_por_paciente(self, id_paciente: int) -> List[Alergia]:
         return (
             Alergia.query
             .filter(Alergia.id_paciente == id_paciente, Alergia.deletado == False)
+            .order_by(Alergia.criado_em, Alergia.id)
             .all()
         )
 
+    def find_ativa_por_substancia(self, id_paciente: int, substancia: str) -> Optional[Alergia]:
+        """Alergia ATIVA do paciente com a mesma substância (barra duplicata).
+        Comparação case-insensitive via lower(); a insensibilidade a acento
+        depende da collation da coluna (utf8mb4_*_ci já ignora acento)."""
+        from sqlalchemy import func
+        return (
+            Alergia.query
+            .filter(Alergia.id_paciente == id_paciente,
+                    Alergia.deletado == False,
+                    func.lower(Alergia.substancia) == substancia.strip().lower())
+            .first()
+        )
+
     def find_apagados(self, id_paciente: Optional[int] = None) -> List[Alergia]:
-        """NOVO: único ponto de acesso a alergias soft-deletadas.
-        id_paciente opcional -- sem ele, lista todas as deletadas da
-        base (uso de auditoria/admin); com ele, filtra por paciente."""
+        """Único ponto de acesso a alergias soft-deletadas (auditoria/admin)."""
         query = Alergia.query.filter(Alergia.deletado == True)
         if id_paciente is not None:
             query = query.filter(Alergia.id_paciente == id_paciente)
         return query.all()
 
-    def save(self, entity: Alergia) -> Alergia:
+    # ----------------------------------------------------------- escrita
+    # commit=True: commit (rota granular). commit=False: só flush, para
+    # compor operação atômica (acao_sensivel, rota agregada do binário).
+    def _persistir(self, commit: bool) -> None:
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    def save(self, entity: Alergia, commit: bool = True) -> Alergia:
         db.session.add(entity)
-        db.session.commit()
+        self._persistir(commit)
         return entity
 
+    def rollback(self) -> None:
+        db.session.rollback()
+
     def delete(self, id: int) -> bool:
-        """Mantido só por contrato com IRepository -- delete físico.
-        NÃO deve ser chamado pela camada de service/controller de
-        alergia; use soft_delete."""
-        e = db.session.get(Alergia, id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
+        raise NotImplementedError("Alergia não é apagada fisicamente; use soft_delete.")
 
     def delete_by_uuid(self, uuid: str) -> bool:
-        """Mantido só por contrato/compatibilidade -- delete físico
-        (remove a alergia E suas reações via cascade). NÃO deve ser
-        chamado pela camada de service/controller de alergia; use
-        soft_delete, que preserva o histórico de reações intacto."""
-        e = Alergia.query.filter_by(uuid=uuid).first()
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
+        raise NotImplementedError("Alergia não é apagada fisicamente; use soft_delete.")
 
-    def soft_delete(self, entity: Alergia, motivo: str, observacoes_delete: Optional[str] = None, commit: bool = True) -> Alergia:
-        """Marca a alergia como removida sem apagar a linha nem as
-        reações associadas (cascade de delete físico não é acionado
-        aqui -- reacoes continuam existindo, vinculadas normalmente,
-        só ficam invisíveis por tabela já que não há listagem direta
-        de reação fora do objeto alergia). Idempotente: chamar de novo
-        num registro já deletado só atualiza os campos de novo."""
+    def soft_delete(self, entity: Alergia, motivo: str, observacoes_delete: Optional[str] = None,
+                    deletado_por: Optional[int] = None,
+                    id_atendimento_delecao: Optional[int] = None,
+                    commit: bool = True) -> Alergia:
+        """Marca como removida (e quem/qual atendimento) sem apagar a linha
+        nem as reações."""
         entity.deletado = True
         entity.deletado_em = datetime.now(timezone.utc)
         entity.motivo_delete = motivo
         entity.observacoes_delete = observacoes_delete
-        db.session.add(entity)
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush() # flush sem commit, pra manter atomicidade do log
-        return entity
+        entity.deletado_por = deletado_por
+        entity.id_atendimento_delecao = id_atendimento_delecao
+        return self.save(entity, commit=commit)
 
-    def restaurar(self, entity: Alergia) -> Alergia:
-        """NOVO: reverte um soft delete."""
+    def restaurar(self, entity: Alergia, commit: bool = True) -> Alergia:
+        """Reverte um soft delete (limpa os campos de remoção; o log de
+        auditoria da rota guarda quem restaurou)."""
         entity.deletado = False
         entity.deletado_em = None
         entity.motivo_delete = None
         entity.observacoes_delete = None
-        db.session.add(entity)
-        db.session.commit()
-        return entity
+        entity.deletado_por = None
+        entity.id_atendimento_delecao = None
+        return self.save(entity, commit=commit)
 
     # --- A2/E2/F4/D2: estatísticas ---
     # REMOVIDO: tempo_medio_por_tipo, atendimentos_por_status e
