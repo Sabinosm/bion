@@ -66,7 +66,7 @@ class Paciente(db.Model):
         order_by="desc(ObservacaoTipoSanguineo.data_registro)",
     )
     alergias = db.relationship("Alergia", back_populates="paciente",
-                                cascade="all, delete-orphan")
+                                cascade="save-update, merge", passive_deletes="all")
     doencas = db.relationship("DoencaCronica", back_populates="paciente",
                                cascade="all, delete-orphan")
     medicamentos_em_uso = db.relationship("MedicamentoEmUso", back_populates="paciente",

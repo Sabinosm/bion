@@ -1,20 +1,4 @@
-"""
-Rotas JSON de alergias do paciente.
 
-BLOCO 2: a LEITURA continua em `bp` (/<uuid_paciente>/alergias, só login +
-tenant: o histórico aparece pré-preenchido em qualquer atendimento). A
-ESCRITA mudou para `bp_escrita`, aninhada no atendimento:
-
-    /<uuid_atendimento>/pacientes/<uuid_paciente>/alergias[...]
-
-`bp_escrita` deve ser registrado com o MESMO url_prefix de bp_atendimento.
-Quem pode escrever (dono do atendimento, enfermeiro só em triagem,
-atendimento em andamento, paciente sem óbito) é decidido pelo service
-(ContextoClinicoService); o controller só monta o AutorClinico a partir da
-sessão. `remover_alergia` segue como `acao_sensivel` (contrato
-(resposta, detalhes) com justificativa); as demais escritas usam
-`acesso_auditado`. Reação removida: soft delete com motivo no corpo.
-"""
 
 from flask import Blueprint, request
 
@@ -29,7 +13,7 @@ from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 
 bp = Blueprint("alergia", __name__)
-bp_escrita = Blueprint("atendimento", __name__)
+bp_escrita = Blueprint("alergia_escrita", __name__)
 _svc = AlergiaService()
 _svc_reacao = ReacaoAlergiaService()
 
