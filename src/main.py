@@ -11,7 +11,7 @@ def create_app(config_name: str = "development") -> Flask:
     
     app = Flask(__name__)
     app.config.from_object(config[config_name])
-
+    app.url_map.strict_slashes = False
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     db.init_app(app)
