@@ -107,24 +107,16 @@ def registrar_assinatura(token: str):
 @acesso_auditado(recurso="gerar link de assinatura de consentimento", operacao="escrita")
 def gerar_link(uuid_paciente: str):
     """
-    Body JSON:
-    {
-      "id_unidade": 42,
-      "versao_termo": "lgpd-v2.1-2026",
-      "pdf_termo_path": "/app/storage/termos/lgpd-v2.1.pdf",   (dentro de CONSENT_PDF_TERMOS)
-      "texto_termo": "Texto integral do termo..."
-    }
+    Body JSON:  { "versao_termo": "lgpd-v1.0-2026" }
+    Texto e PDF são gerados no servidor: template da versão + dados da empresa da sessão.
     """
     dados = request.get_json(silent=True) or {}
     try:
         resultado = _svc.gerar_link_assinatura(
             uuid_paciente=uuid_paciente,
             id_medico=get_id_usuario_sessao(),
-            id_unidade=dados.get("id_unidade"),
             id_empresa=get_id_empresa_sessao(),
             versao_termo=dados.get("versao_termo"),
-            pdf_termo_path=dados.get("pdf_termo_path"),
-            texto_termo=dados.get("texto_termo"),
             ip_medico=_ip_cliente(),
         )
         return json_success(data=resultado, status=201)

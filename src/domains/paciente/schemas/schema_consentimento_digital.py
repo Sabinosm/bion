@@ -26,6 +26,10 @@ ESCOPOS_VALIDOS = {
     "compartilhamento": "Compartilhar meus dados com parceiros (ex.: laboratórios, convênios) além do necessário ao atendimento",
     "pesquisa": "Uso dos meus dados, de forma anonimizada quando possível, em pesquisa científica",
     "uso_imagem": "Uso de imagens (ex.: fotos de lesões ou exames) para fins didáticos",
+    # Gate do recurso de IA: o código da IA só roda se este escopo estiver no
+    # consentimento ativo (ConsentimentoService.escopo_permitido). Prontuário e
+    # protocolos clínicos NÃO dependem dele.
+    "apoio_ia": "Uso dos meus dados clínicos (sem nome, CPF ou contato) em recurso de apoio por inteligência artificial no meu atendimento",
 }
 
 
@@ -44,23 +48,21 @@ def _validar_sha256(v: str) -> str:
     return v.lower()
 
 
+# versão vira nome de arquivo do template: só caracteres seguros (sem '/', '\\' ou '..' no início)
+_REGEX_VERSAO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,49}$")
+
+
 class GerarLinkAssinaturaSchema(BaseModel):
-    id_unidade: int = Field(gt=0)
+    """Só a versão vem do cliente. Texto, PDF e unidade (= empresa da sessão)
+    são resolvidos no servidor (ver termo_renderer.gerar_termo)."""
     versao_termo: str = Field(min_length=1, max_length=50)
-    pdf_termo_path: str = Field(min_length=1, max_length=500)   # coluna é String(500)
-    texto_termo: str = Field(min_length=10, max_length=200_000)
 
-    # ATENÇÃO: sem validação de os.path.isfile aqui (a versão anterior tinha).
-    # Checar existência de caminho vindo do cliente permite sondar o servidor
-    # (200 vs 422 revela quais arquivos existem) e não restringe o diretório.
-    # Quem valida é ConsentimentoDigitalService._resolver_pdf_termo.
-
-    @field_validator("versao_termo", "pdf_termo_path", "texto_termo")
+    @field_validator("versao_termo")
     @classmethod
-    def _sem_espacos_vazios(cls, v: str) -> str:
+    def _versao_valida(cls, v: str) -> str:
         v = v.strip()
-        if not v:
-            raise ValueError("não pode ser vazio ou só espaços")
+        if not _REGEX_VERSAO.match(v):
+            raise ValueError("versão inválida (use letras, números, ponto, hífen e sublinhado)")
         return v
 
 
@@ -131,10 +133,14 @@ class AuditoriaAssinaturaSchema(BaseModel):
 
 class EscopoDigitalSchema(BaseModel):
     """Formato gravado em consentimento_lgpd.escopo_consentimento_json."""
-    escopo: List[str] = Field(default_factory=list, max_length=20)
+    escopo: List[str] = Field(default_factory=list, max_length=20)          # ACEITOS
+    # OFERECIDOS = tudo que o termo mostrou na tela. Recusados = oferecidos - aceitos.
+    # Necessário porque o catálogo cresce (só adiciona): sem isso, um escopo criado
+    # depois da assinatura pareceria "recusado". Registros antigos não têm: ficam [].
+    escopos_oferecidos: List[str] = Field(default_factory=list, max_length=20)
     audit: AuditoriaAssinaturaSchema
 
-    @field_validator("escopo")
+    @field_validator("escopo", "escopos_oferecidos")
     @classmethod
     def _escopos(cls, v: List[str]) -> List[str]:
         return _validar_escopos(v)

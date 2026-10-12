@@ -39,6 +39,8 @@ from src.domains.paciente.schemas.schema_consentimento_digital import (
     ConsentimentoDigitalCreateSchema,
 )
 from .consentimento_service import ConsentimentoService
+from ..termos.termo_renderer import gerar_termo
+from src.domains.empresa.repository import EmpresaRepository
 from src.core.security import aes_decrypt
 
 def _formatar_cpf(cpf) -> str:
@@ -63,6 +65,7 @@ class ConsentimentoDigitalService:
         default_path = "./storage/consentimentos"
         
         self.paciente_repo = PacienteRepository()
+        self.empresa_repo = EmpresaRepository()
         self.consentimento_repo = ConsentimentoRepository()
         self.sessao_repo = ConsentimentoSessaoAssinaturaRepository()
         self.consentimento_svc = ConsentimentoService()        
@@ -126,24 +129,27 @@ class ConsentimentoDigitalService:
         self,
         uuid_paciente: str,
         id_medico: int,
-        id_unidade: int,
         id_empresa: int,
         versao_termo: str,
-        pdf_termo_path: str,
-        texto_termo: str,
         ip_medico: str = None,
     ) -> dict:
+        """Texto e PDF do termo são MONTADOS aqui (template da versão + dados da
+        empresa da sessão). O cliente só escolhe a versão: não envia caminho,
+        texto nem unidade (id_unidade == id_empresa da sessão)."""
         try:
-            entrada = GerarLinkAssinaturaSchema(
-                id_unidade=id_unidade, versao_termo=versao_termo,
-                pdf_termo_path=pdf_termo_path, texto_termo=texto_termo,
-            )
+            entrada = GerarLinkAssinaturaSchema(versao_termo=versao_termo)
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         nome, cpf = self._identificacao(p)   # falha cedo, antes de expirar links anteriores
-        caminho_pdf = self._resolver_pdf_termo(entrada.pdf_termo_path)
+        empresa = self.empresa_repo.find_by_id(id_empresa)
+        if not empresa:
+            raise RecursoNaoEncontradoError("Empresa não encontrada.")
+        texto_termo, pdf_gerado = gerar_termo(
+            entrada.versao_termo, empresa, ESCOPOS_VALIDOS, self.termos_path
+        )
+        caminho_pdf = self._resolver_pdf_termo(str(pdf_gerado))   # mantém a trava de diretório
 
         hash_pdf = ConsentimentoSessaoAssinatura.calcular_hash_pdf(str(caminho_pdf))
         agora = datetime.now(timezone.utc)
@@ -154,12 +160,12 @@ class ConsentimentoDigitalService:
         sessao = ConsentimentoSessaoAssinatura(
             token=ConsentimentoSessaoAssinatura.gerar_token(),
             id_paciente=p.id,
-            id_unidade=entrada.id_unidade,
+            id_unidade=id_empresa,
             id_medico_gerador=id_medico,
             versao_termo=entrada.versao_termo,
             pdf_termo_path=str(caminho_pdf),
             hash_pdf_original=hash_pdf,
-            texto_termo_snapshot=entrada.texto_termo,
+            texto_termo_snapshot=texto_termo,
             criado_em=agora,
             expira_em=agora + timedelta(minutes=self.TEMPO_EXPIRACAO_MINUTOS),
             ip_geracao=ip_medico,
@@ -266,6 +272,7 @@ class ConsentimentoDigitalService:
                 hash_documento=hash_pdf_final,
                 escopo_consentimento=EscopoDigitalSchema(
                     escopo=escopos,
+                    escopos_oferecidos=list(ESCOPOS_VALIDOS),
                     audit=AuditoriaAssinaturaSchema(
                         id_sessao=sessao.id,
                         ip=ip_paciente,
