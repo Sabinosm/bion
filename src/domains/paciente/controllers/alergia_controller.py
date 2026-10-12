@@ -29,7 +29,7 @@ from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 
 bp = Blueprint("alergia", __name__)
-bp_escrita = Blueprint("alergia_escrita", __name__)
+bp_escrita = Blueprint("atendimento", __name__)
 _svc = AlergiaService()
 _svc_reacao = ReacaoAlergiaService()
 
