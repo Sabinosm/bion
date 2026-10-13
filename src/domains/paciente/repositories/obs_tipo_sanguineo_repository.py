@@ -1,24 +1,16 @@
 from typing import Optional, List
 
-from src.models import db
-from src.core.interfaces import IRepository
-from src.models.pacientes import (
-    Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
-    DoencaCronica, MedicamentoEmUso, Consentimento, ObservacaoTipoSanguineo,
-)
-from datetime import datetime, time, timezone, timedelta
 from sqlalchemy import func
 
-class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
-    """Novo -- extraído de Paciente.tipo_sanguineo.
+from src.models import db
+from src.core.interfaces import IRepository
+from src.models.pacientes import Paciente, ObservacaoTipoSanguineo
 
-    Dois caminhos de escrita, deliberadamente separados:
-      - save() / find_mais_recente_por_paciente(): fluxo de REGISTRO
-        (novo exame, nova observação, preserva histórico).
-      - corrigir(): fluxo de CORREÇÃO (edita uma observação específica
-        já existente, identificada por uuid -- usado quando o dado foi
-        digitado errado, não quando há um novo resultado clínico).
-    """
+
+class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
+    """Tipo sanguíneo é INSERT-ONLY: não há update, soft delete nem delete.
+    Corrigir um valor é registrar uma nova observação; o vigente é sempre a
+    mais recente (data_registro desc, id desc -- o id desempata)."""
 
     def find_by_id(self, id: int) -> Optional[ObservacaoTipoSanguineo]:
         return db.session.get(ObservacaoTipoSanguineo, id)
@@ -26,98 +18,71 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
     def find_by_uuid(self, uuid: str) -> Optional[ObservacaoTipoSanguineo]:
         return ObservacaoTipoSanguineo.query.filter_by(uuid=uuid).first()
 
+    def find_por_paciente(self, id_paciente: int) -> List[ObservacaoTipoSanguineo]:
+        """Histórico completo, da mais recente para a mais antiga."""
+        return (
+            ObservacaoTipoSanguineo.query
+            .filter_by(id_paciente=id_paciente)
+            .order_by(ObservacaoTipoSanguineo.data_registro.desc(),
+                      ObservacaoTipoSanguineo.id.desc())
+            .all()
+        )
+
     def find_mais_recente_por_paciente(self, id_paciente: int) -> Optional[ObservacaoTipoSanguineo]:
         return (
             ObservacaoTipoSanguineo.query
             .filter_by(id_paciente=id_paciente)
-            .order_by(ObservacaoTipoSanguineo.data_registro.desc())
+            .order_by(ObservacaoTipoSanguineo.data_registro.desc(),
+                      ObservacaoTipoSanguineo.id.desc())
             .first()
         )
 
-    def save(self, entity: ObservacaoTipoSanguineo) -> ObservacaoTipoSanguineo:
-        db.session.add(entity)
-        db.session.commit()
-        return entity
-
-    def corrigir(self, uuid_observacao: str, novo_valor: str) -> Optional[ObservacaoTipoSanguineo]:
-        """Edita o VALOR de uma observação já existente, sem criar uma
-        nova linha nem alterar data_registro -- uso: corrigir erro de
-        digitação, não registrar novo resultado."""
-        obs = self.find_by_uuid(uuid_observacao)
-        if not obs:
-            return None
-        obs.tipo_sanguineo = novo_valor
-        db.session.commit()
-        return obs
-
-    def delete(self, id: int) -> bool:
-        """Remove uma observação de tipo sanguíneo pelo ID.
-
-        Uso esperado: correção de um registro criado por engano (ex:
-        paciente errado, duplicata) -- não confundir com 'atualizar o
-        tipo sanguíneo', que tem os caminhos registrar()/corrigir()
-        acima. Deletar remove o histórico daquele ponto, então normalmente
-        só admin ou o próprio autor do registro deveria poder fazer isso
-        (decisão de autorização fica na camada de service/controller).
-        """
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
-
-    def delete_by_uuid(self, uuid_observacao: str, commit: bool=True) -> bool:
-        """Mesma operação que delete(), mas pelo UUID público -- forma
-        mais comum de chamar isso a partir de uma rota HTTP, já que o
-        id interno nunca é exposto na API."""
-        e = self.find_by_uuid(uuid_observacao)
-        if not e:
-            return False
-        db.session.delete(e)
+    # ----------------------------------------------------------- escrita
+    # commit=True: commit (rota granular). commit=False: só flush, para
+    # compor operação atômica (rota agregada do binário).
+    def _persistir(self, commit: bool) -> None:
         if commit:
             db.session.commit()
         else:
             db.session.flush()
-        return True
-    
+
+    def save(self, entity: ObservacaoTipoSanguineo, commit: bool = True) -> ObservacaoTipoSanguineo:
+        db.session.add(entity)
+        self._persistir(commit)
+        return entity
+
+    def rollback(self) -> None:
+        db.session.rollback()
+
+    def delete(self, id: int) -> bool:
+        raise NotImplementedError(
+            "Observação de tipo sanguíneo é insert-only; registre uma nova observação.")
+
+    def delete_by_uuid(self, uuid: str) -> bool:
+        raise NotImplementedError(
+            "Observação de tipo sanguíneo é insert-only; registre uma nova observação.")
+
     # --- F3: Distribuição de tipo sanguíneo na base ---
     def distribuicao_tipo_sanguineo(self, id_empresa: int) -> dict:
-        """Distribuição por tipo_sanguineo, usando só a observação MAIS
-        RECENTE de cada paciente (não conta duplicado se o paciente tem
-        várias observações no histórico).
- 
-        Usa uma subquery de MAX(data_registro) por paciente, depois
-        junta de volta pra pegar o tipo_sanguineo daquela observação
-        específica -- evita trazer todo o histórico pra agregar em Python.
- 
+        """Distribuição por tipo, só com a observação VIGENTE de cada paciente.
+
+        Vigente = maior id por paciente (insert-only: o id cresce com o
+        tempo). Usar MAX(data_registro) empatava em inserções no mesmo
+        instante e contava o paciente duas vezes.
+
         Retorna: {"O+": 120, "A+": 95, ...}
         """
-        from src.models import db
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.pacientes import Paciente
- 
-        # subquery: data da observação mais recente por paciente
         subq = (
-            db.session.query(
-                ObservacaoTipoSanguineo.id_paciente.label("id_paciente"),
-                func.max(ObservacaoTipoSanguineo.data_registro).label("max_data"),
-            )
+            db.session.query(func.max(ObservacaoTipoSanguineo.id).label("max_id"))
             .group_by(ObservacaoTipoSanguineo.id_paciente)
             .subquery()
         )
- 
         linhas = (
             db.session.query(
                 ObservacaoTipoSanguineo.tipo_sanguineo.label("tipo"),
                 func.count(ObservacaoTipoSanguineo.id).label("total"),
             )
-            .join(
-                subq,
-                (ObservacaoTipoSanguineo.id_paciente == subq.c.id_paciente)
-                & (ObservacaoTipoSanguineo.data_registro == subq.c.max_data),
-            )
+            .join(subq, ObservacaoTipoSanguineo.id == subq.c.max_id)
             .join(Paciente, ObservacaoTipoSanguineo.id_paciente == Paciente.id)
             .filter(Paciente.id_empresa == id_empresa)
             .group_by(ObservacaoTipoSanguineo.tipo_sanguineo)

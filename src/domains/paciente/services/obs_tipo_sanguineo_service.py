@@ -1,72 +1,85 @@
 from pydantic import ValidationError
 
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from ..repositories import (
-    ObservacaoTipoSanguineoRepository, PacienteRepository,
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
+from ..repositories import PacienteRepository, ObservacaoTipoSanguineoRepository
+from src.domains.paciente.schemas.schema_tipo_sanguineo import (
+    TipoSanguineoCreateSchema, erros_pydantic_por_campo,
 )
-from src.domains.paciente.schemas.schema_tipo_sanguineo import TipoSanguineoCreateSchema, erros_pydantic_por_campo
+from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
 
-    
+
 class ObservacaoTipoSanguineoService:
-    """Tipo sanguíneo do paciente (histórico de observações/exames)."""
+    """Tipo sanguíneo do paciente (insert-only).
+
+    LEITURA (tipo_vigente, historico, distribuicao): só tenant (id_empresa).
+
+    ESCRITA (registrar): sempre DENTRO de um Atendimento `em-andamento` do
+    próprio profissional -- a checagem vive em
+    ContextoClinicoService.exigir_escrita. Não há atualizar/remover:
+    corrigir é registrar uma nova observação. A observação guarda quem
+    registrou e o Atendimento de origem.
+
+    `commit=False` só faz flush (rota agregada do binário).
+    """
 
     def __init__(self):
         self.repo = ObservacaoTipoSanguineoRepository()
-        self.paciente_repo = PacienteRepository()
+        self._paciente_repo = PacienteRepository()
+        self._ctx = ContextoClinicoService()
 
+    # ------------------------------------------------------------ helpers
     def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
-        p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
+        p = self._paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
         return p
 
-    # --- F3: Distribuição de tipo sanguíneo na base ---
-    def distribuicao_tipo_sanguineo(self, id_empresa: int):
+    @staticmethod
+    def _validar(schema, dados: dict):
+        try:
+            return schema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+
+    def _executar(self, commit: bool, fn):
+        try:
+            return fn()
+        except Exception:
+            if commit:
+                self.repo.rollback()
+            raise
+
+    # ------------------------------------------------------------ leitura
+    def tipo_vigente(self, uuid_paciente: str, id_empresa: int):
+        """Observação mais recente, ou None se nunca foi registrado."""
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        return self.repo.find_mais_recente_por_paciente(p.id)
+
+    def historico(self, uuid_paciente: str, id_empresa: int):
+        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        return self.repo.find_por_paciente(p.id)
+
+    # ------------------------------------------------------------ escrita
+    def registrar_tipo_sanguineo(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
+                                 autor: AutorClinico, commit: bool = True):
+        ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        entrada = self._validar(TipoSanguineoCreateSchema, dados)
+
+        vigente = self.repo.find_mais_recente_por_paciente(ctx.paciente.id)
+        if vigente and vigente.tipo_sanguineo == entrada.tipo_sanguineo:
+            raise ConflictoError(
+                f"'{entrada.tipo_sanguineo}' já é o tipo sanguíneo vigente deste paciente."
+            )
+
+        from src.models.pacientes import ObservacaoTipoSanguineo
+        nova = ObservacaoTipoSanguineo(
+            id_paciente=ctx.paciente.id,
+            tipo_sanguineo=entrada.tipo_sanguineo,
+            registrado_por=autor.id_usuario,
+            id_atendimento_origem=ctx.atendimento.id,
+        )
+        return self._executar(commit, lambda: self.repo.save(nova, commit=commit))
+
+    # ------------------------------------------------------- estatísticas
+    def distribuicao(self, id_empresa: int):
         return self.repo.distribuicao_tipo_sanguineo(id_empresa=id_empresa)
-    
-    def registrar_tipo_sanguineo(self, uuid_paciente: str, valor: str, id_usuario: int, id_empresa: int):
-        """NOVO exame/resultado -- cria uma observação adicional,
-        preserva histórico. Este é o caminho normal de uso clínico.
-
-        ALTERADO: valor agora passa por TipoSanguineoCreateSchema --
-        antes este era o ÚNICO domínio clínico sem NENHUMA validação,
-        nem de obrigatoriedade nem de enum; um valor vazio ou fora do
-        Enum (A+|A-|B+|B-|AB+|AB-|O+|O-|desconhecido) só falhava no
-        commit() do save() abaixo, como erro cru do banco."""
-        try:
-            entrada = TipoSanguineoCreateSchema(tipo_sanguineo=valor)
-        except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
-
-        paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
-        paciente.registrar_tipo_sanguineo(entrada.tipo_sanguineo, registrado_por=id_usuario)
-        self.paciente_repo.save(paciente)
-        return paciente
-
-    def corrigir_tipo_sanguineo(self, uuid_paciente: str, uuid_observacao: str, novo_valor: str, id_empresa: int):
-        """CORREÇÃO de um registro específico já existente (erro de
-        digitação) -- não cria histórico novo, edita o valor no lugar.
-        Requer o uuid da observação específica, não do paciente.
-
-        ALTERADO: novo_valor também validado via schema, mesmo
-        raciocínio de registrar_tipo_sanguineo."""
-        try:
-            entrada = TipoSanguineoCreateSchema(tipo_sanguineo=novo_valor)
-        except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
-
-        paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
-        obs = self.repo.find_by_uuid(uuid_observacao)
-        if not obs or obs.id_paciente != paciente.id:
-            raise RecursoNaoEncontradoError(f"Observação de tipo sanguíneo não encontrada: {uuid_observacao}")
-        return self.repo.corrigir(uuid_observacao, entrada.tipo_sanguineo)
-
-    def remover_tipo_sanguineo(self, uuid_paciente: str, uuid_observacao: str, id_empresa: int, commit: bool = True):
-        """Remove um registro de observação por engano (ex: paciente
-        errado, duplicata) -- diferente de corrigir_tipo_sanguineo(),
-        que edita o valor mantendo o registro."""
-        paciente = self._paciente_ou_404(uuid_paciente, id_empresa)
-        obs = self.repo.find_by_uuid(uuid_observacao)
-        if not obs or obs.id_paciente != paciente.id:
-            raise RecursoNaoEncontradoError(f"Observação de tipo sanguíneo não encontrada: {uuid_observacao}")
-        return self.repo.delete_by_uuid(uuid_observacao, commit=commit)

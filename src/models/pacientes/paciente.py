@@ -62,8 +62,8 @@ class Paciente(db.Model):
                                uselist=False, cascade="all, delete-orphan")
     observacoes_tipo_sanguineo = db.relationship(
         "ObservacaoTipoSanguineo", back_populates="paciente",
-        cascade="all, delete-orphan",
-        order_by="desc(ObservacaoTipoSanguineo.data_registro)",
+        cascade="save-update, merge", passive_deletes="all",
+        order_by="desc(ObservacaoTipoSanguineo.data_registro), desc(ObservacaoTipoSanguineo.id)",
     )
     alergias = db.relationship("Alergia", back_populates="paciente",
                                 cascade="save-update, merge", passive_deletes="all")
@@ -83,15 +83,11 @@ class Paciente(db.Model):
         obs = self.observacoes_tipo_sanguineo[0] if self.observacoes_tipo_sanguineo else None
         return obs.tipo_sanguineo if obs else None
 
-    def registrar_tipo_sanguineo(self, valor: str, registrado_por: int = None):
-        """Cria uma nova observação de tipo sanguíneo.
-
-        Não é feito via `paciente.tipo_sanguineo = valor` de propósito:
-        diferente de uma coluna simples, isso é uma nova linha de
-        histórico clínico (quem registrou, quando), não uma sobrescrita.
-        """
+    def registrar_tipo_sanguineo(self, valor: str, registrado_por: int = None,
+                                id_atendimento_origem: int = None):
         from src.models.pacientes.observacao_tipo_sanguineo import ObservacaoTipoSanguineo
-        nova = ObservacaoTipoSanguineo(tipo_sanguineo=valor, registrado_por=registrado_por)
+        nova = ObservacaoTipoSanguineo(tipo_sanguineo=valor, registrado_por=registrado_por,
+                                    id_atendimento_origem=id_atendimento_origem)
         self.observacoes_tipo_sanguineo.insert(0, nova)
 
     def pode_receber_atendimento(self) -> bool:
