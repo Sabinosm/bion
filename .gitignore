@@ -34,3 +34,5 @@ htmlcov/
 .notes
 req-termux.txt
 storage/
+
+.VSCodeCounter
