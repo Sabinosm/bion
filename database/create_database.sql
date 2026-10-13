@@ -46,8 +46,10 @@ CREATE TABLE `catalogo_medicamentos` (
   `nomes_comerciais_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`nomes_comerciais_json`)),
   `fonte_origem` varchar(255) DEFAULT NULL,
   `ultima_verificacao_em` datetime DEFAULT NULL,
+  `principio_ativo_normalizado` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id_catalogo_medicamentos`),
   UNIQUE KEY `uuid_catalogo_medicamentos` (`uuid_catalogo_medicamentos`),
+  UNIQUE KEY `uq_catalogo_principio_normalizado` (`principio_ativo_normalizado`),
   KEY `idx_catalogo_principio_ativo` (`principio_ativo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -196,6 +198,20 @@ CREATE TABLE `catalogo_medicamentos_indicacoes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- bion_testes.catalogo_medicamentos_sinonimos definition
+
+CREATE TABLE `catalogo_medicamentos_sinonimos` (
+  `id_sinonimo` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_catalogo` bigint(20) NOT NULL,
+  `nome_normalizado` varchar(255) NOT NULL,
+  `fonte` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id_sinonimo`),
+  UNIQUE KEY `uq_sinonimo_nome` (`nome_normalizado`),
+  KEY `fk_sinonimo_catalogo` (`id_catalogo`),
+  CONSTRAINT `fk_sinonimo_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- bion_testes.interacoes_medicamentos definition
 
 CREATE TABLE `interacoes_medicamentos` (
@@ -207,6 +223,8 @@ CREATE TABLE `interacoes_medicamentos` (
   `mecanismo_efeito` text DEFAULT NULL,
   `recomendacao` text DEFAULT NULL,
   `acao` varchar(100) DEFAULT NULL,
+  `fonte_origem` varchar(255) DEFAULT NULL,
+  `ultima_verificacao_em` datetime DEFAULT NULL,
   PRIMARY KEY (`id_interacao`),
   UNIQUE KEY `uuid_interacao` (`uuid_interacao`),
   UNIQUE KEY `uq_interacao_par` (`id_medicamento_A`,`id_medicamento_B`),
@@ -710,30 +728,6 @@ CREATE TABLE `stepup_token` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.alergia definition
-
-CREATE TABLE `alergia` (
-  `id_alergia` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_alergia` char(36) NOT NULL,
-  `id_paciente` bigint(20) NOT NULL,
-  `substancia` varchar(255) NOT NULL,
-  `codigo_substancia` varchar(100) DEFAULT NULL,
-  `flag_confirmado` tinyint(1) NOT NULL DEFAULT 0,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  `sistema_codigo_substancia` varchar(50) DEFAULT 'http://snomed.info/sct',
-  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de flag_confirmado.',
-  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
-  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
-  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
-  PRIMARY KEY (`id_alergia`),
-  UNIQUE KEY `uuid_alergia` (`uuid_alergia`),
-  KEY `id_paciente` (`id_paciente`),
-  KEY `idx_alergia_deletado` (`deletado`),
-  KEY `idx_alergia_paciente_deletado` (`id_paciente`,`deletado`),
-  CONSTRAINT `alergia_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- bion_testes.consentimento_lgpd definition
 
 CREATE TABLE `consentimento_lgpd` (
@@ -749,10 +743,9 @@ CREATE TABLE `consentimento_lgpd` (
   `data_revogacao` timestamp NULL DEFAULT NULL,
   `observacao` text DEFAULT NULL,
   `hash_documento` char(64) DEFAULT NULL,
-  `pdf_final_path` varchar(500) DEFAULT NULL,
-  `assinatura_imagem_path` varchar(500) DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `ativo_unico` tinyint(4) GENERATED ALWAYS AS (if(`status` = 'ativo',1,NULL)) STORED,
+  `assinatura_png` mediumblob DEFAULT NULL,
   PRIMARY KEY (`id_consentimento`),
   UNIQUE KEY `uuid_consentimento` (`uuid_consentimento`),
   UNIQUE KEY `uq_consentimento_ativo_paciente` (`id_paciente`,`ativo_unico`),
@@ -773,7 +766,6 @@ CREATE TABLE `consentimento_sessao_assinatura` (
   `id_unidade` int(11) NOT NULL,
   `id_medico_gerador` bigint(20) NOT NULL,
   `versao_termo` varchar(50) NOT NULL,
-  `pdf_termo_path` varchar(500) NOT NULL,
   `hash_pdf_original` varchar(64) NOT NULL,
   `texto_termo_snapshot` text NOT NULL,
   `criado_em` datetime NOT NULL,
@@ -829,31 +821,6 @@ CREATE TABLE `consulta` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.doenca_cronica definition
-
-CREATE TABLE `doenca_cronica` (
-  `id_doenca_cronica` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_doenca_cronica` char(36) NOT NULL,
-  `id_paciente` bigint(20) NOT NULL,
-  `codigo_cid10` varchar(10) NOT NULL,
-  `descricao_cid10` varchar(255) NOT NULL,
-  `desde` date NOT NULL,
-  `status` enum('ativa','em-remissao') NOT NULL,
-  `observacoes` text DEFAULT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de status clínico.',
-  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
-  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
-  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
-  PRIMARY KEY (`id_doenca_cronica`),
-  UNIQUE KEY `uuid_doenca_cronica` (`uuid_doenca_cronica`),
-  KEY `id_paciente` (`id_paciente`),
-  KEY `idx_doenca_cronica_deletado` (`deletado`),
-  KEY `idx_doenca_cronica_paciente_deletado` (`id_paciente`,`deletado`),
-  CONSTRAINT `doenca_cronica_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- bion_testes.medicamentos_em_uso definition
 
 CREATE TABLE `medicamentos_em_uso` (
@@ -879,42 +846,6 @@ CREATE TABLE `medicamentos_em_uso` (
   KEY `idx_medicamento_em_uso_paciente_deletado` (`id_paciente`,`deletado`),
   CONSTRAINT `medicamentos_em_uso_ibfk_1` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`),
   CONSTRAINT `medicamentos_em_uso_ibfk_2` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.observacao_tipo_sanguineo definition
-
-CREATE TABLE `observacao_tipo_sanguineo` (
-  `id_observacao` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_observacao` char(36) NOT NULL,
-  `id_paciente` bigint(20) NOT NULL,
-  `tipo_sanguineo` enum('A+','A-','B+','B-','AB+','AB-','O+','O-','desconhecido') NOT NULL,
-  `registrado_por` bigint(20) DEFAULT NULL,
-  `data_registro` timestamp NOT NULL DEFAULT current_timestamp(),
-  `codigo_loinc` varchar(20) DEFAULT '882-1',
-  PRIMARY KEY (`id_observacao`),
-  UNIQUE KEY `uuid_observacao` (`uuid_observacao`),
-  KEY `idx_id_paciente` (`id_paciente`),
-  KEY `fk_obs_sanguineo_usuario` (`registrado_por`),
-  CONSTRAINT `fk_obs_sanguineo_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
-  CONSTRAINT `fk_obs_sanguineo_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id_usuario`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- bion_testes.reacao_alergia definition
-
-CREATE TABLE `reacao_alergia` (
-  `id_reacao` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_reacao` char(36) NOT NULL,
-  `id_alergia` bigint(20) NOT NULL,
-  `manifestacao` enum('cutanea','respiratoria','anafilaxia','gastrointestinal','cardiovascular','sistemica') NOT NULL,
-  `gravidade` enum('leve','moderada','grave') NOT NULL,
-  `descricao` text DEFAULT NULL,
-  `data_ocorrencia` date DEFAULT NULL,
-  PRIMARY KEY (`id_reacao`),
-  UNIQUE KEY `uuid_reacao` (`uuid_reacao`),
-  KEY `idx_id_alergia` (`id_alergia`),
-  CONSTRAINT `fk_reacao_alergia` FOREIGN KEY (`id_alergia`) REFERENCES `alergia` (`id_alergia`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -974,6 +905,54 @@ CREATE TABLE `conduta_enfermagem` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- bion_testes.doenca_cronica definition
+
+CREATE TABLE `doenca_cronica` (
+  `id_doenca_cronica` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_doenca_cronica` char(36) NOT NULL,
+  `id_paciente` bigint(20) NOT NULL,
+  `codigo_cid10` varchar(10) NOT NULL,
+  `descricao_cid10` varchar(255) NOT NULL,
+  `desde` date NOT NULL,
+  `status` enum('ativa','em-remissao') NOT NULL,
+  `observacoes` text DEFAULT NULL,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `criado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_origem` bigint(20) DEFAULT NULL,
+  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de status clínico.',
+  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
+  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
+  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
+  `encerrado_em` datetime DEFAULT NULL,
+  `encerrado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_encerramento` bigint(20) DEFAULT NULL,
+  `id_substituida_por` bigint(20) DEFAULT NULL,
+  `deletado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_delecao` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_doenca_cronica`),
+  UNIQUE KEY `uuid_doenca_cronica` (`uuid_doenca_cronica`),
+  KEY `id_paciente` (`id_paciente`),
+  KEY `idx_doenca_cronica_deletado` (`deletado`),
+  KEY `idx_doenca_cronica_paciente_deletado` (`id_paciente`,`deletado`),
+  KEY `fk_doenca_cronica_criado_por` (`criado_por`),
+  KEY `fk_doenca_cronica_atend_origem` (`id_atendimento_origem`),
+  KEY `fk_doenca_cronica_encerrado_por` (`encerrado_por`),
+  KEY `fk_doenca_cronica_atend_encerramento` (`id_atendimento_encerramento`),
+  KEY `fk_doenca_cronica_substituida_por` (`id_substituida_por`),
+  KEY `fk_doenca_cronica_deletado_por` (`deletado_por`),
+  KEY `fk_doenca_cronica_atend_delecao` (`id_atendimento_delecao`),
+  KEY `idx_doenca_cronica_paciente_aberta` (`id_paciente`,`deletado`,`encerrado_em`),
+  CONSTRAINT `doenca_cronica_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
+  CONSTRAINT `fk_doenca_cronica_atend_delecao` FOREIGN KEY (`id_atendimento_delecao`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_doenca_cronica_atend_encerramento` FOREIGN KEY (`id_atendimento_encerramento`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_doenca_cronica_atend_origem` FOREIGN KEY (`id_atendimento_origem`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_doenca_cronica_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_doenca_cronica_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_doenca_cronica_encerrado_por` FOREIGN KEY (`encerrado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_doenca_cronica_substituida_por` FOREIGN KEY (`id_substituida_por`) REFERENCES `doenca_cronica` (`id_doenca_cronica`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- bion_testes.input_protocolo definition
 
 CREATE TABLE `input_protocolo` (
@@ -1013,6 +992,29 @@ CREATE TABLE `input_protocolo_execucao` (
   CONSTRAINT `fk_input_execucao_versao` FOREIGN KEY (`id_versao_utilizada`) REFERENCES `protocolo_versao` (`id_versao`),
   CONSTRAINT `input_protocolo_execucao_ibfk_1` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`),
   CONSTRAINT `input_protocolo_execucao_ibfk_2` FOREIGN KEY (`id_input`) REFERENCES `input_protocolo` (`id_input`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.observacao_tipo_sanguineo definition
+
+CREATE TABLE `observacao_tipo_sanguineo` (
+  `id_observacao` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_observacao` char(36) NOT NULL,
+  `id_paciente` bigint(20) NOT NULL,
+  `tipo_sanguineo` enum('A+','A-','B+','B-','AB+','AB-','O+','O-','desconhecido') NOT NULL,
+  `registrado_por` bigint(20) DEFAULT NULL,
+  `data_registro` timestamp NOT NULL DEFAULT current_timestamp(),
+  `codigo_loinc` varchar(20) DEFAULT '882-1',
+  `id_atendimento_origem` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_observacao`),
+  UNIQUE KEY `uuid_observacao` (`uuid_observacao`),
+  KEY `idx_id_paciente` (`id_paciente`),
+  KEY `fk_obs_sanguineo_usuario` (`registrado_por`),
+  KEY `fk_obs_tsang_atendimento_origem` (`id_atendimento_origem`),
+  KEY `idx_obs_tsang_paciente_data` (`id_paciente`,`data_registro`),
+  CONSTRAINT `fk_obs_sanguineo_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
+  CONSTRAINT `fk_obs_sanguineo_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_obs_tsang_atendimento_origem` FOREIGN KEY (`id_atendimento_origem`) REFERENCES `atendimento` (`id_atendimento`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -1086,6 +1088,42 @@ CREATE TABLE `sinal_vital` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- bion_testes.alergia definition
+
+CREATE TABLE `alergia` (
+  `id_alergia` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_alergia` char(36) NOT NULL,
+  `id_paciente` bigint(20) NOT NULL,
+  `substancia` varchar(255) NOT NULL,
+  `codigo_substancia` varchar(100) DEFAULT NULL,
+  `flag_confirmado` tinyint(1) NOT NULL DEFAULT 0,
+  `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
+  `sistema_codigo_substancia` varchar(50) DEFAULT 'http://snomed.info/sct',
+  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de flag_confirmado.',
+  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
+  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
+  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
+  `criado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_origem` bigint(20) DEFAULT NULL,
+  `deletado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_delecao` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_alergia`),
+  UNIQUE KEY `uuid_alergia` (`uuid_alergia`),
+  KEY `id_paciente` (`id_paciente`),
+  KEY `idx_alergia_deletado` (`deletado`),
+  KEY `idx_alergia_paciente_deletado` (`id_paciente`,`deletado`),
+  KEY `fk_alergia_criado_por` (`criado_por`),
+  KEY `fk_alergia_atend_origem` (`id_atendimento_origem`),
+  KEY `fk_alergia_deletado_por` (`deletado_por`),
+  KEY `fk_alergia_atend_delecao` (`id_atendimento_delecao`),
+  CONSTRAINT `alergia_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`),
+  CONSTRAINT `fk_alergia_atend_delecao` FOREIGN KEY (`id_atendimento_delecao`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_alergia_atend_origem` FOREIGN KEY (`id_atendimento_origem`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_alergia_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_alergia_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- bion_testes.prescricao definition
 
 CREATE TABLE `prescricao` (
@@ -1132,5 +1170,39 @@ CREATE TABLE `prescricao_exame` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- Reativar verificação de FK
+-- bion_testes.reacao_alergia definition
+
+CREATE TABLE `reacao_alergia` (
+  `id_reacao` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_reacao` char(36) NOT NULL,
+  `id_alergia` bigint(20) NOT NULL,
+  `manifestacao` enum('cutanea','respiratoria','anafilaxia','gastrointestinal','cardiovascular','sistemica') NOT NULL,
+  `gravidade` enum('leve','moderada','grave') NOT NULL,
+  `descricao` text DEFAULT NULL,
+  `data_ocorrencia` date DEFAULT NULL,
+  `criado_em` datetime NOT NULL,
+  `criado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_origem` bigint(20) DEFAULT NULL,
+  `deletado` tinyint(1) NOT NULL DEFAULT 0,
+  `deletado_em` datetime DEFAULT NULL,
+  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL,
+  `observacoes_delete` text DEFAULT NULL,
+  `deletado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_delecao` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_reacao`),
+  UNIQUE KEY `uuid_reacao` (`uuid_reacao`),
+  KEY `idx_id_alergia` (`id_alergia`),
+  KEY `idx_reacao_alergia_alergia_deletado` (`id_alergia`,`deletado`),
+  KEY `fk_reacao_criado_por` (`criado_por`),
+  KEY `fk_reacao_atend_origem` (`id_atendimento_origem`),
+  KEY `fk_reacao_deletado_por` (`deletado_por`),
+  KEY `fk_reacao_atend_delecao` (`id_atendimento_delecao`),
+  CONSTRAINT `fk_reacao_alergia_alergia` FOREIGN KEY (`id_alergia`) REFERENCES `alergia` (`id_alergia`),
+  CONSTRAINT `fk_reacao_atend_delecao` FOREIGN KEY (`id_atendimento_delecao`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_reacao_atend_origem` FOREIGN KEY (`id_atendimento_origem`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_reacao_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_reacao_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 SET FOREIGN_KEY_CHECKS = 1;
