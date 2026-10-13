@@ -2,9 +2,9 @@
 Rotina de sincronização de INTERAÇÕES medicamentosas com a fonte
 externa Detecta Interações (CRF-MG / UFSJ).
 
-Separado de comando_sincronizar_catalogo.py de propósito: fontes,
-entidades e formatos diferentes (ver atualizacao_interacoes_service.py
-para o raciocínio completo).
+Separado de services/sincronizar_catalogo_service.py de propósito:
+fontes, entidades e formatos diferentes (ver
+atualizacao_interacoes_service.py para o raciocínio completo).
 
 Este módulo não monta a aplicação nem cuida de contexto Flask -- ele é
 importado e chamado por quem já está dentro de um app_context (CLI
@@ -13,15 +13,18 @@ HTTP direto para isso -- é ação do sistema, não de usuário -- mas quem
 agenda (cron, Celery beat) é responsabilidade de fora deste arquivo.
 
 Uso (exemplo, a partir de um entrypoint que já tem app_context aberto):
-    from src.catalogos.comando_sincronizar_interacoes import executar
+    from src.domains.medicamentos.interacoes.sincronizar_interacoes_service import executar
     executar()
 """
 
+import logging
 import os
 
 import requests
 
 from .atualizacao_interacoes_service import AtualizacaoInteracoesService
+
+logger = logging.getLogger(__name__)
 
 FONTE = "detecta-interacoes-crfmg"
 BASE_URL = "https://imses.crfmg.org.br/api"
@@ -76,9 +79,9 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
     """
     api_key = os.environ.get("DETECTA_INTERACOES_API_KEY")
     if not api_key:
-        print(
-            "[AVISO] DETECTA_INTERACOES_API_KEY não configurada -- "
-            "pulando sincronização de interações (retornando lista vazia). "
+        logger.warning(
+            "DETECTA_INTERACOES_API_KEY não configurada -- pulando "
+            "sincronização de interações (retornando lista vazia). "
             "Configure a variável de ambiente quando a chave estiver disponível."
         )
         return []
@@ -118,20 +121,19 @@ def executar() -> dict | None:
     itens = buscar_itens_detecta_interacoes()
 
     if not itens and not os.environ.get("DETECTA_INTERACOES_API_KEY"):
-        # Aviso já foi impresso em buscar_itens_detecta_interacoes;
-        # aqui só evita seguir chamando o service com lista vazia
-        # e imprimindo um resultado que parece uma sincronização
-        # real bem-sucedida.
+        # Aviso já foi emitido em buscar_itens_detecta_interacoes; aqui
+        # só evita seguir chamando o service com lista vazia e logando
+        # um resultado que parece uma sincronização real bem-sucedida.
         return None
 
     service = AtualizacaoInteracoesService()
     resultado = service.sincronizar(itens, FONTE)
 
-    print(f"Fonte: {FONTE}")
-    print(f"Criadas: {len(resultado['criadas'])}")
-    print(f"Atualizadas: {len(resultado['atualizadas'])}")
-    print(f"Ignoradas (sem correspondência no catálogo): "
-          f"{len(resultado['ignoradas_sem_catalogo'])}")
-    print(f"Inalteradas: {resultado['total_inalteradas']}")
+    logger.info("Fonte: %s", FONTE)
+    logger.info("Criadas: %d", len(resultado["criadas"]))
+    logger.info("Atualizadas: %d", len(resultado["atualizadas"]))
+    logger.info("Ignoradas (sem correspondência no catálogo): %d",
+                len(resultado["ignoradas_sem_catalogo"]))
+    logger.info("Inalteradas: %d", resultado["total_inalteradas"])
 
     return resultado

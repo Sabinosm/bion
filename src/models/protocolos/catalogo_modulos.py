@@ -9,7 +9,7 @@ Atualizado (migration 2026-09-28, MariaDB):
   - Removida a relationship protocolos_personalizados (tabela
     protocolo_personalizado foi dropada); entra `versoes`.
 
-Banco vazio (MariaDB): as colunas novas ja entram NOT NULL, sem backfill.
+Banco vazio (MariaDB): as colunas novas ja entram NOT NULL, sem seed.
 
 indice_bit (0..62) e a posicao do modulo no bitmask codigo_composicao
 (ProtocoloVersao). tipo_saida e derivado da familia:

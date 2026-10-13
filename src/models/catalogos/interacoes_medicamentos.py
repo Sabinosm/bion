@@ -9,7 +9,8 @@ class InteracoesMedicamentos(db.Model):
     __table_args__ = (
         # Evita cadastrar o mesmo par duas vezes (A-B e B-A são a mesma
         # interação). A aplicação deve sempre gravar com o menor id em
-        # id_medicamento_a antes de inserir.
+        # id_medicamento_a antes de inserir (AtualizacaoInteracoesService
+        # faz isso).
         db.UniqueConstraint("id_medicamento_a", "id_medicamento_b", name="uq_interacao_par"),
         # id_medicamento_a/b já ganham índice automático por serem
         # FOREIGN KEY -- não criar db.Index duplicado aqui.
@@ -34,6 +35,11 @@ class InteracoesMedicamentos(db.Model):
     # Fica NULL para fontes que não fornecem essa informação.
     acao = db.Column(db.String(100))
 
+    # Rastreabilidade (mesmo padrão de CatalogoMedicamentos): fonte do
+    # último dado aplicado e quando o par foi conferido pela última vez.
+    fonte_origem = db.Column(db.String(255))
+    ultima_verificacao_em = db.Column(db.DateTime(timezone=True))
+
     medicamento_a = db.relationship("CatalogoMedicamentos", foreign_keys=[id_medicamento_a],
                                      back_populates="interacoes_como_a")
     medicamento_b = db.relationship("CatalogoMedicamentos", foreign_keys=[id_medicamento_b],
@@ -46,6 +52,9 @@ class InteracoesMedicamentos(db.Model):
             "mecanismo_efeito": self.mecanismo_efeito,
             "recomendacao": self.recomendacao,
             "acao": self.acao,
+            "fonte_origem": self.fonte_origem,
+            "ultima_verificacao_em": self.ultima_verificacao_em.isoformat()
+            if self.ultima_verificacao_em else None,
         }
 
     def __repr__(self):

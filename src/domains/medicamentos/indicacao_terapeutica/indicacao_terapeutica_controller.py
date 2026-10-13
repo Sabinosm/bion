@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import requer_login
+from src.core.consultas import ler_paginacao, resposta_paginada
 from .indicacao_terapeutica_service import IndicacaoTerapeuticaService
 
 bp_indicacoes_terapeuticas = Blueprint("indicacoes_terapeuticas", __name__)
@@ -15,9 +16,10 @@ class IndicacaoTerapeuticaController():
     @bp_indicacoes_terapeuticas.get("/")
     @requer_login
     def lista_indicacoes():
-        termo = request.args.get("q")
-        itens = _svc.buscar_por_nome(termo) if termo else _svc.listar()
-        return json_success(data=[i.to_dict() for i in itens])
+        """Query string: q (nome ou sinônimo), pagina, por_pagina."""
+        pagina, por_pagina = ler_paginacao()
+        resultado = _svc.listar_paginado(request.args.get("q"), pagina, por_pagina)
+        return json_success(data=resposta_paginada(resultado, lambda i: i.to_dict()))
 
     @staticmethod
     @bp_indicacoes_terapeuticas.get("/<uuid>")

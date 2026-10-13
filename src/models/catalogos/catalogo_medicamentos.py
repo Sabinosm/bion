@@ -8,21 +8,28 @@ class CatalogoMedicamentos(db.Model):
     __tablename__ = "catalogo_medicamentos"
     __table_args__ = (
         # principio_ativo é o campo mais buscado (join com prescrição,
-        # busca do médico, cruzamento com fonte externa na sincronização)
+        # busca do médico)
         db.Index("idx_catalogo_principio_ativo", "principio_ativo"),
+        # Chave de cruzamento entre fontes externas (ANVISA x Detecta):
+        # nome sem acento, minúsculo e sem prefixo de sal. Único para
+        # que a sincronização nunca crie o mesmo princípio ativo duas
+        # vezes. NULL é permitido (linhas antigas antes do seed).
+        db.UniqueConstraint("principio_ativo_normalizado",
+                            name="uq_catalogo_principio_normalizado"),
     )
 
     id = db.Column("id_catalogo_medicamentos",BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_catalogo_medicamentos",db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     principio_ativo = db.Column(db.String(255))
+    principio_ativo_normalizado = db.Column(db.String(255))
     classe_farmaceutica = db.Column(db.String(255))
     nomes_comerciais_json = db.Column(db.JSON)
 
     # Rastreabilidade: de onde veio o registro e quando foi checado
-    # pela última vez contra essa fonte. Base para o botão de
-    # verificação/sincronização -- não sobrescreve automático, só
-    # sinaliza divergência.
+    # pela última vez contra essa fonte. A sincronização automática
+    # aplica as mudanças direto; o antes/depois de cada alteração fica
+    # em LogSincronizacaoCatalogo.
     fonte_origem = db.Column(db.String(255))
     ultima_verificacao_em = db.Column(db.DateTime(timezone=True))
 
@@ -40,6 +47,7 @@ class CatalogoMedicamentos(db.Model):
     contraindicacoes = db.relationship(
         "Contraindicacao", secondary="catalogo_medicamentos_contraindicacoes",
         back_populates="medicamentos")
+    sinonimos = db.relationship("CatalogoMedicamentosSinonimo", back_populates="catalogo_medicamentos")
 
     def to_dict(self):
         return {
@@ -56,3 +64,19 @@ class CatalogoMedicamentos(db.Model):
 
     def __repr__(self):
         return f"<CatalogoMedicamentos {self.uuid} [{self.principio_ativo}]>"
+
+
+class CatalogoMedicamentosSinonimo(db.Model):
+    """Nome alternativo (já normalizado) que aponta para um item do
+    catálogo -- cobre os casos que normalizar_nome() não resolve sozinho
+    (ex: nome em inglês, grafia diferente entre ANVISA e Detecta).
+    Curadoria manual, idealmente revisada por alguém da área da saúde."""
+    __tablename__ = "catalogo_medicamentos_sinonimos"
+
+    id = db.Column("id_sinonimo", BigIntPK, primary_key=True, autoincrement=True)
+    id_catalogo = db.Column(db.BigInteger,
+        db.ForeignKey("catalogo_medicamentos.id_catalogo_medicamentos"), nullable=False)
+    nome_normalizado = db.Column(db.String(255), nullable=False, unique=True)
+    fonte = db.Column(db.String(100))
+
+    catalogo_medicamentos = db.relationship("CatalogoMedicamentos", back_populates="sinonimos")

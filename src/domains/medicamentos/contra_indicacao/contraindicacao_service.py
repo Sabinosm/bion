@@ -10,6 +10,9 @@ class ContraindicacaoService:
     def listar(self):
         return self.repo.find_all()
 
+    def listar_paginado(self, termo, pagina: int, por_pagina: int):
+        return self.repo.listar_paginado(termo, pagina, por_pagina)
+
     def buscar_por_uuid(self, uuid: str):
         c = self.repo.find_by_uuid(uuid)
         if not c:

@@ -2,6 +2,7 @@ from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
+from src.core.consultas import escapar_like
 from src.models.catalogos.contraindicacao import Contraindicacao
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 
@@ -22,8 +23,18 @@ class ContraindicacaoRepository(IRepository[Contraindicacao]):
         simples é suficiente, sem sinônimo/JSON como em
         IndicacaoTerapeutica."""
         return Contraindicacao.query.filter(
-            Contraindicacao.nome.ilike(f"%{termo}%")
+            Contraindicacao.nome.ilike(f"%{escapar_like(termo)}%", escape="\\")
         ).all()
+
+    def listar_paginado(self, termo: Optional[str], pagina: int, por_pagina: int):
+        q = Contraindicacao.query
+        if termo:
+            q = q.filter(Contraindicacao.nome.ilike(
+                f"%{escapar_like(termo)}%", escape="\\"))
+        return (
+            q.order_by(Contraindicacao.nome)
+            .paginate(page=pagina, per_page=por_pagina, error_out=False)
+        )
 
     def medicamentos_da_contraindicacao(self, id_contraindicacao: int) -> List[CatalogoMedicamentos]:
         """Sentido condição -> medicamentos contraindicados: dado um
