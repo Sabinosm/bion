@@ -13,6 +13,13 @@ Canais que o registro MANUAL não aceita (só nascem por fluxo próprio):
 motivo (dispensa/revogação) tem strip + rejeição de string só-espaços.
 hash_documento é validado como hex de 64 caracteres (SHA-256), formato
 assumido pelo domínio -- ajustar aqui se o algoritmo usado mudar.
+
+escopo_consentimento (opcional) segue o MESMO formato do fluxo digital:
+{"escopo": ["codigo", ...]}, com códigos de ESCOPOS_VALIDOS
+(ver schema_consentimento_digital). É isso que liga uma finalidade opcional
+(ex.: "apoio_ia") em um consentimento registrado manualmente; sem escopo =
+nenhuma finalidade opcional (ConsentimentoService.escopo_permitido nega).
+Códigos desconhecidos ou outro formato são rejeitados.
 """
 
 import re

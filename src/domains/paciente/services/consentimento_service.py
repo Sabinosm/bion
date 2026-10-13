@@ -59,8 +59,8 @@ class ConsentimentoService:
         canal_coleta: str,
         escopo=None,
         hash_documento: str = None,
-        pdf_final_path: str = None,
-        assinatura_imagem_path: str = None,
+        assinatura_png: bytes = None,
+        data_consentimento=None,
         commit: bool = False,
     ):
         """Revoga TODOS os ativos anteriores do paciente e cria o novo.
@@ -80,12 +80,11 @@ class ConsentimentoService:
                 id_paciente=id_paciente,
                 coletado_por=coletado_por,
                 versao_termo=versao_termo,
-                data_consentimento=agora,
+                data_consentimento=data_consentimento or agora,
                 canal_coleta=canal_coleta,
                 escopo_consentimento_json=escopo,
                 hash_documento=hash_documento,
-                pdf_final_path=pdf_final_path,
-                assinatura_imagem_path=assinatura_imagem_path,
+                assinatura_png=assinatura_png,
             )
             return self.repo.save(c, commit=commit)
         except IntegrityError:

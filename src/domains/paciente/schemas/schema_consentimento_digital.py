@@ -4,13 +4,13 @@ Colocar em src/domains/paciente/schemas/ (junto de schema_consentimento.py).
 
 Responsabilidade dos schemas: FORMATO (tipos, tamanhos, hex, PNG base64).
 Regras que dependem de estado ficam no service: hash == o da sessão,
-PDF dentro de CONSENT_PDF_TERMOS, token válido/não expirado.
+token válido/não expirado, versão do termo existente (template).
 """
 
 import re
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _REGEX_SHA256_HEX = re.compile(r"^[0-9a-fA-F]{64}$")
 _PREFIXO_PNG = "data:image/png;base64,"
@@ -144,6 +144,13 @@ class EscopoDigitalSchema(BaseModel):
     @classmethod
     def _escopos(cls, v: List[str]) -> List[str]:
         return _validar_escopos(v)
+
+    @model_validator(mode="after")
+    def _aceitos_dentro_dos_oferecidos(self):
+        # não dá para aceitar o que não foi oferecido (quando se sabe o que foi oferecido)
+        if self.escopos_oferecidos and not set(self.escopo) <= set(self.escopos_oferecidos):
+            raise ValueError("escopo contém item que não consta em escopos_oferecidos")
+        return self
 
 
 class ConsentimentoDigitalCreateSchema(BaseModel):

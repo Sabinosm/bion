@@ -7,14 +7,13 @@ Consentimento é delegada ao ConsentimentoService.ativar_novo, para que a regra
 """
 
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 import base64
 import binascii
 import hashlib
 import hmac
+import logging
 import os
 import re
-import uuid as _uuid
 
 from pydantic import ValidationError
 
@@ -39,13 +38,18 @@ from src.domains.paciente.schemas.schema_consentimento_digital import (
     ConsentimentoDigitalCreateSchema,
 )
 from .consentimento_service import ConsentimentoService
-from ..termos.termo_renderer import gerar_termo
-from src.domains.empresa.repository import EmpresaRepository
+from ..termos.termo_renderer import gerar_termo, gerar_pdf_bytes
+from ..termos.consentimento_pdf import montar_pdf_assinado, formatar_cpf, sha256_bytes
+from src.domains.empresa.repository import EmpresaRepository 
 from src.core.security import aes_decrypt
 
-def _formatar_cpf(cpf) -> str:
-    d = re.sub(r"\D", "", cpf or "")
-    return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else (cpf or "-")
+logger = logging.getLogger(__name__)
+
+
+def _janela_copia_minutos() -> int:
+    """Quanto tempo, depois de assinar, o paciente pode baixar a própria cópia com o token."""
+    return int(os.getenv("CONSENT_JANELA_COPIA_MIN", "15"))
+_formatar_cpf = formatar_cpf
 
 
 def _mascarar_cpf(cpf) -> str:
@@ -62,17 +66,11 @@ class ConsentimentoDigitalService:
     PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
     def __init__(self):
-        default_path = "./storage/consentimentos"
-        
         self.paciente_repo = PacienteRepository()
         self.empresa_repo = EmpresaRepository()
         self.consentimento_repo = ConsentimentoRepository()
         self.sessao_repo = ConsentimentoSessaoAssinaturaRepository()
-        self.consentimento_svc = ConsentimentoService()        
-        self.storage_path = Path(os.getenv("CONSENT_STORAGE", default_path))
-        self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.termos_path = Path(os.getenv("CONSENT_PDF_TERMOS", "./storage/termos"))
-        self.termos_path.mkdir(parents=True, exist_ok=True)
+        self.consentimento_svc = ConsentimentoService()
 
     # ------------------------------------------------------------------ helpers
     def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
@@ -102,18 +100,6 @@ class ConsentimentoDigitalService:
         if exp.tzinfo is None:
             exp = exp.replace(tzinfo=timezone.utc)
         return datetime.now(timezone.utc) > exp
-
-    def _resolver_pdf_termo(self, pdf_termo_path: str) -> Path:
-        """O PDF só pode estar dentro de CONSENT_PDF_TERMOS (evita ler/copiar
-        arquivos arbitrários do servidor)."""
-        try:
-            caminho = Path(pdf_termo_path).resolve()
-            caminho.relative_to(self.termos_path.resolve())
-        except (ValueError, OSError):
-            raise DadosInvalidosError("PDF do termo fora do diretório permitido.")
-        if caminho.suffix.lower() != ".pdf" or not caminho.is_file():
-            raise RecursoNaoEncontradoError("PDF do termo não encontrado no servidor.")
-        return caminho
 
     def _checar_sessao_utilizavel(self, sessao, msg_usado: str, msg_expirado: str):
         if sessao.status == "usado":
@@ -146,12 +132,7 @@ class ConsentimentoDigitalService:
         empresa = self.empresa_repo.find_by_id(id_empresa)
         if not empresa:
             raise RecursoNaoEncontradoError("Empresa não encontrada.")
-        texto_termo, pdf_gerado = gerar_termo(
-            entrada.versao_termo, empresa, ESCOPOS_VALIDOS, self.termos_path
-        )
-        caminho_pdf = self._resolver_pdf_termo(str(pdf_gerado))   # mantém a trava de diretório
-
-        hash_pdf = ConsentimentoSessaoAssinatura.calcular_hash_pdf(str(caminho_pdf))
+        texto_termo, _pdf_termo, hash_pdf = gerar_termo(entrada.versao_termo, empresa, ESCOPOS_VALIDOS)
         agora = datetime.now(timezone.utc)
 
         # um link pendente por paciente: gerar novo cancela os anteriores
@@ -163,7 +144,6 @@ class ConsentimentoDigitalService:
             id_unidade=id_empresa,
             id_medico_gerador=id_medico,
             versao_termo=entrada.versao_termo,
-            pdf_termo_path=str(caminho_pdf),
             hash_pdf_original=hash_pdf,
             texto_termo_snapshot=texto_termo,
             criado_em=agora,
@@ -201,9 +181,46 @@ class ConsentimentoDigitalService:
             "versao_termo": sessao.versao_termo,
             "texto_termo": sessao.texto_termo_snapshot,
             "hash_pdf_original": sessao.hash_pdf_original,
+            "termo_pdf_url": f"/v1/api/pacientes/lgpd/assinar/{sessao.token}/termo.pdf",
             "expira_em": sessao.expira_em.isoformat(),
             "unidade_id": sessao.id_unidade,
         }
+
+    def obter_termo_pdf(self, token: str) -> tuple:
+        """PDF do termo para o paciente baixar (rota pública, o token é a autenticação).
+        Refeito em memória do texto da sessão; nada é lido nem gravado em disco.
+        Retorna (bytes, sha256). Mesmas regras de validade do GET: só link pendente."""
+        sessao = self.sessao_repo.find_by_token(token)
+        if not sessao:
+            raise RecursoNaoEncontradoError("Link de assinatura inválido.")
+        self._checar_sessao_utilizavel(
+            sessao,
+            "Este link já foi utilizado para assinatura.",
+            "Link de assinatura expirado. Solicite um novo ao médico.",
+        )
+        pdf = gerar_pdf_bytes(sessao.texto_termo_snapshot)
+        return pdf, sha256_bytes(pdf)
+
+    def obter_copia_assinada(self, token: str) -> bytes:
+        """Cópia do PDF assinado para o PRÓPRIO paciente (rota pública, token = autenticação).
+        Só com link 'usado' e dentro da janela após a assinatura (CONSENT_JANELA_COPIA_MIN,
+        padrão 15 min). Refeito em memória; nada em disco. Todo caso inválido responde 404
+        igual, para o token não revelar em que estado está."""
+        negado = RecursoNaoEncontradoError("Cópia indisponível.")
+        sessao = self.sessao_repo.find_by_token(token)
+        if not sessao or sessao.status != "usado" or sessao.usado_em is None or not sessao.consentimento:
+            raise negado
+        usado = sessao.usado_em
+        if usado.tzinfo is None:           # MySQL devolve naive; gravamos em UTC
+            usado = usado.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > usado + timedelta(minutes=_janela_copia_minutos()):
+            raise RecursoNaoEncontradoError(
+                "O prazo para baixar a cópia terminou. Peça uma cópia à clínica."
+            )
+        if not sessao.consentimento.assinatura_png:
+            raise negado
+        pdf, _ = self._refazer_pdf(sessao.consentimento)
+        return pdf
 
     # ------------------------------------------------ rota pública (POST)
     def _validar_payload(self, dados: dict, hash_esperado: str):
@@ -252,20 +269,21 @@ class ConsentimentoDigitalService:
         geo = entrada.geolocalizacao or ""
         geo_divergente = entrada.geo_divergente
 
-        base = _uuid.uuid4().hex
-        caminho_assinatura = self.storage_path / f"assinatura_{base}.png"
-        arquivos_criados = []
-        agora = datetime.now(timezone.utc)
+        # sem microssegundos: o MySQL (DATETIME sem fração) arredonda; o que é impresso no
+        # PDF tem de ser exatamente o que é gravado, para o PDF poder ser refeito depois.
+        agora = datetime.now(timezone.utc).replace(microsecond=0)
 
         try:
-            caminho_assinatura.write_bytes(img_bytes)
-            arquivos_criados.append(caminho_assinatura)
-
-            pdf_final_path, hash_pdf_final = self._gerar_pdf_final(
-                sessao, caminho_assinatura, base,
-                contexto={"ip": ip_paciente, "user_agent": user_agent, "geo": geo, "data": agora},
+            nome, cpf = self._identificacao(sessao.paciente)
+            pdf_final = montar_pdf_assinado(
+                texto_termo=sessao.texto_termo_snapshot,
+                hash_pdf_original=sessao.hash_pdf_original,
+                nome=nome, cpf=cpf, versao_termo=sessao.versao_termo,
+                data=agora, ip=ip_paciente, user_agent=user_agent, geo=geo,
+                assinatura_png=img_bytes,
+                escopos_aceitos=escopos, escopos_oferecidos=list(ESCOPOS_VALIDOS),
             )
-            arquivos_criados.append(pdf_final_path)
+            hash_pdf_final = sha256_bytes(pdf_final)   # o PDF em si NÃO é guardado
 
             registro = ConsentimentoDigitalCreateSchema(
                 versao_termo=sessao.versao_termo,
@@ -293,8 +311,8 @@ class ConsentimentoDigitalService:
                 canal_coleta=registro.canal_coleta,
                 escopo=registro.escopo_consentimento.model_dump(),
                 hash_documento=registro.hash_documento,
-                pdf_final_path=str(pdf_final_path),
-                assinatura_imagem_path=str(caminho_assinatura),
+                assinatura_png=img_bytes,
+                data_consentimento=agora,
                 commit=False,
             )
 
@@ -311,118 +329,16 @@ class ConsentimentoDigitalService:
         except Exception:
             # desfaz revogação + consentimento + sessão (mesma transação)
             self.consentimento_repo.rollback()
-            for arq in arquivos_criados:
-                Path(arq).unlink(missing_ok=True)
             raise
 
         return {
             "consentimento_uuid": consentimento.uuid,
             "hash_pdf_final": hash_pdf_final,
             "data_consentimento": consentimento.data_consentimento.isoformat(),
-            "download_url": f"/v1/api/pacientes/lgpd/comprovante/{consentimento.uuid}",
+            # cópia para o PRÓPRIO paciente (pública, só pelo token, por tempo limitado)
+            "download_url": f"/v1/api/pacientes/lgpd/assinar/{token}/comprovante.pdf",
+            "copia_valida_ate": (agora + timedelta(minutes=_janela_copia_minutos())).isoformat(),
         }
-
-    def _gerar_pdf_final(self, sessao, caminho_assinatura: Path, nome_base: str, contexto: dict) -> tuple:
-        """Termo original + página de assinatura (reportlab desenha a página,
-        pypdf junta). Retorna (caminho_final, sha256 do arquivo final).
-
-        O hash final não aparece dentro do PDF (um arquivo não pode conter o
-        próprio hash); ele fica no banco (hash_documento) e no comprovante.
-        O hash do PDF ORIGINAL aparece na página, ligando as duas versões."""
-        from io import BytesIO
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import mm
-        from reportlab.lib.utils import ImageReader, simpleSplit
-        from reportlab.pdfgen import canvas as rl_canvas
-        from pypdf import PdfReader, PdfWriter
-
-        nome, cpf = self._identificacao(sessao.paciente)
-        agora = contexto["data"]
-        try:
-            from zoneinfo import ZoneInfo
-            data_local = agora.astimezone(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y %H:%M:%S (Brasília)")
-        except Exception:
-            data_local = None
-        data_utc = agora.strftime("%d/%m/%Y %H:%M:%S UTC")
-
-        # ---- 1) página de assinatura (em memória)
-        buf = BytesIO()
-        c = rl_canvas.Canvas(buf, pagesize=A4)
-        largura, altura = A4
-        margem = 20 * mm
-        largura_texto = largura - 2 * margem
-        y = altura - margem
-
-        c.setFont("Helvetica-Bold", 15)
-        c.drawString(margem, y, "Comprovante de Assinatura Eletrônica")
-        y -= 7 * mm
-        c.setFont("Helvetica", 9)
-        c.drawString(margem, y, "Termo de Consentimento LGPD - Lei 13.709/2018")
-        y -= 4 * mm
-        c.line(margem, y, largura - margem, y)
-        y -= 8 * mm
-
-        def campo(rotulo, valor, y):
-            c.setFont("Helvetica-Bold", 9)
-            c.drawString(margem, y, rotulo)
-            c.setFont("Helvetica", 9)
-            linhas = simpleSplit(str(valor or "-"), "Helvetica", 9, largura_texto - 45 * mm) or ["-"]
-            for ln in linhas:
-                c.drawString(margem + 45 * mm, y, ln)
-                y -= 4.5 * mm
-            return y - 1.5 * mm
-
-        y = campo("Paciente:", nome, y)
-        y = campo("CPF:", _formatar_cpf(cpf), y)
-        y = campo("Versão do termo:", sessao.versao_termo, y)
-        y = campo("Data/hora:", f"{data_local} - {data_utc}" if data_local else data_utc, y)
-        y = campo("IP:", contexto.get("ip"), y)
-        y = campo("Dispositivo:", (contexto.get("user_agent") or "")[:300], y)
-        y = campo("Localização:", contexto.get("geo"), y)
-        y = campo("SHA-256 do termo original:", sessao.hash_pdf_original, y)
-
-        y -= 4 * mm
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(margem, y, "Assinatura do titular:")
-        y -= 3 * mm
-        caixa_h = 40 * mm
-        c.rect(margem, y - caixa_h, largura_texto, caixa_h)
-        img = ImageReader(str(caminho_assinatura))
-        iw, ih = img.getSize()
-        escala = min((largura_texto - 6 * mm) / iw, (caixa_h - 6 * mm) / ih)
-        w, h = iw * escala, ih * escala
-        c.drawImage(img, margem + (largura_texto - w) / 2, y - caixa_h + (caixa_h - h) / 2,
-                    width=w, height=h, mask="auto")
-        y -= caixa_h + 8 * mm
-
-        declaracao = ("Documento assinado eletronicamente pelo titular em atendimento presencial, "
-                      "mediante leitura integral do termo, confirmação de identidade e declaração de "
-                      "consentimento. A integridade do termo original pode ser verificada pelo hash "
-                      "SHA-256 acima.")
-        c.setFont("Helvetica-Oblique", 8)
-        for ln in simpleSplit(declaracao, "Helvetica-Oblique", 8, largura_texto):
-            c.drawString(margem, y, ln)
-            y -= 4 * mm
-        c.showPage()
-        c.save()
-        buf.seek(0)
-
-        # ---- 2) junta original + página de assinatura
-        writer = PdfWriter()
-        for pagina in PdfReader(sessao.pdf_termo_path).pages:
-            writer.add_page(pagina)
-        for pagina in PdfReader(buf).pages:
-            writer.add_page(pagina)
-
-        caminho_final = self.storage_path / f"termo_assinado_{nome_base}.pdf"
-        with open(caminho_final, "wb") as f:
-            writer.write(f)
-
-        h = hashlib.sha256()
-        with open(caminho_final, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                h.update(chunk)
-        return caminho_final, h.hexdigest()
 
     # ------------------------------------------- consultas do lado do médico
     def _consentimento_da_empresa_ou_404(self, uuid_consentimento: str, id_empresa: int):
@@ -475,20 +391,47 @@ class ConsentimentoDigitalService:
             "status": c.status,
             "hash_documento": c.hash_documento,
             "escopo": escopo.get("escopo", []),   # sem IP/UA/paths internos
-            "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{c.uuid}" if c.pdf_final_path else None,
+            "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{c.uuid}" if c.assinatura_png else None,
         }
 
-    def obter_arquivo_pdf(self, uuid_consentimento: str, id_empresa: int) -> Path:
-        """Caminho do PDF assinado, só se o consentimento é da empresa e o
-        arquivo está dentro do storage (nada de path vindo do cliente)."""
+    def _refazer_pdf(self, c) -> tuple:
+        """Refaz em memória o PDF assinado de um consentimento do fluxo digital.
+        Retorna (bytes, confere). Usado pelo download do médico e pela cópia do paciente."""
+        indisponivel = RecursoNaoEncontradoError("PDF não disponível para este consentimento.")
+        j = c.escopo_consentimento_json if isinstance(c.escopo_consentimento_json, dict) else {}
+        audit = j.get("audit")
+        if not audit:
+            raise indisponivel
+        pessoal = c.paciente.pessoal
+        if pessoal:
+            nome = aes_decrypt(pessoal.nome_completo)
+            cpf = aes_decrypt(pessoal.cpf) if pessoal.cpf else None
+        else:
+            nome, cpf = "Titular anonimizado", None   # sem PII: o hash não vai conferir
+        data = c.data_consentimento
+        if data.tzinfo is None:        # MySQL devolve naive; gravamos em UTC
+            data = data.replace(tzinfo=timezone.utc)
+        pdf = montar_pdf_assinado(
+            texto_termo=audit["texto_integral_aceito"],
+            hash_pdf_original=audit["hash_pdf_original"],
+            nome=nome, cpf=cpf, versao_termo=c.versao_termo, data=data,
+            ip=audit.get("ip"), user_agent=audit.get("user_agent"), geo=audit.get("geolocalizacao"),
+            assinatura_png=bytes(c.assinatura_png),
+            escopos_aceitos=j.get("escopo", []), escopos_oferecidos=j.get("escopos_oferecidos", []),
+        )
+        confere = sha256_bytes(pdf) == c.hash_documento
+        if not confere:
+            logger.warning("PDF refeito do consentimento %s não confere com hash_documento", c.uuid)
+        return pdf, confere
+
+    def obter_pdf_assinado(self, uuid_consentimento: str, id_empresa: int) -> tuple:
+        """PDF assinado, só se o consentimento é da empresa. Retorna (bytes, confere).
+
+        REFEITO em memória a partir do banco (texto aceito, assinatura PNG, auditoria,
+        data); nada é lido nem gravado em disco. confere = SHA-256 refeito == hash_documento
+        (pode divergir se reportlab/pypdf/layout mudaram ou se o paciente foi anonimizado).
+        Consentimento sem assinatura (registro manual: papel, portal, totem) não tem PDF aqui."""
         c = self._consentimento_da_empresa_ou_404(uuid_consentimento, id_empresa)
-        if not c.pdf_final_path:
+        if not c.assinatura_png:
             raise RecursoNaoEncontradoError("PDF não disponível para este consentimento.")
-        try:
-            caminho = Path(c.pdf_final_path).resolve()
-            caminho.relative_to(self.storage_path.resolve())
-        except (ValueError, OSError):
-            raise RecursoNaoEncontradoError("PDF não disponível para este consentimento.")
-        if not caminho.is_file():
-            raise RecursoNaoEncontradoError("Arquivo do PDF não encontrado no servidor.")
-        return caminho
+        return self._refazer_pdf(c)

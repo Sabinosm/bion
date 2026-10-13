@@ -4,14 +4,16 @@ Registrado sob /v1/api/pacientes/lgpd (mesmo prefixo do LgpdController).
 
 PÚBLICAS (paciente no celular, o token é a autenticação):
   GET  /assinar/<token>                     dados para montar a tela
+  GET  /assinar/<token>/termo.pdf           paciente baixa o termo (PDF refeito em memória)
   POST /assinar/<token>                     registra a assinatura
+  GET  /assinar/<token>/comprovante.pdf     paciente baixa a PRÓPRIA cópia assinada (janela curta)
 
 PROTEGIDAS (médico/enfermeiro):
   POST /<uuid_paciente>/gerar-link-assinatura
   GET  /assinatura/<token>/status           saber se o paciente já assinou
   POST /assinatura/<token>/cancelar         invalida um link pendente
   GET  /comprovante/<uuid_consentimento>    metadados do comprovante
-  GET  /download-pdf/<uuid_consentimento>   PDF assinado
+  GET  /download-pdf/<uuid_consentimento>   PDF assinado (refeito em memória do banco)
 
 Dados do usuário logado: get_id_usuario_sessao(), get_id_empresa_sessao().
 O front é responsável por renderizar o PDF, detectar scroll, capturar o canvas
@@ -23,6 +25,7 @@ e o consentimento criado.
 """
 
 import os
+from io import BytesIO
 
 from flask import Blueprint, request, send_file
 
@@ -68,6 +71,34 @@ def obter_dados_assinatura(token: str):
         return json_success(data=_svc.obter_dados_sessao(token))
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
+
+
+@bp.get("/assinar/<token>/termo.pdf")
+def baixar_termo(token: str):
+    """PDF do termo para o paciente baixar/ler. Só enquanto o link está pendente.
+    X-SHA256 = hash do PDF, o mesmo hash_pdf_original mostrado na tela."""
+    try:
+        pdf, sha = _svc.obter_termo_pdf(token)
+    except BionException as ex:
+        return json_error(ex.message, ex.status_code)
+    resp = send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=True,
+                     download_name="termo_consentimento_lgpd.pdf")
+    resp.headers["X-SHA256"] = sha
+    return resp
+
+
+@bp.get("/assinar/<token>/comprovante.pdf")
+def baixar_copia(token: str):
+    """Cópia assinada para o paciente, logo após assinar. Janela curta (ver
+    CONSENT_JANELA_COPIA_MIN); depois disso, só a clínica emite (rota do médico)."""
+    try:
+        pdf = _svc.obter_copia_assinada(token)
+    except BionException as ex:
+        return json_error(ex.message, ex.status_code)
+    resp = send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=True,
+                     download_name="comprovante_consentimento_lgpd.pdf")
+    resp.headers["Cache-Control"] = "no-store"          # contém nome, CPF e assinatura
+    return resp
 
 
 @bp.post("/assinar/<token>")
@@ -160,14 +191,19 @@ def obter_comprovante(uuid_consentimento: str):
 @acesso_auditado(recurso="pdf assinado de consentimento", operacao="leitura")
 def download_pdf(uuid_consentimento: str):
     """PDF assinado. Recebe o UUID do consentimento (nunca um caminho): o service
-    confere a empresa e resolve o arquivo dentro do storage."""
+    confere a empresa e REFAZ o PDF em memória a partir do banco (nada fica em disco).
+    X-Integridade: 'confere' se o SHA-256 refeito bate com o hash registrado na
+    assinatura; 'divergente' se não (ex.: biblioteca de PDF atualizada, paciente anonimizado)."""
     try:
-        caminho = _svc.obter_arquivo_pdf(uuid_consentimento, get_id_empresa_sessao())
+        pdf, confere = _svc.obter_pdf_assinado(uuid_consentimento, get_id_empresa_sessao())
     except BionException as ex:
         return json_error(ex.message, ex.status_code)
-    return send_file(
-        caminho,
+    resp = send_file(
+        BytesIO(pdf),
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"termo_assinado_{uuid_consentimento}.pdf",
     )
+    resp.headers["Cache-Control"] = "no-store"          # contém nome, CPF e assinatura
+    resp.headers["X-Integridade"] = "confere" if confere else "divergente"
+    return resp

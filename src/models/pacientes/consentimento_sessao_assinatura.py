@@ -5,7 +5,6 @@ Tabela separada para não poluir consentimento_lgpd com tokens expirados.
 
 from datetime import datetime, timezone
 import secrets
-import hashlib
 
 from src.models import db
 from src.models.types import BigIntPK
@@ -29,8 +28,6 @@ class ConsentimentoSessaoAssinatura(db.Model):
     id_unidade = db.Column(db.Integer, nullable=False)  # ou FK para unidade/hospital
     id_medico_gerador = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
     versao_termo = db.Column(db.String(50), nullable=False)
-    # Caminho ou URL do PDF original do termo
-    pdf_termo_path = db.Column(db.String(500), nullable=False)
     # Hash SHA-256 do PDF original — garante integridade
     hash_pdf_original = db.Column(db.String(64), nullable=False)
     # Snapshot do texto integral do termo no momento da geração
@@ -57,15 +54,6 @@ class ConsentimentoSessaoAssinatura(db.Model):
     def gerar_token() -> str:
         """Gera token criptograficamente seguro de 64 caracteres hex."""
         return secrets.token_hex(32)
-
-    @staticmethod
-    def calcular_hash_pdf(caminho_pdf: str) -> str:
-        """Calcula SHA-256 do arquivo PDF."""
-        h = hashlib.sha256()
-        with open(caminho_pdf, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                h.update(chunk)
-        return h.hexdigest()
 
     def esta_expirado(self) -> bool:
         """MySQL costuma devolver datetime naive mesmo com timezone=True;

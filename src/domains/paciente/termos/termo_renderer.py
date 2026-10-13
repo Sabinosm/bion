@@ -1,7 +1,7 @@
 """
 Monta o termo de consentimento LGPD na hora: template versionado + dados da empresa.
 
-Colocar em src/domains/paciente/termos/termo_renderer.py
+Colocar em src/domains/paciente/services/termo_renderer.py
 Templates em src/domains/paciente/termos/termo_<versao>.txt (ou CONSENT_TERMO_TEMPLATES).
 
 Regras:
@@ -9,9 +9,8 @@ Regras:
 - Jinja2 com StrictUndefined: variável faltando = erro, nunca "[CNPJ]" vazio no termo.
 - A versão vira nome de arquivo: validada por regex (sem '/', '\\' ou '..').
 - PDF determinístico (invariant=1): mesmo texto -> mesmos bytes -> mesmo SHA-256.
-  Nome do arquivo inclui o hash, então o mesmo termo não é regravado.
-- Gerar_termo devolve (texto, caminho_pdf): o texto vai para texto_termo_snapshot e o
-  PDF é o que o service hasheia; os dois nascem do mesmo render, não podem divergir.
+- Nada vai para disco: gerar_termo devolve (texto, pdf_bytes, sha256). O texto vai para
+  texto_termo_snapshot; o PDF é refeito do texto quando precisar (download do paciente).
 """
 import hashlib
 import os
@@ -158,16 +157,9 @@ def gerar_pdf_bytes(texto: str) -> bytes:
     return buf.getvalue()
 
 
-def gerar_termo(versao: str, empresa, escopos: dict, destino: Path):
-    """Retorna (texto, caminho_do_pdf). Idempotente: mesmo conteúdo = mesmo arquivo."""
+def gerar_termo(versao: str, empresa, escopos: dict):
+    """Retorna (texto, pdf_bytes, sha256_hex). Tudo em memória: nada é gravado em disco.
+    O PDF pode ser refeito a qualquer momento a partir do texto (determinístico)."""
     texto = renderizar_texto(versao, empresa, escopos)
     pdf = gerar_pdf_bytes(texto)
-    h = hashlib.sha256(pdf).hexdigest()
-    destino = Path(destino)
-    destino.mkdir(parents=True, exist_ok=True)
-    caminho = destino / f"{versao}-emp{empresa.id}-{h[:12]}.pdf"
-    if not caminho.exists():
-        tmp = caminho.with_suffix(".tmp")
-        tmp.write_bytes(pdf)
-        os.replace(tmp, caminho)     # atômico: nunca fica PDF pela metade
-    return texto, caminho
+    return texto, pdf, hashlib.sha256(pdf).hexdigest()

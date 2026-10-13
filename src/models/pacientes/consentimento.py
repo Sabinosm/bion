@@ -10,7 +10,7 @@ aqui. Consentimento era stub; completado.
 from datetime import datetime, timezone
 import uuid as _uuid
 
-from sqlalchemy.dialects.mysql import TINYINT
+from sqlalchemy.dialects.mysql import TINYINT, MEDIUMBLOB
 
 from src.models import db
 from src.models.types import BigIntPK
@@ -42,8 +42,10 @@ class Consentimento(db.Model):
     data_revogacao = db.Column(db.DateTime(timezone=True))
     observacao = db.Column("observacao", db.Text)
     hash_documento = db.Column(db.String(64))
-    pdf_final_path = db.Column(db.String(500), nullable=True)
-    assinatura_imagem_path = db.Column(db.String(500), nullable=True)
+    # Assinatura (PNG) no banco: com ela, o texto aceito e a auditoria, o PDF é REFEITO em
+    # memória (nenhum PDF/imagem fica em disco). Só o fluxo digital preenche.
+    # deferred: listagens não carregam o blob.
+    assinatura_png = db.deferred(db.Column(MEDIUMBLOB, nullable=True))
 
     # Coluna GERADA pelo banco: o ORM nunca grava nela (Computed).
     ativo_unico = db.Column(TINYINT, db.Computed("IF(status = 'ativo', 1, NULL)", persisted=True))
@@ -77,9 +79,12 @@ class Consentimento(db.Model):
             "observacao": self.observacao,
             "escopos_aceitos": aceitos,
             "escopos_recusados": recusados,
-            # caminhos do servidor NÃO saem na API; só se há PDF e como baixá-lo
-            "possui_pdf": bool(self.pdf_final_path),
-            "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{self.uuid}" if self.pdf_final_path else None,
+            # só se há PDF e como baixá-lo (nada de caminho de servidor na API)
+            # presencial-digital sempre tem assinatura+auditoria (PDF refeito na hora).
+            # Não testa assinatura_png aqui para não carregar o blob a cada item da lista.
+            "possui_pdf": self.canal_coleta == "presencial-digital",
+            "pdf_url": (f"/v1/api/pacientes/lgpd/download-pdf/{self.uuid}"
+                        if self.canal_coleta == "presencial-digital" else None),
         }
 
     def __repr__(self):

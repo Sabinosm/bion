@@ -1,0 +1,41 @@
+# TERMO DE CONSENTIMENTO PARA TRATAMENTO DE DADOS PESSOAIS
+Versão {{ versao }} | Lei Geral de Proteção de Dados (Lei nº 13.709/2018)
+
+## 1. Quem somos
+O controlador dos seus dados pessoais é {{ razao_social }}, CNPJ {{ cnpj }}, com sede em {{ endereco }} ("Instituição"). Para dúvidas ou pedidos sobre seus dados, fale com o Encarregado pelo Tratamento de Dados (DPO) da Instituição: {{ dpo_nome }}, e-mail {{ dpo_email }}.
+O sistema usado no seu atendimento é fornecido por {{ operador_nome }}, que trata seus dados em nome da Instituição, na condição de operador (LGPD, art. 5º, VII), seguindo as instruções da Instituição.
+
+## 2. Para que serve este termo
+Este termo pede a sua autorização para finalidades OPCIONAIS de uso dos seus dados, listadas na seção 4. Ele não é uma condição para receber atendimento.
+
+## 3. Como usamos seus dados clínicos no atendimento (isso NÃO depende deste termo)
+Durante o atendimento, seus dados clínicos (sintomas, sinais vitais, exames, histórico e condutas) são usados para:
+- compor o seu prontuário;
+- calcular protocolos clínicos de classificação de risco e gravidade, como MTS e NEWS2, que seguem regras definidas.
+Esses usos fazem parte do cuidado em saúde, com base na tutela da saúde, em procedimento realizado por profissionais de saúde (LGPD, art. 11, II, "f"), e do cumprimento de obrigações legais e regulatórias. Por isso acontecem independentemente de você assinar este termo ou de quais opções marcar.
+O recurso de apoio por inteligência artificial é OPCIONAL: ele só é usado se você o aceitar na seção 4. Ele sugere informações ao profissional de saúde, que sempre toma a decisão clínica. Se for usado, seu nome, CPF e dados de contato não são utilizados, mas os dados clínicos continuam sendo dados pessoais sensíveis, protegidos pela LGPD. Se você recusar, seu atendimento segue igual, apenas sem esse recurso.
+
+## 4. Finalidades opcionais (você escolhe uma a uma)
+Marque apenas as que você aceitar. Cada opção é independente das demais.
+{% for codigo, descricao in escopos.items() %}
+- {{ descricao }}
+{% endfor %}
+
+## 5. Quais dados podem ser tratados
+Dados de identificação e contato (nome, CPF, telefone, e-mail), dados de saúde (dados pessoais sensíveis, conforme art. 5º, II, da LGPD) e dados do próprio ato de assinatura deste termo (seção 9). Só são usados, em cada finalidade opcional, os dados necessários para ela.
+
+## 6. Compartilhamento
+Seus dados não são vendidos. Fora do cuidado em saúde e das obrigações legais, só são compartilhados com terceiros nas finalidades que você marcar na seção 4, e apenas na medida necessária. Pesquisas e usos didáticos utilizam dados anonimizados sempre que possível.
+
+## 7. Por quanto tempo guardamos
+Os dados do prontuário são guardados pelo prazo exigido pela legislação de saúde (a Lei nº 13.787/2018 prevê no mínimo 20 anos). Dados usados apenas para finalidades opcionais deixam de ser tratados quando você revogar o consentimento, salvo se houver outra base legal que permita a guarda. Este termo e o registro da assinatura são mantidos como prova do seu consentimento.
+
+## 8. Seus direitos e como revogar
+Nos termos do art. 18 da LGPD, você pode, a qualquer momento e mediante pedido ao Encarregado: confirmar a existência de tratamento; acessar seus dados; corrigir dados incompletos ou desatualizados; solicitar anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade; pedir a portabilidade; saber com quem seus dados foram compartilhados; e obter informação sobre a possibilidade de não fornecer consentimento e suas consequências.
+Você pode REVOGAR este consentimento a qualquer momento, de forma gratuita e facilitada, informando a Instituição pessoalmente ou pelo contato do Encarregado. A revogação não afeta os tratamentos já realizados e não prejudica o seu atendimento. Também é possível reclamar à Autoridade Nacional de Proteção de Dados (ANPD).
+
+## 9. Assinatura eletrônica e registro
+Ao assinar eletronicamente, você declara que leu este termo por inteiro, que confirma a sua identidade e que consente com as finalidades que marcou. Para comprovar a autenticidade, registramos: data e hora, endereço IP, tipo de aparelho e navegador, localização aproximada, as opções marcadas, o texto exato aceito e a identificação (hash) do documento. Esses dados servem apenas para comprovar este consentimento.
+
+## 10. Pacientes menores de idade ou sem capacidade de decidir
+Para menores de 18 anos, o consentimento deve ser dado por pelo menos um dos pais ou pelo responsável legal (LGPD, art. 14, §1º). Nesse caso, o responsável assina em nome do paciente, e o tratamento deve atender ao melhor interesse da criança ou do adolescente.
