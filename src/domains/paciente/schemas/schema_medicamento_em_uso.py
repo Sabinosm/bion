@@ -1,36 +1,25 @@
 """
-Schema Pydantic de ENTRADA para medicamento em uso.
+Schemas Pydantic de ENTRADA para medicamento em uso (Bloco 2).
 
-O Literal de `status_uso` é cópia manual do db.Enum de
-MedicamentoEmUso -- não há introspecção automática do schema do banco
-aqui. Se o Enum do model mudar, este arquivo precisa ser atualizado
-junto.
+Operações (sem atualização no lugar -- ver model):
+- Create: registra um medicamento ATIVO. Identifica o catálogo por
+  `uuid_catalogo` (nunca pelo id interno). Sem uuid_catalogo, a
+  `descricao` é obrigatória; com uuid_catalogo, se vier vazia o service
+  preenche com o princípio ativo do catálogo.
+- Encerrar: fecha o registro como 'interrompido' ou 'concluido'.
+- Substituir: troca dose/frequência/descrição = fecha o antigo e cria o
+  novo (feito no service, atomicamente).
+- Remover: soft delete com motivo (mesmo padrão dos demais domínios).
 
-Checagem de que id_catalogo EXISTE em catalogo_medicamentos não entra
-aqui -- é uma FK, não formato, então fica no service (query real
-contra o banco), não no schema.
-
-Validações principais: descricao/dose/frequencia rejeitam string
-vazia/só-espaços; desde não pode ser uma data futura; um cross-field
-validator garante que, quando status_uso vem explícito junto com
-flag_em_uso, os dois são coerentes (ex: flag_em_uso=False com
-status_uso="ativo" é contraditório). Quando status_uso não vem, é
-derivado automaticamente a partir de flag_em_uso.
+Checagens que dependem do banco (uuid_catalogo existe, registro ativo,
+datas contra `desde`) ficam no service, não aqui.
 """
 
+import uuid as _uuid
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from src.core.erros_pydantic import erros_pydantic_por_campo
-
-# status_uso que são coerentes com cada valor de flag_em_uso. Usado só
-# para rejeitar combinações claramente contraditórias quando AMBOS os
-# campos vêm explícitos no payload.
-_STATUS_COERENTES_COM_FLAG = {
-    True: {"ativo"},
-    False: {"interrompido", "concluido"},
-}
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _validar_texto_obrigatorio(v: str) -> str:
@@ -47,78 +36,39 @@ def _strip_ou_none(v: Optional[str]) -> Optional[str]:
     return v or None
 
 
+def _data_nao_futura(v: Optional[date]) -> Optional[date]:
+    if v is not None and v > date.today():
+        raise ValueError("não pode ser uma data futura")
+    return v
+
+
 class MedicamentoEmUsoCreateSchema(BaseModel):
-    id_catalogo: int = Field(gt=0)
-    descricao: str = Field(min_length=1, max_length=2000)
+    uuid_catalogo: Optional[str] = None
+    descricao: Optional[str] = Field(default=None, max_length=2000, validate_default=True)
     dose: Optional[str] = Field(default=None, max_length=100)
     frequencia: Optional[str] = Field(default=None, max_length=100)
     desde: Optional[date] = None
-    flag_em_uso: bool = True
-    status_uso: Optional[Literal["ativo", "interrompido", "concluido"]] = None
 
-    @field_validator("descricao")
+    @field_validator("uuid_catalogo")
     @classmethod
-    def _descricao_sem_espacos_vazios(cls, v: str) -> str:
-        return _validar_texto_obrigatorio(v)
-
-    @field_validator("dose", "frequencia")
-    @classmethod
-    def _normalizado(cls, v: Optional[str]) -> Optional[str]:
-        return _strip_ou_none(v)
-
-    @field_validator("desde")
-    @classmethod
-    def _desde_nao_futura(cls, v: Optional[date]) -> Optional[date]:
-        if v is not None and v > date.today():
-            raise ValueError("não pode ser uma data futura")
-        return v
-
-    @field_validator("status_uso")
-    @classmethod
-    def _default_conforme_flag(cls, v, info):
-        # Se status_uso não vier, deriva de flag_em_uso.
-        if v is not None:
-            return v
-        flag = info.data.get("flag_em_uso", True)
-        return "ativo" if flag else "interrompido"
-
-    @model_validator(mode="after")
-    def _status_coerente_com_flag(self) -> "MedicamentoEmUsoCreateSchema":
-        # Neste ponto status_uso NUNCA é None (o field_validator acima
-        # sempre deriva um valor) -- então esta checagem só pega o caso
-        # em que o valor vindo explícito do payload contradiz flag_em_uso.
-        coerentes = _STATUS_COERENTES_COM_FLAG[self.flag_em_uso]
-        if self.status_uso not in coerentes:
-            raise ValueError(
-                f"status_uso '{self.status_uso}' incompatível com "
-                f"flag_em_uso={self.flag_em_uso} (esperado: {', '.join(sorted(coerentes))})"
-            )
-        return self
-
-
-class MedicamentoEmUsoAtualizarSchema(BaseModel):
-    """Atualização parcial (PATCH-like) -- todo campo é opcional.
-
-    id_catalogo NÃO é editável de propósito: trocar de medicamento é
-    conceitualmente um novo registro (nova prescrição), não uma
-    correção do existente -- diferente de dose/frequencia/status_uso,
-    que mudam ao longo do tratamento do mesmo medicamento. Se o
-    catálogo estiver errado, o caminho é remover e recadastrar, não
-    editar aqui.
-    """
-    descricao: Optional[str] = Field(default=None, min_length=1, max_length=2000)
-    dose: Optional[str] = Field(default=None, max_length=100)
-    frequencia: Optional[str] = Field(default=None, max_length=100)
-    desde: Optional[date] = None
-    flag_em_uso: Optional[bool] = None
-    status_uso: Optional[Literal["ativo", "interrompido", "concluido"]] = None
-
-    @field_validator("descricao")
-    @classmethod
-    def _descricao_sem_espacos_vazios(cls, v: Optional[str]) -> Optional[str]:
+    def _uuid_valido(cls, v: Optional[str]) -> Optional[str]:
+        v = _strip_ou_none(v)
         if v is None:
             return None
-        return _validar_texto_obrigatorio(v)
+        try:
+            return str(_uuid.UUID(v))
+        except ValueError:
+            raise ValueError("uuid inválido")
+
+    @field_validator("descricao")
+    @classmethod
+    def _descricao(cls, v: Optional[str], info) -> Optional[str]:
+        v = _strip_ou_none(v)
+        if v is None and not info.data.get("uuid_catalogo"):
+            raise ValueError(
+                "obrigatória quando o medicamento não está vinculado ao catálogo"
+            )
+        return v
 
     @field_validator("dose", "frequencia")
     @classmethod
@@ -128,36 +78,63 @@ class MedicamentoEmUsoAtualizarSchema(BaseModel):
     @field_validator("desde")
     @classmethod
     def _desde_nao_futura(cls, v: Optional[date]) -> Optional[date]:
-        if v is not None and v > date.today():
-            raise ValueError("não pode ser uma data futura")
-        return v
+        return _data_nao_futura(v)
+
+
+class MedicamentoEmUsoEncerrarSchema(BaseModel):
+    """Fecha um registro ativo. `ate` omitido = hoje."""
+    status_uso: Literal["interrompido", "concluido"]
+    ate: Optional[date] = None
+
+    @field_validator("ate")
+    @classmethod
+    def _ate_nao_futura(cls, v: Optional[date]) -> Optional[date]:
+        return _data_nao_futura(v)
+
+
+class MedicamentoEmUsoSubstituirSchema(BaseModel):
+    """Troca de dose/frequência/descrição: pelo menos um dos três deve
+    vir. `data_mudanca` omitida = hoje (vira `ate` do antigo e `desde` do
+    novo). Quem não vier é copiado do registro antigo."""
+    descricao: Optional[str] = Field(default=None, max_length=2000)
+    dose: Optional[str] = Field(default=None, max_length=100)
+    frequencia: Optional[str] = Field(default=None, max_length=100)
+    data_mudanca: Optional[date] = None
+
+    @field_validator("descricao")
+    @classmethod
+    def _descricao(cls, v: Optional[str]) -> str:
+        if v is None:
+            raise ValueError("não pode ser nulo")
+        return _validar_texto_obrigatorio(v)
+
+    @field_validator("dose", "frequencia")
+    @classmethod
+    def _normalizado(cls, v: Optional[str]) -> Optional[str]:
+        return _strip_ou_none(v)
+
+    @field_validator("data_mudanca")
+    @classmethod
+    def _data_nao_futura(cls, v: Optional[date]) -> Optional[date]:
+        return _data_nao_futura(v)
 
     @model_validator(mode="after")
-    def _status_coerente_com_flag_se_ambos_vierem(self) -> "MedicamentoEmUsoAtualizarSchema":
-        # Diferente do Create, aqui os dois campos são opcionais e não
-        # há derivação automática -- só validamos coerência quando AMBOS
-        # vêm no payload de atualização. Se só um vier, não temos como
-        # saber o valor atual do outro (isso é responsabilidade do
-        # service, que já tem o registro carregado).
-        if self.flag_em_uso is not None and self.status_uso is not None:
-            coerentes = _STATUS_COERENTES_COM_FLAG[self.flag_em_uso]
-            if self.status_uso not in coerentes:
-                raise ValueError(
-                    f"status_uso '{self.status_uso}' incompatível com "
-                    f"flag_em_uso={self.flag_em_uso} (esperado: {', '.join(sorted(coerentes))})"
-                )
+    def _algum_campo(self) -> "MedicamentoEmUsoSubstituirSchema":
+        if not ({"descricao", "dose", "frequencia"} & self.model_fields_set):
+            raise ValueError("informe ao menos um de: descricao, dose, frequencia")
         return self
 
     def campos_informados(self) -> dict:
-        return self.model_dump(exclude_unset=True)
+        return {
+            c: getattr(self, c)
+            for c in ("descricao", "dose", "frequencia")
+            if c in self.model_fields_set
+        }
 
 
 class MedicamentoEmUsoRemoverSchema(BaseModel):
-    """Schema de entrada para o soft delete (DELETE) de um medicamento
-    em uso -- mesmo padrão de AlergiaRemoverSchema/
-    DoencaCronicaRemoverSchema. motivo é obrigatório;
-    motivo_delete='outro' exige observacoes_delete preenchida (não
-    vazia/só-espaços)."""
+    """Soft delete (DELETE). motivo é obrigatório; motivo_delete='outro'
+    exige observacoes_delete preenchida."""
     motivo_delete: Literal[
         "erro-digitacao",
         "registro-duplicado",
