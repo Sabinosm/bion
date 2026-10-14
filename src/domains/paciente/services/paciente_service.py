@@ -56,6 +56,8 @@ class PacienteService:
     controla a transação; com commit=True o service desfaz sozinho.
     """
 
+    POR_PAGINA_RESUMO = 8  # mesmo valor que o controller usa (pagina * 8)
+
     def __init__(self):
         self.repo = PacienteRepository()
         self.tipo_sanguineo_repo = ObservacaoTipoSanguineoRepository()
@@ -69,8 +71,6 @@ class PacienteService:
 
     def listar(self, id_empresa: int):
         return self.repo.find_all(id_empresa)
-
-        POR_PAGINA_RESUMO = 8  # mesmo valor que o controller usa (pagina * 8)
 
     def _resumo_de(self, p) -> dict:
         """Paciente.to_dict_few com nome e início do CPF descriptografados."""

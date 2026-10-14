@@ -67,7 +67,10 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
+from src.core.session import (
+    requer_papel_clinico, requer_admin_ou_papel_clinico,
+    get_id_usuario_sessao, get_id_empresa_sessao,
+)
 from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
 from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
@@ -102,7 +105,7 @@ class PacienteClinicoController():
     # exige step-up; só fica registrado como LogAcesso.
     @staticmethod
     @bp.get("/<uuid>")
-    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="visualizar prontuario", operacao="leitura")
     def detalhe(uuid):
         try:
@@ -118,7 +121,7 @@ class PacienteClinicoController():
     # por ser exceção, não fluxo normal.
     @staticmethod
     @bp.put("/<uuid>")
-    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     def atualizar_clinico(uuid):
         dados = request.get_json(silent=True) or {}
         try:
@@ -156,7 +159,7 @@ class PacienteClinicoController():
     # registrada em auditoria.
     @staticmethod
     @bp.post("/<uuid>/obito")
-    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="marcar obito", operacao="escrita")
     def marcar_obito(uuid):
         dados = request.get_json(silent=True) or {}
@@ -175,7 +178,7 @@ class PacienteClinicoController():
     # Corpo: {"justificativa": "...", "status_destino": "ativo"|"inativo"}
     @staticmethod
     @bp.post("/<uuid>/obito/reverter")
-    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acao_sensivel(acao="reverter_obito", tabela="paciente")
     def reverter_obito(uuid):
         dados = request.get_json(silent=True) or {}
