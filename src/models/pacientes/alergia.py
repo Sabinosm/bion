@@ -103,6 +103,15 @@ class Alergia(db.Model):
         ativas = self.reacoes_ativas
         return ativas[-1].descricao if ativas else None
 
+    @property
+    def gravidade_maxima(self):
+        """Maior gravidade entre as reações ATIVAS. Use esta (não `gravidade`,
+        que é a da reação mais recente) para alerta e ordenação: uma reação
+        grave antiga não pode sumir do resumo porque a última foi leve."""
+        ordem = {"leve": 1, "moderada": 2, "grave": 3}
+        gs = [r.gravidade for r in self.reacoes_ativas]
+        return max(gs, key=ordem.get) if gs else None
+
     def registrar_reacao(self, manifestacao: str, gravidade: str, descricao: str = None,
                           data_ocorrencia=None, criado_por: int = None,
                           id_atendimento_origem: int = None):
@@ -124,6 +133,7 @@ class Alergia(db.Model):
             "substancia": self.substancia,
             "tipo_reacao": self.tipo_reacao,
             "gravidade": self.gravidade,
+            "gravidade_maxima": self.gravidade_maxima,
             "descricao_reacao": self.descricao_reacao,
             "flag_confirmado": self.flag_confirmado,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
