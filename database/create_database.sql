@@ -821,34 +821,6 @@ CREATE TABLE `consulta` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.medicamentos_em_uso definition
-
-CREATE TABLE `medicamentos_em_uso` (
-  `id_medicamentos_uso` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_medicamentos_uso` char(36) NOT NULL,
-  `id_catalogo` bigint(20) DEFAULT NULL,
-  `id_paciente` bigint(20) DEFAULT NULL,
-  `desde` date DEFAULT NULL,
-  `descricao` text DEFAULT NULL,
-  `frequencia` varchar(100) DEFAULT NULL,
-  `dose` varchar(100) DEFAULT NULL,
-  `flag_em_uso` tinyint(1) DEFAULT 1,
-  `status_uso` enum('ativo','interrompido','concluido') DEFAULT NULL,
-  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de status_uso/flag_em_uso.',
-  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
-  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
-  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
-  PRIMARY KEY (`id_medicamentos_uso`),
-  UNIQUE KEY `uuid_medicamentos_uso` (`uuid_medicamentos_uso`),
-  KEY `id_catalogo` (`id_catalogo`),
-  KEY `id_paciente` (`id_paciente`),
-  KEY `idx_medicamento_em_uso_deletado` (`deletado`),
-  KEY `idx_medicamento_em_uso_paciente_deletado` (`id_paciente`,`deletado`),
-  CONSTRAINT `medicamentos_em_uso_ibfk_1` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`),
-  CONSTRAINT `medicamentos_em_uso_ibfk_2` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- bion_testes.atendimento definition
 
 CREATE TABLE `atendimento` (
@@ -862,6 +834,8 @@ CREATE TABLE `atendimento` (
   `status` enum('em-andamento','finalizado','cancelado') NOT NULL,
   `habitos_atendimento_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`habitos_atendimento_json`)),
   `observacoes_profissional` text DEFAULT NULL,
+  `binario` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Conferencia do binario: {"v":1,"<secao>":{"estado":"preenchido|nega|nao-coletado"}}; chave ausente = pendente' CHECK (json_valid(`binario`)),
+  `motivo_cancelamento` enum('erro-abertura','paciente-nao-compareceu','paciente-recusou','transferencia','outro') DEFAULT NULL,
   PRIMARY KEY (`id_atendimento`),
   UNIQUE KEY `uuid_atendimento` (`uuid_atendimento`),
   KEY `id_consulta` (`id_consulta`),
@@ -992,6 +966,56 @@ CREATE TABLE `input_protocolo_execucao` (
   CONSTRAINT `fk_input_execucao_versao` FOREIGN KEY (`id_versao_utilizada`) REFERENCES `protocolo_versao` (`id_versao`),
   CONSTRAINT `input_protocolo_execucao_ibfk_1` FOREIGN KEY (`id_protocolo_catalogo`) REFERENCES `protocolo_catalogo` (`id_protocolo_catalogo`),
   CONSTRAINT `input_protocolo_execucao_ibfk_2` FOREIGN KEY (`id_input`) REFERENCES `input_protocolo` (`id_input`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.medicamentos_em_uso definition
+
+CREATE TABLE `medicamentos_em_uso` (
+  `id_medicamentos_uso` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_medicamentos_uso` char(36) NOT NULL,
+  `id_catalogo` bigint(20) DEFAULT NULL,
+  `id_paciente` bigint(20) DEFAULT NULL,
+  `desde` date DEFAULT NULL,
+  `descricao` text NOT NULL,
+  `frequencia` varchar(100) DEFAULT NULL,
+  `dose` varchar(100) DEFAULT NULL,
+  `status_uso` enum('ativo','interrompido','concluido') NOT NULL DEFAULT 'ativo',
+  `deletado` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete -- FALSE = visível/ativo, TRUE = removido. Independente de status_uso/flag_em_uso.',
+  `deletado_em` datetime DEFAULT NULL COMMENT 'Quando o soft delete ocorreu. NULL enquanto deletado = FALSE.',
+  `motivo_delete` enum('erro-digitacao','registro-duplicado','diagnostico-incorreto','solicitacao-paciente','outro') DEFAULT NULL COMMENT 'Motivo estruturado do soft delete. NULL enquanto deletado = FALSE.',
+  `observacoes_delete` text DEFAULT NULL COMMENT 'Detalhe em texto livre do delete -- obrigatório na aplicação quando motivo_delete = outro.',
+  `ate` date DEFAULT NULL,
+  `criado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_origem` bigint(20) DEFAULT NULL,
+  `encerrado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_encerramento` bigint(20) DEFAULT NULL,
+  `id_substituida_por` bigint(20) DEFAULT NULL,
+  `deletado_por` bigint(20) DEFAULT NULL,
+  `id_atendimento_delecao` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id_medicamentos_uso`),
+  UNIQUE KEY `uuid_medicamentos_uso` (`uuid_medicamentos_uso`),
+  KEY `id_catalogo` (`id_catalogo`),
+  KEY `id_paciente` (`id_paciente`),
+  KEY `idx_medicamento_em_uso_deletado` (`deletado`),
+  KEY `idx_medicamento_em_uso_paciente_deletado` (`id_paciente`,`deletado`),
+  KEY `fk_medico_uso_criado_por` (`criado_por`),
+  KEY `fk_medico_uso_encerrado_por` (`encerrado_por`),
+  KEY `fk_medico_uso_deletado_por` (`deletado_por`),
+  KEY `fk_medico_uso_atend_origem` (`id_atendimento_origem`),
+  KEY `fk_medico_uso_atend_encerramento` (`id_atendimento_encerramento`),
+  KEY `fk_medico_uso_atend_delecao` (`id_atendimento_delecao`),
+  KEY `fk_medico_uso_substituida_por` (`id_substituida_por`),
+  KEY `idx_medicamento_em_uso_paciente_status` (`id_paciente`,`status_uso`,`deletado`),
+  CONSTRAINT `fk_medico_uso_atend_delecao` FOREIGN KEY (`id_atendimento_delecao`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_medico_uso_atend_encerramento` FOREIGN KEY (`id_atendimento_encerramento`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_medico_uso_atend_origem` FOREIGN KEY (`id_atendimento_origem`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `fk_medico_uso_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_medico_uso_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_medico_uso_encerrado_por` FOREIGN KEY (`encerrado_por`) REFERENCES `usuarios` (`id_usuario`),
+  CONSTRAINT `fk_medico_uso_substituida_por` FOREIGN KEY (`id_substituida_por`) REFERENCES `medicamentos_em_uso` (`id_medicamentos_uso`),
+  CONSTRAINT `medicamentos_em_uso_ibfk_1` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`),
+  CONSTRAINT `medicamentos_em_uso_ibfk_2` FOREIGN KEY (`id_paciente`) REFERENCES `paciente` (`id_paciente`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
