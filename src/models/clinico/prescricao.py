@@ -25,13 +25,21 @@ class Prescricao(db.Model):
     frequencia = db.Column(db.String(100))
     duracao = db.Column(db.String(100))
     orientacoes = db.Column(db.Text)
+    uuid = db.Column("uuid_prescricao", db.String(36), unique=True, nullable=False,
+                      default=lambda: str(_uuid.uuid4()))
+    id_output_origem = db.Column(db.BigInteger, db.ForeignKey("output_bion.id_output"))
+    origem_sugestao = db.Column(db.Enum("medico", "bion_ia", "protocolo"),
+                                 nullable=False, default="medico")
+    criado_em = db.Column(db.DateTime(timezone=True),
+                           default=lambda: datetime.now(timezone.utc), nullable=False)
 
     resultado_prescricao = db.relationship("ResultadoPrescricao", back_populates="prescricoes")
     catalogo_medicamentos = db.relationship("CatalogoMedicamentos", back_populates="prescricoes")
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "uuid": self.uuid,
+            "origem_sugestao": self.origem_sugestao,
             "dose": self.dose,
             "frequencia": self.frequencia,
             "duracao": self.duracao,

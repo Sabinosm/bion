@@ -34,6 +34,9 @@ class ResultadoPrescricao(db.Model):
                                       default=lambda: datetime.now(timezone.utc))
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
+    # rascunho: proposta (IA ou médico) ainda editável; confirmado: o médico responde por ela.
+    status = db.Column(db.Enum("rascunho", "confirmado"), nullable=False, default="rascunho")
+    confirmado_em = db.Column(db.DateTime(timezone=True))
 
     atendimento = db.relationship("Atendimento", back_populates="resultados_prescricao")
     output_bion = db.relationship("OutputBion", back_populates="resultados_prescricao")
@@ -50,8 +53,12 @@ class ResultadoPrescricao(db.Model):
             "descricao_cid10_principal": self.descricao_cid10_principal,
             "certeza_diagnostica": self.certeza_diagnostica,
             "tipo_prescricao": self.tipo_prescricao,
+            "status": self.status,
+            "confirmado_em": self.confirmado_em.isoformat() if self.confirmado_em else None,
             "data_hora_formulacao": self.data_hora_formulacao.isoformat()
             if self.data_hora_formulacao else None,
+            "medicamentos": [p.to_dict() for p in self.prescricoes],
+            "exames": [e.to_dict() for e in self.prescricoes_exame],
         }
 
     def __repr__(self):

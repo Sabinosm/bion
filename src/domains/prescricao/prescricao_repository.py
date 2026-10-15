@@ -1,23 +1,30 @@
-"""Repositório de acesso a dados da entidade Prescricao."""
+"""Repositório de acesso a dados da entidade PrescricaoExame."""
 
 from typing import Optional, List
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.clinico import Prescricao
+from src.models.clinico import PrescricaoExame
 
 
-class PrescricaoRepository(IRepository[Prescricao]):
+class PrescricaoExameRepository(IRepository[PrescricaoExame]):
 
-    def find_by_uuid(self, uuid: str) -> Optional[Prescricao]:
-        return db.session.get(Prescricao, uuid)
-    
-    def find_by_id(self, id: int) -> Optional[Prescricao]:
-        return db.session.get(Prescricao, id)
+    def find_by_id(self, id: int) -> Optional[PrescricaoExame]:
+        return db.session.get(PrescricaoExame, id)
 
-    def save(self, entity: Prescricao) -> Prescricao:
+    def find_by_uuid(self, uuid: str) -> Optional[PrescricaoExame]:
+        return PrescricaoExame.query.filter_by(uuid=uuid).first()
+
+    def find_do_resultado(self, uuid: str, id_resultado: int) -> Optional[PrescricaoExame]:
+        """Item só é encontrado se pertencer ao resultado informado."""
+        return PrescricaoExame.query.filter_by(uuid=uuid, id_resultado=id_resultado).first()
+
+    def save(self, entity: PrescricaoExame, commit: bool = True) -> PrescricaoExame:
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()  # gera ids sem fechar a transação (fluxo da IA: commit único no fim)
         return entity
 
     def delete(self, id: int) -> bool:
@@ -28,75 +35,41 @@ class PrescricaoRepository(IRepository[Prescricao]):
         db.session.commit()
         return True
 
-    def find_all(self) -> List[Prescricao]:
-        return Prescricao.query.all()
+    def find_all(self) -> List[PrescricaoExame]:
+        return PrescricaoExame.query.all()
 
-    # --- D4: Medicamentos mais prescritos por classe farmacêutica ---
-    def top_por_classe(self, id_empresa: int, dias: int = 30, limite: int = 10) -> List[dict]:
-        """Ranking de classes farmacêuticas mais prescritas.
+    # --- D3: Urgência de exames -- IA vs. profissional ---
+    def urgencia_por_origem(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """Contagem de PrescricaoExame cruzando urgencia x origem_sugestao,
+        filtrado por empresa (via ResultadoPrescricao -> Atendimento ->
+        realizado_por -> Usuario) e por janela de tempo.
 
-        Caminho: Prescricao -> ResultadoPrescricao -> Atendimento ->
-        realizado_por -> Usuario; e Prescricao -> CatalogoMedicamentos
-        para a classe.
-
-        Retorna: [{"classe_farmaceutica": "Analgésico", "total": 58}, ...]
+        Retorna lista de dicts:
+        [{"urgencia": "urgente", "origem_sugestao": "bion_ia", "total": 26}, ...]
         """
         from datetime import datetime, timedelta, timezone
         from sqlalchemy import func
         from src.models.usuarios import Usuario
         from src.models.clinico import ResultadoPrescricao, Atendimento
-        from src.models.catalogos import CatalogoMedicamentos
 
-        limite_data = datetime.now(timezone.utc) - timedelta(days=dias)
-
-        linhas = (
-            db.session.query(
-                CatalogoMedicamentos.classe_farmaceutica.label("classe"),
-                func.count(Prescricao.id).label("total"),
-            )
-            .join(CatalogoMedicamentos, Prescricao.id_catalogo == CatalogoMedicamentos.id)
-            .join(ResultadoPrescricao, Prescricao.id_resultado_prescricao == ResultadoPrescricao.id)
-            .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
-            .filter(CatalogoMedicamentos.classe_farmaceutica.isnot(None))
-            .group_by(CatalogoMedicamentos.classe_farmaceutica)
-            .order_by(func.count(Prescricao.id).desc())
-            .limit(limite)
-            .all()
-        )
-        return [{"classe_farmaceutica": linha.classe, "total": linha.total} for linha in linhas]
-
-    # --- D4 (detalhe): top princípios ativos dentro de 1 classe ---
-    def top_principios_ativos_por_classe(self, id_empresa: int, classe: str, dias: int = 30, limite: int = 10) -> List[dict]:
-        """Drill-down de D4: quando o usuário clica numa classe no
-        gráfico, mostra quais princípios ativos específicos compõem
-        aquele total.
-        """
-        from datetime import datetime, timedelta, timezone
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.clinico import ResultadoPrescricao, Atendimento
-        from src.models.catalogos import CatalogoMedicamentos
-
-        limite_data = datetime.now(timezone.utc) - timedelta(days=dias)
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
 
         linhas = (
             db.session.query(
-                CatalogoMedicamentos.principio_ativo.label("principio_ativo"),
-                func.count(Prescricao.id).label("total"),
+                PrescricaoExame.urgencia.label("urgencia"),
+                PrescricaoExame.origem_sugestao.label("origem_sugestao"),
+                func.count(PrescricaoExame.id).label("total"),
             )
-            .join(CatalogoMedicamentos, Prescricao.id_catalogo == CatalogoMedicamentos.id)
-            .join(ResultadoPrescricao, Prescricao.id_resultado_prescricao == ResultadoPrescricao.id)
+            .join(ResultadoPrescricao, PrescricaoExame.id_resultado == ResultadoPrescricao.id)
             .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
             .join(Usuario, Atendimento.realizado_por == Usuario.id)
             .filter(Usuario.id_empresa == id_empresa)
-            .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
-            .filter(CatalogoMedicamentos.classe_farmaceutica == classe)
-            .group_by(CatalogoMedicamentos.principio_ativo)
-            .order_by(func.count(Prescricao.id).desc())
-            .limit(limite)
+            .filter(ResultadoPrescricao.status == "confirmado")
+            .filter(PrescricaoExame.criado_em >= limite)
+            .group_by(PrescricaoExame.urgencia, PrescricaoExame.origem_sugestao)
             .all()
         )
-        return [{"principio_ativo": linha.principio_ativo, "total": linha.total} for linha in linhas]
+        return [
+            {"urgencia": linha.urgencia, "origem_sugestao": linha.origem_sugestao, "total": linha.total}
+            for linha in linhas
+        ]

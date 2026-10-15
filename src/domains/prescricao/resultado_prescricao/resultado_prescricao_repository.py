@@ -15,9 +15,24 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
     def find_by_uuid(self, uuid: str) -> Optional[ResultadoPrescricao]:
         return ResultadoPrescricao.query.filter_by(uuid=uuid).first()
 
-    def save(self, entity: ResultadoPrescricao) -> ResultadoPrescricao:
+    def find_by_uuid_da_empresa(self, uuid: str, id_empresa: int) -> Optional[ResultadoPrescricao]:
+        """Só devolve o resultado se o atendimento foi realizado por alguém da empresa."""
+        from src.models.usuarios import Usuario
+        from src.models.clinico import Atendimento
+        return (
+            ResultadoPrescricao.query
+            .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(ResultadoPrescricao.uuid == uuid, Usuario.id_empresa == id_empresa)
+            .first()
+        )
+
+    def save(self, entity: ResultadoPrescricao, commit: bool = True) -> ResultadoPrescricao:
         db.session.add(entity)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()  # gera ids sem fechar a transação (fluxo da IA: commit único no fim)
         return entity
 
     def delete(self, id: int) -> bool:
@@ -69,6 +84,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .join(Usuario, Atendimento.realizado_por == Usuario.id)
             .filter(Usuario.id_empresa == id_empresa)
             .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
+            .filter(ResultadoPrescricao.status == "confirmado")
             .group_by(
                 ResultadoPrescricao.codigo_cid10_principal,
                 ResultadoPrescricao.descricao_cid10_principal,
@@ -121,6 +137,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .join(Usuario, Atendimento.realizado_por == Usuario.id)
             .filter(Usuario.id_empresa == id_empresa)
             .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
+            .filter(ResultadoPrescricao.status == "confirmado")
             .group_by(RegiaoGeografica.id, RegiaoGeografica.nome_regiao)
             .all()
         )
@@ -150,6 +167,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .filter(Usuario.id_empresa == id_empresa)
             .filter(ResultadoPrescricao.codigo_cid10_principal == codigo_cid10)
             .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
+            .filter(ResultadoPrescricao.status == "confirmado")
             .group_by(dia)
             .order_by(dia.asc())
             .all()
@@ -176,6 +194,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .filter(ResultadoPrescricao.codigo_cid10_principal == codigo_cid10)
             .filter(ResultadoPrescricao.data_hora_formulacao >= data_inicio)
             .filter(ResultadoPrescricao.data_hora_formulacao < data_fim)
+            .filter(ResultadoPrescricao.status == "confirmado")
             .group_by(dia)
             .order_by(dia.asc())
             .all()
