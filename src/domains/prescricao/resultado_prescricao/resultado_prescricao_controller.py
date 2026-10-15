@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import (
-    requer_login, requer_papel_clinico, get_id_empresa, get_id_usuario_sessao,
+    requer_login, requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
 )
 from .resultado_prescricao_service import ResultadoPrescricaoService
 from ..schema_prescricoes import ResultadoPrescricaoIn, formatar_erros_pydantic
@@ -38,7 +38,7 @@ class ResultadoPrescricaoController():
     def detalhe_resultado(uuid_resultado):
         """Retorna os detalhes de um ResultadoPrescricao (com itens) pelo UUID, só da própria empresa."""
         try:
-            r = _svc_resultado.buscar_resultado_por_uuid(uuid_resultado, get_id_empresa())
+            r = _svc_resultado.buscar_resultado_por_uuid(uuid_resultado, get_id_empresa_sessao())
             return json_success(data=r.to_dict())
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
@@ -50,7 +50,7 @@ class ResultadoPrescricaoController():
     def confirmar_resultado(uuid_resultado):
         """O médico responsável confirma a prescrição (rascunho -> confirmado)."""
         try:
-            r = _svc_resultado.confirmar(uuid_resultado, get_id_empresa(), get_id_usuario_sessao())
+            r = _svc_resultado.confirmar(uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao())
             return json_success(data=r.to_dict(), message="Prescrição confirmada.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

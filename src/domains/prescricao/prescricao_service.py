@@ -2,7 +2,7 @@ from src.models import db
 from src.core.exceptions import RecursoNaoEncontradoError
 from src.models.clinico import Prescricao
 from .prescricao_repository import PrescricaoRepository
-from resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
+from .resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
 from .schema_prescricoes import MedicamentoPrescritoIn
 
 

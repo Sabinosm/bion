@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_papel_clinico, get_id_empresa, get_id_usuario_sessao
+from src.core.session import requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao
 from .prescricao_service import PrescricaoService
 from .schema_prescricoes import MedicamentoPrescritoIn, formatar_erros_pydantic
 
@@ -22,7 +22,7 @@ class PrescricaoController():
         try:
             item = MedicamentoPrescritoIn.model_validate(dados)
             p = _svc_prescricao.adicionar_medicamento(
-                uuid_resultado, item, get_id_empresa(), get_id_usuario_sessao()
+                uuid_resultado, item, get_id_empresa_sessao(), get_id_usuario_sessao()
             )
             return json_success(data=p.to_dict(), message="Medicamento prescrito.", status=201)
         except ValidationError as ex:
@@ -37,7 +37,7 @@ class PrescricaoController():
         """Remove um medicamento do rascunho (inclusive sugestões da IA que o médico descartou)."""
         try:
             _svc_prescricao.remover_medicamento(
-                uuid_resultado, uuid_item, get_id_empresa(), get_id_usuario_sessao()
+                uuid_resultado, uuid_item, get_id_empresa_sessao(), get_id_usuario_sessao()
             )
             return json_success(message="Medicamento removido da prescrição.")
         except BionException as ex:

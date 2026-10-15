@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from src.core.exceptions import RecursoNaoEncontradoError, AcessoNegadoError, ConflitoError
+from src.core.exceptions import RecursoNaoEncontradoError, PermissaoNegadaError, ConflictoError
 from .resultado_prescricao_repository import ResultadoPrescricaoRepository
 from ..schema_prescricoes import ResultadoPrescricaoIn
 
@@ -24,7 +24,7 @@ class ResultadoPrescricaoService:
         if not atendimento:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
         if atendimento.realizado_por != id_usuario:
-            raise AcessoNegadoError("Apenas o profissional do atendimento pode registrar o resultado.")
+            raise PermissaoNegadaError("Apenas o profissional do atendimento pode registrar o resultado.")
 
         r = ResultadoPrescricao(
             id_atendimento=atendimento.id,
@@ -42,16 +42,16 @@ class ResultadoPrescricaoService:
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
         if r.formulado_por != id_usuario:
-            raise AcessoNegadoError("Apenas o médico responsável pode alterar esta prescrição.")
+            raise PermissaoNegadaError("Apenas o médico responsável pode alterar esta prescrição.")
         if r.status != "rascunho":
-            raise ConflitoError("Prescrição já confirmada; não pode mais ser alterada.")
+            raise ConflictoError("Prescrição já confirmada; não pode mais ser alterada.")
         return r
 
     def confirmar(self, uuid_resultado: str, id_empresa: int, id_usuario: int):
         """O médico passa a responder pela prescrição (rascunho -> confirmado)."""
         r = self.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         if r.tipo_prescricao == "farmacologica" and not r.prescricoes:
-            raise ConflitoError("Prescrição farmacológica exige ao menos um medicamento.")
+            raise ConflictoError("Prescrição farmacológica exige ao menos um medicamento.")
         r.status = "confirmado"
         r.confirmado_em = datetime.now(timezone.utc)
         return self.resultado_repo.save(r)

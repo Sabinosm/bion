@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_papel_clinico, get_id_empresa, get_id_usuario_sessao
+from src.core.session import requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao
 from .prescricao_exame_service import PrescricaoExameService
 from ..schema_prescricoes import ExamePrescritoIn, formatar_erros_pydantic
 
@@ -23,7 +23,7 @@ class PrescricaoExameController():
         try:
             item = ExamePrescritoIn.model_validate(dados)
             pe = _svc_prescricao_exame.adicionar_exame(
-                uuid_resultado, item, get_id_empresa(), get_id_usuario_sessao()
+                uuid_resultado, item, get_id_empresa_sessao(), get_id_usuario_sessao()
             )
             return json_success(data=pe.to_dict(), message="Exame prescrito.", status=201)
         except ValidationError as ex:
@@ -38,7 +38,7 @@ class PrescricaoExameController():
         """Remove um exame do rascunho (inclusive sugestões da IA que o médico descartou)."""
         try:
             _svc_prescricao_exame.remover_exame(
-                uuid_resultado, uuid_item, get_id_empresa(), get_id_usuario_sessao()
+                uuid_resultado, uuid_item, get_id_empresa_sessao(), get_id_usuario_sessao()
             )
             return json_success(message="Exame removido da prescrição.")
         except BionException as ex:
