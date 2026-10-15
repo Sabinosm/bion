@@ -9,6 +9,7 @@ from .sinal_vital import SinalVital
 from .prescricao_exame import PrescricaoExame
 from .loinc_sinal_vital import LoincSinalVital
 from .conduta_enfermagem import CondutaEnfermagem
+from .binario import Binario
 
 __all__ = [
     "Atendimento",
@@ -22,4 +23,5 @@ __all__ = [
     "LoincSinalVital",
     "PrescricaoExame",
     "CondutaEnfermagem",
+    "Binario",
 ]

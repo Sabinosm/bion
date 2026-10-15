@@ -1,0 +1,246 @@
+"""Regras do binário (Bloco 2): conferência das 4 seções clínicas num Atendimento.
+
+SEÇÕES: alergias | medicamentos | tipo_sanguineo | doenca_cronica.
+
+ESTADO: não há tabela. O estado vive na coluna JSON `atendimento.binario`,
+lida/escrita pelo objeto `Binario` (binario_model.py).
+
+LÓGICA:
+  - possui=true  -> o paciente tem o dado. Vale com itens no payload OU com
+    registro ativo já existente (pré-preenchido de atendimento anterior, só
+    confirmado). Sem nenhum dos dois -> 422. Estado "preenchido".
+  - possui=false -> "nega". Se há registro ativo -> 409 ("não possui" com
+    dado preenchido é impossível; remova antes por exclusão lógica).
+  - nao_foi_possivel_coletar -> estado "nao-coletado" ("não registrado").
+  - Reconferir a mesma seção no mesmo atendimento -> 409.
+
+TRANSAÇÃO: agregada e granular chamam o mesmo `_aplicar` por seção, que
+usa os services públicos dos dados com commit=False. Um único commit no
+fim, ou rollback de tudo se qualquer seção falhar. Como a conferência é
+ler-alterar-gravar de um JSON, a linha do atendimento é TRAVADA
+(SELECT ... FOR UPDATE) no início da gravação: duas requisições
+simultâneas na mesma seção não se sobrescrevem.
+
+GUARD: toda escrita passa por ContextoClinicoService.exigir_escrita
+(atendimento em andamento do próprio profissional, mesmo paciente, etc.).
+Leitura (`estado`): só tenant.
+
+GATE: exigir_binario_completo vive em binario_gate.py (sem dependência dos
+services de paciente), usado por finalizar / coleta_clinica / input_protocolo.
+"""
+
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
+
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
+from src.core.erros_pydantic import erros_pydantic_por_campo
+from src.domains.paciente.schemas.schema_tipo_sanguineo import ObservacaoTipoSanguineoCreateSchema
+from src.domains.paciente.services.alergia_service import AlergiaService
+from src.domains.paciente.services.doenca_cronica_service import DoencaCronicaService
+from src.domains.paciente.services.medicamento_em_uso_service import MedicamentoEmUsoService
+from src.domains.paciente.services.obs_tipo_sanguineo_service import ObservacaoTipoSanguineoService
+from ..contexto_clinico_service import ContextoClinicoService, AutorClinico
+from .schema_binario import BinarioIn, SCHEMA_POR_SECAO
+from src.models.clinico.binario import Binario, SECOES_BINARIO, estado_de
+from .binario_gate import exigir_binario_completo
+from ..repository import AtendimentoRepository
+
+
+class BinarioService:
+
+    def __init__(self):
+        self._ctx = ContextoClinicoService()
+        self._atendimento_repo = AtendimentoRepository()
+        self._alergia = AlergiaService()
+        self._doenca = DoencaCronicaService()
+        self._medicamento = MedicamentoEmUsoService()
+        self._tipo = ObservacaoTipoSanguineoService()
+
+    # ------------------------------------------------------------ helpers
+    @staticmethod
+    def _validar(schema, dados):
+        if not isinstance(dados, dict):
+            raise DadosInvalidosError("Corpo da requisição inválido: esperado um objeto JSON.")
+        try:
+            return schema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+
+    def _ativos(self, secao: str, uuid_paciente: str, id_empresa: int) -> list:
+        """Registros ATIVOS da seção (a mesma definição do prontuário):
+        alergias não removidas; doenças vigentes; medicamentos com status
+        ativo e não removidos; tipo sanguíneo vigente."""
+        if secao == "alergias":
+            return list(self._alergia.listar_alergias(uuid_paciente, id_empresa))
+        if secao == "doenca_cronica":
+            return list(self._doenca.listar_doencas(uuid_paciente, id_empresa))
+        if secao == "medicamentos":
+            return list(self._medicamento.listar_medicamentos_em_uso(
+                uuid_paciente, id_empresa, apenas_ativos=True))
+        vigente = self._tipo.tipo_vigente(uuid_paciente, id_empresa)
+        return [vigente] if vigente else []
+
+    @staticmethod
+    def _qtd_informada(secao: str, entrada) -> int:
+        if secao == "tipo_sanguineo":
+            return 1 if entrada.tipo_sanguineo else 0
+        return len(entrada.itens)
+
+    @staticmethod
+    def _item(obj, uuid_atendimento: str) -> dict:
+        """Item pré-preenchido + aviso de que veio de OUTRO momento e
+        precisa de confirmação (sem origem conhecida = outro momento)."""
+        d = obj.to_dict()
+        origem = d.get("atendimento_origem_uuid") or d.get("uuid_atendimento_origem")
+        d["de_outro_atendimento"] = origem != uuid_atendimento
+        return d
+
+    # ------------------------------------------------------------ leitura
+    def estado(self, uuid_atendimento: str, id_empresa: int) -> dict:
+        """Estado de conferência por seção. Seção pendente traz os registros
+        ativos do paciente como pré-preenchimento (`de_outro_atendimento`
+        indica o que precisa de confirmação visual)."""
+        at = self._atendimento_repo.find_by_uuid(uuid_atendimento, id_empresa)
+        if not at:
+            raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
+        paciente = at.consulta.paciente
+        binario = Binario.de_atendimento(at)
+
+        secoes = {}
+        for s in SECOES_BINARIO:
+            if binario.conferida(s):
+                secoes[s] = binario.to_dict(s)
+                continue
+            itens = [self._item(o, at.uuid) for o in self._ativos(s, paciente.uuid, id_empresa)]
+            secoes[s] = {
+                "secao": s,
+                "conferida": False,
+                "estado": "pendente",
+                "possui": None,
+                "pre_preenchido": itens,
+                "precisa_confirmacao": any(i["de_outro_atendimento"] for i in itens),
+            }
+        return {
+            "uuid_atendimento": at.uuid,
+            "completo": binario.completo,
+            "pendentes": binario.pendentes,
+            "secoes": secoes,
+        }
+
+    def exigir_binario_completo(self, atendimento) -> None:
+        exigir_binario_completo(atendimento)
+
+    # ------------------------------------------------------------ escrita
+    def conferir_binario(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
+                         autor: AutorClinico) -> dict:
+        """Rota agregada: as 4 seções de uma vez, atomicamente. Se qualquer
+        seção já foi conferida (ex: por rota granular) -> 409 sem gravar nada."""
+        ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        entrada = self._validar(BinarioIn, dados)
+        pares = [(s, getattr(entrada, s)) for s in SECOES_BINARIO]
+        resultados = self._gravar(ctx, pares, autor)
+        return {"conferidas": resultados, "binario": self.estado(uuid_atendimento, autor.id_empresa)}
+
+    def conferir_secao(self, secao: str, uuid_atendimento: str, uuid_paciente: str, dados: dict,
+                       autor: AutorClinico) -> dict:
+        """Rota granular: uma seção. Mesmo caminho do agregado."""
+        if secao not in SECOES_BINARIO:
+            raise RecursoNaoEncontradoError(f"Seção do binário inexistente: {secao}")
+        ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        entrada = self._validar(SCHEMA_POR_SECAO[secao], dados)
+        resultados = self._gravar(ctx, [(secao, entrada)], autor)
+        return {"conferidas": resultados, "binario": self.estado(uuid_atendimento, autor.id_empresa)}
+
+    def _gravar(self, ctx, pares, autor: AutorClinico) -> list:
+        """UM commit para tudo; qualquer falha desfaz tudo. A linha do
+        atendimento é travada ANTES de ler o JSON do binário."""
+        repo = self._atendimento_repo
+        try:
+            at = repo.travar(ctx.atendimento)
+            binario = Binario.de_atendimento(at)
+
+            ja = [s for s, _ in pares if binario.conferida(s)]
+            if ja:
+                raise ConflictoError(
+                    "Seção(ões) já conferida(s) neste atendimento: " + ", ".join(ja) + "."
+                )
+
+            resultados = []
+            for secao, entrada in pares:
+                r = self._aplicar(secao, entrada, ctx, autor)
+                binario.registrar(secao, r["estado"])
+                resultados.append(r)
+
+            at.binario = binario.para_json()
+            repo.save(at, commit=False)
+            repo.confirmar(commit=True)
+            return resultados
+        except IntegrityError as e:
+            repo.rollback()
+            raise ConflictoError(
+                "Conflito ao gravar o binário (registro duplicado)."
+            ) from e
+        except Exception:
+            repo.rollback()
+            raise
+
+    def _aplicar(self, secao: str, entrada, ctx, autor: AutorClinico) -> dict:
+        """Uma seção, SEM commit (flush): cria os itens (se houver) e devolve o
+        estado resultante. Não grava o binário, não comita e não faz rollback:
+        quem chama (`_gravar`) é o dono da transação."""
+        uuid_at, uuid_pac = ctx.atendimento.uuid, ctx.paciente.uuid
+        possui, criados, alertas = None, 0, None
+
+        if not entrada.nao_foi_possivel_coletar:
+            possui = entrada.possui
+            ativos = self._ativos(secao, uuid_pac, autor.id_empresa)
+            if possui:
+                if not ativos and self._qtd_informada(secao, entrada) == 0:
+                    raise DadosInvalidosError({
+                        secao: "possui=true exige ao menos um item ou um registro ativo já existente."
+                    })
+                criados, alertas = self._criar_itens(secao, entrada, ativos, uuid_at, uuid_pac, autor)
+            elif ativos:
+                raise ConflictoError(
+                    f"Seção '{secao}': o paciente tem registro ativo, então não pode ser conferida "
+                    "como 'não possui'. Remova o registro (exclusão lógica) antes."
+                )
+
+        resultado = {"secao": secao, "estado": estado_de(possui), "itens_criados": criados}
+        if alertas is not None:
+            resultado["alertas_interacao"] = alertas
+        return resultado
+
+    def _criar_itens(self, secao, entrada, ativos, uuid_at, uuid_pac, autor):
+        """Chama o service público de cada dado com commit=False (mesma
+        validação e mesmo guard das rotas granulares do dado). Devolve
+        (quantidade criada, alertas de interação ou None)."""
+        if secao == "alergias":
+            for item in entrada.itens:
+                self._alergia.adicionar_alergia(uuid_at, uuid_pac, item, autor, commit=False)
+            return len(entrada.itens), None
+
+        if secao == "doenca_cronica":
+            for item in entrada.itens:
+                self._doenca.adicionar_doenca(uuid_at, uuid_pac, item, autor, commit=False)
+            return len(entrada.itens), None
+
+        if secao == "medicamentos":
+            alertas = None
+            for item in entrada.itens:
+                _, alertas = self._medicamento.registrar(uuid_at, uuid_pac, item, autor, commit=False)
+            return len(entrada.itens), alertas
+
+        # tipo_sanguineo: só registra se informado e diferente do vigente
+        # (igual ao vigente = apenas confirmação do que já está registrado).
+        if not entrada.tipo_sanguineo:
+            return 0, None
+        normalizado = self._validar(
+            ObservacaoTipoSanguineoCreateSchema, {"tipo_sanguineo": entrada.tipo_sanguineo}
+        ).tipo_sanguineo
+        vigente = ativos[0] if ativos else None
+        if vigente is not None and vigente.tipo_sanguineo == normalizado:
+            return 0, None
+        self._tipo.registrar_tipo_sanguineo(
+            uuid_at, uuid_pac, {"tipo_sanguineo": normalizado}, autor, commit=False)
+        return 1, None

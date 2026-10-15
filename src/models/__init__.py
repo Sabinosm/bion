@@ -32,6 +32,7 @@ from src.models.clinico import (
     PrescricaoExame,
     CondutaEnfermagem,
     LoincSinalVital,
+    Binario,
 )
 
 # Corporativo
@@ -112,6 +113,7 @@ __all__ = [
     "LoincSinalVital",
     "PrescricaoExame",
     "CondutaEnfermagem",
+    "Binario",
     
     # Corporativo
     "Empresa",
