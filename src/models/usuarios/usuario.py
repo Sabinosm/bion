@@ -43,7 +43,7 @@ class Usuario(db.Model):
     # requer_senha_atualizada (src/core/session.py) para invalidar
     # sessoes desatualizadas em leituras sensiveis (dados de paciente).
     senha_versao = db.Column("senha_versao", db.Integer, nullable=False, default=1)
-
+    avatar_filename = db.Column(db.String(255), nullable=True)
     onboarding_pendente = db.Column(db.Boolean, default=True, nullable=False)
     ultimo_acesso = db.Column(db.DateTime(timezone=True))
     criado_em = db.Column(db.DateTime(timezone=True),
@@ -84,7 +84,14 @@ class Usuario(db.Model):
 
     def to_dict(self, incluir_sensiveis=False):
         """Representacao completa do usuario para respostas de API."""
+        import os
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        bucket = os.environ.get("SUPABASE_BUCKET", "avatares")
         papel = self.papel_ativo()
+        avatar_url = (
+            f"{supabase_url}/storage/v1/object/public/{bucket}/{self.avatar_filename}"
+            if self.avatar_filename else None
+        )
         d = {
             "uuid": self.uuid,
             "nome_completo": self.nome_completo,
@@ -97,6 +104,7 @@ class Usuario(db.Model):
             "status": self.status,
             "ultimo_acesso": self.ultimo_acesso.isoformat() if self.ultimo_acesso else None,
             "id_empresa": self.id_empresa,
+            "avatar_url": avatar_url,
         }
         if incluir_sensiveis:
             from src.core.security import aes_decrypt
@@ -106,6 +114,14 @@ class Usuario(db.Model):
 
     def to_dict_few(self):
         """Representacao resumida do usuario, usada em listagens."""
+        import os
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        bucket = os.environ.get("SUPABASE_BUCKET", "avatares")
+        papel = self.papel_ativo()
+        avatar_url = (
+            f"{supabase_url}/storage/v1/object/public/{bucket}/{self.avatar_filename}"
+            if self.avatar_filename else None
+        )
         return {
             "uuid": self.uuid,
             "nome_completo": self.nome_completo,
@@ -113,6 +129,7 @@ class Usuario(db.Model):
             "funcao_clinica": self.funcao_clinica,
             "status": self.status,
             "is_admin": self.is_admin,
+            "avatar_url": avatar_url,
         }
     
     def to_dict_session(self):

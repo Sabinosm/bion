@@ -46,9 +46,9 @@ from .service_validacoes import (
     _valida_troca_tipo,
     _valida_alteracao_admin,
 )
+from .service_storage_pfp import StorageService
 
-
-class UsuarioService(ResetCredenciaisMixin):
+class UsuarioService(ResetCredenciaisMixin, StorageService):
     """Serviço de domínio para o CRUD de usuários e regras associadas.
 
     Os métodos de reset de credenciais (reset_2fa, reset_total,
@@ -62,7 +62,12 @@ class UsuarioService(ResetCredenciaisMixin):
 
     def __init__(self):
         self.repo = UsuarioRepository()
-
+    
+    def atualizar_avatar_usuario(self, uuid_usuario: str, novo_filename: str):
+        usuario = self.buscar_por_uuid(uuid_usuario)
+        usuario.avatar_filename = novo_filename
+        
+        return usuario
     def buscar_por_uuid(self, uuid: str):
         """Busca um usuário pelo UUID.
 
@@ -79,7 +84,24 @@ class UsuarioService(ResetCredenciaisMixin):
         if not u:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
-
+    
+    def buscar_por_id(self, id: int):
+            """Busca um usuário pelo ID.
+    
+            Parâmetros:
+                id: identificador único do usuário.
+    
+            Retorno:
+                Instância de Usuario correspondente.
+    
+            Levanta:
+                RecursoNaoEncontradoError: se nenhum usuário for encontrado.
+            """
+            u = self.repo.find_by_id(id)
+            if not u:
+                raise RecursoNaoEncontradoError(f"Usuário não encontrado: {id}")
+            return u
+    
     def listar(self, id_empresa, offset: int = 0, especialidade: str = 0, status: str = 0):
         """Lista todos os usuários de uma empresa.
 
@@ -321,3 +343,33 @@ class UsuarioService(ResetCredenciaisMixin):
 
     def lista_inativos_ha_dias(self, id_empresa: int, dias: int = 7):
         return self.repo.find_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
+    
+    def atualizar_avatar_usuario(self, id_usuario: int, file) -> Usuario:
+        usuario = self.find_by_id(id_usuario)
+        avatar_antigo = usuario.avatar_filename
+        
+        # 1. Faz o upload da nova imagem usando o StorageService (ou self)
+        novo_filename = self.upload_avatar(file)
+        
+        # 2. Atualiza a referência no banco através do repositório
+        usuario = self.repo.salvar_pfp(usuario, novo_filename=novo_filename)
+        
+        # 3. Apaga do Supabase a foto antiga (após garantir que o banco atualizou)
+        if avatar_antigo and avatar_antigo != novo_filename:
+            self.deletar_avatar(avatar_antigo)
+                            
+        return usuario
+
+    def remover_avatar_usuario(self, id_usuario: int):
+        # Desempacotamento seguro (deletar_pfp sempre retorna uma tupla de 2 elementos)
+        usuario, avatar_antigo = self.repo.deletar_pfp(id_usuario)
+        
+        if not usuario or not avatar_antigo:
+            return None
+            
+        # Se encontrou um avatar antigo para o usuário, remove do Supabase
+        self.deletar_avatar(avatar_antigo)
+        return usuario
+        
+    
+            

@@ -231,3 +231,25 @@ class UsuarioRepository(IRepository[Usuario]):
             )
             .count()
         )
+    
+    def salvar_pfp(self, usuario: Usuario, novo_filename: str) -> Usuario:
+        usuario.avatar_filename = novo_filename
+        db.session.commit()
+        return usuario
+    
+    def deletar_pfp(self, id: int):
+        usuario = self.find_by_id(id)
+        
+        if not usuario:
+            return None, None
+        
+        if usuario.avatar_filename:
+            avatar_antigo = usuario.avatar_filename
+            usuario.avatar_filename = None
+            db.session.commit()
+            return usuario, avatar_antigo
+        
+        # Retorna o usuário, mas indica que não havia avatar antigo para deletar no storage
+        return usuario, None
+        
+    

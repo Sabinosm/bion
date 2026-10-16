@@ -24,8 +24,8 @@ from flask import Blueprint, request, g
 from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
-from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_admin, get_id_empresa_sessao
+from src.core.exceptions import BionException, RecursoNaoEncontradoError
+from src.core.session import requer_login, requer_admin, get_id_empresa_sessao, get_id_usuario_sessao
 from .services.service import UsuarioService
 from src.domains.auth.step_up import StepUp, token_recente_valido
 from src.domains.auditoria.acaoSensivel import acao_sensivel
@@ -282,3 +282,31 @@ class UsuarioController():
         except BionException as e:
             resposta = json_error(e.message, e.status_code)
             return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
+    
+    @staticmethod
+    @bp.delete("/avatar")
+    @requer_login
+    def remover_avatar():            
+        try:
+            usuario = _svc.remover_avatar_usuario(get_id_usuario_sessao())
+            
+            if not usuario:
+                raise RecursoNaoEncontradoError("Nenhuma imagem encontrada para ser deletada.", 404)
+            
+            return json_success(data=usuario.to_dict(), message="Avatar removido com sucesso.")
+        except BionException as e:
+            return json_error(e.message, e.status_code)
+
+    @staticmethod
+    @bp.post("/avatar")
+    @requer_login 
+    def atualizar_avatar():
+        if 'file' not in request.files or request.files['file'].filename == '':
+            return json_error("Nenhum arquivo foi selecionado.", 400)
+            
+        file = request.files['file']
+        try:
+            usuario = _svc.atualizar_avatar_usuario(get_id_usuario_sessao(), file=file)
+            return json_success(data=usuario.to_dict(), message="Avatar atualizado com sucesso.")
+        except BionException as e:
+            return json_error(e.message, e.status_code)    
