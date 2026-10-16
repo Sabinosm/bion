@@ -2,45 +2,31 @@
 Regras de negócio do registro de dados clínicos durante um Atendimento:
 sinais vitais, coleta clínica e input de protocolo.
 
-ALTERADO (Bloco 2) -- sinais vitais e coleta clínica:
+GUARD: toda escrita (sinais vitais e coleta clínica) passa por
+ContextoClinicoService.exigir_escrita: atendimento em andamento do PRÓPRIO
+profissional, do mesmo paciente, enfermeiro só em triagem, paciente sem
+óbito.
 
-  GUARD: toda escrita passa por ContextoClinicoService.exigir_escrita
-  (atendimento em andamento do PRÓPRIO profissional, mesmo paciente, enfermeiro
-  só em triagem, paciente sem óbito, tenant). O autor vem da sessão.
+GATE DO BINÁRIO: a coleta clínica exige o binário completo (409). Os sinais
+vitais ficam livres, sem binário.
 
-  GATE: a coleta clínica exige o binário completo (409). Sinais vitais ficam
-  LIVRES (não chamam o gate).
+TRANSAÇÃO: os sinais vitais de uma requisição são validados por inteiro
+antes de gravar e entram num único commit (ou nada entra).
 
-  TRANSAÇÃO: `commit=True` (padrão) grava tudo ou nada. `commit=False` só faz
-  flush: quem chama é o dono da transação (não há commit nem rollback aqui).
-  Sinais vitais: TODOS os itens são validados antes de criar qualquer um, e
-  gravam num único commit (antes, cada item comitava sozinho e uma falha no
-  meio deixava gravação parcial).
-
-  VALIDAÇÃO (422): enums (unidade, sítio, flag) vêm das colunas do model, e
-  tipo_parametro precisa estar nos enums E na tabela loinc_sinal_vital
-  (05_sinal_vital_migration.sql). Erros por item: {"sinais[0].unidade": "..."}.
-
-registrar_input_protocolo NÃO mudou (próximo passo): continua no formato
-antigo, sem guard, e é o domínio Protocolo/IA, fora do escopo FHIR.
+INPUT DE PROTOCOLO: mesmo guard e mesmo gate da coleta; a coleta precisa
+pertencer ao atendimento da rota (senão 404). O tenant vem do guard.
 """
 
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+
+from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
 from src.domains.atendimento.binario.binario_gate import exigir_binario_completo
+from .schema import SinaisVitaisIn, ColetaClinicaIn, InputProtocoloIn
 from .repository import ColetaClinicaRepository, SinalVitalRepository, InputProtocoloRepository
-
-CAMPOS_OBRIGATORIOS_SINAL_VITAL = ("tipo_parametro", "valor_numerico", "unidade")
-MAX_SINAIS_POR_REQUISICAO = 50
-MAX_HORAS_SINTOMAS = 32767  # SMALLINT
-_LIMITE_VALOR = Decimal(10) ** 8  # Numeric(10, 2)
-
-
-def _enums(coluna) -> tuple:
-    return tuple(coluna.type.enums)
 
 
 class DadosClinicosService:
@@ -52,182 +38,132 @@ class DadosClinicosService:
         self.sinal_repo = SinalVitalRepository()
         self.input_repo = InputProtocoloRepository()
 
-    # ---------------------------------------------------------- sinais vitais
     @staticmethod
-    def _tipos_loinc() -> set:
-        """Tipos mapeados na tabela de referência LOINC (tabela pequena)."""
-        from src.models.clinico import LoincSinalVital
-        return {r.tipo_parametro for r in LoincSinalVital.query.all()}
-
-    @staticmethod
-    def _numero(v):
-        """Decimal finito dentro de Numeric(10,2), ou None. Aceita número ou
-        string numérica; recusa bool, NaN, infinito e fora de faixa."""
-        if isinstance(v, bool):
-            return None
+    def _validar(schema, dados):
+        if not isinstance(dados, dict):
+            raise DadosInvalidosError("Corpo da requisição inválido: esperado um objeto JSON.")
         try:
-            d = Decimal(str(v).strip())
-        except (InvalidOperation, ValueError):
-            return None
-        if not d.is_finite() or abs(d) >= _LIMITE_VALOR:
-            return None
-        return d
+            return schema(**dados)
+        except ValidationError as e:
+            raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
-    def _validar_sinal(self, i: int, s, enums: dict, tipos_loinc: set):
-        """Devolve (erros, valores_normalizados) de UM item da lista."""
-        pref = f"sinais[{i}]"
-        if not isinstance(s, dict):
-            return {pref: "esperado um objeto."}, None
-
-        erros = {}
-        for c in CAMPOS_OBRIGATORIOS_SINAL_VITAL:
-            if s.get(c) is None:
-                erros[f"{pref}.{c}"] = "obrigatório."
-
-        tipo = s.get("tipo_parametro")
-        if tipo is not None and not (
-            isinstance(tipo, str) and tipo in enums["tipo_parametro"] and tipo in tipos_loinc
-        ):
-            erros[f"{pref}.tipo_parametro"] = f"inválido ou não mapeado: {tipo!r}."
-
-        valor = None
-        if s.get("valor_numerico") is not None:
-            valor = self._numero(s["valor_numerico"])
-            if valor is None:
-                erros[f"{pref}.valor_numerico"] = "deve ser um número finito."
-
-        for campo in ("unidade", "sitio_medicao", "flag_validacao_faixa"):
-            v = s.get(campo)
-            if v is not None and (not isinstance(v, str) or v not in enums[campo]):
-                erros[f"{pref}.{campo}"] = "valor inválido; use um de: " + ", ".join(enums[campo])
-
-        escala = s.get("flag_escala_dpoc", False)
-        if not isinstance(escala, bool):
-            erros[f"{pref}.flag_escala_dpoc"] = "deve ser true ou false."
-
-        if erros:
-            return erros, None
-        return None, {
-            "tipo_parametro": tipo,
-            "valor_numerico": valor,
-            "unidade": s["unidade"],
-            "sitio_medicao": s.get("sitio_medicao"),
-            "flag_validacao_faixa": s.get("flag_validacao_faixa") or "dentro-do-limite",
-            "flag_escala_dpoc": escala,
-        }
-
-    def registrar_sinais_vitais(self, uuid_atendimento: str, uuid_paciente: str, lista_sinais,
-                                autor: AutorClinico, commit: bool = True):
+    # ----------------------------------------------------------- sinais vitais
+    def registrar_sinais_vitais(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
+                                autor: AutorClinico):
         """
-        Registra um ou mais sinais vitais num Atendimento (tudo ou nada).
-        NÃO exige o binário: sinais vitais são livres.
+        Registra um ou mais sinais vitais (payload {"sinais": [...]}). Sem
+        binário. Tudo ou nada: um sinal inválido derruba o lote inteiro.
 
         Raises:
-            RecursoNaoEncontradoError / ConflictoError / PermissaoNegadaError:
-                vindos do guard (ver ContextoClinicoService.exigir_escrita).
-            DadosInvalidosError: lista vazia/grande demais, item não-objeto,
-                campo obrigatório ausente, enum ou número inválido,
-                tipo_parametro desconhecido. Nada é gravado.
+            RecursoNaoEncontradoError / ConflictoError / PermissaoNegadaError: do guard.
+            DadosInvalidosError: payload inválido ou tipo_parametro não mapeado na tabela LOINC.
         """
         from src.models.clinico import SinalVital
 
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        entrada = self._validar(SinaisVitaisIn, dados)
 
-        if not isinstance(lista_sinais, list) or not lista_sinais:
-            raise DadosInvalidosError("Informe ao menos um sinal vital em 'sinais' (lista).")
-        if len(lista_sinais) > MAX_SINAIS_POR_REQUISICAO:
-            raise DadosInvalidosError(
-                f"No máximo {MAX_SINAIS_POR_REQUISICAO} sinais vitais por requisição."
-            )
+        tipos = {s.tipo_parametro for s in entrada.sinais}
+        nao_mapeados = sorted(tipos - self.sinal_repo.tipos_loinc_existentes(tipos))
+        if nao_mapeados:
+            raise DadosInvalidosError({
+                "sinais": "tipo_parametro não mapeado na tabela LOINC: " + ", ".join(nao_mapeados)
+            })
 
-        enums = {
-            "tipo_parametro": _enums(SinalVital.tipo_parametro),
-            "unidade": _enums(SinalVital.unidade),
-            "sitio_medicao": _enums(SinalVital.sitio_medicao),
-            "flag_validacao_faixa": _enums(SinalVital.flag_validacao_faixa),
-        }
-        tipos_loinc = self._tipos_loinc()
-
-        erros, validos = {}, []
-        for i, s in enumerate(lista_sinais):
-            e, v = self._validar_sinal(i, s, enums, tipos_loinc)
-            if e:
-                erros.update(e)
-            else:
-                validos.append(v)
-        if erros:
-            raise DadosInvalidosError(erros)
-
-        agora = datetime.now(timezone.utc)
         try:
             registrados = []
-            for v in validos:
+            for s in entrada.sinais:
                 sv = SinalVital(
                     id_atendimento=ctx.atendimento.id,
-                    data_hora_medicao=agora,
+                    tipo_parametro=s.tipo_parametro,
+                    valor_numerico=s.valor_numerico,
+                    unidade=s.unidade,
+                    sitio_medicao=s.sitio_medicao,
+                    data_hora_medicao=datetime.now(timezone.utc),
                     coletado_por=autor.id_usuario,
-                    **v,
+                    flag_validacao_faixa=s.flag_validacao_faixa,
+                    flag_escala_dpoc=s.flag_escala_dpoc,
                 )
                 self.sinal_repo.save(sv, commit=False)
                 registrados.append(sv)
-            self.sinal_repo.confirmar(commit)
+            self.sinal_repo.confirmar(commit=True)
             return registrados
         except Exception:
-            if commit:
-                self.sinal_repo.rollback()
+            self.sinal_repo.rollback()
             raise
 
-    # --------------------------------------------------------- coleta clínica
-    def registrar_coleta_clinica(self, uuid_atendimento: str, uuid_paciente: str, dados,
-                                 autor: AutorClinico, commit: bool = True):
+    # ----------------------------------------------------------- coleta clínica
+    def registrar_coleta_clinica(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
+                                 autor: AutorClinico):
         """
-        Cria uma coleta clínica no Atendimento. Exige o BINÁRIO COMPLETO (409).
+        Cria uma coleta clínica. Exige o binário completo neste atendimento (409).
 
         Raises:
-            RecursoNaoEncontradoError / ConflictoError / PermissaoNegadaError:
-                vindos do guard; ConflictoError também se o binário estiver incompleto.
-            DadosInvalidosError: corpo não-objeto ou desde_quando_sintomas
-                inválido (inteiro de horas, 0..32767, opcional).
+            RecursoNaoEncontradoError / ConflictoError / PermissaoNegadaError: do guard.
+            ConflictoError: binário incompleto.
+            DadosInvalidosError: payload inválido.
         """
         from src.models.clinico import ColetaClinica
 
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         exigir_binario_completo(ctx.atendimento)
+        entrada = self._validar(ColetaClinicaIn, dados)
 
-        if not isinstance(dados, dict):
-            raise DadosInvalidosError("Corpo da requisição inválido: esperado um objeto JSON.")
-        horas = dados.get("desde_quando_sintomas")
-        if horas is not None and (
-            isinstance(horas, bool) or not isinstance(horas, int) or not 0 <= horas <= MAX_HORAS_SINTOMAS
-        ):
-            raise DadosInvalidosError({
-                "desde_quando_sintomas": f"deve ser um inteiro de horas entre 0 e {MAX_HORAS_SINTOMAS}."
-            })
-
+        coleta = ColetaClinica(
+            id_atendimento=ctx.atendimento.id,
+            desde_quando_sintomas=entrada.desde_quando_sintomas,
+        )
         try:
-            coleta = ColetaClinica(id_atendimento=ctx.atendimento.id, desde_quando_sintomas=horas)
-            return self.coleta_repo.save(coleta, commit=commit)
+            return self.coleta_repo.save(coleta)
         except Exception:
-            if commit:
-                self.coleta_repo.rollback()
+            self.coleta_repo.rollback()
             raise
 
-    # -------------------------------------------------------- input protocolo
-    def registrar_input_protocolo(self, uuid_coleta: str, dados: dict):
-        """SEM ALTERAÇÃO (próximo passo) -- InputProtocolo é parte do domínio
-        Protocolo/IA, fora do escopo FHIR."""
+    # --------------------------------------------------------- input de protocolo
+    def registrar_input_protocolo(self, uuid_atendimento: str, uuid_paciente: str,
+                                  uuid_coleta: str, dados: dict, autor: AutorClinico):
+        """
+        Registra o input de protocolo (queixa, sinais, fluxograma) de uma
+        coleta clínica DESTE atendimento. Exige o binário completo (409).
+
+        `tipo_input`: padrão = tipo do atendimento; se vier, tem de ser igual (422).
+        O conteúdo de `input_json` é livre (ainda não há schema para ele).
+        InputProtocolo é parte do domínio Protocolo/IA, fora do escopo FHIR.
+
+        Raises:
+            RecursoNaoEncontradoError: atendimento/paciente do guard; coleta inexistente
+                ou de outro atendimento.
+            ConflictoError / PermissaoNegadaError: do guard; binário incompleto.
+            DadosInvalidosError: payload inválido ou tipo_input diferente do atendimento.
+        """
         from src.models.clinico import InputProtocolo
 
-        coleta = self.coleta_repo.find_by_uuid(uuid_coleta)
+        ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        exigir_binario_completo(ctx.atendimento)
+
+        coleta = self.coleta_repo.find_by_uuid_do_atendimento(uuid_coleta, ctx.atendimento.id)
         if not coleta:
-            raise RecursoNaoEncontradoError(f"Coleta clínica não encontrada: {uuid_coleta}")
+            raise RecursoNaoEncontradoError(
+                f"Coleta clínica não encontrada neste atendimento: {uuid_coleta}"
+            )
+
+        entrada = self._validar(InputProtocoloIn, dados)
+        tipo_atendimento = ctx.atendimento.tipo_atendimento
+        if entrada.tipo_input is not None and entrada.tipo_input != tipo_atendimento:
+            raise DadosInvalidosError({
+                "tipo_input": f"deve ser igual ao tipo do atendimento ('{tipo_atendimento}')."
+            })
 
         ip = InputProtocolo(
             id_coleta_clinica=coleta.id,
-            tipo_input=dados.get("tipo_input", "triagem"),
-            input_json=dados.get("input_json"),
-            queixa_principal=dados.get("queixa_principal"),
-            valor_avpu=dados.get("valor_avpu"),
-            dados_criticos_ausentes_json=dados.get("dados_criticos_ausentes"),
+            tipo_input=tipo_atendimento,
+            input_json=entrada.input_json,
+            queixa_principal=entrada.queixa_principal,
+            valor_avpu=entrada.valor_avpu,
+            dados_criticos_ausentes_json=entrada.dados_criticos_ausentes,
         )
-        return self.input_repo.save(ip)
+        try:
+            return self.input_repo.save(ip)
+        except Exception:
+            self.input_repo.rollback()
+            raise
