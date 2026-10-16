@@ -38,7 +38,7 @@ from src.domains.paciente.schemas.schema_consentimento_digital import (
     ConsentimentoDigitalCreateSchema,
 )
 from .consentimento_service import ConsentimentoService
-from ..termos.termo_renderer import gerar_termo, gerar_pdf_bytes
+from ..termos.termo_renderer import gerar_termo, gerar_pdf_bytes, versao_vigente
 from ..termos.consentimento_pdf import montar_pdf_assinado, formatar_cpf, sha256_bytes
 from src.domains.empresa.repository import EmpresaRepository 
 from src.core.security import aes_decrypt
@@ -116,7 +116,7 @@ class ConsentimentoDigitalService:
         uuid_paciente: str,
         id_medico: int,
         id_empresa: int,
-        versao_termo: str,
+        versao_termo: str = None,
         ip_medico: str = None,
     ) -> dict:
         """Texto e PDF do termo são MONTADOS aqui (template da versão + dados da
@@ -126,13 +126,14 @@ class ConsentimentoDigitalService:
             entrada = GerarLinkAssinaturaSchema(versao_termo=versao_termo)
         except ValidationError as e:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
+        versao = entrada.versao_termo or versao_vigente()
 
         p = self._paciente_ou_404(uuid_paciente, id_empresa)
         nome, cpf = self._identificacao(p)   # falha cedo, antes de expirar links anteriores
         empresa = self.empresa_repo.find_by_id(id_empresa)
         if not empresa:
             raise RecursoNaoEncontradoError("Empresa não encontrada.")
-        texto_termo, _pdf_termo, hash_pdf = gerar_termo(entrada.versao_termo, empresa, ESCOPOS_VALIDOS)
+        texto_termo, _pdf_termo, hash_pdf = gerar_termo(versao, empresa, ESCOPOS_VALIDOS)
         agora = datetime.now(timezone.utc)
 
         # um link pendente por paciente: gerar novo cancela os anteriores
@@ -146,6 +147,7 @@ class ConsentimentoDigitalService:
             versao_termo=entrada.versao_termo,
             hash_pdf_original=hash_pdf,
             texto_termo_snapshot=texto_termo,
+            versao_termo=versao, 
             criado_em=agora,
             expira_em=agora + timedelta(minutes=self.TEMPO_EXPIRACAO_MINUTOS),
             ip_geracao=ip_medico,

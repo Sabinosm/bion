@@ -53,13 +53,15 @@ _REGEX_VERSAO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,49}$")
 
 
 class GerarLinkAssinaturaSchema(BaseModel):
-    """Só a versão vem do cliente. Texto, PDF e unidade (= empresa da sessão)
-    são resolvidos no servidor (ver termo_renderer.gerar_termo)."""
-    versao_termo: str = Field(min_length=1, max_length=50)
+    """versao_termo é opcional: sem ela o servidor usa a vigente
+    (termo_renderer.versao_vigente)."""
+    versao_termo: Optional[str] = Field(default=None, min_length=1, max_length=50)
 
     @field_validator("versao_termo")
     @classmethod
-    def _versao_valida(cls, v: str) -> str:
+    def _versao_valida(cls, v):
+        if v is None:
+            return None
         v = v.strip()
         if not _REGEX_VERSAO.match(v):
             raise ValueError("versão inválida (use letras, números, ponto, hífen e sublinhado)")
