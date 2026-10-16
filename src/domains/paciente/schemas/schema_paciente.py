@@ -75,7 +75,7 @@ class PacienteAtualizarPessoalSchema(BaseModel):
     rg: Optional[str] = Field(default=None, max_length=100)
     numero_residencia: Optional[str] = Field(default=None, max_length=50)
     contato_emergencia_nome: Optional[str] = Field(default=None, max_length=255)
-
+    
     @field_validator("nome_completo", "logradouro")
     @classmethod
     def _nao_pode_ser_so_espacos(cls, v):
@@ -125,7 +125,8 @@ class PacienteAtualizarClinicoSchema(BaseModel):
     campo ignorado em silêncio.
     """
     model_config = ConfigDict(extra="forbid")
-
+    peso: Optional[float] = Field(default=None, gt=0, lt=1000)
+    altura: Optional[int] = Field(default=None, gt=0, lt=300)
     status: Optional[Literal["ativo", "inativo"]] = None
 
     def campos_informados(self) -> dict:
@@ -147,6 +148,8 @@ class PacienteCriarSchema(BaseModel):
     data_nascimento: date
     nome_completo: str = Field(min_length=1, max_length=500)
     cpf: str
+    peso: Optional[float] = Field(default=None, gt=0, lt=1000)
+    altura: Optional[int] = Field(default=None, gt=0, lt=300)
 
     # ---- Opcionais: Paciente ----
     data_primeiro_atendimento: Optional[date] = None

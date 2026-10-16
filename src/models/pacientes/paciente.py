@@ -50,9 +50,13 @@ class Paciente(db.Model):
     falecido = db.Column(db.Boolean, nullable=False, default=False)
     data_obito = db.Column(db.Date, nullable=True)
     nao_identificado = db.Column(db.Boolean, nullable=False, default=False)
-
+    
+    peso = db.Column(db.Float, nullable=True)
+    altura = db.Column(db.Integer, nullable=True)
+    
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
+    
     cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
 
     empresa = db.relationship("Empresa", back_populates="pacientes")
@@ -65,6 +69,7 @@ class Paciente(db.Model):
         cascade="save-update, merge", passive_deletes="all",
         order_by="desc(ObservacaoTipoSanguineo.data_registro), desc(ObservacaoTipoSanguineo.id)",
     )
+    
     alergias = db.relationship("Alergia", back_populates="paciente",
                                 cascade="save-update, merge", passive_deletes="all")
     doencas = db.relationship("DoencaCronica", back_populates="paciente",
