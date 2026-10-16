@@ -9,7 +9,9 @@ from src.core.session import (
     requer_login, requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
 )
 from .resultado_prescricao_service import ResultadoPrescricaoService
-from ..schema_prescricoes import ResultadoPrescricaoIn, formatar_erros_pydantic
+from ..schema_prescricoes import (
+    ResultadoPrescricaoIn, ConfirmacaoPrescricaoIn, formatar_erros_pydantic,
+)
 
 bp_resultado_prescricao = Blueprint("resultado_prescricao", __name__)
 _svc_resultado = ResultadoPrescricaoService()
@@ -45,12 +47,32 @@ class ResultadoPrescricaoController():
 
 
     @staticmethod
+    @bp_resultado_prescricao.get("/<uuid_resultado>/alertas")
+    @requer_papel_clinico("medico")
+    def alertas_resultado(uuid_resultado):
+        """Alertas de interação do conjunto atual de medicamentos + cobertura da base.
+        Lista vazia NÃO significa ausência de interação clínica (ver cobertura.aviso)."""
+        try:
+            verificacao = _svc_resultado.verificar_alertas(uuid_resultado, get_id_empresa_sessao())
+            return json_success(data=verificacao)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+
+    @staticmethod
     @bp_resultado_prescricao.post("/<uuid_resultado>/confirmar")
     @requer_papel_clinico("medico")
     def confirmar_resultado(uuid_resultado):
-        """O médico responsável confirma a prescrição (rascunho -> confirmado)."""
+        """O médico responsável confirma a prescrição (rascunho -> confirmado).
+        Com alertas de interação, exige {"reconhecer_alertas": true}."""
+        dados = request.get_json(silent=True) or {}
         try:
-            r = _svc_resultado.confirmar(uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=r.to_dict(), message="Prescrição confirmada.")
+            conf = ConfirmacaoPrescricaoIn.model_validate(dados)
+            r, verificacao = _svc_resultado.confirmar(
+                uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao(), conf.reconhecer_alertas
+            )
+            return json_success(data={"resultado": r.to_dict(), **verificacao}, message="Prescrição confirmada.")
+        except ValidationError as ex:
+            return json_error(formatar_erros_pydantic(ex), 422)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

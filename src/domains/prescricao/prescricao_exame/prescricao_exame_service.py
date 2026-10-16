@@ -1,4 +1,3 @@
-from src.models import db
 from src.core.exceptions import RecursoNaoEncontradoError
 from src.models.clinico import PrescricaoExame
 from .prescricao_exame_repository import PrescricaoExameRepository
@@ -36,15 +35,19 @@ class PrescricaoExameService:
     def incluir(self, resultado, item: ExamePrescritoIn, origem: str,
                 id_output_origem: int | None = None, commit: bool = True):
         """origem e id_output_origem são decididos por quem chama, nunca pelo body."""
+        # Ajustar para o repositório do catálogo de exames quando ele existir
+        # (hoje assume o mesmo padrão dos outros catálogos: coluna `uuid`).
         from src.models.catalogos import CatalogoExames
 
-        if not db.session.get(CatalogoExames, item.id_exame):
-            raise RecursoNaoEncontradoError(f"Exame não encontrado no catálogo: {item.id_exame}")
+        catalogo = CatalogoExames.query.filter_by(uuid=item.uuid_exame).first()
+        if not catalogo:
+            raise RecursoNaoEncontradoError(f"Exame não encontrado no catálogo: {item.uuid_exame}")
 
         pe = PrescricaoExame(
             id_resultado=resultado.id,
+            id_exame=catalogo.id,
             origem_sugestao=origem,
             id_output_origem=id_output_origem,
-            **item.model_dump(),
+            **item.model_dump(exclude={"uuid_exame"}),
         )
         return self.repo.save(pe, commit=commit)

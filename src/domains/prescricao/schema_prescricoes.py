@@ -4,20 +4,30 @@ Médico (rotas HTTP) e IA (resposta do modelo) validam com as MESMAS classes.
 
 extra="forbid": qualquer campo fora do contrato (origem_sugestao, id_output_origem,
 id_resultado, status, formulado_por...) vira erro de validação em vez de ser ignorado.
-Os schemas validam FORMA; a existência dos ids nos catálogos é checada no service.
+Os schemas validam FORMA; a existência dos itens nos catálogos é checada no service.
+
+Catálogos são referenciados pelo UUID público (é o que o to_dict() deles expõe),
+nunca pelo id numérico interno.
 """
 
 from typing import Annotated, Literal, Optional
 
 from pydantic import (
-    BaseModel, ConfigDict, Field, StrictInt, StringConstraints,
+    AfterValidator, BaseModel, ConfigDict, Field, StrictBool, StringConstraints,
     ValidationError, field_validator, model_validator,
 )
 
 Texto100 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 Texto255 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Texto2000 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
-IdPositivo = Annotated[StrictInt, Field(gt=0)]  # rejeita "12" e true
+UuidStr = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        pattern=r"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    ),
+    AfterValidator(str.lower),
+]
 # CID-10: letra + 2 dígitos, subcategoria opcional (A90, J45.9, S72.01)
 CodigoCid10 = Annotated[str, StringConstraints(pattern=r"^[A-Z][0-9]{2}(\.[0-9]{1,2})?$")]
 
@@ -51,7 +61,7 @@ class ResultadoPrescricaoIn(_Base):
 
 
 class MedicamentoPrescritoIn(_Base):
-    id_catalogo: IdPositivo
+    uuid_catalogo: UuidStr  # uuid de CatalogoMedicamentos
     dose: Optional[Texto100] = None
     frequencia: Optional[Texto100] = None
     duracao: Optional[Texto100] = None
@@ -59,9 +69,14 @@ class MedicamentoPrescritoIn(_Base):
 
 
 class ExamePrescritoIn(_Base):
-    id_exame: IdPositivo
+    uuid_exame: UuidStr  # uuid de CatalogoExames (catálogo ainda a planejar)
     urgencia: Literal["rotina", "urgente", "emergencia"] = "rotina"
     justificativa: Optional[Texto2000] = None
+
+
+class ConfirmacaoPrescricaoIn(_Base):
+    """Corpo de POST /<uuid_resultado>/confirmar."""
+    reconhecer_alertas: StrictBool = False
 
 
 class PropostaPrescricaoIA(_Base):
@@ -75,9 +90,9 @@ class PropostaPrescricaoIA(_Base):
 
     @model_validator(mode="after")
     def _consistente(self):
-        ids_med = [m.id_catalogo for m in self.medicamentos]
-        ids_exa = [e.id_exame for e in self.exames]
-        if len(ids_med) != len(set(ids_med)) or len(ids_exa) != len(set(ids_exa)):
+        uuids_med = [m.uuid_catalogo for m in self.medicamentos]
+        uuids_exa = [e.uuid_exame for e in self.exames]
+        if len(uuids_med) != len(set(uuids_med)) or len(uuids_exa) != len(set(uuids_exa)):
             raise ValueError("Itens repetidos na prescrição.")
         if (self.medicamentos or self.exames) and self.resultado is None:
             raise ValueError("'resultado' (CID-10 e certeza diagnóstica) é obrigatório quando há itens.")

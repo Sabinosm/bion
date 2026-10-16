@@ -2,9 +2,9 @@
 em rascunho, ligado ao médico da sessão. Tudo em uma única transação."""
 
 from src.models import db
-from resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
+from .resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
 from .prescricao_service import PrescricaoService
-from prescricao_exame.prescricao_exame_service import PrescricaoExameService
+from .prescricao_exame.prescricao_exame_service import PrescricaoExameService
 from .schema_prescricoes import PropostaPrescricaoIA
 
 
@@ -21,7 +21,9 @@ class PrescricaoIAService:
 
         Use: proposta = PropostaPrescricaoIA.model_validate(json_da_ia)
              id_usuario = get_id_usuario_sessao()
-        Se algum item for inválido (ex.: id inexistente no catálogo), nada é salvo.
+        A IA referencia os catálogos pelo uuid público. Se algum item for inválido
+        (uuid inexistente, medicamento repetido), nada é salvo.
+        Os alertas de interação ficam disponíveis em GET /<uuid_resultado>/alertas.
         """
         if proposta.sem_recomendacao:
             return None

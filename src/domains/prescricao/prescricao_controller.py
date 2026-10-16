@@ -17,14 +17,18 @@ class PrescricaoController():
     @bp_prescricao.post("/<uuid_resultado>/medicamentos")
     @requer_papel_clinico("medico")
     def adicionar_medicamento(uuid_resultado):
-        """Adiciona um medicamento prescrito a um ResultadoPrescricao (rascunho do próprio médico)."""
+        """Adiciona um medicamento (por uuid_catalogo) ao rascunho do médico.
+        A resposta traz os alertas de interação do conjunto atual do rascunho."""
         dados = request.get_json(silent=True) or {}
         try:
             item = MedicamentoPrescritoIn.model_validate(dados)
-            p = _svc_prescricao.adicionar_medicamento(
+            p, verificacao = _svc_prescricao.adicionar_medicamento(
                 uuid_resultado, item, get_id_empresa_sessao(), get_id_usuario_sessao()
             )
-            return json_success(data=p.to_dict(), message="Medicamento prescrito.", status=201)
+            return json_success(
+                data={"prescricao": p.to_dict(), **verificacao},
+                message="Medicamento prescrito.", status=201,
+            )
         except ValidationError as ex:
             return json_error(formatar_erros_pydantic(ex), 422)
         except BionException as ex:

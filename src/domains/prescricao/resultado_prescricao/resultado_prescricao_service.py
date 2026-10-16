@@ -3,11 +3,13 @@ from datetime import datetime, timezone
 from src.core.exceptions import RecursoNaoEncontradoError, PermissaoNegadaError, ConflictoError
 from .resultado_prescricao_repository import ResultadoPrescricaoRepository
 from ..schema_prescricoes import ResultadoPrescricaoIn
+from ..prescricao_validacao_service import PrescricaoValidacaoService
 
 
 class ResultadoPrescricaoService:
     def __init__(self):
         self.resultado_repo = ResultadoPrescricaoRepository()
+        self.validacao_svc = PrescricaoValidacaoService()
 
     # ------------------------------------------------------------------
     # Escrita
@@ -47,14 +49,26 @@ class ResultadoPrescricaoService:
             raise ConflictoError("Prescrição já confirmada; não pode mais ser alterada.")
         return r
 
-    def confirmar(self, uuid_resultado: str, id_empresa: int, id_usuario: int):
-        """O médico passa a responder pela prescrição (rascunho -> confirmado)."""
+    def confirmar(self, uuid_resultado: str, id_empresa: int, id_usuario: int,
+                  reconhecer_alertas: bool = False):
+        """O médico passa a responder pela prescrição (rascunho -> confirmado).
+
+        Se houver alertas de interação, a confirmação exige reconhecimento explícito
+        (reconhecer_alertas=True). Retorna (resultado, verificacao)."""
         r = self.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         if r.tipo_prescricao == "farmacologica" and not r.prescricoes:
             raise ConflictoError("Prescrição farmacológica exige ao menos um medicamento.")
+
+        verificacao = self.validacao_svc.verificar_interacoes(self._ids_medicamentos(r))
+        if verificacao["alertas"] and not reconhecer_alertas:
+            raise ConflictoError(
+                f"{len(verificacao['alertas'])} alerta(s) de interação medicamentosa. "
+                "Revise (GET /<uuid_resultado>/alertas) e confirme com reconhecer_alertas=true."
+            )
+
         r.status = "confirmado"
         r.confirmado_em = datetime.now(timezone.utc)
-        return self.resultado_repo.save(r)
+        return self.resultado_repo.save(r), verificacao
 
     # ------------------------------------------------------------------
     # Leitura
@@ -64,6 +78,15 @@ class ResultadoPrescricaoService:
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
         return r
+
+    def verificar_alertas(self, uuid_resultado: str, id_empresa: int) -> dict:
+        """Interações do conjunto atual de medicamentos do resultado."""
+        r = self.buscar_resultado_por_uuid(uuid_resultado, id_empresa)
+        return self.validacao_svc.verificar_interacoes(self._ids_medicamentos(r))
+
+    @staticmethod
+    def _ids_medicamentos(resultado) -> set[int]:
+        return {p.id_catalogo for p in resultado.prescricoes if p.id_catalogo}
 
     # --- C1: Doenças mais comuns por região ---
     def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):

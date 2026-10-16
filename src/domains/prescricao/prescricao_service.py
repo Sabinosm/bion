@@ -1,24 +1,34 @@
-from src.models import db
-from src.core.exceptions import RecursoNaoEncontradoError
+from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
 from src.models.clinico import Prescricao
+from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 from .prescricao_repository import PrescricaoRepository
 from .resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
+from .prescricao_validacao_service import PrescricaoValidacaoService
 from .schema_prescricoes import MedicamentoPrescritoIn
 
 
 class PrescricaoService:
     def __init__(self):
         self.prescricao_repo = PrescricaoRepository()
+        self.catalogo_repo = CatalogoMedicamentosRepository()
         self.resultado_svc = ResultadoPrescricaoService()
+        self.validacao_svc = PrescricaoValidacaoService()
 
     # ------------------------------------------------------------------
     # Escrita (fluxo do médico)
     # ------------------------------------------------------------------
     def adicionar_medicamento(self, uuid_resultado: str, item: MedicamentoPrescritoIn,
                               id_empresa: int, id_usuario: int):
-        """Médico adiciona um medicamento ao seu rascunho. Origem fixa: 'medico'."""
+        """Médico adiciona um medicamento ao seu rascunho. Origem fixa: 'medico'.
+
+        Retorna (prescricao, verificacao): verificacao = {"alertas", "cobertura"} com as
+        interações do conjunto atual de medicamentos do rascunho."""
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
-        return self.incluir(resultado, item, origem="medico")
+        p = self.incluir(resultado, item, origem="medico")
+        verificacao = self.validacao_svc.verificar_interacoes(
+            self.prescricao_repo.ids_catalogo_do_resultado(resultado.id)
+        )
+        return p, verificacao
 
     def remover_medicamento(self, uuid_resultado: str, uuid_item: str, id_empresa: int, id_usuario: int):
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
@@ -33,16 +43,18 @@ class PrescricaoService:
     def incluir(self, resultado, item: MedicamentoPrescritoIn, origem: str,
                 id_output_origem: int | None = None, commit: bool = True):
         """origem e id_output_origem são decididos por quem chama, nunca pelo body."""
-        from src.models.catalogos import CatalogoMedicamentos
-
-        if not db.session.get(CatalogoMedicamentos, item.id_catalogo):
-            raise RecursoNaoEncontradoError(f"Medicamento não encontrado no catálogo: {item.id_catalogo}")
+        catalogo = self.catalogo_repo.find_by_uuid(item.uuid_catalogo)
+        if not catalogo:
+            raise RecursoNaoEncontradoError(f"Medicamento não encontrado no catálogo: {item.uuid_catalogo}")
+        if catalogo.id in self.prescricao_repo.ids_catalogo_do_resultado(resultado.id):
+            raise ConflictoError(f"O medicamento '{catalogo.principio_ativo}' já consta nesta prescrição.")
 
         p = Prescricao(
             id_resultado_prescricao=resultado.id,
+            id_catalogo=catalogo.id,
             origem_sugestao=origem,
             id_output_origem=id_output_origem,
-            **item.model_dump(),  # só campos clínicos (extra="forbid" no schema)
+            **item.model_dump(exclude={"uuid_catalogo"}),  # só campos clínicos
         )
         return self.prescricao_repo.save(p, commit=commit)
 
