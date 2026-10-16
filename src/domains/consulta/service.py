@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from .repository import ConsultaRepository
 from .schema_consulta import DESFECHOS_VALIDOS, ORIGENS_VALIDAS
+from src.domains.paciente.services.consentimento_service import consentimento_bloqueia_consulta
 
 class ConsultaService:
     """Abertura, consulta e encerramento de Consultas."""
@@ -202,7 +203,11 @@ class ConsultaService:
     def situacao_consentimento(self, uuid: str, id_empresa: int) -> dict:
         c = self.buscar_por_uuid(uuid, id_empresa)
         situacao = self._consentimento_svc().situacao(c.id_paciente, desde=c.data_hora_inicio)
-        return {"valido": situacao is not None, "situacao": situacao}
+        return {
+            "valido": situacao is not None,
+            "situacao": situacao,
+            "bloqueia_atendimento": situacao is None and consentimento_bloqueia_consulta(),
+        }
 
     def exigir_consentimento(self, consulta):
         """GANCHO PARA O BLOCO 2: AtendimentoService chama isto antes de

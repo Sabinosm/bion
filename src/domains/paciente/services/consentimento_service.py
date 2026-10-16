@@ -12,7 +12,7 @@ from src.domains.paciente.schemas.schema_consentimento import (
 )
 
 
-def _consentimento_bloqueia_consulta() -> bool:
+def consentimento_bloqueia_consulta() -> bool:
     """Chave ÚNICA da regra "consulta x consentimento". Padrão: NÃO bloqueia
     (a consulta abre com ou sem consentimento). Para voltar a exigir, defina
     CONSENT_BLOQUEIA_CONSULTA=true no ambiente: nenhuma mudança de código."""
@@ -202,7 +202,7 @@ class ConsentimentoService:
         sinalizar a pendência. Finalidades opcionais (IA etc.) seguem desligadas sem
         consentimento: ver escopo_permitido, que independe desta chave."""
         situacao = self.situacao(id_paciente, desde)
-        if situacao is None and _consentimento_bloqueia_consulta():
+        if situacao is None and consentimento_bloqueia_consulta():
             raise ConflictoError(
                 "Consentimento LGPD pendente: colete o termo ou registre a dispensa por emergência."
             )
