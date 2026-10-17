@@ -144,7 +144,6 @@ class ConsentimentoDigitalService:
             id_paciente=p.id,
             id_unidade=id_empresa,
             id_medico_gerador=id_medico,
-            versao_termo=entrada.versao_termo,
             hash_pdf_original=hash_pdf,
             texto_termo_snapshot=texto_termo,
             versao_termo=versao, 
