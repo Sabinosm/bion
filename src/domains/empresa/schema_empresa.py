@@ -13,34 +13,12 @@ AtualizacaoEmpresaSchema divide os campos por sensibilidade:
   pelo admin da empresa dona do dado, já que são campos que a própria
   empresa não deveria conseguir se autoconceder (ex: reativar o
   próprio plano suspenso).
-
-  - cnpj: identidade legal da empresa (Receita Federal). Trocar não é
-    "atualizar cadastro", é virar outra pessoa jurídica mantendo o
-    histórico antigo vinculado. Erro de digitação real deve ser
-    corrigido manualmente (banco/suporte), nunca por PUT genérico.
-  - razao_social: dado legal; menos crítico que CNPJ mas ainda exige
-    auditoria de quem mudou, não autoatualização.
-  - status_plano: controla se a empresa está ativa/suspensa/cancelada.
-    Se o próprio cliente puder setar isso, ele pode se autoliberar de
-    uma suspensão por inadimplência. Só deve ser alterado por sistema
-    interno (webhook de pagamento) ou papel Bion.
-  - plano: define cobrança/features contratadas; mesma lógica do acima.
-
-  Nenhum desses é declarado no schema; `extra = "forbid"` já rejeita
-  automaticamente se vierem no payload.
-
-- id_regiao_geografica: NÃO incluído por ora. Fica de fora até existir
-  um processo de inserts manuais/curados das localidades do Brasil
-  (conjunto finito, mas grande -- não é algo pra aceitar como string
-  livre vinda do cliente). Quando esse cadastro de regiões existir,
-  este campo deve ser validado contra ele (FK existente), não recebido
-  cru.
 """
 
 import re
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
 from src.core import validacoes as vl
 from src.core.erros_pydantic import erros_pydantic_por_campo
 
@@ -55,9 +33,6 @@ class CadastroEmpresaSchema(BaseModel):
     # Tamanhos alinhados com o model Empresa (255/255/150) e com o front.
     nome_fantasia: str = Field(..., min_length=2, max_length=255)
     razao_social: Optional[str] = Field(None, max_length=255)
-    # CNPJ e CNES: pelo menos UM dos dois é obrigatório (ver
-    # exige_cnpj_ou_cnes abaixo). Estabelecimentos de saúde de pessoa
-    # física, por exemplo, têm CNES mas não têm CNPJ.
     cnpj: Optional[str] = None
     cnes: Optional[str] = Field(None, max_length=20)
     numero: Optional[str] = Field(None, max_length=10)
@@ -66,6 +41,8 @@ class CadastroEmpresaSchema(BaseModel):
     cep: Optional[str] = None
     status_plano: str = "ativo"
     plano: Optional[str] = None
+    dpo_nome: Optional[str] = Field(None, max_length=255)
+    dpo_email: Optional[EmailStr] = Field(None, max_length=255)
 
     model_config = {
         "str_strip_whitespace": True,
@@ -110,7 +87,6 @@ class CadastroEmpresaSchema(BaseModel):
 
     @model_validator(mode="after")
     def exige_cnpj_ou_cnes(self):
-        # Erro sem campo específico: aparece como "(corpo): ..." na
         if not self.cnpj and not self.cnes:
             raise ValueError("Informe o CNPJ ou o CNES.")
         return self
@@ -126,6 +102,8 @@ class AtualizacaoEmpresaSchema(BaseModel):
     bairro: Optional[str] = Field(None, max_length=100)
     complemento: Optional[str] = Field(None, max_length=150)
     cep: Optional[str] = None
+    dpo_nome: Optional[str] = Field(None, max_length=255)
+    dpo_email: Optional[EmailStr] = Field(None, max_length=255)
 
     model_config = {
         "str_strip_whitespace": True,
