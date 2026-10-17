@@ -44,13 +44,10 @@ def _formatar_cnpj(cnpj) -> str:
 
 
 def _logradouro(e) -> str:
-    """1) coluna Empresa.logradouro (vale como correção manual, p.ex. CEP 'geral');
-    2) senão, resolve pelo CEP da empresa (BrasilAPI/ViaCEP via CepService)."""
-    rua = _limpar(getattr(e, "logradouro", None))
-    if rua or not e.cep:
-        return rua
+    """resolve pelo CEP da empresa (BrasilAPI/ViaCEP via CepService)."""
+
     try:
-        from src.domains.regiao.cep_service import CepService  # TODO: ajustar o caminho do import
+        from src.domains.regiao.cep_service import CepService 
         return _limpar(CepService().buscar_logradouro_por_cep(e.cep))
     except Exception:
         return ""   # API fora do ar: cai no erro "Faltando: logradouro" em vez de gerar termo incompleto
@@ -110,6 +107,33 @@ def renderizar_texto(versao: str, empresa, escopos: dict) -> str:
         raise DadosInvalidosError(f"Template do termo usa variável desconhecida: {ex.message}")
     return texto
 
+def versoes_disponiveis() -> list[str]:
+    """Versões com template publicado em TEMPLATES_DIR (termo_<versao>.txt)."""
+    versoes = []
+    for arq in TEMPLATES_DIR.glob("termo_*.txt"):
+        versao = arq.stem[len("termo_"):]
+        if _REGEX_VERSAO.match(versao):
+            versoes.append(versao)
+    return versoes
+
+
+def _chave_versao(versao: str) -> tuple:
+    """'lgpd-v1.10-2026' -> (1, 10, 2026): compara número a número."""
+    return tuple(int(n) for n in re.findall(r"\d+", versao))
+
+
+def versao_vigente() -> str:
+    """Versão que o servidor usa quando o cliente não escolhe: a definida em
+    CONSENT_VERSAO_TERMO_VIGENTE, ou a mais recente entre os templates."""
+    fixa = os.getenv("CONSENT_VERSAO_TERMO_VIGENTE", "").strip()
+    if fixa:
+        if not _REGEX_VERSAO.match(fixa):
+            raise DadosInvalidosError("CONSENT_VERSAO_TERMO_VIGENTE inválida.")
+        return fixa
+    versoes = versoes_disponiveis()
+    if not versoes:
+        raise RecursoNaoEncontradoError("Nenhum template de termo disponível.")
+    return max(versoes, key=_chave_versao)
 
 def gerar_pdf_bytes(texto: str) -> bytes:
     base = dict(fontName="Helvetica", fontSize=10, leading=14)

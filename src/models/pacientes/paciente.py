@@ -50,9 +50,13 @@ class Paciente(db.Model):
     falecido = db.Column(db.Boolean, nullable=False, default=False)
     data_obito = db.Column(db.Date, nullable=True)
     nao_identificado = db.Column(db.Boolean, nullable=False, default=False)
-
+    
+    peso = db.Column(db.Float, nullable=True)
+    altura = db.Column(db.Integer, nullable=True)
+    
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
+    
     cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
 
     empresa = db.relationship("Empresa", back_populates="pacientes")
@@ -65,6 +69,7 @@ class Paciente(db.Model):
         cascade="save-update, merge", passive_deletes="all",
         order_by="desc(ObservacaoTipoSanguineo.data_registro), desc(ObservacaoTipoSanguineo.id)",
     )
+    
     alergias = db.relationship("Alergia", back_populates="paciente",
                                 cascade="save-update, merge", passive_deletes="all")
     doencas = db.relationship("DoencaCronica", back_populates="paciente",
@@ -111,6 +116,8 @@ class Paciente(db.Model):
         d = {
             "uuid": self.uuid,
             "sexo_biologico": self.sexo_biologico,
+            "peso": self.peso,
+            "altura": self.altura,
             "tipo_sanguineo": self.tipo_sanguineo,  # via property, comportamento idêntico a antes
             "data_nascimento": self.data_nascimento.isoformat() if self.data_nascimento else None,
             "status": self.status,
@@ -146,6 +153,8 @@ class Paciente(db.Model):
             "cadastrado_por": self.usuario_cadastro.nome_completo if self.usuario_cadastro else None,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
             "sexo_biologico": self.sexo_biologico,
+            "peso": self.peso,
+            "altura": self.altura,
             "status": self.status,
             "nao_identificado": self.nao_identificado,
         }

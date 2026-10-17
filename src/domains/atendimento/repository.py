@@ -7,20 +7,50 @@ from sqlalchemy import func, text
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.clinico import Atendimento
+from src.models.clinico import Atendimento, Consulta
 from src.models.clinico.coleta_clinica import ColetaClinica
 
 
-class  AtendimentoRepository(IRepository[Atendimento]):
-    """Encapsula todo acesso a dados de Atendimento via SQLAlchemy."""
+class AtendimentoRepository(IRepository[Atendimento]):
+    """Encapsula todo acesso a dados de Atendimento via SQLAlchemy.
 
+    TRANSAÇÃO: save(commit) / confirmar(commit) / rollback(), no mesmo padrão
+    do PacienteRepository. commit=False só faz flush.
+
+    TENANT: Atendimento não tem id_empresa; a posse vem de Consulta.id_empresa.
+    Nada é apagado fisicamente: delete() levanta NotImplementedError."""
+
+    # ------------------------------------------------------------ transação
+    def confirmar(self, commit: bool = True) -> None:
+        """commit=True: commita; commit=False: só flush (a transação segue aberta)."""
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    def rollback(self) -> None:
+        db.session.rollback()
+
+    def travar(self, atendimento: Atendimento) -> Atendimento:
+        """Relê a linha com SELECT ... FOR UPDATE (a trava vale até commit/rollback).
+        Usado na conferência do binário, que lê, altera e grava o JSON."""
+        db.session.refresh(atendimento, with_for_update=True)
+        return atendimento
+
+    # ---------------------------------------------------------------- leitura
     def find_by_id(self, id: int) -> Optional[Atendimento]:
         """Busca um Atendimento pelo ID interno (chave primária)."""
         return db.session.get(Atendimento, id)
 
-    def find_by_uuid(self, uuid: str) -> Optional[Atendimento]:
-        """Busca um Atendimento pelo UUID público exposto na API."""
-        return Atendimento.query.filter_by(uuid=uuid).first()
+    def find_by_uuid(self, uuid: str, id_empresa: int) -> Optional[Atendimento]:
+        """Busca um Atendimento pelo UUID público, DENTRO da empresa.
+        'Não existe' e 'é de outra empresa' dão o mesmo resultado (None)."""
+        return (
+            Atendimento.query
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Atendimento.uuid == uuid, Consulta.id_empresa == id_empresa)
+            .first()
+        )
 
     def find_por_consulta(self, id_consulta: int) -> List[Atendimento]:
         """Lista os Atendimentos de uma Consulta, em ordem cronológica."""
@@ -40,24 +70,27 @@ class  AtendimentoRepository(IRepository[Atendimento]):
             .first()
         )
 
-    def save(self, entity: Atendimento) -> Atendimento:
-        """Persiste (insert ou update) um Atendimento e commita a transação."""
+    def find_all(self, id_empresa: int) -> List[Atendimento]:
+        """Lista os Atendimentos da empresa, do mais recente para o mais antigo."""
+        return (
+            Atendimento.query
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Consulta.id_empresa == id_empresa)
+            .order_by(Atendimento.data_hora_inicio.desc())
+            .all()
+        )
+
+    # --------------------------------------------------------------- escrita
+    def save(self, entity: Atendimento, commit: bool = True) -> Atendimento:
+        """Persiste (insert ou update) um Atendimento. commit=False só faz flush."""
         db.session.add(entity)
-        db.session.commit()
+        self.confirmar(commit)
         return entity
 
     def delete(self, id: int) -> bool:
-        """Remove um Atendimento pelo ID. Retorna False se não existir."""
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
-        db.session.commit()
-        return True
-
-    def find_all(self) -> List[Atendimento]:
-        """Lista todos os Atendimentos cadastrados, sem filtro."""
-        return Atendimento.query.all()
+        raise NotImplementedError(
+            "Atendimento não é apagado fisicamente; use cancelar (status='cancelado')."
+        )
 
     # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
     def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:

@@ -1,8 +1,10 @@
-"""Rotas JSON do ciclo de vida do Atendimento (abertura e finalização).
+"""Rotas JSON do ciclo de vida do Atendimento (abertura, finalização e cancelamento).
 
 Permissões por NÍVEL MÍNIMO (médico ⊃ enfermeiro; ver sessaoPapeis.py):
   - triagem ........... enfermeiro ou médico
   - avaliação médica .. só médico
+Finalizar e cancelar: só o profissional que abriu o atendimento (o service
+devolve 403 para os demais). Finalizar também exige o binário completo.
 Toda rota passa o id_empresa da sessão: Atendimento herda a posse da
 Consulta, e UUID sozinho não prova posse.
 """
@@ -83,14 +85,35 @@ class AtendimentoController():
     @bp_atendimento.post("/<uuid_atendimento>/finalizar")
     @requer_papel_clinico("enfermeiro", "medico")
     def finalizar_atendimento(uuid_atendimento):
-        """Finaliza um Atendimento em andamento. Triagem: enfermeiro ou
-        médico. Avaliação médica: só médico (403 para enfermeiro)."""
-        dados = request.get_json(silent=True) or {}
+        """Finaliza um Atendimento em andamento. Só o dono (403); exige o
+        binário completo (409). Avaliação médica: só médico (403 para enfermeiro)."""
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            dados = {}
         try:
             a = _svc.finalizar(
-                uuid_atendimento, get_id_empresa_sessao(), dados.get("observacoes"),
+                uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao(),
+                dados.get("observacoes"),
                 eh_medico=get_funcao_clinica_sessao() == "medico",
             )
             return json_success(data=a.to_dict(), message="Atendimento finalizado.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+    @staticmethod
+    @bp_atendimento.post("/<uuid_atendimento>/cancelar")
+    @requer_papel_clinico("enfermeiro", "medico")
+    def cancelar_atendimento(uuid_atendimento):
+        """Cancela um Atendimento em andamento. Só o dono; não exige binário.
+        Corpo opcional: {"motivo_cancelamento": "erro-abertura"}."""
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            dados = {}
+        try:
+            a = _svc.cancelar(
+                uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao(),
+                dados.get("motivo_cancelamento"),
+            )
+            return json_success(data=a.to_dict(), message="Atendimento cancelado.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

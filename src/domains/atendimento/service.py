@@ -1,4 +1,4 @@
-"""Regras de negócio do ciclo de vida do Atendimento (abertura e finalização).
+"""Regras de negócio do ciclo de vida do Atendimento (abertura, finalização e cancelamento).
 
 LIGAÇÃO COM O BLOCO 1 (Consulta):
   - Tenant: Atendimento não tem id_empresa próprio; a posse vem da Consulta
@@ -9,21 +9,35 @@ LIGAÇÃO COM O BLOCO 1 (Consulta):
     ConsultaService.exigir_consentimento.
   - Consulta encerrada (inclusive por evasão) não aceita novo Atendimento
     nem finalização de Atendimento.
-  - Transação: criar/finalizar o Atendimento e recalcular o status da
-    Consulta é UMA operação atômica (um único commit, no repository).
+  - Transação: criar/finalizar/cancelar o Atendimento e recalcular o status
+    da Consulta é UMA operação atômica (um único commit).
+
+DONO: um Atendimento tem o mesmo profissional do início ao fim. Só quem o
+abriu o finaliza ou cancela (403).
+
+BINÁRIO: finalizar exige o binário completo (as 4 seções conferidas neste
+atendimento, 409). Cancelar NÃO exige: abandonar o atendimento não pode
+depender de preencher nada.
 """
 
 from datetime import datetime, timezone
 
-from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, PermissaoNegadaError
+from src.core.exceptions import (
+    RecursoNaoEncontradoError, ConflictoError, PermissaoNegadaError, DadosInvalidosError,
+)
 from .repository import AtendimentoRepository
+from .binario.binario_gate import exigir_binario_completo
 from src.domains.consulta.repository import ConsultaRepository
 from src.domains.consulta.service import ConsultaService
 from src.domains.consulta.status_sync import sincronizar_status_consulta
 
+MOTIVOS_CANCELAMENTO = (
+    "erro-abertura", "paciente-nao-compareceu", "paciente-recusou", "transferencia", "outro",
+)
+
 
 class AtendimentoService:
-    """Casos de uso relacionados à abertura, consulta e finalização de Atendimentos.
+    """Casos de uso relacionados à abertura, consulta, finalização e cancelamento de Atendimentos.
 
     MODELO: a Consulta é o EPISÓDIO de um problema de saúde; os Atendimentos
     são etapas dentro dela (1:N). Retornos pelo mesmo problema entram na
@@ -132,25 +146,36 @@ class AtendimentoService:
         self._exigir_sem_em_andamento(c)
         return self._criar(c, "avaliacao-medica", id_usuario)
 
-    # ------------------------------------------------------------ finalizar
-    def finalizar(self, uuid_atendimento: str, id_empresa: int, observacoes: str = None,
-                  eh_medico: bool = False):
+    # ------------------------------------------------- finalizar / cancelar
+    @staticmethod
+    def _exigir_dono(atendimento, id_usuario: int, acao: str) -> None:
+        """Só quem abriu o Atendimento o finaliza ou cancela (403)."""
+        if atendimento.realizado_por != id_usuario:
+            raise PermissaoNegadaError(
+                f"Só o profissional que abriu o atendimento pode {acao}."
+            )
+
+    def finalizar(self, uuid_atendimento: str, id_empresa: int, id_usuario: int,
+                  observacoes: str = None, eh_medico: bool = False):
         """
         Finaliza um Atendimento em andamento, registrando data/hora de
         término e observações opcionais do profissional. Sincroniza
         status_consulta na mesma transação.
 
-        `eh_medico` vem da sessão (controller): triagem pode ser finalizada
-        por enfermeiro ou médico, mas avaliação médica só por médico.
+        Só o dono (403). Exige o binário completo (409), em qualquer tipo de
+        atendimento. `eh_medico` vem da sessão (controller): avaliação
+        médica só é finalizada por médico.
 
         Raises:
             RecursoNaoEncontradoError: Atendimento inexistente ou de outra empresa.
-            PermissaoNegadaError: avaliação médica finalizada por quem não é médico.
+            PermissaoNegadaError: não é o dono; ou avaliação médica sem ser médico.
             ConflictoError: já finalizado; cancelado (ex: por evasão -- um
-                Atendimento cancelado nunca vira finalizado); ou a
-                Consulta já está encerrada.
+                Atendimento cancelado nunca vira finalizado); a Consulta já
+                está encerrada; ou binário incompleto.
+            DadosInvalidosError: observações que não são texto.
         """
         atendimento = self.buscar_por_uuid(uuid_atendimento, id_empresa)
+        self._exigir_dono(atendimento, id_usuario, "finalizá-lo")
         if atendimento.tipo_atendimento == "avaliacao-medica" and not eh_medico:
             raise PermissaoNegadaError("Somente médico pode finalizar uma avaliação médica.")
         if atendimento.status == "finalizado":
@@ -162,11 +187,55 @@ class AtendimentoService:
         if c.status_consulta == "encerrada":
             raise ConflictoError("Consulta encerrada: o atendimento não pode mais ser finalizado.")
 
+        exigir_binario_completo(atendimento)
+        if observacoes is not None and not isinstance(observacoes, str):
+            raise DadosInvalidosError({"observacoes": "deve ser texto."})
+
         try:
             atendimento.status = "finalizado"
             atendimento.data_hora_fim = datetime.now(timezone.utc)
             if observacoes:
                 atendimento.observacoes_profissional = observacoes
+            self.repo.save(atendimento, commit=False)
+            self._sincronizar(c, commit=False)
+            self.repo.confirmar(commit=True)
+            return atendimento
+        except Exception:
+            self.repo.rollback()
+            raise
+
+    def cancelar(self, uuid_atendimento: str, id_empresa: int, id_usuario: int,
+                 motivo: str = None):
+        """
+        Cancela um Atendimento EM ANDAMENTO (aberto por engano, paciente saiu...).
+        Sincroniza status_consulta na mesma transação.
+
+        Só o dono (403). NÃO exige binário. `motivo` é opcional (None pula);
+        se vier, precisa estar em MOTIVOS_CANCELAMENTO (422). Os dados
+        clínicos já gravados neste atendimento permanecem (nada é apagado).
+
+        Raises:
+            RecursoNaoEncontradoError: Atendimento inexistente ou de outra empresa.
+            PermissaoNegadaError: não é o dono.
+            ConflictoError: o atendimento não está em andamento.
+            DadosInvalidosError: motivo fora da lista.
+        """
+        atendimento = self.buscar_por_uuid(uuid_atendimento, id_empresa)
+        self._exigir_dono(atendimento, id_usuario, "cancelá-lo")
+        if atendimento.status != "em-andamento":
+            raise ConflictoError(
+                f"Só atendimento em andamento pode ser cancelado (status atual: {atendimento.status})."
+            )
+        if motivo is not None and motivo not in MOTIVOS_CANCELAMENTO:
+            raise DadosInvalidosError(
+                {"motivo_cancelamento": "inválido; use um de: " + ", ".join(MOTIVOS_CANCELAMENTO)}
+            )
+
+        c = self.consulta_repo.find_by_id(atendimento.id_consulta)
+        try:
+            atendimento.status = "cancelado"
+            atendimento.data_hora_fim = datetime.now(timezone.utc)
+            atendimento.motivo_cancelamento = motivo
             self.repo.save(atendimento, commit=False)
             self._sincronizar(c, commit=False)
             self.repo.confirmar(commit=True)

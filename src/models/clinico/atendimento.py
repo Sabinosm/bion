@@ -39,6 +39,14 @@ class Atendimento(db.Model):
     data_hora_fim = db.Column(db.DateTime(timezone=True))
     habitos_atendimento_json = db.Column(db.JSON)
     observacoes_profissional = db.Column(db.Text)
+    # Conferência do binário: {"v":1,"<secao>":{"estado":"preenchido|nega|nao-coletado"}}.
+    # Lida/escrita SÓ pelo objeto Binario (binario_model.py). Chave ausente = pendente.
+    binario = db.Column(db.JSON, nullable=True)
+    # Motivo (opcional) do cancelamento; só preenchido por cancelar().
+    motivo_cancelamento = db.Column(
+        db.Enum("erro-abertura", "paciente-nao-compareceu", "paciente-recusou",
+                "transferencia", "outro"),
+        nullable=True)
 
     consulta = db.relationship("Consulta", back_populates="atendimentos")
     usuario = db.relationship("Usuario")
@@ -59,6 +67,7 @@ class Atendimento(db.Model):
             "data_hora_inicio": self.data_hora_inicio.isoformat() if self.data_hora_inicio else None,
             "data_hora_fim": self.data_hora_fim.isoformat() if self.data_hora_fim else None,
             "observacoes_profissional": self.observacoes_profissional,
+            "motivo_cancelamento": self.motivo_cancelamento,
             "consulta_uuid": self.consulta.uuid if self.consulta else None,
         }
 
