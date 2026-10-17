@@ -21,12 +21,16 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
+from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
 from src.domains.atendimento.binario.binario_gate import exigir_binario_completo
 from .schema import SinaisVitaisIn, ColetaClinicaIn, InputProtocoloIn
 from .repository import ColetaClinicaRepository, SinalVitalRepository, InputProtocoloRepository
+
+# O enum InputProtocolo.tipo_input só tem estes dois valores; Atendimento.tipo_atendimento
+# tem mais (reavaliacao, alta, procedimento). Nesses, input de protocolo não existe.
+TIPOS_COM_INPUT_PROTOCOLO = ("triagem", "avaliacao-medica")
 
 
 class DadosClinicosService:
@@ -126,6 +130,8 @@ class DadosClinicosService:
         Registra o input de protocolo (queixa, sinais, fluxograma) de uma
         coleta clínica DESTE atendimento. Exige o binário completo (409).
 
+        Só existe em atendimento de triagem ou avaliação médica; nos demais
+        tipos (reavaliacao, alta, procedimento) = 409.
         `tipo_input`: padrão = tipo do atendimento; se vier, tem de ser igual (422).
         O conteúdo de `input_json` é livre (ainda não há schema para ele).
         InputProtocolo é parte do domínio Protocolo/IA, fora do escopo FHIR.
@@ -133,12 +139,18 @@ class DadosClinicosService:
         Raises:
             RecursoNaoEncontradoError: atendimento/paciente do guard; coleta inexistente
                 ou de outro atendimento.
-            ConflictoError / PermissaoNegadaError: do guard; binário incompleto.
+            ConflictoError / PermissaoNegadaError: do guard; binário incompleto;
+                tipo de atendimento sem input de protocolo.
             DadosInvalidosError: payload inválido ou tipo_input diferente do atendimento.
         """
         from src.models.clinico import InputProtocolo
 
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
+        if ctx.atendimento.tipo_atendimento not in TIPOS_COM_INPUT_PROTOCOLO:
+            raise ConflictoError(
+                "Input de protocolo só existe em atendimento de triagem ou avaliação médica "
+                f"(este é '{ctx.atendimento.tipo_atendimento}')."
+            )
         exigir_binario_completo(ctx.atendimento)
 
         coleta = self.coleta_repo.find_by_uuid_do_atendimento(uuid_coleta, ctx.atendimento.id)
