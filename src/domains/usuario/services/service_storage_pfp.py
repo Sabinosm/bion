@@ -11,12 +11,34 @@ class StorageService:
         self.key = os.environ.get("SUPABASE_KEY")
         self.bucket_name = os.environ.get("SUPABASE_BUCKET", "avatares")
 
-        if not self.url or not self.key:
-            raise ValueError("Credenciais do Supabase ausentes nas variáveis de ambiente.")
-
-        # Inicializa o cliente do Supabase
-        self.supabase: Client = create_client(self.url, self.key)
+        self._supabase = None
         self.max_size = 4 * 1024 * 1024  # 4MB
+
+    @property
+    def supabase(self) -> Client:
+        """Cliente do Supabase criado sob demanda.
+
+        Lazy de propósito: UsuarioService é instanciado no import do
+        controller, e só upload/remoção precisam do cliente. Assim, ler
+        a URL do avatar (url_avatar) não exige a chave de serviço e uma
+        credencial ausente só falha quando de fato se tenta mexer no
+        storage.
+        """
+        if self._supabase is None:
+            if not self.url or not self.key:
+                raise ValueError("Credenciais do Supabase ausentes nas variáveis de ambiente.")
+            self._supabase = create_client(self.url, self.key)
+        return self._supabase
+
+    def url_avatar(self, filename: str):
+        """URL pública do avatar no bucket (None se não houver filename).
+
+        Mesmo formato usado em Usuario.to_dict(), para o front receber
+        sempre a mesma URL por qualquer caminho.
+        """
+        if not filename:
+            return None
+        return f"{self.url}/storage/v1/object/public/{self.bucket_name}/{filename}"
 
     def upload_avatar(self, file_storage) -> str:
         """

@@ -61,13 +61,11 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
     _valida_alteracao_admin = _valida_alteracao_admin
 
     def __init__(self):
+        # Sem isso, StorageService.__init__ nunca roda e upload/remoção
+        # de avatar quebram com AttributeError (bucket_name, supabase).
+        super().__init__()
         self.repo = UsuarioRepository()
     
-    def atualizar_avatar_usuario(self, uuid_usuario: str, novo_filename: str):
-        usuario = self.buscar_por_uuid(uuid_usuario)
-        usuario.avatar_filename = novo_filename
-        
-        return usuario
     def buscar_por_uuid(self, uuid: str):
         """Busca um usuário pelo UUID.
 
@@ -345,7 +343,7 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         return self.repo.find_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
     
     def atualizar_avatar_usuario(self, id_usuario: int, file) -> Usuario:
-        usuario = self.find_by_id(id_usuario)
+        usuario = self.buscar_por_id(id_usuario)
         avatar_antigo = usuario.avatar_filename
         
         # 1. Faz o upload da nova imagem usando o StorageService (ou self)
@@ -360,6 +358,24 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
                             
         return usuario
 
+    def verificar_avatar_usuario(self, id_usuario: int) -> dict:
+        """Informa se o usuário tem foto de perfil e, se tiver, a URL pública.
+
+        Só lê avatar_filename (já carregado em Usuario) e monta a URL pelo
+        StorageService -- não faz chamada ao storage, então é barato.
+
+        Retorno:
+            {"tem_avatar": bool, "url": str | None}
+
+        Levanta:
+            RecursoNaoEncontradoError: se o usuário não existir mais.
+        """
+        usuario = self.buscar_por_id(id_usuario)
+        filename = usuario.avatar_filename
+        if not filename:
+            return {"tem_avatar": False, "url": None}
+        return {"tem_avatar": True, "url": self.url_avatar(filename)}
+
     def remover_avatar_usuario(self, id_usuario: int):
         # Desempacotamento seguro (deletar_pfp sempre retorna uma tupla de 2 elementos)
         usuario, avatar_antigo = self.repo.deletar_pfp(id_usuario)
@@ -370,6 +386,3 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         # Se encontrou um avatar antigo para o usuário, remove do Supabase
         self.deletar_avatar(avatar_antigo)
         return usuario
-        
-    
-            

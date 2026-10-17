@@ -284,6 +284,18 @@ class UsuarioController():
             return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
     
     @staticmethod
+    @bp.get("/avatar")
+    @requer_login
+    def verificar_avatar():
+        # Rota estática: o Flask a prioriza sobre GET /<uuid>, então não
+        # há conflito com o detalhe de usuário.
+        try:
+            info = _svc.verificar_avatar_usuario(get_id_usuario_sessao())
+            return json_success(data=info)
+        except BionException as e:
+            return json_error(e.message, e.status_code)
+
+    @staticmethod
     @bp.delete("/avatar")
     @requer_login
     def remover_avatar():            
@@ -309,4 +321,4 @@ class UsuarioController():
             usuario = _svc.atualizar_avatar_usuario(get_id_usuario_sessao(), file=file)
             return json_success(data=usuario.to_dict(), message="Avatar atualizado com sucesso.")
         except BionException as e:
-            return json_error(e.message, e.status_code)    
+            return json_error(e.message, e.status_code)
