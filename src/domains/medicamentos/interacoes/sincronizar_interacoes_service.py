@@ -175,7 +175,7 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
 
     try:
         for i, nome in enumerate(nomes, 1):
-            medicamento = _baixar_medicamento(api_key, nome, contagem)
+            medicamento = _baixar_medicamento(api_key, nome.capitalize(), contagem)
             if medicamento:
                 lista = medicamento.get("interacoes", [])
                 if lista:
