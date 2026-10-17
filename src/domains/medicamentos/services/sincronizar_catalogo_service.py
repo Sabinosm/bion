@@ -79,7 +79,7 @@ def buscar_itens_anvisa() -> tuple[list[dict], str]:
         bruto = (linha[COL_PRINCIPIO] or "").strip()
         if not bruto:
             continue
-        if "+" in bruto or ";" in bruto:
+        if "+" in bruto or ";" in bruto or "," in bruto or len(bruto) > 255:
             combinacoes += 1
             continue
 

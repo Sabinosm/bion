@@ -19,9 +19,13 @@ Uso (exemplo, a partir de um entrypoint que já tem app_context aberto):
 
 import logging
 import os
+import time
+from collections import Counter
+from urllib.parse import quote
 
 import requests
 
+from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from .atualizacao_interacoes_service import AtualizacaoInteracoesService
 
 logger = logging.getLogger(__name__)
@@ -29,53 +33,130 @@ logger = logging.getLogger(__name__)
 FONTE = "detecta-interacoes-crfmg"
 BASE_URL = "https://imses.crfmg.org.br/api"
 
+PAUSA_ENTRE_CHAMADAS = 0.2  # segundos; aumentar se a API devolver 429
+
+
+def _baixar_medicamento(api_key: str, nome: str, contagem: Counter,
+                        tentativas: int = 4) -> dict | None:
+    """Baixa um medicamento (com interações embutidas) por nome via
+    GET /medicamento/{nome}.
+
+    Por que por nome e não GET /medicamentos: a lista completa
+    (~375 KB) chega truncada de forma consistente (IncompleteRead),
+    mesmo com retry. A resposta por nome é pequena e não sofre isso.
+
+    Cada resposta HTTP é registrada em `contagem` pelo código de status
+    (ex: "200", "400", "404", "401"). Falhas de rede repetidas são
+    registradas em "retry_rede" (a cada nova tentativa) e "falha_rede"
+    (quando esgota as tentativas).
+
+    Retorna None quando o Detecta responde 400 ou 404 para o nome --
+    tratado como "sem dados" e a rotina segue. Outros erros HTTP (401,
+    403, 429, 500) sobem de propósito, pois indicam problema geral.
+    """
+    ultimo_erro = None
+    for tentativa in range(1, tentativas + 1):
+        try:
+            resposta = requests.get(
+                f"{BASE_URL}/medicamento/{quote(nome, safe='')}",
+                headers={"X-API-Key": api_key, "accept": "application/json"},
+                timeout=(10, 60),
+            )
+            contagem[str(resposta.status_code)] += 1
+
+            if resposta.status_code in (400, 404):
+                logger.warning(
+                    "Detecta: %s ignorado (HTTP %d): %s",
+                    nome, resposta.status_code, resposta.text[:200],
+                )
+                return None
+            resposta.raise_for_status()
+            return resposta.json()
+        except (requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout) as e:
+            ultimo_erro = e
+            contagem["retry_rede"] += 1
+            espera = 2 ** tentativa
+            logger.warning(
+                "Detecta: falha de rede em %s (tentativa %d/%d): %s. "
+                "Nova tentativa em %ds.",
+                nome, tentativa, tentativas, e, espera,
+            )
+            time.sleep(espera)
+    contagem["falha_rede"] += 1
+    raise ultimo_erro
+
+
+def _imprimir_resumo(contagem: Counter, total_nomes: int, com_interacoes: int):
+    """Imprime (print) um resumo da consulta ao Detecta, pronto para
+    copiar para um TXT. Mostra quantos nomes do catálogo foram
+    consultados, quantos deram cada status e quantos ficaram sem
+    consultar (quando a rotina aborta no meio)."""
+    respostas_http = sum(v for k, v in contagem.items() if k.isdigit())
+    nao_consultados = max(total_nomes - respostas_http - contagem["falha_rede"], 0)
+
+    linhas = [
+        "",
+        "=" * 50,
+        "RESUMO DA CONSULTA AO DETECTA INTERACOES",
+        "=" * 50,
+        f"Nomes no catalogo ............ {total_nomes}",
+        f"Nao consultados (abortou) .... {nao_consultados}",
+        f"Com interacoes (200 c/ dados)  {com_interacoes}",
+        "-" * 50,
+        "Respostas por status HTTP:",
+    ]
+    status_http = sorted(k for k in contagem if k.isdigit())
+    if status_http:
+        for status in status_http:
+            linhas.append(f"  HTTP {status} ................ {contagem[status]}")
+    else:
+        linhas.append("  (nenhuma resposta recebida)")
+    linhas += [
+        "-" * 50,
+        f"Retries por falha de rede .... {contagem['retry_rede']}",
+        f"Falhas de rede definitivas ... {contagem['falha_rede']}",
+        "=" * 50,
+        "",
+    ]
+    print("\n".join(linhas))
+
 
 def buscar_itens_detecta_interacoes() -> list[dict]:
     """
-    Busca todas as interações na API do Detecta Interações via
-    GET /medicamentos, que retorna cada medicamento já com suas
-    interações embutidas -- evita ter que perguntar par a par.
+    Busca as interações na API do Detecta Interações, consultando um
+    medicamento por vez (GET /medicamento/{nome}) a partir dos
+    princípios ativos do catálogo local.
 
-    Formato real da API (confirmado via /api/openapi.yaml):
+    Formato da resposta por nome (confirmado no Swagger):
     {
-      "medicamentos": [
+      "medicamento": {"id", "nome", "indicacoes"},
+      "interacoes": [
         {
-          "id": 0, "nome": "string", "indicacoes": "string",
-          "interacoes": [
-            {
-              "id": 0,
-              "medicamento1": {"id", "nome", "indicacoes"},
-              "medicamento2": {"id", "nome", "indicacoes"},
-              "mecanismo_efeito": "string",
-              "recomendacoes": "string",
-              "acao": "string"
-            }
-          ]
+          "id": 0,
+          "medicamento1": {"id", "nome", "indicacoes"},
+          "medicamento2": {"id", "nome", "indicacoes"},
+          "mecanismo_efeito": "string",
+          "recomendacoes": "string",
+          "acao": "string"   # ex: "Evitar a associação", "Monitorizar de perto"
         }
       ]
     }
 
-    Requer chave de API (header, ver DETECTA_INTERACOES_API_KEY) --
-    401 se ausente/inválida. Formato exato do header não confirmado
-    na doc consultada (comum ser "Authorization: Bearer <key>" ou
-    "X-API-Key: <key>") -- ajustar após primeiro teste real.
+    Autenticação: header X-API-Key (confirmado pelo Swagger), com a
+    chave em DETECTA_INTERACOES_API_KEY.
 
-    A API expõe "nome" do medicamento, não "principio_ativo"
-    separadamente -- assumimos aqui que o campo nome já é o nome do
-    princípio ativo (coerente com a lista vista no site: "Paracetamol",
-    "Varfarina" etc, sem marca comercial). Cada interação vem
-    duplicada (aparece tanto na lista do medicamento1 quanto do
-    medicamento2) -- deduplicamos por id da interação antes de
-    devolver, para não processar a mesma interação duas vezes.
+    Cada interação aparece na resposta dos dois medicamentos
+    envolvidos -- deduplicamos por id da interação antes de devolver.
 
-    PLACEHOLDER: enquanto DETECTA_INTERACOES_API_KEY não estiver
-    configurada (chave ainda não obtida/confirmada com os autores),
-    retorna lista vazia em vez de chamar a API ou quebrar com erro --
-    permite rodar o comando de ponta a ponta (e testar o resto do
-    pipeline: catálogo, service, log) sem a credencial real em mãos.
-    Assim que a chave existir, exportar DETECTA_INTERACOES_API_KEY no
-    ambiente é suficiente para a integração real passar a rodar, sem
-    precisar tocar neste código.
+    Ao final (mesmo se abortar), imprime um resumo com a contagem de
+    respostas por status -- ver _imprimir_resumo.
+
+    PLACEHOLDER: se DETECTA_INTERACOES_API_KEY não estiver
+    configurada, retorna lista vazia em vez de chamar a API.
+
+    Requer app_context aberto (consulta o catálogo).
     """
     api_key = os.environ.get("DETECTA_INTERACOES_API_KEY")
     if not api_key:
@@ -86,18 +167,26 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
         )
         return []
 
-    resposta = requests.get(
-        f"{BASE_URL}/medicamentos",
-        headers={"Authorization": f"Bearer {api_key}"},
-        timeout=30,
-    )
-    resposta.raise_for_status()
-    dados = resposta.json()
-
     interacoes_por_id = {}
-    for medicamento in dados.get("medicamentos", []):
-        for interacao in medicamento.get("interacoes", []):
-            interacoes_por_id[interacao["id"]] = interacao
+    contagem: Counter = Counter()
+    com_interacoes = 0
+    nomes = [m.principio_ativo for m in CatalogoMedicamentos.query.all()
+             if m.principio_ativo]
+
+    try:
+        for i, nome in enumerate(nomes, 1):
+            medicamento = _baixar_medicamento(api_key, nome, contagem)
+            if medicamento:
+                lista = medicamento.get("interacoes", [])
+                if lista:
+                    com_interacoes += 1
+                for interacao in lista:
+                    interacoes_por_id[interacao["id"]] = interacao
+            if i % 100 == 0:
+                logger.info("Detecta: %d/%d medicamentos consultados", i, len(nomes))
+            time.sleep(PAUSA_ENTRE_CHAMADAS)
+    finally:
+        _imprimir_resumo(contagem, len(nomes), com_interacoes)
 
     itens = []
     for interacao in interacoes_por_id.values():
@@ -110,6 +199,7 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
             "acao": interacao.get("acao"),
         })
 
+    logger.info("Detecta: %d interações únicas coletadas", len(itens))
     return itens
 
 
