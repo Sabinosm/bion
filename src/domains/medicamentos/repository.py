@@ -1,5 +1,5 @@
 from typing import Optional, List
-
+from src.domains.medicamentos.normalizacao import normalizar_nome
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
@@ -66,3 +66,23 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
 
     def find_all(self) -> List[CatalogoMedicamentos]:
         return CatalogoMedicamentos.query.all()
+    
+    from src.domains.medicamentos.normalizacao import normalizar_nome  # no topo do arquivo
+
+    def find_por_nome_normalizado(self, principio_ativo: str) -> Optional[CatalogoMedicamentos]:
+        """Busca pelo nome normalizado (sem acento, minúsculo, sem
+        prefixo de sal), usando a coluna indexada
+        principio_ativo_normalizado. Usada pela sincronização para
+        decidir entre criar e atualizar."""
+        return CatalogoMedicamentos.query.filter_by(
+            principio_ativo_normalizado=normalizar_nome(principio_ativo)
+        ).first()
+
+    def add(self, entity: CatalogoMedicamentos) -> CatalogoMedicamentos:
+        """Adiciona à sessão e faz flush (gera o id para o log), SEM
+        commit. O commit em lotes fica por conta do
+        AtualizacaoMedicamentosService. Diferente de save(), que
+        commita a cada chamada."""
+        db.session.add(entity)
+        db.session.flush()
+        return entity

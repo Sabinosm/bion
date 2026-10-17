@@ -74,7 +74,7 @@ def buscar_itens_anvisa() -> tuple[list[dict], str]:
     grupos: dict[str, dict] = {}
     combinacoes = 0
     for linha in leitor:
-        if normalizar_nome(linha[COL_SITUACAO] or "") != "valido":
+        if normalizar_nome(linha[COL_SITUACAO] or "") != "ativo":
             continue
         bruto = (linha[COL_PRINCIPIO] or "").strip()
         if not bruto:

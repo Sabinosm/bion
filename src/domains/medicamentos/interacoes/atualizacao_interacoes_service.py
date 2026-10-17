@@ -40,7 +40,8 @@ from datetime import datetime, timezone
 
 from src.models import db
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
-from ..repository import CatalogoMedicamentosRepository, InteracoesMedicamentosRepository
+from ..repository import CatalogoMedicamentosRepository
+from .interacoes_medicamento_repository import InteracoesMedicamentosRepository
 
 logger = logging.getLogger(__name__)
 
