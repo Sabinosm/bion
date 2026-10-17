@@ -13,7 +13,7 @@ def create_app(config_name: str = "development") -> Flask:
     app.config.from_object(config[config_name])
     app.url_map.strict_slashes = False
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 # 5 MB
     db.init_app(app)
     migrate.init_app(app, db)
 
