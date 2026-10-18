@@ -1,35 +1,18 @@
-"""Rotas JSON do dominio Auditoria (somente leitura para administradores).
+"""
+controller.py
 
-Todas as rotas exigem id_empresa vindo da sessao autenticada (nunca do
-query string) -- fecha o bug de permissao entre tenants.
+Camada HTTP do domínio de auditoria. Expõe, somente para administradores, as
+consultas à trilha de auditoria: visão resumida por profissional, histórico
+detalhado de um profissional e listagens filtradas dos registros de acesso e
+de alteração de dados.
 
-Nenhuma rota aceita ou devolve id_usuario (PK interna). Profissionais
-sao sempre referenciados por uuid_usuario.
-
-Respostas usam json_success/json_error de src.core.responses, que NAO
-tem parametro `meta` -- por isso toda info de paginacao vai dentro de
-`data`, no formato {"itens": [...], "paginacao": {...}}, em vez de um
-campo separado no payload.
-
-Paginacao:
-- /profissionais/resumo, /acessos, /alteracoes: offset/limit
-  convencional via `page` + `limit` (limit maximo travado no backend,
-  ver LIMIT_MAXIMO em repository.py -- hoje 50).
-- /profissionais/<uuid>/detalhe: cursor por data (`cursor_data` +
-  `cursor_uuid`), ja que aqui a navegacao e cronologica e sofreria com
-  offset em um log que recebe eventos em tempo real (ver service.py).
-
-ALTERADO (separação admin/papel clínico, assertivo, sem alias):
-- @requer_papel("admin") SAIU de todas as rotas (4 ocorrências) --
-  substituído por @requer_admin. Ver session.py no domínio Usuario:
-  requer_papel comparava contra session["tipo_usuario"], que não
-  existe mais.
-- filtro `tipo_usuario` (query param de listar_resumo_profissionais)
-  virou dois params independentes: `funcao_clinica` e `is_admin`. Ver
-  nota em repository.py.
+Aqui ficam apenas a leitura e a validação dos parâmetros da requisição e a
+montagem da resposta padronizada. As regras de negócio e as consultas
+ficam no service.
 """
 
 from datetime import datetime
+from typing import Optional
 
 from flask import Blueprint, request
 
@@ -41,28 +24,65 @@ from .service import AuditoriaService
 bp = Blueprint("auditoria", __name__)
 _svc = AuditoriaService()
 
+_LIMIT_PADRAO = 10
 
-def _parse_data(valor: str):
-    if not valor:
+
+def _parse_data(valor: Optional[str]) -> Optional[datetime]:
+    """Converte uma string ISO 8601 em datetime. Vazio/None vira None; formato inválido levanta ValueError."""
+    return datetime.fromisoformat(valor) if valor else None
+
+
+def _parse_bool(valor: Optional[str]) -> Optional[bool]:
+    """Converte 'true'/'false' (sem distinguir maiúsculas) em bool. None vira None; outro valor levanta ValueError."""
+    if valor is None:
         return None
-    return datetime.fromisoformat(valor)
+    valor = valor.lower()
+    if valor not in ("true", "false"):
+        raise ValueError(valor)
+    return valor == "true"
+
+
+def _ler_paginacao() -> tuple:
+    """Lê page e limit da querystring. page nunca é menor que 1."""
+    page = max(request.args.get("page", default=1, type=int), 1)
+    limit = request.args.get("limit", default=_LIMIT_PADRAO, type=int)
+    return page, limit
+
+
+def _ler_periodo() -> tuple:
+    """Lê data_inicio e data_fim da querystring. Levanta ValueError se algum não for ISO 8601."""
+    return _parse_data(request.args.get("data_inicio")), _parse_data(request.args.get("data_fim"))
+
+
+def _ler_cursor(prefixo: str) -> Optional[dict]:
+    """Monta o cursor {"data", "uuid"} de um bloco a partir de cursor_<prefixo>_data/_uuid.
+
+    Sem data, devolve None (começa do registro mais recente).
+    """
+    data = _parse_data(request.args.get(f"cursor_{prefixo}_data"))
+    if not data:
+        return None
+    return {"data": data, "uuid": request.args.get(f"cursor_{prefixo}_uuid")}
 
 
 def _log_para_cursor(item_dict: dict, campo_data: str) -> dict:
-    """Extrai {data, uuid} de um item ja serializado, para o front
-    devolver como cursor na proxima chamada -- evita o client ter que
-    montar isso na mao a partir de campos separados."""
+    """Extrai de um item serializado o par (data, uuid) que o client devolve como cursor."""
     return {"cursor_data": item_dict[campo_data], "cursor_uuid": item_dict["uuid"]}
 
 
-def _paginado(itens: list, total: int, page: int, limit: int):
-    """Formato padrao de resposta paginada (offset/limit), usado nas
-    3 rotas que paginam assim. Fica dentro de `data` porque
-    json_success nao aceita um campo `meta` separado."""
+def _bloco_com_cursor(bloco: dict, campo_data: str) -> dict:
+    """Serializa um bloco paginado por cursor (itens, tem_mais, proximo_cursor)."""
+    itens = [i.to_dict() for i in bloco["itens"]]
     return {
         "itens": itens,
-        "paginacao": {"total": total, "page": page, "limit": limit},
+        "tem_mais": bloco["tem_mais"],
+        "proximo_cursor": _log_para_cursor(itens[-1], campo_data) if itens else None,
     }
+
+
+def _paginado(itens: list, total: int, page: int, limit: int) -> dict:
+    """Envolve resultados paginados por offset no formato padrão da API."""
+    return {"itens": itens, "paginacao": {"total": total, "page": page, "limit": limit}}
 
 
 class AuditoriaController():
@@ -71,37 +91,26 @@ class AuditoriaController():
     @bp.get("/profissionais/resumo")
     @requer_admin
     def listar_resumo_profissionais():
-        """Tela principal: profissionais em ordem alfabetica, paginados,
-        cada um com seu ultimo acesso e ultima alteracao.
+        """Lista profissionais paginados com o último log de acesso e de alteração de cada um.
 
-        Query params: nome, funcao_clinica ("medico"/"enfermeiro"),
-        is_admin ("true"/"false"), acao, page (default 1), limit
-        (default 10, maximo 50).
-
-        ALTERADO: `tipo_usuario` (único, mutuamente exclusivo) virou
-        dois params independentes e combináveis -- `funcao_clinica` e
-        `is_admin`. Podem vir juntos (ex: ?is_admin=true&funcao_clinica=medico
-        → só admins que também são médicos) ou separados.
+        Query params: nome, funcao_clinica ("medico"/"enfermeiro"), is_admin
+        ("true"/"false"), acao, page, limit.
         """
         id_empresa = get_id_empresa_sessao()
-        nome = request.args.get("nome")
-        funcao_clinica = request.args.get("funcao_clinica")
+        page, limit = _ler_paginacao()
 
-        is_admin_raw = request.args.get("is_admin")
-        is_admin = None
-        if is_admin_raw is not None:
-            if is_admin_raw.lower() not in ("true", "false"):
-                return json_error("is_admin deve ser 'true' ou 'false'.", status=400)
-            is_admin = is_admin_raw.lower() == "true"
-
-        acao = request.args.get("acao")
-        page = request.args.get("page", default=1, type=int)
-        limit = request.args.get("limit", default=10, type=int)
+        try:
+            is_admin = _parse_bool(request.args.get("is_admin"))
+        except ValueError:
+            return json_error("is_admin deve ser 'true' ou 'false'.", status=400)
 
         try:
             itens, total = _svc.listar_resumo_por_profissional(
-                id_empresa, nome_usuario=nome, funcao_clinica=funcao_clinica,
-                is_admin=is_admin, acao=acao,
+                id_empresa,
+                nome_usuario=request.args.get("nome"),
+                funcao_clinica=request.args.get("funcao_clinica"),
+                is_admin=is_admin,
+                acao=request.args.get("acao"),
                 page=page, limit=limit,
             )
         except BionException as e:
@@ -113,43 +122,28 @@ class AuditoriaController():
     @bp.get("/profissionais/<string:uuid_usuario>/detalhe")
     @requer_admin
     def detalhe_profissional(uuid_usuario: str):
-        """Historico completo (acesso + alteracao) de UM profissional,
-        identificado por uuid. Paginado por cursor de data em cada
-        bloco, independente.
+        """Retorna o histórico cronológico de acessos e alterações de um profissional.
 
-        Query params comuns: acao (traduzido tambem para alteracao, ver
-        service), data_inicio, data_fim, limit (default 10, maximo 50).
-        Query params de acesso: operacao_acesso.
-        Cursores (para "carregar mais", devolvidos pelo item anterior):
-        cursor_acessos_data, cursor_acessos_uuid,
-        cursor_alteracoes_data, cursor_alteracoes_uuid.
+        Cada bloco pagina por cursor, de forma independente. Query params:
+        acao, operacao_acesso, data_inicio, data_fim, limit,
+        cursor_acessos_data/cursor_acessos_uuid e
+        cursor_alteracoes_data/cursor_alteracoes_uuid.
         """
         id_empresa = get_id_empresa_sessao()
-        acao = request.args.get("acao")
-        operacao_acesso = request.args.get("operacao_acesso")
-        limit = request.args.get("limit", default=10, type=int)
+        limit = request.args.get("limit", default=_LIMIT_PADRAO, type=int)
 
         try:
-            data_inicio = _parse_data(request.args.get("data_inicio"))
-            data_fim = _parse_data(request.args.get("data_fim"))
-            cursor_acessos_data = _parse_data(request.args.get("cursor_acessos_data"))
-            cursor_alteracoes_data = _parse_data(request.args.get("cursor_alteracoes_data"))
+            data_inicio, data_fim = _ler_periodo()
+            cursor_acessos = _ler_cursor("acessos")
+            cursor_alteracoes = _ler_cursor("alteracoes")
         except ValueError:
             return json_error("Datas devem estar em formato ISO 8601", status=400)
 
-        cursor_acessos = None
-        if cursor_acessos_data:
-            cursor_acessos = {"data": cursor_acessos_data,
-                               "uuid": request.args.get("cursor_acessos_uuid")}
-
-        cursor_alteracoes = None
-        if cursor_alteracoes_data:
-            cursor_alteracoes = {"data": cursor_alteracoes_data,
-                                  "uuid": request.args.get("cursor_alteracoes_uuid")}
-
         try:
             resultado = _svc.detalhe_profissional(
-                id_empresa, uuid_usuario, acao=acao, operacao_acesso=operacao_acesso,
+                id_empresa, uuid_usuario,
+                acao=request.args.get("acao"),
+                operacao_acesso=request.args.get("operacao_acesso"),
                 data_inicio=data_inicio, data_fim=data_fim,
                 cursor_acessos=cursor_acessos, cursor_alteracoes=cursor_alteracoes,
                 limit=limit,
@@ -157,49 +151,35 @@ class AuditoriaController():
         except BionException as e:
             return json_error(e.message, status=e.status_code)
 
-        acessos_dict = [i.to_dict() for i in resultado["acessos"]["itens"]]
-        alteracoes_dict = [i.to_dict() for i in resultado["alteracoes"]["itens"]]
-
         return json_success(data={
-            "acessos": {
-                "itens": acessos_dict,
-                "tem_mais": resultado["acessos"]["tem_mais"],
-                "proximo_cursor": (
-                    _log_para_cursor(acessos_dict[-1], "data_hora") if acessos_dict else None
-                ),
-            },
-            "alteracoes": {
-                "itens": alteracoes_dict,
-                "tem_mais": resultado["alteracoes"]["tem_mais"],
-                "proximo_cursor": (
-                    _log_para_cursor(alteracoes_dict[-1], "alterado_em") if alteracoes_dict else None
-                ),
-            },
+            "acessos": _bloco_com_cursor(resultado["acessos"], "data_hora"),
+            "alteracoes": _bloco_com_cursor(resultado["alteracoes"], "alterado_em"),
         })
 
     @staticmethod
     @bp.get("/acessos")
     @requer_admin
     def listar_acessos():
-        """Filtros: uuid_usuario, nome, operacao, data_inicio, data_fim,
-        page, limit (default 10, maximo 50)."""
+        """Lista registros de acesso filtrados, com paginação.
+
+        Query params: uuid_usuario, nome, operacao, data_inicio, data_fim, page, limit.
+        """
         id_empresa = get_id_empresa_sessao()
-        uuid_usuario = request.args.get("uuid_usuario")
-        nome = request.args.get("nome")
-        operacao = request.args.get("operacao")
-        page = request.args.get("page", default=1, type=int)
-        limit = request.args.get("limit", default=10, type=int)
+        page, limit = _ler_paginacao()
 
         try:
-            data_inicio = _parse_data(request.args.get("data_inicio"))
-            data_fim = _parse_data(request.args.get("data_fim"))
+            data_inicio, data_fim = _ler_periodo()
         except ValueError:
             return json_error("data_inicio/data_fim devem estar em formato ISO 8601", status=400)
 
         try:
             itens, total = _svc.listar_acessos(
-                id_empresa, uuid_usuario=uuid_usuario, nome_usuario=nome, operacao=operacao,
-                data_inicio=data_inicio, data_fim=data_fim, page=page, limit=limit,
+                id_empresa,
+                uuid_usuario=request.args.get("uuid_usuario"),
+                nome_usuario=request.args.get("nome"),
+                operacao=request.args.get("operacao"),
+                data_inicio=data_inicio, data_fim=data_fim,
+                page=page, limit=limit,
             )
         except BionException as e:
             return json_error(e.message, status=e.status_code)
@@ -210,39 +190,38 @@ class AuditoriaController():
     @bp.get("/alteracoes")
     @requer_admin
     def listar_alteracoes():
-        """Filtros: tabela+uuid_registro (drill-down, sem paginacao),
-        uuid_usuario, nome, acao (texto livre, ex: "editar_paciente"),
-        operacao (categoria de negocio: leitura/escrita/exclusao-logica/
-        exportacao -- traduzida internamente para INSERT/UPDATE/DELETE,
-        ver service), data_inicio, data_fim, page, limit (default 10,
-        maximo 50)."""
+        """Lista alterações de dados, com paginação.
+
+        Se 'tabela' e 'uuid_registro' forem informados, faz o drill-down do
+        registro (histórico completo, sem paginação e sem os demais filtros).
+        Query params: tabela, uuid_registro, uuid_usuario, nome, acao,
+        operacao, data_inicio, data_fim, page, limit.
+        """
         id_empresa = get_id_empresa_sessao()
         tabela = request.args.get("tabela")
         uuid_registro = request.args.get("uuid_registro")
-        uuid_usuario = request.args.get("uuid_usuario")
-        nome = request.args.get("nome")
-        acao = request.args.get("acao")
-        operacao = request.args.get("operacao")
-        page = request.args.get("page", default=1, type=int)
-        limit = request.args.get("limit", default=10, type=int)
+        page, limit = _ler_paginacao()
 
         try:
-            data_inicio = _parse_data(request.args.get("data_inicio"))
-            data_fim = _parse_data(request.args.get("data_fim"))
+            data_inicio, data_fim = _ler_periodo()
         except ValueError:
             return json_error("data_inicio/data_fim devem estar em formato ISO 8601", status=400)
 
         try:
             resultado = _svc.listar_alteracoes(
-                id_empresa, tabela_origem=tabela, uuid_registro=uuid_registro,
-                uuid_usuario=uuid_usuario, nome_usuario=nome, acao=acao, operacao=operacao,
-                data_inicio=data_inicio, data_fim=data_fim, page=page, limit=limit,
+                id_empresa,
+                tabela_origem=tabela, uuid_registro=uuid_registro,
+                uuid_usuario=request.args.get("uuid_usuario"),
+                nome_usuario=request.args.get("nome"),
+                acao=request.args.get("acao"),
+                operacao=request.args.get("operacao"),
+                data_inicio=data_inicio, data_fim=data_fim,
+                page=page, limit=limit,
             )
         except BionException as e:
             return json_error(e.message, status=e.status_code)
 
         if tabela and uuid_registro:
-            # drill-down: lista pura, sem paginacao (ver service)
             return json_success(data={"itens": [i.to_dict() for i in resultado]})
 
         itens, total = resultado
