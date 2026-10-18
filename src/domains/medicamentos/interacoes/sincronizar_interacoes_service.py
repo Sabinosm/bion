@@ -24,7 +24,7 @@ from collections import Counter
 from urllib.parse import quote
 from ..normalizacao import normalizar_nome
 import requests
-
+from src.models import db
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from .atualizacao_interacoes_service import AtualizacaoInteracoesService
 from ..repository import CatalogoMedicamentosRepository
@@ -172,7 +172,11 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
     contagem: Counter = Counter()
     com_interacoes = 0
     nomes = [m.principio_ativo for m in CatalogoMedicamentos.query.all()
-             if m.principio_ativo]
+         if m.principio_ativo]
+
+    # Libera a conexão com o banco antes da consulta longa ao Detecta;
+    # a sessão pega uma conexão nova quando voltar a gravar.
+    db.session.remove()
 
     try:
         for i, nome in enumerate(nomes, 1):

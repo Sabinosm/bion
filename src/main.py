@@ -16,7 +16,7 @@ def create_app(config_name: str = "development") -> Flask:
     app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 # 5 MB
     db.init_app(app)
     migrate.init_app(app, db)
-
+    
     _registrar_blueprints(app)
     _registrar_error_handlers(app)
 
