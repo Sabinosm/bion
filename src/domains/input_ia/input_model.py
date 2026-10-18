@@ -7,6 +7,10 @@ from .config import Config
 from .nucleo import Bloco
 from .registro import Fabrica, fabricas
 
+# Versão do FORMATO do snapshot (blocos/chaves). Suba ao mudar a estrutura de
+# um bloco; vai para OutputBion.versao_input_model para ler snapshots antigos.
+VERSAO_INPUT_MODEL = 1
+
 
 class InputModel:
     def __init__(self, blocos: list[Bloco], config: Config | None = None,

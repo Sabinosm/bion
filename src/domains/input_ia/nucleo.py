@@ -84,6 +84,10 @@ def resolver_status(itens, binario: dict | None, chave: str) -> tuple[Status, bo
     """Retorna (status, inconsistente). Registros reais sempre vencem o
     binario; 'preenchido' sem registro nunca vira 'nenhum' (lado seguro)."""
     bruto = ((binario or {}).get(chave) or {}).get("estado")
+    if bruto == "requer-revisao":
+        # Dado do paciente mudou e ninguém confirmou: o InputModel NÃO aceita
+        # (nem os itens vão para a IA). Sempre inconsistente.
+        return Status.NAO_INFORMADO, True
     declarado = _MAPA.get(bruto, Status.NAO_INFORMADO)
     if itens:
         return Status.INFORMADO, declarado is not Status.INFORMADO
@@ -129,6 +133,8 @@ def bloco_lista(nome: str, itens: list[dict], binario: dict | None,
         bruto = ((binario or {}).get(nome) or {}).get("estado")
         if bruto == "nao-coletado":
             motivo = "nao coletado"
+        elif bruto == "requer-revisao":
+            motivo = "requer revisao: dado do paciente mudou desde a ultima conferencia"
         elif bruto == "preenchido":
             motivo = "marcado como preenchido, mas sem registro"
         else:

@@ -27,7 +27,9 @@ def ultimos_sinais(atendimento) -> dict:
 
 
 def coletas(atendimento) -> list[dict]:
-    cs = sorted(atendimento.coletas_clinicas, key=lambda c: c.id)
+    """So a coleta VIGENTE (a de maior id): a coleta e insert-only, o medico
+    pode refaze-la e a ultima e a que vale. As anteriores nao vao para a IA."""
+    cs = sorted(atendimento.coletas_clinicas, key=lambda c: c.id)[-1:]
     return [limpar({"desde_quando_sintomas_horas": c.desde_quando_sintomas}) for c in cs]
 
 

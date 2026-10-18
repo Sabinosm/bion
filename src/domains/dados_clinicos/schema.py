@@ -12,11 +12,14 @@ SINAIS VITAIS: payload {"sinais": [ {...}, ... ]}, de 1 a 50 itens.
 
 COLETA CLÍNICA: desde_quando_sintomas (horas), opcional, inteiro 0..32767.
 
-INPUT DE PROTOCOLO: valida só o ENVELOPE. O conteúdo de `input_json` é livre
-(um objeto JSON qualquer) até existir um schema para ele.
+INPUT DE PROTOCOLO: o cliente manda só o que é DELE: as respostas ao protocolo
+(`input_json`), a queixa e o AVPU. O contexto clínico (binário, dados do
+paciente, sinais vitais) NÃO vem do cliente: o servidor o monta com o
+InputModel no envio à IA. `input_json` é um objeto JSON livre até existir
+schema por protocolo. `dados_criticos_ausentes` é do sistema (execução).
 """
 
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -89,16 +92,16 @@ TipoInput = Literal["triagem", "avaliacao-medica"]
 
 
 class InputProtocoloIn(BaseModel):
-    """Envelope do input de protocolo. `tipo_input` é opcional: o padrão é o
-    tipo do próprio atendimento (e, se vier, tem de ser igual a ele; a
-    checagem é do service). Exige ao menos um campo de conteúdo."""
+    """Input de protocolo enviado pelo profissional. `tipo_input` é opcional:
+    o padrão é o tipo do próprio atendimento (e, se vier, tem de ser igual a
+    ele; a checagem é do service). Exige ao menos um campo de conteúdo.
+    `input_json` = respostas do protocolo (não a queixa, que tem campo próprio)."""
     model_config = ConfigDict(extra="forbid")
 
     tipo_input: Optional[TipoInput] = None
     input_json: Optional[dict] = None
     queixa_principal: Optional[str] = Field(default=None, max_length=2000)
     valor_avpu: Optional[str] = Field(default=None, max_length=20)
-    dados_criticos_ausentes: Optional[Union[list, dict]] = None
 
     @field_validator("queixa_principal", "valor_avpu", mode="before")
     @classmethod
@@ -111,10 +114,8 @@ class InputProtocoloIn(BaseModel):
 
     @model_validator(mode="after")
     def _algum_conteudo(self):
-        if not any((self.input_json, self.queixa_principal, self.valor_avpu,
-                    self.dados_criticos_ausentes)):
+        if not any((self.input_json, self.queixa_principal, self.valor_avpu)):
             raise ValueError(
-                "informe ao menos um de: input_json, queixa_principal, valor_avpu, "
-                "dados_criticos_ausentes"
+                "informe ao menos um de: input_json, queixa_principal, valor_avpu"
             )
         return self

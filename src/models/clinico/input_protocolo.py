@@ -25,13 +25,19 @@ class InputProtocolo(db.Model):
     # Atendimento.tipo_atendimento e evita ambiguidade com Consulta
     # (a entidade "episódio inteiro"), que não é o que este campo indica.
     tipo_input = db.Column(db.Enum("triagem", "avaliacao-medica"))
+    # RESPOSTAS DO PROFISSIONAL AO PROTOCOLO escolhido (campos do fluxograma/
+    # módulo). NÃO guarda a queixa (coluna própria abaixo) nem o contexto
+    # clínico do paciente (binário, alergias, sinais vitais...): esse é montado
+    # pelo InputModel e congelado em OutputBion.input_ia_json.
     input_json = db.Column(db.JSON)
     queixa_principal = db.Column(db.Text)
     valor_avpu = db.Column(db.String(20))
+    # Preenchido pelo sistema (execução determinística), nunca pelo cliente.
     dados_criticos_ausentes_json = db.Column(db.JSON)
+    # Insert-only: reenviar cria outro registro; o vigente é o de maior id no
+    # atendimento. Autoria e momento vêm do próprio Atendimento.
 
     coleta_clinica = db.relationship("ColetaClinica", back_populates="inputs_protocolo")
-    outputs = db.relationship("OutputBion", back_populates="input_protocolo")
     execucoes = db.relationship("InputProtocoloExecucao", back_populates="input_protocolo",
                                  cascade="all, delete-orphan")
 

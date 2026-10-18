@@ -29,8 +29,15 @@ def nomes(v) -> list[str]:
 
 
 def inputs(at) -> list:
-    return [i for c in sorted(at.coletas_clinicas, key=lambda c: c.id)
-            for i in sorted(c.inputs_protocolo, key=lambda i: i.id)]
+    """So o input VIGENTE do atendimento (lista com 0 ou 1 item).
+
+    InputProtocolo e insert-only: o medico ajusta e reenvia, e o de maior id
+    (em qualquer coleta do atendimento) e o que vale. Os substituidos ficam no
+    banco, mas nao vao para a IA: nem as respostas, nem a queixa, nem as
+    lacunas deles. Quem consome (protocolos, queixa_dados, protocolos_referencia,
+    atendimentos_anteriores) herda a regra."""
+    todos = [i for c in at.coletas_clinicas for i in c.inputs_protocolo]
+    return [max(todos, key=lambda i: i.id)] if todos else []
 
 
 def execucoes_validas(inp) -> list:

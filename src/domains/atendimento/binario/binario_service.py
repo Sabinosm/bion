@@ -115,11 +115,15 @@ class BinarioService:
             secoes[s] = {
                 "secao": s,
                 "conferida": False,
-                "estado": "pendente",
+                "estado": binario.estado(s) or "pendente",
                 "possui": None,
                 "pre_preenchido": itens,
                 "precisa_confirmacao": any(i["de_outro_atendimento"] for i in itens),
             }
+            revisao = binario.revisao(s)
+            if revisao:
+                # O front desmarca a seção e bloqueia o avanço até confirmar.
+                secoes[s].update(origem="automatico", requer_revisao=True, **revisao)
         return {
             "uuid_atendimento": at.uuid,
             "completo": binario.completo,
@@ -129,6 +133,69 @@ class BinarioService:
 
     def exigir_binario_completo(self, atendimento) -> None:
         exigir_binario_completo(atendimento)
+
+    def reconciliar(self, atendimento, id_empresa: int) -> list:
+        """Alinha o binário DESTE atendimento com os registros ativos do paciente.
+
+        Caso típico: o profissional conferiu "nega" e depois adicionou uma
+        alergia pela rota granular. Seção "nega"/"nao-coletado" com registro
+        ativo vira "preenchido" (marcada "reconciliado"). Não mexe em seção
+        pendente nem em atendimento de outro momento.
+
+        SEM commit (só flush): o chamador é dono da transação e deve ter
+        TRAVADO o atendimento antes (repo.travar), pois lê e regrava o JSON.
+        Devolve as seções alteradas."""
+        paciente = atendimento.consulta.paciente
+        binario = Binario.de_atendimento(atendimento)
+        alteradas = []
+        for s in SECOES_BINARIO:
+            if not binario.conferida(s) or binario.estado(s) == "preenchido":
+                continue
+            ativos = self._ativos(s, paciente.uuid, id_empresa)
+            if binario.reconciliar(s, bool(ativos)):
+                alteradas.append(s)
+        if alteradas:
+            atendimento.binario = binario.para_json()
+            self._atendimento_repo.save(atendimento, commit=False)
+        return alteradas
+
+    def derivar_na_abertura(self, atendimento, id_empresa: int) -> dict:
+        """Deriva o binário de um atendimento NOVO a partir do paciente.
+
+        Os registros ativos do paciente são a verdade (podem ter sido
+        inseridos por outro profissional, fora de qualquer atendimento). Para
+        cada seção, cruza-os com a ÚLTIMA conferência confirmada do paciente
+        (atendimentos finalizados anteriores) conforme Binario.derivar:
+        consistente -> repassa como "automatico"; mudou -> "requer-revisao"
+        (conta como pendente, o profissional tem de confirmar).
+
+        SEM commit (flush): chamado por AtendimentoService._criar, que é dono
+        da transação. Devolve {secao: estado} do que foi gravado."""
+        paciente = atendimento.consulta.paciente
+        anteriores = self._atendimento_repo.find_anteriores_do_paciente(
+            paciente.id, atendimento.id, id_empresa)
+        binario = Binario.de_atendimento(atendimento)
+        derivadas = {}
+        for s in SECOES_BINARIO:
+            if binario.estado(s) is not None:
+                continue
+            tem = bool(self._ativos(s, paciente.uuid, id_empresa))
+            if binario.derivar(s, self._ultimo_estado_confirmado(s, anteriores), tem):
+                derivadas[s] = binario.estado(s)
+        if derivadas:
+            atendimento.binario = binario.para_json()
+            self._atendimento_repo.save(atendimento, commit=False)
+        return derivadas
+
+    @staticmethod
+    def _ultimo_estado_confirmado(secao: str, anteriores: list):
+        """Estado da seção na conferência mais recente (lista já em ordem
+        decrescente). None = o paciente nunca teve a seção conferida."""
+        for a in anteriores:
+            b = Binario.de_atendimento(a)
+            if b.conferida(secao):
+                return b.estado(secao)
+        return None
 
     # ------------------------------------------------------------ escrita
     def conferir_binario(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
@@ -159,7 +226,9 @@ class BinarioService:
             at = repo.travar(ctx.atendimento)
             binario = Binario.de_atendimento(at)
 
-            ja = [s for s, _ in pares if binario.conferida(s)]
+            # 409 só para o que o profissional já confirmou: automático e
+            # requer-revisao são sobrescritos pela confirmação.
+            ja = [s for s, _ in pares if binario.confirmada_manual(s)]
             if ja:
                 raise ConflictoError(
                     "Seção(ões) já conferida(s) neste atendimento: " + ", ".join(ja) + "."

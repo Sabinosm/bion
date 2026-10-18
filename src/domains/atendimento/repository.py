@@ -61,6 +61,26 @@ class AtendimentoRepository(IRepository[Atendimento]):
             .all()
         )
 
+    def find_anteriores_do_paciente(self, id_paciente: int, id_atendimento_atual: int,
+                                    id_empresa: int, limite: int = 50) -> List[Atendimento]:
+        """Atendimentos FINALIZADOS anteriores do paciente (de qualquer
+        Consulta da empresa), do mais recente para o mais antigo. Só
+        finalizado: o binário dele está completo e confirmado. Usado para
+        derivar o binário do atendimento novo. ASSUME Consulta.id_paciente."""
+        return (
+            Atendimento.query
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(
+                Consulta.id_empresa == id_empresa,
+                Consulta.id_paciente == id_paciente,
+                Atendimento.id != id_atendimento_atual,
+                Atendimento.status == "finalizado",
+            )
+            .order_by(Atendimento.data_hora_inicio.desc(), Atendimento.id.desc())
+            .limit(limite)
+            .all()
+        )
+
     def find_ultimo_por_tipo(self, id_consulta: int, tipo_atendimento: str) -> Optional[Atendimento]:
         """Retorna o Atendimento mais recente de um tipo específico dentro de uma Consulta."""
         return (

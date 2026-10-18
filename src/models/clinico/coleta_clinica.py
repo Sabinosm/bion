@@ -22,6 +22,8 @@ class ColetaClinica(db.Model):
                       default=lambda: str(_uuid.uuid4()))
     id_atendimento = db.Column(db.BigInteger, db.ForeignKey("atendimento.id_atendimento"), nullable=False)
     desde_quando_sintomas = db.Column(db.SmallInteger)  # horas
+    # Insert-only: o médico pode refazer a coleta; a vigente é a de maior id
+    # dentro do atendimento. Autoria e momento vêm do próprio Atendimento.
 
     atendimento = db.relationship("Atendimento", back_populates="coletas_clinicas")
     inputs_protocolo = db.relationship("InputProtocolo", back_populates="coleta_clinica",

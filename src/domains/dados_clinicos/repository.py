@@ -14,6 +14,7 @@ from typing import Optional, List, Iterable, Set
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.clinico import ColetaClinica, SinalVital, InputProtocolo, LoincSinalVital
+from src.models.protocolos.output_bion import OutputBion
 
 
 class ColetaClinicaRepository(IRepository[ColetaClinica]):
@@ -46,8 +47,22 @@ class ColetaClinicaRepository(IRepository[ColetaClinica]):
         return ColetaClinica.query.filter_by(uuid=uuid, id_atendimento=id_atendimento).first()
 
     def find_por_atendimento(self, id_atendimento: int) -> List[ColetaClinica]:
-        """Lista as ColetaClinica associadas a um Atendimento."""
-        return ColetaClinica.query.filter_by(id_atendimento=id_atendimento).all()
+        """Lista as ColetaClinica de um Atendimento, a mais recente primeiro."""
+        return (
+            ColetaClinica.query
+            .filter_by(id_atendimento=id_atendimento)
+            .order_by(ColetaClinica.id.desc())
+            .all()
+        )
+
+    def find_ultima_do_atendimento(self, id_atendimento: int) -> Optional[ColetaClinica]:
+        """A coleta vigente: a de maior id (última inserida) no atendimento."""
+        return (
+            ColetaClinica.query
+            .filter_by(id_atendimento=id_atendimento)
+            .order_by(ColetaClinica.id.desc())
+            .first()
+        )
 
     def find_all(self) -> List[ColetaClinica]:
         """Lista todas as ColetaClinica cadastradas, sem filtro (sem tenant)."""
@@ -146,8 +161,24 @@ class InputProtocoloRepository(IRepository[InputProtocolo]):
         return InputProtocolo.query.filter_by(uuid=uuid).first()
 
     def find_por_coleta(self, id_coleta_clinica: int) -> List[InputProtocolo]:
-        """Lista os InputProtocolo associados a uma ColetaClinica."""
-        return InputProtocolo.query.filter_by(id_coleta_clinica=id_coleta_clinica).all()
+        """Lista os InputProtocolo de uma ColetaClinica, o mais recente primeiro."""
+        return (
+            InputProtocolo.query
+            .filter_by(id_coleta_clinica=id_coleta_clinica)
+            .order_by(InputProtocolo.id.desc())
+            .all()
+        )
+
+    def find_ultimo_do_atendimento(self, id_atendimento: int) -> Optional[InputProtocolo]:
+        """O input vigente do atendimento: o último inserido, em qualquer
+        coleta dele (insert-only, o último vale)."""
+        return (
+            InputProtocolo.query
+            .join(ColetaClinica, InputProtocolo.id_coleta_clinica == ColetaClinica.id)
+            .filter(ColetaClinica.id_atendimento == id_atendimento)
+            .order_by(InputProtocolo.id.desc())
+            .first()
+        )
 
     def find_all(self) -> List[InputProtocolo]:
         """Lista todos os InputProtocolo cadastrados, sem filtro (sem tenant)."""
@@ -162,3 +193,40 @@ class InputProtocoloRepository(IRepository[InputProtocolo]):
 
     def delete(self, id: int) -> bool:
         raise NotImplementedError("InputProtocolo não é apagado fisicamente.")
+
+
+class OutputBionRepository(IRepository[OutputBion]):
+    """Cada linha é um ENVIO à IA (criada antes da chamada). Só o último envio
+    do atendimento é válido; os anteriores ficam (insert-only)."""
+
+    def confirmar(self, commit: bool = True) -> None:
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    def rollback(self) -> None:
+        db.session.rollback()
+
+    def find_by_id(self, id: int) -> Optional[OutputBion]:
+        return db.session.get(OutputBion, id)
+
+    def find_ultimo_do_atendimento(self, id_atendimento: int) -> Optional[OutputBion]:
+        """O envio vigente do atendimento (criado_em desc, id desc)."""
+        return (
+            OutputBion.query
+            .filter_by(id_atendimento=id_atendimento)
+            .order_by(OutputBion.criado_em.desc(), OutputBion.id.desc())
+            .first()
+        )
+
+    def find_all(self) -> List[OutputBion]:
+        return OutputBion.query.all()
+
+    def save(self, entity: OutputBion, commit: bool = True) -> OutputBion:
+        db.session.add(entity)
+        self.confirmar(commit)
+        return entity
+
+    def delete(self, id: int) -> bool:
+        raise NotImplementedError("OutputBion não é apagado fisicamente.")

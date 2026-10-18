@@ -127,13 +127,19 @@ class DadosClinicosService:
     def registrar_input_protocolo(self, uuid_atendimento: str, uuid_paciente: str,
                                   uuid_coleta: str, dados: dict, autor: AutorClinico):
         """
-        Registra o input de protocolo (queixa, sinais, fluxograma) de uma
-        coleta clínica DESTE atendimento. Exige o binário completo (409).
+        Registra o input de protocolo de uma coleta clínica DESTE atendimento:
+        as respostas do profissional ao protocolo (`input_json`), a queixa e o
+        AVPU. Exige o binário completo (409). Insert-only: pode ser registrado
+        de novo (médico ajusta e reenvia) e o ÚLTIMO é o vigente.
+
+        O contexto clínico do paciente NÃO entra aqui: é montado pelo
+        servidor (InputModel) e congelado no OutputBion ao enviar à IA
+        (ver EnvioIaService).
 
         Só existe em atendimento de triagem ou avaliação médica; nos demais
         tipos (reavaliacao, alta, procedimento) = 409.
         `tipo_input`: padrão = tipo do atendimento; se vier, tem de ser igual (422).
-        O conteúdo de `input_json` é livre (ainda não há schema para ele).
+        O conteúdo de `input_json` é livre (ainda não há schema por protocolo).
         InputProtocolo é parte do domínio Protocolo/IA, fora do escopo FHIR.
 
         Raises:
@@ -166,13 +172,14 @@ class DadosClinicosService:
                 "tipo_input": f"deve ser igual ao tipo do atendimento ('{tipo_atendimento}')."
             })
 
+        # Insert-only: reenviar cria outro InputProtocolo (o de maior id vale).
+        # dados_criticos_ausentes_json é do sistema (execução), não do cliente.
         ip = InputProtocolo(
             id_coleta_clinica=coleta.id,
             tipo_input=tipo_atendimento,
             input_json=entrada.input_json,
             queixa_principal=entrada.queixa_principal,
             valor_avpu=entrada.valor_avpu,
-            dados_criticos_ausentes_json=entrada.dados_criticos_ausentes,
         )
         try:
             return self.input_repo.save(ip)

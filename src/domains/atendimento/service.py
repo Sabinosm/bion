@@ -16,8 +16,12 @@ DONO: um Atendimento tem o mesmo profissional do início ao fim. Só quem o
 abriu o finaliza ou cancela (403).
 
 BINÁRIO: finalizar exige o binário completo (as 4 seções conferidas neste
-atendimento, 409). Cancelar NÃO exige: abandonar o atendimento não pode
-depender de preencher nada.
+atendimento, 409) e, na mesma transação, o reconcilia com os registros
+ativos do paciente (BinarioService.reconciliar). Cancelar NÃO exige nem
+reconcilia: abandonar o atendimento não pode depender de preencher nada.
+Na ABERTURA o binário é derivado do paciente (derivar_na_abertura): seção
+consistente é repassada como "automatico"; seção cujo dado mudou desde a
+última conferência fica "requer-revisao" e trava o finalizar até confirmar.
 """
 
 from datetime import datetime, timezone
@@ -108,6 +112,10 @@ class AtendimentoService:
                 data_hora_inicio=datetime.now(timezone.utc),
             )
             self.repo.save(atendimento, commit=False)
+            # Deriva o binário do paciente (registros ativos x última conferência)
+            # na mesma transação da abertura. Import local: ciclo de import.
+            from .binario.binario_service import BinarioService
+            BinarioService().derivar_na_abertura(atendimento, consulta.id_empresa)
             self._sincronizar(consulta, commit=False)
             self.repo.confirmar(commit=True)
             return atendimento
@@ -192,6 +200,13 @@ class AtendimentoService:
             raise DadosInvalidosError({"observacoes": "deve ser texto."})
 
         try:
+            # Reconcilia o binário com os registros ativos (dado inserido depois
+            # pela rota granular) NA MESMA transação do finalizar. Import local:
+            # BinarioService puxa os services de paciente (ciclo de import).
+            from .binario.binario_service import BinarioService
+            self.repo.travar(atendimento)
+            BinarioService().reconciliar(atendimento, id_empresa)
+
             atendimento.status = "finalizado"
             atendimento.data_hora_fim = datetime.now(timezone.utc)
             if observacoes:

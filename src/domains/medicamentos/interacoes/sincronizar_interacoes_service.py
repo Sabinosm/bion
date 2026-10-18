@@ -22,11 +22,12 @@ import os
 import time
 from collections import Counter
 from urllib.parse import quote
-
+from ..normalizacao import normalizar_nome
 import requests
 
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from .atualizacao_interacoes_service import AtualizacaoInteracoesService
+from ..repository import CatalogoMedicamentosRepository
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ def buscar_itens_detecta_interacoes() -> list[dict]:
 
     try:
         for i, nome in enumerate(nomes, 1):
-            medicamento = _baixar_medicamento(api_key, nome.capitalize(), contagem)
+            medicamento = medicamento = _baixar_medicamento(api_key, normalizar_nome(nome).capitalize(), contagem)
             if medicamento:
                 lista = medicamento.get("interacoes", [])
                 if lista:
@@ -218,7 +219,16 @@ def executar() -> dict | None:
 
     service = AtualizacaoInteracoesService()
     resultado = service.sincronizar(itens, FONTE)
-
+    repo = CatalogoMedicamentosRepository()
+    sem_catalogo = set()
+    for par in resultado["ignoradas_sem_catalogo"]:
+        for nome in (par["principio_ativo_a"], par["principio_ativo_b"]):
+            if not repo.find_por_nome_normalizado(nome):
+                sem_catalogo.add(nome)
+    print("\nNomes do Detecta sem correspondência no catálogo "
+          f"({len(sem_catalogo)}):")
+    for nome in sorted(sem_catalogo):
+        print(f"  - {nome}")
     logger.info("Fonte: %s", FONTE)
     logger.info("Criadas: %d", len(resultado["criadas"]))
     logger.info("Atualizadas: %d", len(resultado["atualizadas"]))

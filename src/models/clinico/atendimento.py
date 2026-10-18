@@ -56,6 +56,7 @@ class Atendimento(db.Model):
                                              cascade="all, delete-orphan")
     sinais_vitais = db.relationship("SinalVital", back_populates="atendimento",
                                      cascade="all, delete-orphan")
+    outputs_bion = db.relationship("OutputBion", back_populates="atendimento")
     condutas_enfermagem = db.relationship("CondutaEnfermagem", back_populates="atendimento",
                                        cascade="all, delete-orphan")
 
