@@ -1053,15 +1053,16 @@ CREATE TABLE `output_bion` (
   `uuid_output` char(36) NOT NULL,
   `output_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`output_ia_json`)),
   `versao_modelo_ia` varchar(50) DEFAULT NULL,
-  `id_input` bigint(20) DEFAULT NULL,
   `indice_completude` decimal(5,2) DEFAULT NULL,
   `indice_confianca` decimal(5,2) DEFAULT NULL,
   `criado_em` datetime NOT NULL DEFAULT current_timestamp(),
+  `id_atendimento` bigint(20) NOT NULL,
+  `input_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`input_ia_json`)),
+  `versao_input_model` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`id_output`),
   UNIQUE KEY `uuid_output` (`uuid_output`),
-  KEY `fk_output_input` (`id_input`),
-  KEY `ix_output_bion_criado_input` (`criado_em`,`id_input`),
-  CONSTRAINT `fk_output_input` FOREIGN KEY (`id_input`) REFERENCES `input_protocolo` (`id_input`)
+  KEY `ix_output_bion_atendimento_criado` (`id_atendimento`,`criado_em`),
+  CONSTRAINT `fk_output_bion_atendimento` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
