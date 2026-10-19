@@ -26,9 +26,11 @@ from src.core.session import (
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 from .service import DadosClinicosService
+from .execucao_atendimento_service import ExecucaoAtendimentoService
 
 bp_dados_clinicos = Blueprint("dados_clinicos", __name__)
 _svc_dados_clinicos = DadosClinicosService()
+_svc_execucao = ExecucaoAtendimentoService()
 
 _ESC = "/<uuid_atendimento>/pacientes/<uuid_paciente>"
 
@@ -88,5 +90,17 @@ class DadosClinicosController():
                 uuid_atendimento, uuid_paciente, uuid_coleta, dados, _autor()
             )
             return json_success(data=ip.to_dict(), message="Input de protocolo registrado.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+        
+    @staticmethod
+    @bp_dados_clinicos.post(_ESC + "/protocolos/<uuid_protocolo>/executar")
+    @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(recurso="execucao protocolo", operacao="escrita")
+    def executar_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
+        """Executa o protocolo sobre o input vigente do atendimento (determinístico)."""
+        try:
+            e = _svc_dados_clinicos.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
+            return json_success(data=e.to_dict(), message="Protocolo executado.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

@@ -38,3 +38,4 @@ storage/
 .VSCodeCounter
 resultado_interacoes.txt
 resultado_catalogo.txt
+tests/
