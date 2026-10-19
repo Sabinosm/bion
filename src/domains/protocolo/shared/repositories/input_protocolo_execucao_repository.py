@@ -21,6 +21,9 @@ class InputProtocoloExecucaoRepository(IRepository[InputProtocoloExecucao]):
             id_input=id_input, id_protocolo_catalogo=id_protocolo_catalogo
         ).first()
 
+    def find_por_input(self, id_input: int) -> list[InputProtocoloExecucao]:
+        return InputProtocoloExecucao.query.filter_by(id_input=id_input).order_by(InputProtocoloExecucao.id).all()
+
     def save(self, entity: InputProtocoloExecucao, commit: bool = True) -> InputProtocoloExecucao:
         db.session.add(entity)
         if commit:

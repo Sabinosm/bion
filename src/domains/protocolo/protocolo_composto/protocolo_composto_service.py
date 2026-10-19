@@ -130,12 +130,13 @@ class ProtocoloCompostoService:
 
     # --- 3+4+5+6. Schema valida -> calcula -> salva execução -> versão usada (contexto) ---
 
-    def executar(self, id_protocolo_catalogo: int, id_input: int, respostas: dict, executor: int):
+    def executar(self, id_protocolo_catalogo: int, id_input: int, respostas, executor: int, commit: bool = True):
         return self.execucao_svc.executar_e_persistir(
             id_protocolo_catalogo=id_protocolo_catalogo,
             id_input=id_input,
             respostas=respostas,
             executor=executor,
+            commit=commit,
             # NOTA: assinatura com `versao` -- exige o ExecucaoProtocoloService
             # do passo 5 (buscar_dado_bruto_config(versao_vigente)). O
             # News2Service usa `lambda: ...` porque sua config nao e

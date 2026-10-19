@@ -33,7 +33,11 @@ class ExecucaoProtocoloService:
         self.repo_versao = ProtocoloVersaoRepository()
         self.repo_execucao = InputProtocoloExecucaoRepository()
 
-    def executar_e_persistir(self, id_protocolo_catalogo, id_input, respostas, executor, buscar_dado_bruto_config):
+    def executar_e_persistir(self, id_protocolo_catalogo, id_input, respostas, executor,
+                             buscar_dado_bruto_config, commit=True):
+        """`respostas` pode ser dict ou callable(estrutura, strategy) -> dict, para quem
+        so conhece os campos depois de carregar a estrutura. `commit=False` deixa a
+        transacao com o chamador (flush apenas)."""
         catalogo = self.repo_catalogo.find_by_id(id_protocolo_catalogo)
         if not catalogo:
             raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {id_protocolo_catalogo}")
@@ -57,6 +61,9 @@ class ExecucaoProtocoloService:
 
         estrutura = strategy.carregar_estrutura(dado_bruto)
 
+        if callable(respostas):
+            respostas = respostas(estrutura, strategy)
+
         try:
             dados_validados = strategy.validar_respostas(estrutura, respostas)  # SCHEMA VALIDA
         except ValueError as ex:
@@ -73,7 +80,7 @@ class ExecucaoProtocoloService:
             dados_ausentes_json=resultado.dados_ausentes,
             resultado_calculado_json=resultado.model_dump(),
         )
-        return self.repo_execucao.save(execucao)  # SALVA EXECUÇÃO
+        return self.repo_execucao.save(execucao, commit=commit)  # SALVA EXECUÇÃO
 
 
 # ---------------------------------------------------------------------

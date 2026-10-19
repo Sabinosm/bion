@@ -25,3 +25,13 @@ class ProtocoloComposicaoRepository:
 
     def carregar_config(self, id_protocolo_versao: int):
         return ProtocoloComposicaoConfig.query.get(id_protocolo_versao)
+
+    def carregar_dado_bruto(self, versao) -> dict:
+        """Envelope que a ProtocoloCompostoStrategy.carregar_estrutura espera:
+        {"versao", "linhas", "config"}. O Service chama isto e o repositorio so
+        tinha carregar_composicao/carregar_config."""
+        return {
+            "versao": versao,
+            "linhas": self.carregar_composicao(versao.id),
+            "config": self.carregar_config(versao.id),
+        }
