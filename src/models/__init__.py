@@ -16,7 +16,10 @@ from src.models.catalogos import (
     Contraindicacao,
     LogSincronizacaoCatalogo,
     IndicacaoTerapeutica,
-
+    LoincPainelItem, 
+    LoincTermo, 
+    LoincTermoTraducao,
+    CatalogoExamesConteudo,
 )
 
 # Clínico
@@ -99,7 +102,10 @@ __all__ = [
     "Contraindicacao",
     "LogSincronizacaoCatalogo",
     "IndicacaoTerapeutica",
-    
+    "LoincPainelItem",
+    "LoincTermo",
+    "LoincTermoTraducao",
+    "CatalogoExamesConteudo",
     
     # Clínico
     "Atendimento",
