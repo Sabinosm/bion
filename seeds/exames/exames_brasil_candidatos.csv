@@ -1,0 +1,159 @@
+﻿ordem;nome_exame;nome_exame_en;categoria;tipo;material;material_en;sinonimos_busca;busca_loinc;sistema_loinc;painel;sigtap_verificado;codigo_loinc;jejum_horas;observacoes;ativo
+1;Hemograma completo;Complete blood count (CBC);Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);hemograma, hemo, CBC, leucograma, eritrograma;CBC panel|Complete blood count;Bld;s;02.02.02.038-0;;;;s
+2;Contagem de plaquetas;Platelet count;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);plaquetas, plaquetograma;Platelets;Bld;n;;;;;s
+3;Hemoglobina;Hemoglobin;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);Hb, Hgb;Hemoglobin;Bld;n;02.02.02.030-4;;;;s
+4;Hematócrito;Hematocrit;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);Ht, Hct;Hematocrit;Bld;n;;;;;s
+5;Leucograma com diferencial;White blood cell count with differential;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);leucócitos, contagem diferencial, WBC;Leukocytes;Bld;n;;;;;s
+6;Contagem de reticulócitos;Reticulocyte count;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);reticulócitos;Reticulocytes;Bld;n;;;;;s
+7;Velocidade de hemossedimentação (VHS);Erythrocyte sedimentation rate (ESR);Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);VHS, VSG, ESR;Erythrocyte sedimentation rate;Bld;n;;;;;s
+8;Tipagem sanguínea ABO e Rh;ABO and Rh blood typing;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);tipo sanguíneo, grupo sanguíneo, fator Rh;ABO group|Rh;Bld;n;;;;;s
+9;Teste de Coombs indireto;Indirect Coombs test (antibody screen);Hematologia;laboratorial;Soro;Serum;Coombs indireto, pesquisa de anticorpos irregulares;Antibody screen;Ser/Plas|Bld;n;;;;;s
+10;Teste de Coombs direto;Direct Coombs test (direct antiglobulin test);Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);Coombs direto, TAD;Direct antiglobulin;Bld;n;;;;;s
+11;Eletroforese de hemoglobina;Hemoglobin electrophoresis;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);eletroforese de Hb, hemoglobinopatias;Hemoglobin pattern;Bld;n;;;;;s
+12;Pesquisa de plasmódio (gota espessa);Malaria smear (thick blood film);Hematologia;laboratorial;Sangue total;Whole blood;malária, gota espessa, hematozoário;Plasmodium;Bld;n;;;;;s
+13;Esfregaço de sangue periférico;Peripheral blood smear;Hematologia;laboratorial;Sangue total (EDTA);Whole blood (EDTA);lâmina, sangue periférico;Blood smear|smear review;Bld;n;;;;;s
+14;Tempo de protrombina com INR (TP/INR);Prothrombin time with INR (PT/INR);Coagulação;laboratorial;Plasma citratado;Citrated plasma;TAP, TP, INR, tempo de atividade de protrombina;Prothrombin time|INR;PPP|Plas;n;;;;;s
+15;Tempo de tromboplastina parcial ativada (TTPA);Activated partial thromboplastin time (aPTT);Coagulação;laboratorial;Plasma citratado;Citrated plasma;TTPA, KPTT, PTT;aPTT|Partial thromboplastin;PPP|Plas;n;;;;;s
+16;Fibrinogênio;Fibrinogen;Coagulação;laboratorial;Plasma citratado;Citrated plasma;;Fibrinogen;PPP|Plas;n;;;;;s
+17;D-dímero;D-dimer;Coagulação;laboratorial;Plasma citratado;Citrated plasma;dímero D;D-dimer;PPP|Plas;n;;;;;s
+18;Glicemia de jejum;Fasting glucose;Diabetes e glicose;laboratorial;Soro ou plasma;Serum or plasma;glicose, glicemia, açúcar no sangue;Fasting glucose|Glucose;Ser/Plas;n;02.02.01.047-3;;;;s
+19;Glicemia pós-prandial;Postprandial glucose;Diabetes e glicose;laboratorial;Soro ou plasma;Serum or plasma;glicose pós-prandial, glicemia 2h após refeição;Glucose+post meal;Ser/Plas;n;;;;;s
+20;Teste oral de tolerância à glicose (TOTG);Oral glucose tolerance test (OGTT);Diabetes e glicose;laboratorial;Soro ou plasma;Serum or plasma;curva glicêmica, TTGO, TOTG 75 g;Glucose+post 75 g glucose|Glucose+tolerance;Ser/Plas;n;;;;;s
+21;Hemoglobina glicada (HbA1c);Hemoglobin A1c (glycated hemoglobin);Diabetes e glicose;laboratorial;Sangue total (EDTA);Whole blood (EDTA);HbA1c, A1c, hemoglobina glicosilada, glico-hemoglobina;Hemoglobin A1c;Bld;n;02.02.01.050-3;;;;s
+22;Insulina;Insulin;Diabetes e glicose;laboratorial;Soro;Serum;insulinemia;Insulin;Ser/Plas;n;;;;;s
+23;Microalbuminúria (albumina na urina);Urine albumin (microalbumin);Diabetes e glicose;laboratorial;Urina;Urine;albuminúria, microalbumina;Albumin;Urine;n;;;;;s
+24;Relação albumina/creatinina urinária;Urine albumin/creatinine ratio;Diabetes e glicose;laboratorial;Urina;Urine;RAC, ACR;Albumin/Creatinine;Urine;n;;;;;s
+25;Colesterol total;Total cholesterol;Lipídios;laboratorial;Soro;Serum;CT, colesterol;Cholesterol;Ser/Plas;n;02.02.01.029-5;;;;s
+26;Colesterol HDL;HDL cholesterol;Lipídios;laboratorial;Soro;Serum;HDL, colesterol bom;Cholesterol in HDL;Ser/Plas;n;02.02.01.027-9;;;;s
+27;Colesterol LDL;LDL cholesterol;Lipídios;laboratorial;Soro;Serum;LDL, colesterol ruim;Cholesterol in LDL;Ser/Plas;n;02.02.01.028-7;;;;s
+28;Colesterol VLDL;VLDL cholesterol;Lipídios;laboratorial;Soro;Serum;VLDL;Cholesterol in VLDL;Ser/Plas;n;;;;;s
+29;Triglicerídeos;Triglycerides;Lipídios;laboratorial;Soro;Serum;TG, triglicérides;Triglyceride;Ser/Plas;n;02.02.01.067-8;;;;s
+30;Perfil lipídico (lipidograma);Lipid panel;Lipídios;laboratorial;Soro;Serum;lipidograma, colesterol e frações, perfil de lipídios;Lipid;Ser/Plas;s;;;;;s
+31;Creatinina;Creatinine;Função renal;laboratorial;Soro;Serum;creatinina sérica;Creatinine;Ser/Plas;n;02.02.01.031-7;;;;s
+32;Ureia;Urea;Função renal;laboratorial;Soro;Serum;BUN, nitrogênio ureico;Urea;Ser/Plas;n;02.02.01.069-4;;;;s
+33;Ácido úrico;Uric acid;Função renal;laboratorial;Soro;Serum;uricemia, urato;Urate;Ser/Plas;n;;;;;s
+34;Depuração de creatinina (clearance);Creatinine clearance;Função renal;laboratorial;Urina de 24 horas e soro;24-hour urine and serum;clearance de creatinina, depuração;Creatinine clearance;;n;02.02.05.002-5;;;;s
+35;Taxa de filtração glomerular estimada (TFGe);Estimated glomerular filtration rate (eGFR);Função renal;laboratorial;Soro;Serum;TFG, eGFR, filtração glomerular;Glomerular filtration rate;;n;;;;;s
+36;Cistatina C;Cystatin C;Função renal;laboratorial;Soro;Serum;;Cystatin C;Ser/Plas;n;;;;;s
+37;Creatinina urinária (amostra isolada);Urine creatinine (spot sample);Função renal;laboratorial;Urina;Urine;creatinina em urina;Creatinine;Urine;n;;;;;s
+38;Proteinúria de 24 horas;24-hour urine protein;Função renal;laboratorial;Urina de 24 horas;24-hour urine;proteína em urina de 24 horas;Protein+24 hour;Urine;n;;;;;s
+39;Relação proteína/creatinina urinária;Urine protein/creatinine ratio;Função renal;laboratorial;Urina;Urine;RPC, PCR urinária;Protein/Creatinine;Urine;n;;;;;s
+40;Sódio;Sodium;Eletrólitos e minerais;laboratorial;Soro;Serum;Na;Sodium;Ser/Plas;n;02.02.01.063-5;;;;s
+41;Potássio;Potassium;Eletrólitos e minerais;laboratorial;Soro;Serum;K;Potassium;Ser/Plas;n;02.02.01.060-0;;;;s
+42;Cloro (cloreto);Chloride;Eletrólitos e minerais;laboratorial;Soro;Serum;Cl, cloreto;Chloride;Ser/Plas;n;02.02.01.026-0;;;;s
+43;Cálcio total;Total calcium;Eletrólitos e minerais;laboratorial;Soro;Serum;Ca, calcemia;Calcium;Ser/Plas;n;02.02.01.021-0;;;;s
+44;Cálcio iônico;Ionized calcium;Eletrólitos e minerais;laboratorial;Soro ou plasma;Serum or plasma;Ca iônico;Calcium.ionized|Ionized calcium;Ser/Plas|Bld;n;;;;;s
+45;Magnésio;Magnesium;Eletrólitos e minerais;laboratorial;Soro;Serum;Mg;Magnesium;Ser/Plas;n;02.02.01.056-2;;;;s
+46;Fósforo;Phosphorus (phosphate);Eletrólitos e minerais;laboratorial;Soro;Serum;P, fosfato, fosfatemia;Phosphate;Ser/Plas;n;02.02.01.043-0;;;;s
+47;Bicarbonato (CO2 total);Bicarbonate (total CO2);Eletrólitos e minerais;laboratorial;Soro;Serum;HCO3, CO2 total;Carbon dioxide, total|Bicarbonate;Ser/Plas;n;;;;;s
+48;TGO (AST);AST (aspartate aminotransferase);Fígado e pâncreas;laboratorial;Soro;Serum;TGO, AST, transaminase oxalacética;Aspartate aminotransferase;Ser/Plas;n;;;;;s
+49;TGP (ALT);ALT (alanine aminotransferase);Fígado e pâncreas;laboratorial;Soro;Serum;TGP, ALT, transaminase pirúvica;Alanine aminotransferase;Ser/Plas;n;02.02.01.065-1;;;;s
+50;Gama-GT (GGT);Gamma-glutamyl transferase (GGT);Fígado e pâncreas;laboratorial;Soro;Serum;GGT, gama glutamil transferase;Gamma glutamyl transferase;Ser/Plas;n;;;;;s
+51;Fosfatase alcalina;Alkaline phosphatase;Fígado e pâncreas;laboratorial;Soro;Serum;FA, FAL, ALP;Alkaline phosphatase;Ser/Plas;n;02.02.01.042-2;;;;s
+52;Bilirrubina total e frações;Bilirubin (total and direct);Fígado e pâncreas;laboratorial;Soro;Serum;BT, BD, BI, bilirrubinas;Bilirubin;Ser/Plas;n;;;;;s
+53;Albumina;Albumin;Fígado e pâncreas;laboratorial;Soro;Serum;albumina sérica;Albumin;Ser/Plas;n;;;;;s
+54;Proteínas totais;Total protein;Fígado e pâncreas;laboratorial;Soro;Serum;PT, proteínas totais e frações;Protein;Ser/Plas;n;;;;;s
+55;Eletroforese de proteínas séricas;Serum protein electrophoresis;Fígado e pâncreas;laboratorial;Soro;Serum;eletroforese de proteínas;Protein electrophoresis|Protein pattern;Ser/Plas;n;;;;;s
+56;Perfil hepático (hepatograma);Hepatic function panel;Fígado e pâncreas;laboratorial;Soro;Serum;hepatograma, função hepática, TGO TGP gama GT;Hepatic function;Ser/Plas;s;;;;;s
+57;Amilase;Amylase;Fígado e pâncreas;laboratorial;Soro;Serum;;Amylase;Ser/Plas;n;02.02.01.018-0;;;;s
+58;Lipase;Lipase;Fígado e pâncreas;laboratorial;Soro;Serum;;Lipase;Ser/Plas;n;02.02.01.055-4;;;;s
+59;Desidrogenase láctica (LDH);Lactate dehydrogenase (LDH);Fígado e pâncreas;laboratorial;Soro;Serum;LDH, DHL;Lactate dehydrogenase;Ser/Plas;n;;;;;s
+60;Troponina I;Troponin I (cardiac);Marcadores cardíacos e musculares;laboratorial;Soro ou plasma;Serum or plasma;troponina, TnI;Troponin I.cardiac;Ser/Plas|Bld;n;;;;;s
+61;CK-MB;CK-MB (creatine kinase MB);Marcadores cardíacos e musculares;laboratorial;Soro;Serum;CKMB, CK MB massa;Creatine kinase.MB;Ser/Plas;n;;;;;s
+62;Creatinofosfoquinase (CPK);Creatine kinase (CK), total;Marcadores cardíacos e musculares;laboratorial;Soro;Serum;CPK, CK total;Creatine kinase;Ser/Plas;n;;;;;s
+63;NT-proBNP;NT-proBNP;Marcadores cardíacos e musculares;laboratorial;Soro ou plasma;Serum or plasma;peptídeo natriurético, BNP;Natriuretic peptide.B prohormone N-Terminal|NT-proBNP;Ser/Plas;n;;;;;s
+64;Lactato;Lactate;Marcadores cardíacos e musculares;laboratorial;Sangue total;Whole blood;ácido lático, lactato arterial;Lactate;Bld|BldA|BldV|Plas;n;;;;;s
+65;TSH;TSH (thyroid-stimulating hormone);Tireoide e paratireoide;laboratorial;Soro;Serum;hormônio tireoestimulante, tireotropina;Thyrotropin;Ser/Plas;n;02.02.06.025-0;;;;s
+66;T4 livre;Free T4 (free thyroxine);Tireoide e paratireoide;laboratorial;Soro;Serum;T4L, tiroxina livre;Thyroxine (T4) free;Ser/Plas;n;;;;;s
+67;T3 livre;Free T3 (free triiodothyronine);Tireoide e paratireoide;laboratorial;Soro;Serum;T3L, triiodotironina livre;Triiodothyronine (T3) free;Ser/Plas;n;;;;;s
+68;Anti-TPO;Anti-thyroid peroxidase antibodies (anti-TPO);Tireoide e paratireoide;laboratorial;Soro;Serum;anticorpos antitireoperoxidase;Thyroperoxidase Ab;Ser/Plas;n;;;;;s
+69;Anti-tireoglobulina;Anti-thyroglobulin antibodies;Tireoide e paratireoide;laboratorial;Soro;Serum;anti-TG, antitireoglobulina;Thyroglobulin Ab;Ser/Plas;n;;;;;s
+70;Paratormônio (PTH);Parathyroid hormone (PTH);Tireoide e paratireoide;laboratorial;Soro ou plasma;Serum or plasma;PTH, paratormônio intacto;Parathyrin.intact|Parathyrin;Ser/Plas;n;;;;;s
+71;Cortisol;Cortisol;Hormônios;laboratorial;Soro;Serum;cortisol sérico;Cortisol;Ser/Plas;n;;;;;s
+72;Prolactina;Prolactin;Hormônios;laboratorial;Soro;Serum;PRL;Prolactin;Ser/Plas;n;;;;;s
+73;FSH;Follicle-stimulating hormone (FSH);Hormônios;laboratorial;Soro;Serum;hormônio folículo-estimulante;Follitropin;Ser/Plas;n;;;;;s
+74;LH;Luteinizing hormone (LH);Hormônios;laboratorial;Soro;Serum;hormônio luteinizante;Lutropin;Ser/Plas;n;;;;;s
+75;Estradiol;Estradiol;Hormônios;laboratorial;Soro;Serum;E2;Estradiol;Ser/Plas;n;;;;;s
+76;Progesterona;Progesterone;Hormônios;laboratorial;Soro;Serum;;Progesterone;Ser/Plas;n;;;;;s
+77;Testosterona total;Total testosterone;Hormônios;laboratorial;Soro;Serum;testosterona;Testosterone;Ser/Plas;n;;;;;s
+78;Beta-hCG quantitativo;Quantitative beta-hCG (pregnancy);Hormônios;laboratorial;Soro;Serum;BHCG, hCG, teste de gravidez no sangue;Choriogonadotropin;Ser/Plas;n;;;;;s
+79;Teste de gravidez (urina);Urine pregnancy test;Hormônios;laboratorial;Urina;Urine;teste rápido de gravidez, HCG urinário;Choriogonadotropin;Urine;n;;;;;s
+80;25-hidroxivitamina D;25-hydroxyvitamin D (vitamin D);Anemia, ferro e vitaminas;laboratorial;Soro;Serum;vitamina D, 25 OH vitamina D;25-hydroxyvitamin D;Ser/Plas;n;02.02.01.076-7;;;;s
+81;Vitamina B12;Vitamin B12;Anemia, ferro e vitaminas;laboratorial;Soro;Serum;cobalamina, B12;Cobalamin;Ser/Plas;n;;;;;s
+82;Ácido fólico (folato);Folate;Anemia, ferro e vitaminas;laboratorial;Soro;Serum;folato, vitamina B9;Folate;Ser/Plas|Bld;n;02.02.01.040-6;;;;s
+83;Ferro sérico;Serum iron;Anemia, ferro e vitaminas;laboratorial;Soro;Serum;ferro;Iron;Ser/Plas;n;02.02.01.039-2;;;;s
+84;Ferritina;Ferritin;Anemia, ferro e vitaminas;laboratorial;Soro;Serum;;Ferritin;Ser/Plas;n;02.02.01.038-4;;;;s
+85;Transferrina;Transferrin;Anemia, ferro e vitaminas;laboratorial;Soro;Serum;saturação de transferrina;Transferrin;Ser/Plas;n;02.02.01.066-0;;;;s
+86;Capacidade total de ligação do ferro (CTLF);Total iron-binding capacity (TIBC);Anemia, ferro e vitaminas;laboratorial;Soro;Serum;CTLF, TIBC;Iron binding capacity;Ser/Plas;n;;;;;s
+87;Proteína C reativa (PCR);C-reactive protein (CRP);Inflamação e imunologia;laboratorial;Soro;Serum;PCR, CRP;C reactive protein;Ser/Plas;n;;;;;s
+88;PCR ultrassensível;High-sensitivity C-reactive protein (hs-CRP);Inflamação e imunologia;laboratorial;Soro;Serum;PCR-us, hsCRP;C reactive protein+high sensitivity;Ser/Plas;n;;;;;s
+89;Fator reumatoide;Rheumatoid factor;Inflamação e imunologia;laboratorial;Soro;Serum;FR, látex para artrite reumatoide;Rheumatoid factor;Ser/Plas;n;;;;;s
+90;Antiestreptolisina O (ASLO);Antistreptolysin O (ASO);Inflamação e imunologia;laboratorial;Soro;Serum;ASLO, ASO;Streptolysin O Ab;Ser/Plas;n;;;;;s
+91;Fator antinuclear (FAN);Antinuclear antibodies (ANA);Inflamação e imunologia;laboratorial;Soro;Serum;FAN, ANA, anticorpos antinucleares;Nuclear Ab;Ser/Plas;n;;;;;s
+92;Procalcitonina;Procalcitonin;Inflamação e imunologia;laboratorial;Soro ou plasma;Serum or plasma;;Procalcitonin;Ser/Plas;n;;;;;s
+93;IgE total;Total IgE;Inflamação e imunologia;laboratorial;Soro;Serum;imunoglobulina E;IgE;Ser/Plas;n;;;;;s
+94;PSA total;Total PSA (prostate-specific antigen);Marcadores tumorais;laboratorial;Soro;Serum;antígeno prostático específico;Prostate specific Ag;Ser/Plas;n;;;;;s
+95;PSA livre;Free PSA;Marcadores tumorais;laboratorial;Soro;Serum;fração livre do PSA;Prostate specific Ag.free|Prostate specific Ag free;Ser/Plas;n;;;;;s
+96;CEA;Carcinoembryonic antigen (CEA);Marcadores tumorais;laboratorial;Soro;Serum;antígeno carcinoembrionário;Carcinoembryonic Ag;Ser/Plas;n;;;;;s
+97;CA 125;CA 125;Marcadores tumorais;laboratorial;Soro;Serum;;Cancer Ag 125;Ser/Plas;n;;;;;s
+98;Alfa-fetoproteína;Alpha-fetoprotein (AFP);Marcadores tumorais;laboratorial;Soro;Serum;AFP;Alpha-1-Fetoprotein;Ser/Plas;n;;;;;s
+99;Anti-HIV 1 e 2;HIV 1/2 antibody screen;Sorologias e doenças infecciosas;laboratorial;Soro;Serum;HIV, sorologia HIV, teste anti-HIV;HIV 1+2 Ab|HIV 1 Ab;Ser/Plas;n;;;;;s
+100;VDRL (sífilis);VDRL (syphilis, nontreponemal test);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;sífilis, VDRL;Reagin Ab;Ser/Plas;n;;;;;s
+101;Teste treponêmico para sífilis (FTA-ABS/TPHA);Treponemal syphilis antibody test;Sorologias e doenças infecciosas;laboratorial;Soro;Serum;FTA-ABS, TPHA, sífilis confirmatório;Treponema pallidum Ab;Ser/Plas;n;;;;;s
+102;HBsAg (hepatite B);Hepatitis B surface antigen (HBsAg);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;hepatite B, antígeno de superfície;Hepatitis B virus surface Ag;Ser/Plas;n;;;;;s
+103;Anti-HBs;Hepatitis B surface antibody (anti-HBs);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;imunidade hepatite B;Hepatitis B virus surface Ab;Ser/Plas;n;;;;;s
+104;Anti-HBc total;Hepatitis B core antibody, total;Sorologias e doenças infecciosas;laboratorial;Soro;Serum;anti-core;Hepatitis B virus core Ab;Ser/Plas;n;;;;;s
+105;Anti-HCV (hepatite C);Hepatitis C antibody (anti-HCV);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;hepatite C;Hepatitis C virus Ab;Ser/Plas;n;;;;;s
+106;Anti-HAV (hepatite A);Hepatitis A antibody (anti-HAV);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;hepatite A;Hepatitis A virus Ab;Ser/Plas;n;;;;;s
+107;Dengue NS1;Dengue NS1 antigen;Sorologias e doenças infecciosas;laboratorial;Soro;Serum;NS1, antígeno NS1 dengue;Dengue virus NS1 Ag|Dengue virus Ag;Ser/Plas;n;;;;;s
+108;Dengue IgM e IgG;Dengue virus antibodies (IgM/IgG);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;sorologia dengue;Dengue virus IgM|Dengue virus IgG;Ser/Plas;n;;;;;s
+109;Toxoplasmose IgG e IgM;Toxoplasma gondii antibodies (IgG/IgM);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;toxoplasmose;Toxoplasma gondii IgG|Toxoplasma gondii IgM;Ser/Plas;n;;;;;s
+110;Rubéola IgG e IgM;Rubella virus antibodies (IgG/IgM);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;rubéola;Rubella virus IgG|Rubella virus IgM;Ser/Plas;n;;;;;s
+111;Citomegalovírus IgG e IgM;Cytomegalovirus antibodies (IgG/IgM);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;CMV;Cytomegalovirus IgG|Cytomegalovirus IgM;Ser/Plas;n;;;;;s
+112;Doença de Chagas (anti-T. cruzi);Chagas disease antibodies (T. cruzi);Sorologias e doenças infecciosas;laboratorial;Soro;Serum;Chagas, sorologia para Chagas;Trypanosoma cruzi IgG|Trypanosoma cruzi Ab;Ser/Plas;n;;;;;s
+113;Helicobacter pylori;Helicobacter pylori test;Sorologias e doenças infecciosas;laboratorial;Soro ou plasma;Serum or plasma;H. pylori, pesquisa de H. pylori;Helicobacter pylori;;n;;;;;s
+114;Baciloscopia de escarro (BAAR);Sputum acid-fast bacilli smear;Sorologias e doenças infecciosas;laboratorial;Escarro;Sputum;BAAR, pesquisa de BAAR, tuberculose;Acid fast stain;Sputum;n;;;;;s
+115;Teste rápido molecular para tuberculose (TRM-TB);Rapid molecular test for tuberculosis;Sorologias e doenças infecciosas;laboratorial;Escarro;Sputum;TRM-TB, Xpert MTB/RIF, GeneXpert;Mycobacterium tuberculosis;Sputum|Specimen;n;;;;;s
+116;Urina tipo 1 (EAS);Urinalysis (routine urine test);Urina e fezes;laboratorial;Urina;Urine;EAS, urina rotina, sumário de urina, elementos anormais e sedimento;Urinalysis complete;Urine;s;;;;;s
+117;Urocultura com antibiograma;Urine culture with susceptibility testing;Urina e fezes;laboratorial;Urina;Urine;urocultura, cultura de urina;Bacteria identified;Urine;n;;;;;s
+118;Parasitológico de fezes (EPF);Stool ova and parasites exam;Urina e fezes;laboratorial;Fezes;Stool;EPF, protoparasitológico, exame de fezes;Ova and parasites;Stool;n;;;;;s
+119;Coprocultura;Stool culture;Urina e fezes;laboratorial;Fezes;Stool;cultura de fezes;Bacteria identified;Stool;n;;;;;s
+120;Pesquisa de sangue oculto nas fezes;Fecal occult blood test;Urina e fezes;laboratorial;Fezes;Stool;sangue oculto, PSOF;Occult blood;Stool;n;;;;;s
+121;Calprotectina fecal;Fecal calprotectin;Urina e fezes;laboratorial;Fezes;Stool;;Calprotectin;Stool;n;;;;;s
+122;Hemocultura;Blood culture;Microbiologia;laboratorial;Sangue (frasco de hemocultura);Blood (culture bottle);cultura de sangue;Bacteria identified;Bld;n;;;;;s
+123;Cultura de secreção de ferida;Wound culture;Microbiologia;laboratorial;Secreção de ferida;Wound swab;cultura de ferida, cultura de secreção;Bacteria identified;Wound;n;;;;;s
+124;Cultura de escarro;Sputum culture;Microbiologia;laboratorial;Escarro;Sputum;cultura de secreção respiratória;Bacteria identified;Sputum;n;;;;;s
+125;Cultura de orofaringe;Throat culture;Microbiologia;laboratorial;Swab de orofaringe;Throat swab;swab de garganta, cultura de garganta;Bacteria identified;Throat;n;;;;;s
+126;Bacterioscopia (Gram);Gram stain;Microbiologia;laboratorial;Secreção ou fluido;Secretion or fluid;Gram, bacterioscopia;Gram stain|Microscopic observation;;n;;;;;s
+127;Teste rápido para estreptococo do grupo A;Rapid group A streptococcus test;Microbiologia;laboratorial;Swab de orofaringe;Throat swab;estreptococo, teste rápido de garganta;Streptococcus pyogenes;Throat;n;;;;;s
+128;Gasometria arterial;Arterial blood gas analysis;Outros exames laboratoriais;laboratorial;Sangue arterial;Arterial blood;gasometria, gases do sangue, pH pCO2 pO2;Gas panel;BldA;s;;;;;s
+129;Homocisteína;Homocysteine;Outros exames laboratoriais;laboratorial;Soro ou plasma;Serum or plasma;;Homocysteine;Ser/Plas;n;;;;;s
+130;Dosagem de lítio;Lithium level;Outros exames laboratoriais;laboratorial;Soro;Serum;litemia;Lithium;Ser/Plas;n;;;;;s
+131;Dosagem de carbamazepina;Carbamazepine level;Outros exames laboratoriais;laboratorial;Soro;Serum;;Carbamazepine;Ser/Plas;n;;;;;s
+132;Dosagem de fenitoína;Phenytoin level;Outros exames laboratoriais;laboratorial;Soro;Serum;;Phenytoin;Ser/Plas;n;;;;;s
+133;Dosagem de digoxina;Digoxin level;Outros exames laboratoriais;laboratorial;Soro;Serum;digitálico;Digoxin;Ser/Plas;n;;;;;s
+134;Citopatológico de colo do útero (Papanicolau);Pap smear (cervical cytology);Outros exames laboratoriais;laboratorial;Esfregaço de colo do útero;Cervical smear;Papanicolau, preventivo, colpocitologia;Cervical or vaginal cytology|Cytology;;n;;;;;s
+135;Triagem neonatal (teste do pezinho);Newborn screening (heel prick test);Outros exames laboratoriais;laboratorial;Sangue capilar em papel-filtro;Dried blood spot;teste do pezinho;Newborn screening;;s;;;;;s
+136;Radiografia de tórax (PA e perfil);Chest X-ray (PA and lateral);Imagem;imagem;;;;;;n;;;;;s
+137;Radiografia de coluna lombossacra;Lumbosacral spine X-ray;Imagem;imagem;;;;;;n;;;;;s
+138;Ultrassonografia de abdome total;Abdominal ultrasound (complete);Imagem;imagem;;;;;;n;;;;;s
+139;Ultrassonografia pélvica (transvaginal);Pelvic (transvaginal) ultrasound;Imagem;imagem;;;;;;n;;;;;s
+140;Ultrassonografia obstétrica;Obstetric ultrasound;Imagem;imagem;;;;;;n;;;;;s
+141;Ultrassonografia de tireoide;Thyroid ultrasound;Imagem;imagem;;;;;;n;;;;;s
+142;Ultrassonografia de rins e vias urinárias;Renal and urinary tract ultrasound;Imagem;imagem;;;;;;n;;;;;s
+143;Mamografia;Mammography;Imagem;imagem;;;;;;n;;;;;s
+144;Ecocardiograma transtorácico;Transthoracic echocardiogram;Imagem;imagem;;;;;;n;;;;;s
+145;Densitometria óssea;Bone densitometry (DXA);Imagem;imagem;;;;;;n;;;;;s
+146;Tomografia computadorizada de crânio;Head CT scan;Imagem;imagem;;;;;;n;;;;;s
+147;Tomografia computadorizada de tórax;Chest CT scan;Imagem;imagem;;;;;;n;;;;;s
+148;Tomografia computadorizada de abdome;Abdominal CT scan;Imagem;imagem;;;;;;n;;;;;s
+149;Ressonância magnética de coluna lombar;Lumbar spine MRI;Imagem;imagem;;;;;;n;;;;;s
+150;Ressonância magnética de crânio;Brain MRI;Imagem;imagem;;;;;;n;;;;;s
+151;Eletrocardiograma (ECG);Electrocardiogram (ECG);Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+152;Teste ergométrico;Exercise stress test;Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+153;Holter de 24 horas;24-hour Holter monitoring;Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+154;MAPA de 24 horas;24-hour ambulatory blood pressure monitoring;Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+155;Espirometria;Spirometry;Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+156;Eletroencefalograma (EEG);Electroencephalogram (EEG);Funcionais e procedimentos;funcional;;;;;;n;;;;;s
+157;Endoscopia digestiva alta;Upper GI endoscopy;Funcionais e procedimentos;outro;;;;;;n;;;;;s
+158;Colonoscopia;Colonoscopy;Funcionais e procedimentos;outro;;;;;;n;;;;;s

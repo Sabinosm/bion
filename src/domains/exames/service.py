@@ -1,6 +1,8 @@
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from .repository import CatalogoExamesRepository
 
+TIPOS_VALIDOS = ("laboratorial", "imagem", "funcional", "outro")
+
 
 class CatalogoExamesService:
 
@@ -18,6 +20,12 @@ class CatalogoExamesService:
 
     def buscar(self, termo: str):
         return self.repo.buscar_por_nome(termo)
+
+    def listar_paginado(self, termo, tipo, pagina: int, por_pagina: int):
+        """Busca do médico: exames ativos, por nome (pt/en) ou sinônimo, com filtro opcional de tipo."""
+        if tipo and tipo not in TIPOS_VALIDOS:
+            raise DadosInvalidosError(f"tipo inválido: use {', '.join(TIPOS_VALIDOS)}.")
+        return self.repo.listar_paginado(termo, tipo, pagina, por_pagina)
 
     def criar(self, dados: dict):
         from src.models.catalogos.catalogo_exames import CatalogoExames
