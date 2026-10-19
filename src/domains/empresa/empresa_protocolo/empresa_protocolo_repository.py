@@ -37,6 +37,15 @@ class EmpresaProtocoloRepository(IRepository[EmpresaProtocolo]):
             id_empresa=id_empresa, escopo_default_institucional=escopo
         ).first()
 
+    def find_empresa_com_catatlogo(self, id_empresa: int, id_protocolo_catalogo: int, apenas_ativo: bool = None, apenas_inativo: bool = None):
+        if apenas_ativo:
+            return EmpresaProtocolo.query.filter_by(id_empresa=id_empresa, id_protocolo_catalogo=id_protocolo_catalogo, ativo=True).first()
+        if apenas_inativo:
+            return EmpresaProtocolo.query.filter_by(id_empresa=id_empresa, id_protocolo_catalogo=id_protocolo_catalogo, ativo=False).first()
+        
+        return EmpresaProtocolo.query.filter_by(id_empresa=id_empresa, id_protocolo_catalogo=id_protocolo_catalogo).first()
+        
+
     def contar_ativos(self, id_empresa: int) -> int:
         return EmpresaProtocolo.query.filter_by(id_empresa=id_empresa, ativo=True).count()
 

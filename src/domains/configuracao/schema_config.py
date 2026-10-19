@@ -1,27 +1,22 @@
-"""Schema de validação para o payload de `configuracoes` do domínio
-Configuracao.
+"""
+schema_config.py
 
-Por quê isso existe:
-`ConfiguracaoService.atualizar` fazia um merge raso (`dict.update`) de
-qualquer JSON recebido, sem validar formato. Um payload malformado
-(campo com nome errado, tipo errado, valor fora do domínio permitido)
-era salvo silenciosamente e só se manifestava como bug depois, na hora
-de renderizar a UI. Este schema garante que só entra no banco algo que
-o frontend realmente sabe interpretar.
+Schema de validação do payload de configurações do usuário (aparência e
+idioma). Garante que só entra no banco algo que o frontend sabe interpretar:
+sem ele, um payload malformado (campo com nome errado, tipo errado, valor fora
+do domínio permitido) seria salvo em silêncio e só viraria bug na hora de
+renderizar a interface.
 
-Ajustar aqui sempre que:
-- `ConfiguracaoService.CONFIGURACOES_DEFAULT` ganhar um novo campo;
-- os valores permitidos de tema / tamanho de fonte / idiomas mudarem
-  no frontend (settingsModal.html).
+Os valores permitidos espelham as opções oferecidas pelo frontend
+(settingsModal.html). Ajustar aqui sempre que o conjunto de configurações
+padrão do serviço ganhar um campo novo ou as opções do frontend mudarem.
 """
 
 from typing import Optional, List
 
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
-
-# Valores reais definidos em settingsModal.html
-# (.theme-option[data-theme-option]).
+# Valores de .theme-option[data-theme-option] em settingsModal.html.
 TEMAS_PERMITIDOS = {
     "dark", "light",
     "blue", "blue-light",
@@ -30,15 +25,27 @@ TEMAS_PERMITIDOS = {
 }
 TAMANHOS_FONTE_PERMITIDOS = {"pequeno", "medio", "grande"}
 
-# Idiomas suportados hoje pelo <select id="f-idioma"> em
-# settingsModal.html. Setar fechado (em vez de regex genérico) porque
-# a UI só oferece estas duas opções -- qualquer outro valor não tem
-# como ter vindo do formulário legítimo.
+# Opções do <select id="f-idioma"> em settingsModal.html. O conjunto é fechado
+# (e não um regex genérico) porque a UI só oferece estas duas: qualquer outro
+# valor não teria como ter vindo do formulário legítimo.
 IDIOMAS_PERMITIDOS = {"pt-BR", "en-US"}
 
+# Tradução dos tipos de erro nativos do pydantic (que vêm em inglês) para
+# mensagens em português. Erros dos validadores customizados já são em português.
+MENSAGENS_ERRO_PYDANTIC = {
+    "extra_forbidden": "campo não permitido.",
+    "string_type": "deve ser um texto.",
+    "list_type": "deve ser uma lista.",
+    "dict_type": "deve ser um objeto.",
+    "model_type": "deve ser um objeto.",
+}
 
 
 class DesignSchema(BaseModel):
+    """Seção `design`: tema e tamanho da fonte. Campos desconhecidos são rejeitados."""
+
+    model_config = ConfigDict(extra="forbid")
+
     tema: Optional[str] = None
     tamanho_fonte: Optional[str] = None
 
@@ -61,11 +68,12 @@ class DesignSchema(BaseModel):
             )
         return v
 
-    class Config:
-        extra = "forbid"  # rejeita campos desconhecidos dentro de "design"
-
 
 class PreferenciasSchema(BaseModel):
+    """Seção `preferencias`: lista de idiomas, não vazia e só com valores permitidos."""
+
+    model_config = ConfigDict(extra="forbid")
+
     linguagem: Optional[List[str]] = None
 
     @field_validator("linguagem")
@@ -83,33 +91,37 @@ class PreferenciasSchema(BaseModel):
                 )
         return v
 
-    class Config:
-        extra = "forbid"
-
 
 class ConfiguracoesSchema(BaseModel):
-    """Schema raiz do payload `configuracoes` recebido em PUT /configuracoes.
+    """Schema raiz do payload `configuracoes` do PUT de configurações.
 
-    Todos os campos são opcionais no schema porque `atualizar()` faz
-    merge parcial (o usuário pode mandar só `design`, só `preferencias`,
-    ou só um sub-campo de cada) -- mas o que for enviado precisa bater
-    com o formato esperado.
+    Todos os campos são opcionais porque a atualização é parcial (o usuário
+    pode mandar só `design`, só `preferencias` ou só um sub-campo de cada),
+    mas o que for enviado precisa bater com o formato esperado. Seções
+    desconhecidas na raiz (ex.: "designe") são rejeitadas.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     design: Optional[DesignSchema] = None
     preferencias: Optional[PreferenciasSchema] = None
 
-    class Config:
-        extra = "forbid"  # rejeita seções desconhecidas na raiz (ex: "designe")
-
 
 def validar_configuracoes(dados: dict) -> dict:
-    """Valida o payload de configuracoes e retorna o dict já normalizado
-    (sem chaves com valor None) pronto para o merge no service.
+    """Valida o payload de configurações e devolve o dict normalizado.
 
-    Levanta `ValueError` com uma mensagem amigável em português no
-    primeiro problema encontrado -- pensada para ser repassada direto
-    ao usuário final via `BionException`/`json_error`.
+    O resultado não traz chaves com valor None, para o merge não sobrescrever
+    o que o usuário não quis mudar.
+
+    Args:
+        dados: conteúdo de `configuracoes` recebido do client.
+
+    Returns:
+        Dict apenas com os campos enviados e válidos.
+
+    Raises:
+        ValueError: com mensagem em português sobre o primeiro problema
+            encontrado, pensada para ser repassada direto ao usuário.
     """
     if not isinstance(dados, dict):
         raise ValueError(
@@ -123,15 +135,15 @@ def validar_configuracoes(dados: dict) -> dict:
     except ValidationError as ex:
         primeiro_erro = ex.errors()[0]
         campo = ".".join(str(p) for p in primeiro_erro["loc"])
-        motivo = primeiro_erro["msg"]
-        # pydantic prefixa erros de @field_validator com "Value error, ";
-        # removemos para a mensagem ficar limpa para o usuário final.
-        motivo = motivo.removeprefix("Value error, ")
+        if primeiro_erro["type"] == "value_error":
+            # Erro dos validadores customizados: o pydantic prefixa com
+            # "Value error, ", removido para a mensagem ficar limpa.
+            motivo = primeiro_erro["msg"].removeprefix("Value error, ")
+        else:
+            motivo = MENSAGENS_ERRO_PYDANTIC.get(primeiro_erro["type"], "valor inválido.")
         raise ValueError(
             f"Configuração inválida em '{campo}': {motivo} "
             "Tente novamente."
         ) from ex
 
-    # model_dump remove campos não enviados (None) para não sobrescrever
-    # à toa nada que o usuário não quis mudar.
     return validado.model_dump(exclude_none=True)
