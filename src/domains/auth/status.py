@@ -1,33 +1,37 @@
-"""Rota informativa de status de sessão.
+"""
+status.py
 
-Diferente de `/auth/me`, esta rota não bloqueia -- apenas informa em
-que estado a sessão está. Usada pela página pós-login logo após o
-redirect do Google, para decidir se o usuário deve ir para onboarding,
-confirmação de 2FA, ou dashboard. Mantém o contrato de resposta somente
-em JSON, mesmo sendo uma rota de apoio à navegação.
+Rotas informativas sobre o estado da sessão. Diferente de uma checagem que
+bloqueia, estas rotas apenas dizem em que estado a sessão está (completa,
+com onboarding pendente ou com 2FA pendente) para o frontend decidir para
+onde navegar, por exemplo logo após o redirect do Google. As respostas são
+sempre JSON, mesmo sendo rotas de apoio à navegação. Também ficam aqui as
+rotas que devolvem os dados do usuário da sessão e verificam se há sessão
+ativa.
 """
 
-from flask import Blueprint, session, jsonify, g
+from flask import Blueprint, session, jsonify
 from src.core.responses import json_error, json_success
-from src.core.session import get_usuario_sessao, _mfa_pendente_expirado
+from src.core.session import get_usuario_sessao, requer_login, _mfa_pendente_expirado
 
 bp_status = Blueprint("status", __name__)
+
 
 def _resposta_se_incompleta():
     """Avalia a sessão e devolve `(resposta, código)` se ela NÃO estiver completa.
 
-    Retorna `None` quando a sessão está completa, para a rota decidir o
-    payload final.
+    Retorna None quando a sessão está completa, para a rota montar o payload
+    final.
 
     Casos:
         401 `nao_autenticado`: sem sessão iniciada, ou `mfa_pendente` expirado
             (nesse caso a sessão é limpa).
-        200 `onboarding_pendente`: inclui `senha_definida: bool`, para o
-            frontend saber se pode pular a etapa de senha.
-        200 `mfa_pendente`: inclui `metodo` (singular, compatibilidade),
+        200 `onboarding_pendente`: inclui `senha_definida`, para o frontend
+            saber se pode pular a etapa de senha.
+        200 `mfa_pendente`: inclui `metodo` (singular, por compatibilidade),
             `metodos_disponiveis`, `tentativas_restantes` e
-            `reautenticar_disponivel`, para o frontend decidir entre tentar
-            de novo ou reautenticar por senha ou Google.
+            `reautenticar_disponivel`, para o frontend decidir entre tentar de
+            novo ou reautenticar por senha ou Google.
     """
     usuario = get_usuario_sessao()
     if not usuario:
@@ -53,16 +57,17 @@ def _resposta_se_incompleta():
         restantes = max(0, MAX_TENTATIVAS_MFA - session.get("mfa_tentativas", 0))
         return jsonify({
             "status": "mfa_pendente",
-            "metodo": metodos[0] if metodos else None,  # compatibilidade
+            "metodo": metodos[0] if metodos else None,
             "metodos_disponiveis": metodos,
             "tentativas_restantes": restantes,
             "reautenticar_disponivel": restantes == 0,
         }), 200
 
     return None
-    
+
+
 class Status():
-    
+
     @staticmethod
     @bp_status.get("/status")
     def status_sessao():
@@ -72,12 +77,12 @@ class Status():
         segundo fator ainda não foi confirmado.
 
         Retorno:
-            200 `completa`, `onboarding_pendente` ou `mfa_pendente`
-                (detalhes em `_resposta_se_incompleta`).
+            200 `completa`, `onboarding_pendente` ou `mfa_pendente` (detalhes
+                em `_resposta_se_incompleta`).
             401 `nao_autenticado` se não houver sessão iniciada.
         """
         return _resposta_se_incompleta() or (jsonify({"status": "completa"}), 200)
-    
+
     @staticmethod
     @bp_status.get("/status_completo")
     def status_completo():
@@ -101,15 +106,17 @@ class Status():
 
     @staticmethod
     @bp_status.get("/me")
+    @requer_login
     def me():
-        """Retorna os dados do usuário autenticado na sessão atual e suas configurações.
+        """Retorna os dados do usuário da sessão atual, suas configurações e seus dispositivos WebAuthn.
+
+        Exige sessão completa: quem está em onboarding ou com 2FA pendente não recebe dados.
 
         Retorno:
-            200 com os dados do usuário.
-            401 se a sessão referenciar um usuário que não existe mais
-            (nesse caso a sessão também é limpa).
+            200 com `usuario`, `configuracoes` e `webauthn` (lista de credenciais).
+            401 se a sessão referenciar um usuário que não existe mais (a
+                sessão também é limpa).
         """
-        from src.domains.usuario.repository import UsuarioRepository
         from src.domains.configuracao.service import ConfiguracaoService
         from .webauthn_2fa import carregar_configuracoes
 
@@ -119,15 +126,17 @@ class Status():
             session.clear()
             return json_error("Sessão inválida.", 401)
 
-        cfg_service = ConfiguracaoService()
-        cfg = cfg_service.obter_ou_criar(usuario.id)
+        cfg = ConfiguracaoService().obter_ou_criar(usuario.id)
 
         return json_success(
-            data={"usuario": usuario.to_dict(), "configuracoes": cfg.to_dict(), "webauthn": carregar_configuracoes()},
+            data={
+                "usuario": usuario.to_dict(),
+                "configuracoes": cfg.to_dict(),
+                "webauthn": carregar_configuracoes(),
+            },
             message="Login realizado com sucesso.",
         )
-        
-    
+
     @staticmethod
     @bp_status.get("/check-session")
     def ck_session():

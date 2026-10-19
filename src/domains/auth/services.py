@@ -1,6 +1,17 @@
-"""Serviço de autenticação por login e senha."""
+"""
+services.py
+
+Serviço de autenticação por login e senha. Valida as credenciais com Argon2id,
+atualizando o hash automaticamente quando os parâmetros do algoritmo evoluem,
+e promove uma sessão pendente de segundo fator a sessão completa. Essa
+promoção é compartilhada pelos módulos de WebAuthn e de TOTP para que a
+lógica não seja duplicada entre eles.
+"""
+
+from typing import Optional, Tuple
 
 from argon2.exceptions import VerifyMismatchError
+
 from src.core.security import ph
 from src.domains.usuario.repository import UsuarioRepository
 from src.models.usuarios import Usuario
@@ -8,26 +19,27 @@ from src.core.session import session
 
 
 class AuthService:
-    """Serviço responsável por validar credenciais de login/senha."""
+    """Valida credenciais de login/senha e libera a sessão após o 2FA."""
 
     def __init__(self):
         self.repo = UsuarioRepository()
 
-    def autenticar(self, login: str, senha: str):
+    def autenticar(self, login: str, senha: str) -> Tuple[Optional[Usuario], Optional[str]]:
         """Autentica um usuário por login e senha.
 
-        Também aplica rehash automático da senha caso os parâmetros do
-        algoritmo Argon2id tenham evoluído desde o último hash salvo.
+        Se o hash salvo estiver desatualizado em relação aos parâmetros atuais
+        do Argon2id, regrava a senha com o hash novo.
 
-        Parâmetros:
+        Args:
             login: login informado pelo usuário.
             senha: senha em texto plano informada pelo usuário.
 
-        Retorno:
-            Tupla (Usuario, None) se as credenciais forem válidas.
-            Tupla (None, "sem_senha") se o usuário só possuir login via Google.
-            Tupla (None, None) se as credenciais forem inválidas ou o
-            usuário não existir/estiver inativo.
+        Returns:
+            (Usuario, None) se as credenciais forem válidas.
+            (None, "sem_senha") se o usuário existe e está ativo, mas só tem
+                login via Google.
+            (None, None) se as credenciais forem inválidas ou o usuário não
+                existir ou estiver inativo.
         """
         usuario = self.repo.find_by_login(login)
         if not usuario or usuario.status == "inativo":
@@ -48,10 +60,16 @@ class AuthService:
         return usuario, None
 
     def liberar_sessao_completa(self, usuario: Usuario, db):
-        """Promove a sessão pendente (mfa_pendente) a sessão completa,
-        após o segundo fator ter sido confirmado. Compartilhado por
-        webauthn_2fa.py e totp_2fa.py para não duplicar essa lógica
-        entre os dois módulos.
+        """Promove a sessão pendente de 2FA a sessão completa.
+
+        Chamado depois que o segundo fator foi confirmado: marca o usuário como
+        ativo, descarta os estados temporários do 2FA (flag pendente, desafio e
+        contadores de tentativa) e grava `id_empresa`, o sinal de que a
+        autenticação terminou.
+
+        Args:
+            usuario: usuário que acabou de confirmar o segundo fator.
+            db: instância do SQLAlchemy usada para o commit.
         """
         usuario.status = "ativo"
         db.session.commit()

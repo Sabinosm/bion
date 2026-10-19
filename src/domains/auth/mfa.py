@@ -1,81 +1,78 @@
-"""Decisão de qual método de 2FA usar. 2FA é sempre obrigatório (login
-por senha e por Google) — este módulo não decide "se" exigir, só "qual"
-método tentar primeiro.
 """
+mfa.py
+
+Decisão de qual método de segundo fator (2FA) usar para um usuário. O 2FA é
+sempre obrigatório no login, por senha ou por Google, então este módulo não
+decide "se" exigir, apenas "qual" método oferecer ou tentar primeiro.
+
+Os métodos cadastráveis são WebAuthn e TOTP, nessa ordem de preferência. Na
+reconfirmação de identidade antes de ações sensíveis (step-up) existe ainda
+um terceiro caminho, senha mais Google, que cobre quem não tem nenhum dos
+dois fatores.
+"""
+
+from typing import Optional
 
 from src.models.usuarios.credencial_totp import CredencialTOTP
 from src.models.usuarios.credencial_webauthn import CredencialWebAuthn
 
 
-def metodo_2fa_preferencial(id_usuario) -> str | None:
-    """Retorna qual método deve ser OFERECIDO PRIMEIRO no login desse
-    usuário: "webauthn" se tiver 1+ credencial WebAuthn, senão "totp"
-    se tiver TOTP confirmado, senão None.
+def _tem_webauthn(id_usuario) -> bool:
+    """True se o usuário tem ao menos uma credencial WebAuthn."""
+    return CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).first() is not None
 
-    None só deveria ocorrer para usuários com dados legados sem nenhum
-    fator ainda migrado. Quem chama deve tratar None como um estado
-    inconsistente a ser resolvido manualmente (ex: admin), não como
-    "sem 2FA, libera direto" -- essa opção não existe no sistema.
-    """
-    tem_webauthn = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).first() is not None
-    if tem_webauthn:
-        return "webauthn"
 
-    tem_totp = CredencialTOTP.query.filter_by(
+def _tem_totp_confirmado(id_usuario) -> bool:
+    """True se o usuário tem um TOTP já confirmado."""
+    return CredencialTOTP.query.filter_by(
         id_usuario=id_usuario, confirmado=True
     ).first() is not None
-    if tem_totp:
-        return "totp"
 
+
+def metodo_2fa_preferencial(id_usuario) -> Optional[str]:
+    """Método de 2FA que deve ser OFERECIDO PRIMEIRO no login do usuário.
+
+    Retorna "webauthn" se houver 1+ credencial WebAuthn; senão "totp" se
+    houver TOTP confirmado; senão None.
+
+    None só deveria ocorrer em contas legadas sem nenhum fator migrado. Quem
+    chama deve tratá-lo como estado inconsistente a resolver manualmente
+    (ex.: por um admin), nunca como "sem 2FA, libera direto", opção que não
+    existe no sistema.
+    """
+    if _tem_webauthn(id_usuario):
+        return "webauthn"
+    if _tem_totp_confirmado(id_usuario):
+        return "totp"
     return None
 
 
 def usuario_tem_algum_2fa(id_usuario) -> bool:
-    """True se o usuário tem WebAuthn OU TOTP cadastrado -- usado para
-    decidir o método do STEP-UP (que mantém fallback senha+Google para
-    quem não tem nenhum dos dois, ver step_up.py).
-    """
+    """True se o usuário tem WebAuthn OU TOTP confirmado."""
     return metodo_2fa_preferencial(id_usuario) is not None
 
 
 def metodo_stepup(id_usuario) -> str:
-    """Retorna qual método o STEP-UP deve tentar primeiro: "webauthn"
-    ou "totp" se o usuário tiver algum dos dois (mesma ordem de
-    preferência de `metodo_2fa_preferencial`), ou "senha_google" caso
-    não tenha nenhum dos dois cadastrado.
+    """Método que o step-up deve tentar primeiro: "webauthn", "totp" ou "senha_google".
 
-    Diferente de `metodo_2fa_preferencial` (que devolve None para
-    contas legadas sem fator migrado e deixa quem chama decidir o que
-    fazer com isso), esta função já resolve esse caso para "senha_google"
-    -- porque, ao contrário do login, o step-up sempre tem uma saída
-    (ver step_up.py para o racional completo do fallback).
+    Segue a mesma ordem de preferência de `metodo_2fa_preferencial`, mas
+    resolve a conta sem nenhum fator para "senha_google", porque, ao contrário
+    do login, o step-up mantém o fallback senha mais Google para quem não tem
+    nenhum fator.
     """
-    metodo = metodo_2fa_preferencial(id_usuario)
-    return metodo or "senha_google"
+    return metodo_2fa_preferencial(id_usuario) or "senha_google"
 
 
 def metodos_2fa_disponiveis(id_usuario) -> list[str]:
-    """Retorna TODOS os métodos de 2FA cadastrados e utilizáveis pelo
-    usuário, em ordem de preferência de exibição (WebAuthn primeiro).
+    """TODOS os métodos de 2FA utilizáveis pelo usuário, com WebAuthn primeiro.
 
-    Diferente de `metodo_2fa_preferencial()` -- que devolve só o
-    primeiro que encontra, usado para decidir automaticamente qual
-    tentar no STEP-UP -- esta função existe para o frontend poder
-    OFERECER ESCOLHA ao usuário quando mais de um método está
-    disponível (ver /auth/status, tela de escolha no login). Lista
-    vazia só deveria ocorrer para o mesmo caso de dado legado descrito
-    em `metodo_2fa_preferencial`.
+    Existe para o frontend poder oferecer escolha quando há mais de um
+    método (ver /auth/status). Lista vazia só deveria ocorrer no mesmo caso
+    legado descrito em `metodo_2fa_preferencial`.
     """
     metodos = []
-
-    tem_webauthn = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).first() is not None
-    if tem_webauthn:
+    if _tem_webauthn(id_usuario):
         metodos.append("webauthn")
-
-    tem_totp = CredencialTOTP.query.filter_by(
-        id_usuario=id_usuario, confirmado=True
-    ).first() is not None
-    if tem_totp:
+    if _tem_totp_confirmado(id_usuario):
         metodos.append("totp")
-
     return metodos

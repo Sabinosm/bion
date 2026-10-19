@@ -1,6 +1,6 @@
 # Fluxo de Autenticação
 
-Documentação do sistema de autenticação multifatorada, cobrindo login por senha, login social (Google), segundo fator via WebAuthn, onboarding de novos usuários, step-up authentication e status de sessão.
+Documentação do sistema de autenticação do Bion, cobrindo login por senha, login social (Google), segundo fator (WebAuthn e TOTP), onboarding de novos usuários, step-up authentication e status de sessão.
 
 ---
 
@@ -8,128 +8,251 @@ Documentação do sistema de autenticação multifatorada, cobrindo login por se
 
 ## Visão geral
 
-A autenticação garante duas coisas: que quem está logado é quem diz ser, e que privilégios corretos são concedidos/negados. O sistema combina dois caminhos de entrada com níveis de confiança diferentes:
+A autenticação garante duas coisas: que quem está logado é quem diz ser e que a sessão só ganha acesso pleno depois de provar isso. O sistema tem dois caminhos de entrada, que convergem para o mesmo segundo fator:
 
-1. **Usuário e senha** — `user_login` + `senha` via JSON. Validado no front e no back. Se o usuário tiver WebAuthn cadastrado, precisa confirmá-lo antes de ganhar acesso (segundo fator). Se não tiver, a sessão é liberada direto após a senha.
+1. **Usuário e senha**: `user_login` + `senha`. A senha é validada com Argon2id (o hash é regravado automaticamente se os parâmetros do algoritmo evoluírem). Usuário inexistente, inativo ou sem senha (só Google) recebe a mesma resposta de credencial inválida, para não revelar quais contas existem.
+2. **Google (OAuth)**: login pelo e-mail já cadastrado por um admin. O Google só prova a posse do e-mail e **nunca cria conta**. Na primeira vez, o `google_sub` é vinculado ao usuário; nas seguintes, o `sub` devolvido precisa ser o mesmo, e o e-mail precisa estar verificado pelo Google.
 
-2. **OAuth (Google)** — login usando o e-mail já cadastrado por um admin. O Google aqui só prova posse do e-mail; **nunca cria conta nova**. Autenticar com sucesso via Google já é considerado prova de identidade suficiente: a sessão é liberada como completa direto, mesmo que o usuário tenha WebAuthn cadastrado — o login via Google nunca exige o segundo fator. O único bloqueio possível é o onboarding pendente, se o usuário ainda não tiver senha definida.
+Nos dois casos o 2FA é obrigatório: **WebAuthn ou TOTP**, sem caminho de login que dispense o segundo fator. A única etapa que vem antes dele é o onboarding, quando o usuário ainda não tem senha e fator definidos.
 
-Em ambos os casos, ao final, o sistema gera uma **sessão via cookie httpOnly**, com duração de 8 horas, que garante identidade, empresa associada e configurações do usuário.
+A sessão é um **cookie httpOnly** (`session.permanent = True`) e guarda identidade, privilégios e flags de estado.
+
+## Camadas e arquivos
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `login.py` | Login por senha e logout |
+| `oauth.py` | Login via Google (callback, vínculo do `google_sub`) |
+| `onboarding.py` | Primeiro acesso: definir senha, checar 2FA, concluir; regra que fecha o onboarding |
+| `webauthn_2fa.py` | Cadastro/remoção de dispositivos WebAuthn e confirmação do login |
+| `totp_2fa.py` | Cadastro/remoção de TOTP, confirmação do login e do step-up |
+| `step_up.py` | Reconfirmação de identidade antes de ações sensíveis |
+| `mfa.py` | Decisão de qual método de 2FA oferecer |
+| `services.py` | Validação de senha e promoção da sessão a completa |
+| `status.py` | Estado da sessão, dados do usuário e verificação de sessão ativa |
+| `webauthn_config.py` / `frontend_config.py` | Configuração por variáveis de ambiente |
 
 ## Sessão: estados e progressão
 
-A sessão nunca pula direto para "completa". Ela passa por estados intermediários, guardados como flags dentro do próprio cookie de sessão:
+A sessão não vai direto para "completa". Passa por estados intermediários, guardados como flags no próprio cookie:
 
-| Estado | Flag na sessão | Significa |
+| Estado | Como se reconhece | Significa |
 |---|---|---|
-| Onboarding pendente | `onboarding_pendente=True` | Primeiro acesso; falta definir senha |
-| MFA pendente | `mfa_pendente=True` | Login por senha ok, usuário tem WebAuthn cadastrado e falta confirmar o 2º fator |
-| Completa | nenhuma das flags acima + `id_empresa` definido | Usuário tem acesso pleno |
+| Onboarding pendente | `onboarding_pendente=True` | Falta definir senha e/ou cadastrar um método de 2FA |
+| MFA pendente | `mfa_pendente=True` | Primeiro fator ok; falta confirmar o segundo |
+| Completa | nenhuma das flags + `id_empresa` definido | Acesso pleno |
 
-`id_empresa` só é gravado na sessão no momento em que ela vira completa — é o sinal de que a autenticação terminou. Enquanto pendente (onboarding ou MFA), o usuário está "meio-logado": tem `id_usuario` na sessão, mas nenhuma rota que dependa de `id_empresa` deve confiar nele ainda.
+`id_empresa` só é gravado quando a sessão vira completa: ao confirmar o 2FA (`liberar_sessao_completa`) ou ao concluir o onboarding. Enquanto pendente, o usuário está "meio-logado": tem `id_usuario` na sessão, mas nenhuma rota que dependa de `id_empresa` deve confiar nele.
 
-Onboarding e MFA são mutuamente exclusivos: um usuário com `onboarding_pendente=True` ainda não tem WebAuthn cadastrado (é primeiro acesso, e o cadastro de WebAuthn não faz mais parte do onboarding — ver seção própria), então nunca chega a `mfa_pendente` antes de concluir o onboarding.
+O `mfa_pendente` expira por tempo fixo (ver `session.py`), e não só pela inatividade do cookie.
 
-## WebAuthn: o mecanismo por trás de tudo
+### Chaves gravadas na sessão
 
-WebAuthn é o padrão (W3C/FIDO Alliance) que autentica sem senha, trocando segredo compartilhado por criptografia assimétrica. A ideia central:
+| Chave | Gravada por | Para quê |
+|---|---|---|
+| `id_usuario`, `uuid_usuario` | login e callback do Google | Identidade da sessão |
+| `is_admin`, `funcao_clinica`, `is_super_admin` | login, callback do Google e conclusão do onboarding | Privilégios; `is_admin` e `funcao_clinica` são independentes (admin que também atende) |
+| `senha_versao` | login e callback do Google | Snapshot da versão da senha, para invalidar sessões quando a senha muda depois |
+| `onboarding_pendente` | login e callback do Google | Flag de onboarding |
+| `onboarding_fator_comprovado` | cadastro de fator durante o onboarding | Indica que o usuário comprovou a posse de um fator nesta sessão |
+| `mfa_pendente` | início do MFA pendente | Flag de segundo fator pendente |
+| `mfa_tentativas` | `/webauthn/2fa/iniciar` | Tentativas de desafio WebAuthn no login |
+| `totp_tentativas` | `/totp/2fa/iniciar` e confirmação | Tentativas de TOTP no login |
+| `mfa_webauthn_challenge` | `/webauthn/2fa/iniciar` | Desafio do login |
+| `registro_webauthn_challenge` | `/webauthn/registrar/iniciar` | Desafio de cadastro de dispositivo |
+| `totp_secret_pendente` | `/totp/registrar/iniciar` | Secret ainda não confirmado |
+| `stepup_challenge` | `/stepup/iniciar` | Desafio do step-up + ação vinculada |
+| `stepup_totp_tentativas`, `stepup_totp_acao` | início do step-up TOTP | Tentativas e ação vinculada |
+| `id_empresa` | liberação da sessão completa | Sinal de que a autenticação terminou |
 
-- **Registro**: o dispositivo gera um par de chaves. A privada fica presa no hardware (Secure Enclave, TPM, chip de segurança); a pública vai pro servidor.
-- **Autenticação**: o servidor manda um `challenge` aleatório. O usuário confirma presença (biometria/PIN). O dispositivo assina o challenge com a chave privada. O servidor valida com a chave pública salva.
-Como a chave é vinculada ao domínio (origin-bound), o mecanismo é nativamente resistente a phishing — não existe "senha" pra vazar ou reutilizar em outro site.
+Ao liberar a sessão completa, `mfa_pendente`, `mfa_webauthn_challenge`, `mfa_tentativas` e `totp_tentativas` são descartados.
 
-Dispositivos suportados vão de autenticadores de plataforma (Face ID, Windows Hello, Touch ID) a autenticadores de itinerância (YubiKey, chaves FIDO2 via USB/NFC/Bluetooth) e celulares como chave remota via passkey.
+## Métodos de 2FA
 
-**Importante**: esse mesmo mecanismo criptográfico é reaproveitado em **dois contextos diferentes** no sistema, cada um com sua própria chave de sessão para o challenge (para não haver colisão entre fluxos):
+Dois métodos, sempre nesta ordem de preferência: **WebAuthn**, depois **TOTP**. `mfa.py` expõe a decisão:
 
-| Contexto | Onde | Chave de sessão do challenge | `user_verification` | Papel do WebAuthn |
+| Função | Devolve | Uso |
+|---|---|---|
+| `metodo_2fa_preferencial` | `"webauthn"` se houver 1+ credencial; senão `"totp"` se houver TOTP confirmado; senão `None` | Método oferecido primeiro no login |
+| `metodos_2fa_disponiveis` | Lista com todos os métodos utilizáveis | Tela de escolha do frontend (`/status`) |
+| `metodo_stepup` | O mesmo que a preferencial, ou `"senha_google"` se o usuário não tiver nenhum | Método do step-up |
+| `usuario_tem_algum_2fa` | `True` se tem WebAuthn ou TOTP confirmado | Checagem de onboarding |
+
+`None` só deveria ocorrer em conta legada sem nenhum fator migrado. Nunca significa "libera direto".
+
+### WebAuthn
+
+Padrão (W3C/FIDO) que troca segredo compartilhado por criptografia assimétrica. No cadastro, o dispositivo gera um par de chaves: a privada fica no hardware e a pública vai para o servidor. Na autenticação, o servidor envia um `challenge` aleatório, o usuário confirma presença local (PIN ou biometria) e o dispositivo assina o desafio; o servidor valida com a chave pública. Como a chave é vinculada ao domínio, o mecanismo resiste a phishing.
+
+O mesmo mecanismo é usado em três contextos, cada um com sua chave de sessão para o desafio, para os fluxos não colidirem:
+
+| Contexto | Rotas | Chave do desafio | Papel |
+|---|---|---|---|
+| Confirmação do login | `/webauthn/2fa/*` | `mfa_webauthn_challenge` | Promove a sessão pendente a completa |
+| Cadastro de dispositivo | `/webauthn/registrar/*` | `registro_webauthn_challenge` | Registra uma credencial nova |
+| Step-up | `/stepup/iniciar` e `/stepup/confirmar` | `stepup_challenge` (+ ação) | Reautenticação pontual, sessão já completa |
+
+Em todos, `user_verification` é `REQUIRED`: o autenticador confirma a identidade localmente, e só presença física não basta. A cada autenticação bem-sucedida o `sign_count` da credencial é atualizado. Cada credencial tem apelido e tipo (`mobile`, `usb` ou `desktop`), e o cadastro usa `exclude_credentials` para não registrar o mesmo autenticador duas vezes.
+
+### TOTP
+
+Código de 6 dígitos de um app autenticador, aceito com tolerância de uma janela de 30 segundos para cada lado. O cadastro tem duas etapas:
+
+1. `/totp/registrar/iniciar` gera um secret novo e devolve a URI `otpauth://` (para QR code) e o `secret_texto` (digitação manual). O secret **não vai ao banco**: fica só na sessão (`totp_secret_pendente`).
+2. `/totp/registrar/confirmar` exige o primeiro código válido. Só então a credencial é criada ou substituída e `confirmado` vira `True`, junto com a troca do secret. Um TOTP já em uso continua válido até lá, mesmo que o cadastro seja reiniciado.
+
+Depois de confirmado, o secret nunca mais é exposto por nenhuma rota.
+
+### Regras de remoção
+
+| Remover | Permitido quando |
+|---|---|
+| Credencial WebAuthn | Não é a última, ou o usuário tem TOTP confirmado |
+| TOTP | O usuário tem pelo menos uma credencial WebAuthn |
+
+Em ambos os casos, o usuário nunca fica sem 2FA.
+
+## Configuração centralizada
+
+| Módulo | Variáveis | Padrão | Usado por |
+|---|---|---|---|
+| `webauthn_config.py` | `WEBAUTHN_RP_ID` | `bion-one.vercel.app` | Todos os módulos WebAuthn |
+| | `WEBAUTHN_RP_NAME` | `Bion` | Tela de biometria e emissor do TOTP |
+| | `WEBAUTHN_ORIGIN` | `https://bion-one.vercel.app` | Verificação das assinaturas |
+| `frontend_config.py` | `FRONTEND_URL` | `https://bion-one.vercel.app` | Redirects do Google e do step-up |
+
+`WEBAUTHN_ORIGIN` precisa ser uma URL completa com esquema, porque é assim que o navegador preenche `clientDataJSON.origin`, e a verificação compara contra esse valor exato. `WEBAUTHN_RP_ID` não leva esquema nem porta.
+
+`FRONTEND_URL` existe porque backend e frontend rodam em origens diferentes: um `redirect()` com path relativo seria resolvido contra a origem do Flask. Por isso todo redirect para o frontend monta a URL completa, e o backend só conhece pontos de entrada fixos (`oauth_callback.html`, `login.html`, `stepup_callback.html`).
+
+## Limites de tentativas
+
+| Fluxo | Limite | Contador (sessão) | Quando zera | Ao esgotar |
 |---|---|---|---|---|
-| Segundo fator (login por senha) | `webauthn_2fa.py` | `mfa_webauthn_challenge` | `REQUIRED` | Confirmação de sessão pendente |
-| Reconfirmação de identidade (ação sensível) | `step_up.py` | `stepup_challenge` (+ `acao` vinculada) | `REQUIRED` | Reautenticação pontual, sessão já completa — método preferencial, quando o usuário tem credencial cadastrada |
+| WebAuthn no login | 3 | `mfa_tentativas` | Novo login | `429 limite_tentativas_excedido`; o frontend tenta TOTP |
+| TOTP no login | 5 | `totp_tentativas` | Novo login ou `/totp/2fa/iniciar` | `429 limite_tentativas_excedido`; sem outro caminho |
+| TOTP no step-up | 5 | `stepup_totp_tentativas` | A cada início do step-up TOTP | `429`; libera o fallback senha + Google |
 
-`REQUIRED` obriga o autenticador a confirmar identidade localmente (PIN ou biometria) antes de assinar — não basta só presença física (ex.: tocar num sensor sem ele de fato ler nada). Sem isso, alguém com o dispositivo desbloqueado mas sem saber o PIN/senha do sistema operacional ainda passaria pelo desafio em certos autenticadores.
+No WebAuthn, **cada pedido de desafio** conta como uma tentativa, não importa por que a anterior falhou (sem autenticador, PIN errado, timeout, cancelamento); o contador só avança depois de as opções serem geradas com sucesso. No TOTP, cada código errado conta, porque são só 6 dígitos e uma falha pode ser tentativa de adivinhação.
 
-O cadastro da credencial (registro) não faz mais parte do onboarding — passou a ser uma funcionalidade das configurações da conta, com o usuário já em sessão completa, usando as mesmas funções de registro do `py_webauthn` (`generate_registration_options` / `verify_registration_response`) que antes viviam em `onboarding.py`.
+Esgotar os dois métodos no login é bloqueio: o frontend orienta contato com o administrador. Como todos os contadores vivem na sessão, um novo login (por senha ou por Google) recomeça o ciclo.
 
-## Configuração centralizada (RP ID, origin, frontend)
+---
 
-Valores que antes estavam hardcoded (`"127.0.0.1"` repetido pelos módulos que usam WebAuthn; path de redirect fixo em `oauth.py`) foram centralizados em módulos de configuração próprios, lidos de variáveis de ambiente:
+# Fluxos
 
-| Módulo | Variáveis | Usado por |
-|---|---|---|
-| `webauthn_config.py` | `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN` | `webauthn_2fa.py`, `step_up.py`, e o cadastro de credencial nas configurações |
-| `frontend_config.py` | `FRONTEND_URL` | `oauth.py`, `step_up.py` (redirect de volta do fallback de reautenticação) |
+## Login por senha
 
-`WEBAUTHN_ORIGIN` precisa ser uma URL completa com esquema (ex.: `https://app.bion.com.br`), não um host puro — é assim que o navegador preenche `clientDataJSON.origin`, e é contra esse valor exato que a verificação da assinatura compara. Um host sem esquema funciona por acidente em alguns cenários de desenvolvimento e falha sempre em produção com HTTPS real.
+1. O frontend envia `user_login` e `senha` para `/login`.
+2. `AuthService.autenticar` valida as credenciais.
+3. A sessão é **reiniciada** e recebe identidade, privilégios e `senha_versao`.
+4. O sistema reavalia o onboarding (ver abaixo). Se continuar pendente, grava `onboarding_pendente` e responde `status: onboarding_pendente`.
+5. Caso contrário, inicia o MFA pendente e responde `status: mfa_pendente`, com `metodo` (preferencial) e `metodos_disponiveis`.
+6. O frontend executa o segundo fator (próxima seção).
 
-`FRONTEND_URL` existe porque o backend (Flask) e o frontend (arquivos estáticos servidos por outro processo, ex. Vite/live-server) rodam em origens diferentes — um `redirect()` do Flask com path relativo (ex. `/paginas/algo.html`) é resolvido pelo navegador contra a origem do Flask, não a do frontend, e por isso precisa da URL completa da outra origem.
+## Login via Google
 
-Em desenvolvimento, os defaults caem em `127.0.0.1` / `http://127.0.0.1:5000` (WebAuthn) e `http://localhost:5500` (frontend) — nunca devem ser usados em produção sem sobrescrever via variável de ambiente.
-
-## Limite de tentativas do 2FA e volta ao login
-
-Cada chamada a `POST /2fa/iniciar` consome uma tentativa, contada em `mfa_tentativas` na sessão (zera a cada novo login por senha). Ao atingir o **limite de 3 tentativas por sessão** (`MAX_TENTATIVAS_MFA`), a rota passa a responder `429 limite_tentativas_excedido` em vez de gerar novo desafio.
-
-Não existe mais, dentro da própria sessão de 2FA, um caminho para pular o desafio — nem por falta de autenticador disponível, nem por esgotamento de tentativas. Quando isso acontece, o frontend orienta o usuário a voltar à tela de login e reautenticar por um dos dois caminhos normais:
-
-- **Por senha**: reinicia o contador de tentativas (`mfa_tentativas` é gravado do zero a cada `POST /login`), permitindo um novo ciclo de até 3 tentativas de WebAuthn.
-- **Por Google**: como login via Google nunca exige 2FA (ver "Visão geral"), essa reautenticação já basta para liberar a sessão completa, sem passar por `mfa_pendente`.
-
-Essa é uma simplificação deliberada em relação a um mecanismo anterior de fallback automático (que promovia a sessão a completa a partir de dentro do próprio fluxo de MFA, via um marcador de sessão validado no callback do Google). Como login via Google deixou de exigir 2FA em qualquer circunstância, esse fallback ficou redundante — o mesmo resultado agora é alcançado simplesmente reautenticando pelo caminho normal do Google.
+1. O frontend abre `/login` do blueprint OAuth, que redireciona ao Google (a URI de retorno vem de `GOOGLE_REDIRECT_URI` ou da rota de callback).
+2. O Google volta em `/callback`. O sistema busca o usuário pelo e-mail devolvido.
+3. Usuário não cadastrado ou inativo: redirect para a tela de login com `?erro=usuario_nao_cadastrado` ou `?erro=conta_inativa`.
+4. E-mail não verificado, ou `sub` diferente do já vinculado ao usuário: redirect com `?erro=conta_google_invalida`.
+5. Na primeira vez, vincula o `google_sub`.
+6. Reinicia a sessão (mesmos campos do login por senha) e reavalia o onboarding: pendente grava `onboarding_pendente`; senão, inicia o MFA pendente.
+7. Redireciona para o ponto de entrada do frontend. A URL **não** diz em que estado a sessão ficou: o frontend consulta `/status` e decide para onde ir.
 
 ## Onboarding: primeiro acesso
 
-Onboarding (enrollment) é o processo de cadastrar, verificar identidade e configurar acesso de um novo usuário antes de conceder qualquer entrada — é a primeira linha de defesa em IAM (Identity and Access Management).
+Disparado quando `onboarding_pendente` está ativo, após login por senha ou por Google. Dois passos, e a conclusão exige **os dois requisitos presentes**:
 
-Disparado quando `usuario.onboarding_pendente == True`, tanto após o primeiro login via Google quanto via senha. Passo único:
+1. **Definir senha** (`/definir-senha`): idempotente. Quem já tem senha (ex.: cadastrado por admin) não digita outra; o usuário passa a `ativo` ao definir uma senha nova.
+2. **Cadastrar e confirmar ao menos um método de 2FA**, WebAuthn ou TOTP (não os dois), pelas mesmas rotas de cadastro das configurações da conta. `/2fa/status` informa se já há algum.
+3. **Concluir** (`/concluir`): valida senha e 2FA e desliga `onboarding_pendente`. Se o usuário comprovou um fator **nesta sessão** (cadastrou e confirmou com assinatura ou código válidos), a sessão é liberada com `id_empresa`. Se o fator já existia antes (ex.: reset de senha por admin), a sessão fica `mfa_pendente` e só vira completa depois de confirmar o 2FA, como em qualquer login.
 
-1. Definir senha (idempotente — se já existir, só conclui o onboarding sem pedir senha nova)
-2. Sessão promovida a completa
+### Cadastro de fator durante o onboarding
 
-O cadastro de WebAuthn não faz mais parte deste fluxo. Reduzir o onboarding a um único passo diminui o atrito do primeiro acesso: a sessão é liberada assim que a senha é definida, sem exigir hardware de autenticação na hora. Quem quiser usar WebAuthn como segundo fator em logins futuros por senha pode cadastrá-lo quando quiser, depois, nas configurações da conta — a partir daí, o próximo login por senha (mas não por Google) passará a exigir esse segundo fator.
+No onboarding, o cadastro de WebAuthn e TOTP só é permitido a quem ainda não tem nenhum fator confirmado ou já cadastrou um nesta própria sessão. Quem já tinha fator (ex.: após reset de senha) não troca nem acrescenta fatores antes de confirmar o 2FA; isso é feito depois, nas configurações da conta.
 
-## Login: senha vs. Google
+### Regra que fecha o onboarding no login
 
-No login por senha, se o usuário só tiver conta via Google (sem `hash_senha`), a rota rejeita com instrução para logar pelo Google. Depois de senha validada, o fluxo verifica 2FA:
+No login (por senha ou Google), se `onboarding_pendente` estiver ativo mas o usuário **já tem senha e 2FA confirmado**, a flag é desligada e o fluxo segue normal para o 2FA. Exige os dois requisitos, e não apenas um.
 
-- Sem WebAuthn cadastrado → sessão completa direto (empresa liberada)
-- Com WebAuthn cadastrado → sessão fica `mfa_pendente`, aguardando confirmação em `webauthn_2fa.py`
+### Reset de senha por admin
 
-No login via Google (`oauth.py`), o usuário **precisa já existir** (cadastrado por admin) e estar com `status != "inativo"`. O Google só confirma o e-mail. Na primeira vez, vincula `google_sub` ao usuário. Depois, decide entre onboarding pendente (se faltar senha) ou sessão completa direto — login via Google nunca resulta em `mfa_pendente`, independentemente de o usuário ter WebAuthn cadastrado ou não.
+Não cria estado separado: zera `hash_senha` e marca `onboarding_pendente=True`. Os fatores de 2FA já confirmados não são apagados. No acesso seguinte o usuário cai no onboarding para definir a senha nova, e como já tem 2FA, o passo de cadastro de fator não é pedido de novo. Ao concluir, a sessão passa pela confirmação do 2FA antes de ficar completa.
+
+## Segundo fator no login
+
+Com a sessão em `mfa_pendente`, o frontend orquestra a ordem. O servidor aceita qualquer um dos dois métodos que o usuário tenha:
+
+**WebAuthn**
+
+1. `/webauthn/2fa/iniciar`: consome uma tentativa, gera o desafio (guardado em `mfa_webauthn_challenge`) e devolve as opções com `tentativas_restantes`.
+2. `/webauthn/2fa/confirmar`: valida a assinatura contra a credencial do usuário, atualiza o `sign_count` e libera a sessão.
+
+**TOTP**
+
+1. `/totp/2fa/iniciar`: confirma que há TOTP e zera `totp_tentativas`. Não gera desafio.
+2. `/totp/2fa/confirmar`: valida o código; se errado, soma uma tentativa e devolve `tentativas_restantes`; se certo, libera a sessão.
+
+Nos dois casos, a liberação é a mesma: `AuthService.liberar_sessao_completa` marca o usuário como `ativo`, descarta os estados temporários do 2FA e grava `id_empresa`. A resposta traz `id_usuario`, `email` e `id_empresa`.
 
 ## Step-up authentication: reconfirmar mesmo já logado
 
-Mesmo com sessão completa, certas ações sensíveis (excluir prontuário, alterar prescrição, conceder acesso admin) exigem reconfirmação de identidade antes de prosseguir — é uma segunda camada, independente do MFA do login.
+Certas ações sensíveis (excluir prontuário, alterar prescrição, conceder acesso admin) exigem reconfirmação de identidade antes de prosseguir, uma camada independente do MFA do login. O resultado de qualquer método é um **token de uso único**, de 180 segundos, vinculado a (usuário, ação).
 
-Existem dois métodos, conforme o que o usuário tem cadastrado:
+### Uso pelo lado da rota
 
-**1. WebAuthn (preferencial)**, para quem já tem credencial cadastrada:
+- `@requer_confirmacao_recente("acao")` exige o token no header `X-Stepup-Token` e responde `403 confirmacao_requerida` quando ele está ausente, incorreto ou expirado. O token aceito é apagado na hora, mesmo que a ação falhe depois.
+- `token_recente_valido("acao")` faz a mesma checagem de forma condicional dentro de uma view, para rotas que só são sensíveis conforme o payload (ex.: atualização de usuário que mexe em `is_admin`).
+- Para escrita e exclusão auditadas, o decorator `@acao_sensivel` aplica o step-up e grava o log na mesma transação (ver `auditoria_fluxo.md`).
 
-1. Rota sensível responde `403 confirmacao_requerida` se não houver token válido.
-2. Frontend chama `/stepup/iniciar` informando qual `acao` quer confirmar. O servidor identifica que o usuário tem WebAuthn e devolve `metodo: "webauthn"` com o desafio. Essa ação fica **vinculada ao challenge** na sessão — não dá pra iniciar desafio pra uma ação e confirmar outra.
-3. Frontend chama `/stepup/confirmar` com a assinatura WebAuthn. Se a `acao` bater com a vinculada ao challenge, emite um **token de uso único**, de vida curta (180s), salvo em `stepup_token`.
+### Ordem dos métodos
 
-**2. Senha + reautenticação Google (fallback)**, para quem não tem WebAuthn cadastrado:
+O frontend chama `/stepup/iniciar` com a `acao`, e o servidor responde conforme o que o usuário tem:
 
-1. `/stepup/iniciar` detecta a ausência de credencial e devolve `metodo: "senha_google"` em vez do desafio.
-2. Frontend pede a senha atual e chama `/stepup/senha/confirmar`. Validada a senha, o servidor cria um registro `StepUpReautenticacao` (usuário + ação + `state` de correlação, expira em 300s) e devolve a URL de autorização do Google.
-3. Frontend redireciona o navegador para essa URL. O parâmetro `prompt=login` é exigido explicitamente — sem ele, se o usuário já tiver uma sessão Google ativa no navegador, o Google devolveria acesso via SSO silencioso, sem pedir nada de novo, o que não reconfirmaria identidade alguma.
-4. O Google volta em `/stepup/google/callback` — uma rota própria, separada do callback de login (`oauth.google_callback`), para não interferir em `onboarding_pendente`/`mfa_pendente` do fluxo de login. O servidor confere o `state` contra o `StepUpReautenticacao` pendente e que o e-mail devolvido pelo Google é o mesmo do usuário que confirmou a senha na etapa anterior. Se tudo bater, emite o mesmo tipo de token (`stepup_token`) que o caminho WebAuthn geraria, e redireciona de volta ao frontend com o token na querystring.
+| Método | Quando | Como funciona |
+|---|---|---|
+| `webauthn` | Tem credencial cadastrada | Devolve o desafio, vinculado à `acao` em `stepup_challenge`; `/stepup/confirmar` valida a assinatura e emite o token |
+| `totp` | Sem WebAuthn, mas com TOTP confirmado | Já devolve `tentativas_restantes` (o reset é feito ali); `/totp/2fa/stepup/confirmar` valida o código e emite o token |
+| `senha_google` | Sem nenhum dos dois | Fallback em duas etapas (abaixo) |
 
-Em ambos os casos, o resultado final é idêntico: um `StepUpToken` de 180s vinculado a (usuário, ação). A rota sensível, decorada com `@requer_confirmacao_recente("acao")`, exige esse token no header `X-Stepup-Token` e não distingue qual dos dois métodos o gerou. O token é apagado assim que lido — mesmo que a ação decorada falhe depois por outro motivo.
+A `acao` fica **vinculada** ao desafio: não é possível iniciar um step-up para uma ação e confirmar outra. Para quem tem WebAuthn e quer usar TOTP (ex.: depois de uma falha do WebAuthn), `/totp/2fa/stepup/iniciar` reinicia o contador do TOTP.
 
-**Por que o fallback é mais fraco, e por que existe mesmo assim**
+### Quando o fallback está liberado
 
-Senha + Google prova posse de duas credenciais que já autenticaram a sessão original (não é um fator independente do que já foi usado para logar), enquanto WebAuthn prova posse de um hardware específico — propriedade mais forte para uma reconfirmação. A persistência do estado intermediário em `StepUpReautenticacao` (banco), em vez da sessão Flask, existe porque o fluxo atravessa um redirect real de navegador e pode voltar em uma aba diferente da que iniciou; usar a sessão, como o antigo fallback de MFA fazia, não seria confiável nesse caso.
+O servidor confere em `/stepup/senha/confirmar`, e não basta o frontend pedir:
 
-É uma redução real de garantia, aceita deliberadamente: sem esse caminho, qualquer usuário sem WebAuthn cadastrado ficaria irrecuperavelmente incapaz de confirmar qualquer ação sensível, sem alternativa nenhuma até cadastrar um dispositivo nas configurações.
+| Situação do usuário | Fallback |
+|---|---|
+| Sem nenhum fator | Liberado |
+| Tem TOTP e esgotou as tentativas do step-up da ação | Liberado |
+| Tem TOTP e ainda tem tentativas | Não |
+| Só tem WebAuthn | Não (o WebAuthn não tem contador de tentativas) |
+
+### Fallback: senha + Google
+
+1. `/stepup/senha/confirmar` valida a senha atual, cria um registro `StepUpReautenticacao` (usuário, ação, `state` e `nonce`, expira em 300 segundos) e devolve a URL de autorização do Google.
+2. O frontend redireciona o navegador. A URL usa `prompt=login`: sem ele, uma sessão Google ativa devolveria acesso por SSO silencioso, sem reconfirmar identidade alguma.
+3. O Google volta em `/stepup/google/callback`, rota própria e separada do callback de login, para não interferir em `onboarding_pendente` e `mfa_pendente`. O servidor confere o `state`, a senha confirmada, a validade e o `nonce` do id_token, e exige que o e-mail do Google seja o do usuário que confirmou a senha, esteja verificado e, se o usuário já tiver `google_sub` vinculado, que o `sub` seja o mesmo.
+4. Se tudo bater, emite o mesmo token dos outros métodos e redireciona ao frontend com `token_confirmacao`, `acao` e `expira_em_segundos` na querystring; em qualquer falha, redireciona com `?erro=` (`reautenticacao_expirada`, `falha_google` ou `conta_google_nao_corresponde`) e descarta a pendência.
+
+O estado intermediário fica em banco, e não na sessão Flask, porque o fluxo atravessa um redirect real e pode voltar em uma aba diferente da que iniciou.
+
+### Por que o step-up tem fallback
+
+No login, perder os dois fatores é bloqueio total. No step-up a pessoa já está dentro do sistema, e negar toda forma de confirmar uma ação seria rígido demais para quem não tem fator ou esgotou o TOTP; por isso o fallback senha + Google existe nesses casos. Ele é deliberadamente mais fraco que WebAuthn e TOTP: prova a posse de duas credenciais que já autenticaram a sessão original, e não de algo além dela.
 
 ## Status de sessão
 
-`status.py` existe porque nem toda checagem de sessão deve **bloquear** — às vezes só se quer **perguntar** em que estado a sessão está, pra decidir pra onde navegar. Usada logo após o redirect do Google, para decidir entre onboarding, confirmação de 2FA ou dashboard.
+`status.py` existe porque nem toda checagem de sessão deve **bloquear**: às vezes só se quer **perguntar** em que estado ela está, para decidir para onde navegar, por exemplo logo após o redirect do Google.
 
-Diferente de `/auth/me`, `/status` não usa `@requer_login`: ela responde com o estado mesmo que a sessão esteja incompleta, e só devolve 401 se não houver sessão nenhuma iniciada.
+| Situação | `/status` responde |
+|---|---|
+| Sem sessão, ou MFA pendente expirado (a sessão é limpa) | `401 nao_autenticado` |
+| Onboarding pendente | `200 onboarding_pendente` + `senha_definida` |
+| MFA pendente | `200 mfa_pendente` + `metodo`, `metodos_disponiveis`, `tentativas_restantes`, `reautenticar_disponivel` |
+| Completa | `200 completa` |
 
-Quando `mfa_pendente`, a resposta inclui `tentativas_restantes` e `reautenticar_disponivel`, permitindo ao frontend decidir entre oferecer "tentar de novo" ou já orientar o usuário a voltar para a tela de login.
+`reautenticar_disponivel` fica `true` quando as tentativas de WebAuthn se esgotam, para o frontend decidir entre oferecer "tentar de novo" e orientar o usuário a reautenticar. `/status_completo` acrescenta o `usuario` no estado `completa`, e é o que o `watchSession.js` usa para reconciliar o perfil e detectar troca de identidade.
 
----
+`/me` exige sessão completa: sessões em onboarding ou com 2FA pendente não recebem dados do usuário.
