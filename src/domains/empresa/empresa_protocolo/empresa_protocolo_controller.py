@@ -49,7 +49,7 @@ class EmpresaProtocoloController():
         id_empresa = get_id_empresa_sessao()
         id_registro = None  # protocolo inexistente: NOOP sem id
         try:
-            id_registro = _svc.resolver_catalogo(uuid_protocolo).id_protocolo_catalogo
+            id_registro = _svc.resolver_catalogo(uuid_protocolo).id
             vinculo = _svc.alterar_status(id_empresa, id_registro, dados)
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
@@ -68,7 +68,7 @@ class EmpresaProtocoloController():
         id_empresa = get_id_empresa_sessao()
         id_registro = None
         try:
-            id_registro = _svc.resolver_catalogo(uuid_protocolo).id_protocolo_catalogo
+            id_registro = _svc.resolver_catalogo(uuid_protocolo).id
             vinculo = _svc.definir_default_institucional(id_empresa, id_registro, dados)
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},

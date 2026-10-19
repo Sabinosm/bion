@@ -134,8 +134,6 @@ class EmpresaService:
         if empresa.uuid == uuid_empresa:
             try:
                 schema = AtualizacaoEmpresaSchema(**dados)
-            except Exception as e:
-                raise
             except ValidationError as e:
                 raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
