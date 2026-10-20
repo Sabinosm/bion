@@ -21,6 +21,7 @@ from src.core.interfaces import IRepository
 from src.models.usuarios import Configuracao, ConfiguracaoProtocolo
 from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
 from src.core.exceptions import ConflictoError
+from src.models.corp import EmpresaProtocolo
 
 _repo_empresa_protocolo = EmpresaProtocoloRepository()
 
