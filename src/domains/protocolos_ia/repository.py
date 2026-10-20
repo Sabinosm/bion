@@ -82,19 +82,19 @@ class OutputBionRepository(IRepository[OutputBion]):
         """Monta a base de query com os 4 joins até Usuario, reaproveitada
         por B1, B2 e B4 -- evita repetir o mesmo caminho 3 vezes.
  
-        Caminho: OutputBion -> Atendimento -> ColetaClinica ->
+        Caminho: OutputBion -> InputProtocolo -> ColetaClinica ->
         Atendimento -> realizado_por -> Usuario.
         """
         from datetime import datetime, timedelta, timezone
         from src.models.usuarios import Usuario
-        from src.models.clinico import ColetaClinica, Atendimento
+        from src.models.clinico import ColetaClinica, Atendimento, InputProtocolo
  
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
  
         return (
             db.session.query(OutputBion)
             .join(Atendimento, OutputBion.id_atendimento == Atendimento.id)
-            .join(ColetaClinica, Atendimento.id == ColetaClinica.id_atendimento)
+            .join(ColetaClinica, InputProtocolo.id_coleta_clinica == ColetaClinica.id)
             .join(Atendimento, ColetaClinica.id_atendimento == Atendimento.id)
             .join(Usuario, Atendimento.realizado_por == Usuario.id)
             .filter(Usuario.id_empresa == id_empresa)
