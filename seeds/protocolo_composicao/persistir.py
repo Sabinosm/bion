@@ -308,3 +308,22 @@ if __name__ == "__main__":
         print(f"Composições: {resultado['total_composicoes']}")
         for sigla, codigo in resultado["codigos_composicao"].items():
             print(f"  {sigla}: codigo_composicao={codigo}")
+            
+def seed_composicao():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="Só valida e mostra o plano, sem gravar.")
+    args = parser.parse_args()
+
+    try:
+        resultado = persistir(dry_run=args.dry_run)
+    except SeedInvalido as ex:
+        print(f"SEED INVÁLIDO — nada foi gravado.\n{ex}", file=sys.stderr)
+        sys.exit(1)
+
+    modo = "DRY-RUN (nada foi gravado)" if not resultado["aplicado"] else "APLICADO"
+    print(f"[{modo}]")
+    print(f"Variáveis: {resultado['total_variaveis']}")
+    print(f"Módulos: {resultado['total_modulos']}")
+    print(f"Composições: {resultado['total_composicoes']}")
+    for sigla, codigo in resultado["codigos_composicao"].items():
+        print(f"  {sigla}: codigo_composicao={codigo}")
