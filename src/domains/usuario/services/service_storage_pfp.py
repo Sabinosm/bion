@@ -4,7 +4,8 @@ import uuid
 from PIL import Image, ImageOps, UnidentifiedImageError
 from supabase import create_client, Client
 from src.core.exceptions import BionException, DadosInvalidosError
-
+import logging
+logger = logging.getLogger(__name__)
 # Formatos aceitos no upload de avatar (identificados pelo CONTEÚDO do
 # arquivo pelo Pillow, nunca pela extensão ou content-type do cliente).
 FORMATOS_ACEITOS = {"JPEG", "PNG", "WEBP"}
@@ -116,6 +117,7 @@ class StorageService:
             return novo_nome
         except Exception:
             # Trata falhas de rede ou limitações do bucket
+            logger.exception("Erro no upload do avatar para o Supabase")
             raise BionException("Falha interna ao guardar a imagem no Supabase.", 500)
 
     def deletar_avatar(self, filename: str) -> None:
@@ -133,4 +135,5 @@ class StorageService:
             # Importante: Fazemos log do aviso em vez de travar a aplicação.
             # Se a imagem antiga já tiver sido apagada manualmente ou não existir, 
             # não queremos que isso bloqueie o upload da nova foto.
+            logger.exception("Erro no upload do avatar para o Supabase")
             print(f"Aviso: Não foi possível eliminar o avatar antigo '{filename}': {e}")
