@@ -248,6 +248,7 @@ class Totp():
         Retorno:
             200 com `id_usuario`, `email` e `id_empresa` se o código for válido.
             400 se o usuário não tiver TOTP confirmado.
+            401 com `sessao_invalida` se o usuário foi desativado nesse meio-tempo.
             401 com `tentativas_restantes` se o código for inválido.
             429 se as tentativas de TOTP desta sessão se esgotarem. É o fim
                 da linha no login (diferente do step-up): não há fallback para
@@ -284,7 +285,8 @@ class Totp():
         from src.domains.auth.services import AuthService
         usuario = UsuarioRepository().find_by_id(id_usuario)
 
-        AuthService().liberar_sessao_completa(usuario, db)
+        if not AuthService().liberar_sessao_completa(usuario, db):
+            return jsonify({"erro": "sessao_invalida"}), 401
 
         return jsonify({
             "id_usuario": usuario.id,

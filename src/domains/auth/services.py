@@ -59,7 +59,7 @@ class AuthService:
 
         return usuario, None
 
-    def liberar_sessao_completa(self, usuario: Usuario, db):
+    def liberar_sessao_completa(self, usuario: Usuario, db) -> bool:
         """Promove a sessão pendente de 2FA a sessão completa.
 
         Chamado depois que o segundo fator foi confirmado: marca o usuário como
@@ -67,10 +67,23 @@ class AuthService:
         contadores de tentativa) e grava `id_empresa`, o sinal de que a
         autenticação terminou.
 
+        Se o usuário foi desativado (ou removido) enquanto o 2FA estava
+        pendente, nada é liberado: o status não é alterado, a sessão é
+        encerrada e o retorno é False. Sem essa checagem, confirmar o 2FA
+        reativaria quem um admin acabou de desativar.
+
         Args:
             usuario: usuário que acabou de confirmar o segundo fator.
             db: instância do SQLAlchemy usada para o commit.
+
+        Returns:
+            True se a sessão foi liberada, False se o usuário não pode mais
+            entrar.
         """
+        if usuario is None or usuario.status == "inativo":
+            session.clear()
+            return False
+
         usuario.status = "ativo"
         db.session.commit()
         session.pop("mfa_pendente", None)
@@ -79,3 +92,4 @@ class AuthService:
         session.pop("totp_tentativas", None)
         session["id_empresa"] = usuario.id_empresa
         session["is_super_admin"] = usuario.is_super_admin
+        return True

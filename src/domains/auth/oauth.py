@@ -1,137 +1,235 @@
 """
-oauth.py
+onboarding.py
 
-Login social via Google OAuth. Não cria conta nova: o usuário precisa já
-existir, cadastrado por um admin, e o Google serve apenas para provar a posse
-do e-mail cadastrado.
+Rotas de primeiro acesso (onboarding), usadas depois do login por senha ou por
+Google enquanto `usuario.onboarding_pendente` for verdadeiro. A conclusão
+exige dois requisitos presentes ao mesmo tempo: senha definida e pelo menos
+um método de 2FA confirmado, WebAuthn OU TOTP, não os dois. WebAuthn sozinho
+seria inviável para parte do público real (notebooks sem Bluetooth são comuns
+no parque de clínicas e hospitais); TOTP não tem essa limitação, mas nem todo
+usuário o prefere quando já tem um autenticador de plataforma (Windows Hello,
+Touch ID).
 
-Todo login via Google exige confirmação de 2FA (WebAuthn e/ou TOTP) antes de
-liberar a sessão, exatamente como o login por senha. Deixar o Google como
-exceção permanente seria um bypass de 2FA: bastaria repetir o login pelo
-Google para nunca confirmar o segundo fator, agravado por sessões Google já
-ativas no navegador (SSO silencioso, sem prova nova de identidade).
+Este módulo apenas orquestra QUANDO o cadastro de 2FA pode ser feito durante o
+onboarding e QUANDO o onboarding pode ser considerado concluído. O cadastro
+dos fatores em si (gerar e confirmar o desafio WebAuthn ou o secret TOTP) vive
+em webauthn_2fa.py e totp_2fa.py, reaproveitado do fluxo de configurações da
+conta. Aqui ficam também a checagem de estado de 2FA e a regra que fecha o
+onboarding automaticamente, usada nos logins por senha e por Google.
 
-O cadastro de WebAuthn e TOTP continua fora deste módulo, no onboarding, que
-exige escolher ao menos um dos dois antes de concluir, independentemente de o
-primeiro login ter sido por senha ou por Google.
+A sessão só fica completa direto ao concluir o onboarding se o usuário
+comprovou a posse de um fator de 2FA nesta própria sessão (cadastrou e
+confirmou com assinatura ou código válidos). Quem já tinha fator antes, por
+exemplo após um reset de senha feito por admin, termina o onboarding com a
+sessão pendente de 2FA e precisa confirmá-lo como em qualquer login.
 """
 
-from flask import Blueprint, current_app, session, redirect, url_for
-from authlib.integrations.flask_client import OAuth
-from src.models.usuarios import Usuario
+from flask import Blueprint, request, jsonify, session
+from argon2 import PasswordHasher
+
 from src.models import db
-from src.domains.auth.frontend_config import FRONTEND_URL
-from src.domains.auth.onboarding import onboarding_ainda_pendente
+from src.core.session import onboarding_pendente_required, get_usuario_sessao, iniciar_mfa_pendente
+from src.core.validacoes import validar_senha
+from src.domains.auth.mfa import usuario_tem_algum_2fa, metodo_2fa_preferencial, metodos_2fa_disponiveis
 
-oauth = OAuth()
-bp_oauth = Blueprint("oauth", __name__)
-
-# Ponto de entrada fixo e estável no frontend: não é a página real pós-login,
-# e sim um pequeno redirecionador. O backend nunca precisa saber onde a página
-# final realmente mora.
-CAMINHO_APOS_LOGIN = "/html/pages/auth/oauth_callback.html"
-CAMINHO_LOGIN = "/html/pages/auth/login.html"
+bp_onboarding = Blueprint("onboarding", __name__)
+ph = PasswordHasher()
 
 
-def init_oauth(app):
-    """Registra o cliente Google (OpenID Connect) usando as credenciais da configuração da aplicação."""
-    oauth.init_app(app)
-    oauth.register(
-        name="google",
-        client_id=app.config["GOOGLE_CLIENT_ID"],
-        client_secret=app.config["GOOGLE_CLIENT_SECRET"],
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
+def _usuario_tem_algum_2fa_confirmado(id_usuario) -> bool:
+    """True se o usuário tem WebAuthn OU TOTP confirmado."""
+    return usuario_tem_algum_2fa(id_usuario)
 
 
-def google_confere_usuario(usuario, userinfo) -> bool:
-    """Confere se a identidade devolvida pelo Google é mesmo a do usuário.
+# Chave de sessão: o usuário cadastrou e comprovou um fator de 2FA nesta sessão de onboarding.
+FATOR_COMPROVADO_NA_SESSAO = "onboarding_fator_comprovado"
 
-    Exige e-mail verificado pelo Google e, se o usuário já tiver `google_sub`
-    vinculado, que o `sub` devolvido seja o mesmo. O e-mail sozinho não basta:
-    ele pode ser reaproveitado por outra conta Google ao longo do tempo, ao
-    passo que o `sub` é o identificador estável da conta.
+
+def cadastro_de_fator_permitido(usuario) -> bool:
+    """Informa se esta sessão pode cadastrar um fator de 2FA (WebAuthn ou TOTP).
+
+    Fora do onboarding, sempre. Durante o onboarding, só se o usuário ainda não
+    tem nenhum fator confirmado ou se já cadastrou um nesta própria sessão.
+    Isso impede que quem entrou só com o primeiro fator (ex.: Google) troque ou
+    acrescente um fator numa conta que já tinha 2FA, o que permitiria passar
+    pelo 2FA com um fator escolhido por quem invadiu.
     """
-    if not userinfo.get("email_verified"):
+    if not session.get("onboarding_pendente"):
+        return True
+    return bool(session.get(FATOR_COMPROVADO_NA_SESSAO)) or not _usuario_tem_algum_2fa_confirmado(usuario.id)
+
+
+def marcar_fator_comprovado():
+    """Registra que o usuário acabou de comprovar a posse de um fator de 2FA durante o onboarding.
+
+    Deve ser chamada só depois de o cadastro ser confirmado com assinatura ou
+    código válidos. Sem efeito fora do onboarding.
+    """
+    if session.get("onboarding_pendente"):
+        session[FATOR_COMPROVADO_NA_SESSAO] = True
+
+
+def _bloquear_se_inativo(usuario):
+    """Encerra a sessão se o usuário foi desativado (ou removido) durante o onboarding.
+
+    Devolve a resposta de bloqueio (401 `sessao_invalida`), ou None se o
+    usuário segue ativo. Sem essa checagem, definir a senha reativaria quem um
+    admin acabou de desativar, e concluir o onboarding liberaria a sessão dele.
+    """
+    if usuario is None or usuario.status == "inativo":
+        session.clear()
+        return jsonify({"erro": "sessao_invalida"}), 401
+    return None
+
+
+def onboarding_ainda_pendente(usuario) -> bool:
+    """Reavalia o onboarding do usuário no login e informa se ele continua pendente.
+
+    Se `onboarding_pendente` estiver ativo mas o usuário já tem senha E 2FA
+    confirmado, a flag é desligada e gravada. Isso evita prender no onboarding
+    quem já cumpriu os dois requisitos.
+
+    Exige os dois requisitos, e não apenas um: um reset de senha feito por
+    admin zera `hash_senha` mas mantém o 2FA já confirmado, e esse usuário
+    precisa ser levado a definir a senha nova.
+
+    Returns:
+        True se o onboarding continua pendente, False se não havia pendência
+        ou se ela acabou de ser encerrada.
+    """
+    if not usuario.onboarding_pendente:
         return False
-    return not usuario.google_sub or usuario.google_sub == userinfo.get("sub")
+
+    if usuario.hash_senha and _usuario_tem_algum_2fa_confirmado(usuario.id):
+        usuario.onboarding_pendente = False
+        db.session.commit()
+        return False
+
+    return True
 
 
-class Oauth():
-
-    @staticmethod
-    @bp_oauth.route("/login")
-    def google_login():
-        """Redireciona o navegador para a tela de autorização do Google.
-
-        A URI de retorno vem de `GOOGLE_REDIRECT_URI` na configuração; sem ela,
-        usa a rota de callback deste módulo.
-        """
-        redirect_uri = current_app.config.get("GOOGLE_REDIRECT_URI") or url_for(
-            "oauth.google_callback", _external=True
-        )
-        return oauth.google.authorize_redirect(redirect_uri)
+class Onboarding():
 
     @staticmethod
-    @bp_oauth.route("/callback")
-    def google_callback():
-        """Recebe o callback do Google e autentica o usuário já cadastrado.
+    @bp_onboarding.route("/definir-senha", methods=["POST"])
+    @onboarding_pendente_required
+    def definir_senha():
+        """Define a senha inicial do usuário, primeiro passo do onboarding.
 
-        Exige e-mail verificado e vincula o `google_sub` na primeira vez que o
-        usuário entra pelo Google; nas seguintes, o `sub` precisa ser o mesmo.
-        A sessão é reiniciada com a identidade e os privilégios do usuário
-        (`is_admin` e `funcao_clinica` são independentes, como em login.py) e
-        só vira completa depois do 2FA. `onboarding_pendente` tem prioridade
-        sobre `mfa_pendente`: quem ainda não definiu senha nem escolheu um
-        método de 2FA passa pelo onboarding primeiro, pois não faz sentido
-        pedir 2FA de quem não tem fator cadastrado.
+        Idempotente para quem já tem senha (ex.: cadastrado por um admin):
+        não pede senha de novo e só informa que o próximo passo é escolher o
+        método de 2FA. Ao definir uma senha nova, o usuário passa a "ativo".
+
+        Corpo esperado (JSON): `senha` (obrigatório só se o usuário ainda não
+        tiver `hash_senha`).
 
         Retorno:
-            Redirect para a tela de login do frontend com `?erro=` se o
-            usuário não estiver cadastrado (`usuario_nao_cadastrado`), estiver
-            inativo (`conta_inativa`) ou a identidade do Google não conferir
-            (`conta_google_invalida`: e-mail não verificado ou `sub` diferente
-            do vinculado).
-            Redirect para o ponto de entrada pós-login do frontend em sucesso,
-            com a sessão em estado completa, `mfa_pendente` ou
-            `onboarding_pendente`. Os redirects usam FRONTEND_URL, não a
-            origem do Flask. A URL não distingue os três casos: é o frontend
-            que consulta `/auth/status` e decide o próximo passo.
+            200 com `status: escolher_2fa` e `id_usuario`, se a senha foi
+                definida ou já existia.
+            400 com o motivo da invalidação se a senha não passar nas regras.
+            401 com `sessao_invalida` se o usuário foi desativado durante o
+                onboarding (a sessão é encerrada).
         """
-        token = oauth.google.authorize_access_token()
-        userinfo = token["userinfo"]
+        usuario = get_usuario_sessao()
 
-        email = userinfo["email"]
-        google_sub = userinfo["sub"]
+        bloqueio = _bloquear_se_inativo(usuario)
+        if bloqueio:
+            return bloqueio
 
-        usuario = Usuario.query.filter_by(email=email).first()
-        if not usuario:
-            return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=usuario_nao_cadastrado")
+        if not usuario.hash_senha:
+            dados = request.get_json()
+            nova_senha = dados.get("senha")
 
-        if usuario.status == "inativo":
-            return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=conta_inativa")
+            senha_valida, resposta = validar_senha(nova_senha)
 
-        if not google_confere_usuario(usuario, userinfo):
-            return redirect(f"{FRONTEND_URL}{CAMINHO_LOGIN}?erro=conta_google_invalida")
+            if not senha_valida:
+                return jsonify(resposta), 400
 
-        if not usuario.google_sub:
-            usuario.google_sub = google_sub
+            usuario.hash_senha = ph.hash(nova_senha)
+            usuario.status = "ativo"
             db.session.commit()
 
-        session.clear()
-        session["id_usuario"] = usuario.id
+        return jsonify({
+            "status": "escolher_2fa",
+            "id_usuario": usuario.id,
+        }), 200
+
+    @staticmethod
+    @bp_onboarding.route("/2fa/status", methods=["GET"])
+    @onboarding_pendente_required
+    def status_2fa():
+        """Informa se o usuário já tem algum método de 2FA confirmado.
+
+        O frontend usa a resposta para decidir entre concluir o onboarding e
+        mostrar a tela de escolha de método. Só reporta o estado atual, não
+        conclui nada.
+
+        Retorno:
+            200 com {"tem_2fa": bool}.
+        """
+        usuario = get_usuario_sessao()
+        return jsonify({"tem_2fa": _usuario_tem_algum_2fa_confirmado(usuario.id)}), 200
+
+    @staticmethod
+    @bp_onboarding.route("/concluir", methods=["POST"])
+    @onboarding_pendente_required
+    def concluir_onboarding():
+        """Conclui o onboarding, último passo.
+
+        Não cadastra nada: só valida que a senha já foi definida
+        (`/definir-senha`) e que ao menos um método de 2FA já foi confirmado
+        (`/webauthn/registrar/confirmar` ou `/totp/registrar/confirmar`).
+        Desliga `onboarding_pendente` e grava os privilégios de papel na
+        sessão (`is_admin`, `funcao_clinica`, `is_super_admin`).
+
+        A sessão só vira completa aqui (grava `id_empresa`) se o usuário
+        comprovou um fator nesta sessão. Se o fator já existia antes (ex.:
+        reset de senha por admin), a sessão fica em `mfa_pendente` e só vira
+        completa depois de o 2FA ser confirmado, como em qualquer login.
+
+        Retorno:
+            200 com `status: onboarding_concluido`, `id_usuario` e
+                `id_empresa`, se o fator foi comprovado nesta sessão.
+            200 com `status: mfa_pendente`, `metodo` e `metodos_disponiveis`,
+                se o usuário já tinha fator; o frontend segue para o 2FA.
+            400 com `senha_nao_definida` ou `2fa_nao_configurado`, indicando
+                ao frontend o passo para o qual voltar.
+            401 com `sessao_invalida` se o usuário foi desativado durante o
+                onboarding (a sessão é encerrada).
+        """
+        usuario = get_usuario_sessao()
+
+        bloqueio = _bloquear_se_inativo(usuario)
+        if bloqueio:
+            return bloqueio
+
+        if not usuario.hash_senha:
+            return jsonify({"erro": "senha_nao_definida"}), 400
+
+        if not _usuario_tem_algum_2fa_confirmado(usuario.id):
+            return jsonify({"erro": "2fa_nao_configurado"}), 400
+
+        usuario.onboarding_pendente = False
+        db.session.commit()
+
+        fator_comprovado = bool(session.pop(FATOR_COMPROVADO_NA_SESSAO, None))
+        session.pop("onboarding_pendente", None)
         session["is_admin"] = usuario.is_admin
         session["funcao_clinica"] = usuario.funcao_clinica
-        session["uuid_usuario"] = usuario.uuid
         session["is_super_admin"] = usuario.is_super_admin
-        session["senha_versao"] = usuario.senha_versao
-        session.permanent = True
 
-        if onboarding_ainda_pendente(usuario):
-            session["onboarding_pendente"] = True
-        else:
-            from src.core.session import iniciar_mfa_pendente
+        if not fator_comprovado:
             iniciar_mfa_pendente()
+            return jsonify({
+                "status": "mfa_pendente",
+                "metodo": metodo_2fa_preferencial(usuario.id),
+                "metodos_disponiveis": metodos_2fa_disponiveis(usuario.id),
+            }), 200
 
-        return redirect(f"{FRONTEND_URL}{CAMINHO_APOS_LOGIN}")
+        session["id_empresa"] = usuario.id_empresa
+
+        return jsonify({
+            "status": "onboarding_concluido",
+            "id_usuario": usuario.id,
+            "id_empresa": usuario.id_empresa,
+        }), 200

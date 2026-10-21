@@ -323,7 +323,8 @@ class Webauthn():
 
         Retorno:
             200 com `id_usuario`, `email` e `id_empresa` se a assinatura for válida.
-            401 se a credencial não for encontrada ou a assinatura for inválida.
+            401 se a credencial não for encontrada ou a assinatura for inválida,
+                ou `sessao_invalida` se o usuário foi desativado nesse meio-tempo.
         """
         id_usuario = get_id_usuario_sessao()
         challenge_esperado = base64.b64decode(session.get("mfa_webauthn_challenge", ""))
@@ -355,7 +356,8 @@ class Webauthn():
         from src.domains.auth.services import AuthService
         usuario = UsuarioRepository().find_by_id(id_usuario)
 
-        AuthService().liberar_sessao_completa(usuario, db)
+        if not AuthService().liberar_sessao_completa(usuario, db):
+            return jsonify({"erro": "sessao_invalida"}), 401
 
         return jsonify({
             "id_usuario": usuario.id,
