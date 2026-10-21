@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Callable, Iterable
 
 from .config import Config
+from .indices import Indices, calcular
 from .nucleo import Bloco
 from .registro import Fabrica, fabricas
 
@@ -13,6 +14,8 @@ VERSAO_INPUT_MODEL = 1
 
 
 class InputModel:
+    VERSAO = VERSAO_INPUT_MODEL   # usado por output_ia.colunas_envio
+
     def __init__(self, blocos: list[Bloco], config: Config | None = None,
                  meta: dict[str, Fabrica] | None = None):
         self._blocos = {b.nome: b for b in blocos}
@@ -78,6 +81,10 @@ class InputModel:
 
     def inconsistencias(self) -> list[str]:
         return [n for n, b in self._blocos.items() if b.inconsistente]
+
+    def indices(self) -> Indices:
+        """Completude e confianca (0-100) do input. Vao para OutputBion."""
+        return calcular(self._blocos.values())
 
     # ----------------------------------------------------------- serializacao
     def to_dict(self) -> dict:

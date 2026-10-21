@@ -97,6 +97,19 @@ def resolver_status(itens, binario: dict | None, chave: str) -> tuple[Status, bo
 
 
 # --------------------------------------------------------------------------
+# Sinais de baixa confiabilidade (um bloco os emite; indices.py os pondera)
+# --------------------------------------------------------------------------
+class Sinal:
+    BINARIO_DIVERGE = "binario_diverge"                  # binario e registros se contradizem
+    CONFERENCIA_PENDENTE = "conferencia_pendente"        # ha registros, mas o binario nao foi conferido neste atendimento
+    ALERGIA_NAO_CONFIRMADA = "alergia_nao_confirmada"
+    MEDICAMENTO_SEM_CATALOGO = "medicamento_sem_catalogo"  # fora do catalogo: nao entra na checagem de interacoes
+    SINAL_VITAL_FORA_DO_LIMITE = "sinal_vital_fora_do_limite"
+    PROTOCOLO_INCOMPLETO = "protocolo_incompleto"
+    DADO_CRITICO_AUSENTE = "dado_critico_ausente"
+
+
+# --------------------------------------------------------------------------
 # Bloco (contrato unico de toda caixa pequena)
 # --------------------------------------------------------------------------
 @dataclass(frozen=True)
@@ -105,6 +118,11 @@ class Bloco:
     dados: dict
     lacunas: tuple[str, ...] = ()
     inconsistente: bool = False
+    # Insumos dos indices (ver indices.py). esperados=0: o bloco nao entra na
+    # completude (informativo ou nao se aplica a este atendimento).
+    esperados: int = 0
+    presentes: int = 0
+    sinais: tuple[str, ...] = ()   # codigos de Sinal; cada ocorrencia conta
 
     def to_dict(self) -> dict:
         return self.dados
@@ -117,7 +135,7 @@ class Bloco:
 
 
 def bloco_lista(nome: str, itens: list[dict], binario: dict | None,
-                chave_itens: str = "itens") -> Bloco:
+                chave_itens: str = "itens", sinais: tuple[str, ...] = ()) -> Bloco:
     """Bloco de lista conferida pelo binario (alergias, medicamentos, ...)."""
     status, inconsistente = resolver_status(itens, binario, nome)
     if inconsistente:
@@ -128,9 +146,9 @@ def bloco_lista(nome: str, itens: list[dict], binario: dict | None,
         dados = {"status": "paciente_nega"}
     else:
         dados = {"status": "nao_informado"}
+    bruto = ((binario or {}).get(nome) or {}).get("estado")
     lacunas = ()
     if status is Status.NAO_INFORMADO:
-        bruto = ((binario or {}).get(nome) or {}).get("estado")
         if bruto == "nao-coletado":
             motivo = "nao coletado"
         elif bruto == "requer-revisao":
@@ -140,4 +158,11 @@ def bloco_lista(nome: str, itens: list[dict], binario: dict | None,
         else:
             motivo = "conferencia pendente"
         lacunas = (f"{nome}: nao informado ({motivo})",)
-    return Bloco(nome, dados, lacunas, inconsistente)
+    sinais = tuple(sinais)
+    if inconsistente:
+        # sem conferencia (ou estado desconhecido) com registros existentes = pendente;
+        # 'requer-revisao' e divergencia de verdade
+        pendente = bruto not in _MAPA and bruto != "requer-revisao"
+        sinais += (Sinal.CONFERENCIA_PENDENTE if (itens and pendente) else Sinal.BINARIO_DIVERGE,)
+    return Bloco(nome, dados, lacunas, inconsistente,
+                 esperados=1, presentes=0 if status is Status.NAO_INFORMADO else 1, sinais=sinais)
