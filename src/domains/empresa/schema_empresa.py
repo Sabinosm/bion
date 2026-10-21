@@ -5,6 +5,13 @@ AtualizacaoEmpresaSchema divide os campos por sensibilidade:
 
 - AUTOGERENCIÁVEIS: a própria empresa (via seu admin) pode alterar
   livremente. Dado cadastral comum, sem implicação legal ou financeira.
+  Inclui o CNES: ele NÃO é coluna de Empresa, e sim um registro em
+  EmpresaIdentificador (tipo "cnes"). Por isso o schema só valida o
+  formato; a escrita é responsabilidade do service, via
+  empresa.definir_cnes() -- nunca setattr(empresa, "cnes", ...), já que
+  `cnes` é uma property somente leitura no model.
+  O CNPJ continua fora daqui (fixo após o cadastro, exige alteração de
+  registro na Receita).
 
 - RESTRITOS: hoje NINGUÉM pode alterar via este schema, porque o Bion
   ainda não tem um papel de "admin Bion" separado do "admin cliente".
@@ -98,6 +105,7 @@ class AtualizacaoEmpresaSchema(BaseModel):
 
     # -- Autogerenciáveis pelo admin da própria empresa ----------------
     nome_fantasia: Optional[str] = Field(None, min_length=2, max_length=255)
+    cnes: Optional[str] = Field(None, max_length=20)
     numero: Optional[str] = Field(None, max_length=10)
     bairro: Optional[str] = Field(None, max_length=100)
     complemento: Optional[str] = Field(None, max_length=150)
@@ -109,6 +117,40 @@ class AtualizacaoEmpresaSchema(BaseModel):
         "str_strip_whitespace": True,
         "extra": "forbid",  # qualquer campo restrito enviado já quebra aqui
     }
+
+    @model_validator(mode="before")
+    @classmethod
+    def achatar_endereco(cls, dados):
+        """O front (empresa.js) envia o endereço aninhado em `endereco`
+        (mesmo formato do to_dict()); o schema é plano. Achata aqui para
+        que "extra: forbid" não rejeite a chave `endereco`."""
+        if isinstance(dados, dict) and isinstance(dados.get("endereco"), dict):
+            dados = {**dados}
+            endereco = dados.pop("endereco")
+            for campo in ("cep", "bairro", "numero", "complemento"):
+                if campo in endereco and campo not in dados:
+                    dados[campo] = endereco[campo]
+        return dados
+
+    @field_validator("cnes")
+    @classmethod
+    def valida_cnes(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        v = re.sub(r"\D", "", v)
+        if len(v) != 7:
+            raise ValueError("CNES deve conter 7 dígitos.")
+        return v
+
+    @field_validator("dpo_nome", "dpo_email", mode="before")
+    @classmethod
+    def dpo_vazio_vira_none(cls, v):
+        """"" / só espaços viram None (EmailStr rejeitaria ""). O service
+        interpreta None EXPLÍCITO nesses campos como "voltar ao padrão":
+        nome e e-mail do admin fundador da empresa. DPO nunca fica nulo."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @field_validator("cep")
     @classmethod
