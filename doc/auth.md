@@ -44,14 +44,14 @@ A sessão não vai direto para "completa". Passa por estados intermediários, gu
 
 `id_empresa` só é gravado quando a sessão vira completa: ao confirmar o 2FA (`liberar_sessao_completa`) ou ao concluir o onboarding. Enquanto pendente, o usuário está "meio-logado": tem `id_usuario` na sessão, mas nenhuma rota que dependa de `id_empresa` deve confiar nele.
 
-O `mfa_pendente` expira por tempo fixo (ver `session.py`), e não só pela inatividade do cookie.
+O `mfa_pendente` expira 5 minutos depois de criado, prazo fixo que nenhuma atividade renova, e não só pela inatividade do cookie (ver `sessao_fluxo.md`).
 
 ### Chaves gravadas na sessão
 
 | Chave | Gravada por | Para quê |
 |---|---|---|
 | `id_usuario`, `uuid_usuario` | login e callback do Google | Identidade da sessão |
-| `is_admin`, `funcao_clinica`, `is_super_admin` | login, callback do Google e conclusão do onboarding | Privilégios; `is_admin` e `funcao_clinica` são independentes (admin que também atende) |
+| `is_admin`, `funcao_clinica`, `is_super_admin` | login, callback do Google e conclusão do onboarding | Privilégios; `is_admin` e `funcao_clinica` são independentes (admin que também atende). São revalidados a partir do banco nas rotas que pedem (ver `sessao_fluxo.md`) |
 | `senha_versao` | login e callback do Google | Snapshot da versão da senha, para invalidar sessões quando a senha muda depois |
 | `onboarding_pendente` | login e callback do Google | Flag de onboarding |
 | `onboarding_fator_comprovado` | cadastro de fator durante o onboarding | Indica que o usuário comprovou a posse de um fator nesta sessão |
@@ -63,7 +63,8 @@ O `mfa_pendente` expira por tempo fixo (ver `session.py`), e não só pela inati
 | `totp_secret_pendente` | `/totp/registrar/iniciar` | Secret ainda não confirmado |
 | `stepup_challenge` | `/stepup/iniciar` | Desafio do step-up + ação vinculada |
 | `stepup_totp_tentativas`, `stepup_totp_acao` | início do step-up TOTP | Tentativas e ação vinculada |
-| `id_empresa` | liberação da sessão completa | Sinal de que a autenticação terminou |
+| `id_empresa` | liberação da sessão completa | Sinal de que a autenticação terminou; sem ele, os decorators encerram a sessão |
+| `uuid_empresa` | primeira consulta ao UUID da empresa | UUID da empresa, guardado para não consultar de novo |
 
 Ao liberar a sessão completa, `mfa_pendente`, `mfa_webauthn_challenge`, `mfa_tentativas` e `totp_tentativas` são descartados.
 
@@ -168,6 +169,10 @@ Disparado quando `onboarding_pendente` está ativo, após login por senha ou por
 2. **Cadastrar e confirmar ao menos um método de 2FA**, WebAuthn ou TOTP (não os dois), pelas mesmas rotas de cadastro das configurações da conta. `/2fa/status` informa se já há algum.
 3. **Concluir** (`/concluir`): valida senha e 2FA e desliga `onboarding_pendente`. Se o usuário comprovou um fator **nesta sessão** (cadastrou e confirmou com assinatura ou código válidos), a sessão é liberada com `id_empresa`. Se o fator já existia antes (ex.: reset de senha por admin), a sessão fica `mfa_pendente` e só vira completa depois de confirmar o 2FA, como em qualquer login.
 
+### Usuário desativado durante o onboarding
+
+Em `/definir-senha` e `/concluir`, se o usuário foi desativado (ou removido) desde o login, a sessão é encerrada e nada é gravado ou liberado. Assim, definir a senha não reativa quem um admin acabou de desativar, e concluir o onboarding não libera a sessão dele.
+
 ### Cadastro de fator durante o onboarding
 
 No onboarding, o cadastro de WebAuthn e TOTP só é permitido a quem ainda não tem nenhum fator confirmado ou já cadastrou um nesta própria sessão. Quem já tinha fator (ex.: após reset de senha) não troca nem acrescenta fatores antes de confirmar o 2FA; isso é feito depois, nas configurações da conta.
@@ -194,7 +199,7 @@ Com a sessão em `mfa_pendente`, o frontend orquestra a ordem. O servidor aceita
 1. `/totp/2fa/iniciar`: confirma que há TOTP e zera `totp_tentativas`. Não gera desafio.
 2. `/totp/2fa/confirmar`: valida o código; se errado, soma uma tentativa e devolve `tentativas_restantes`; se certo, libera a sessão.
 
-Nos dois casos, a liberação é a mesma: `AuthService.liberar_sessao_completa` marca o usuário como `ativo`, descarta os estados temporários do 2FA e grava `id_empresa`. A resposta traz `id_usuario`, `email` e `id_empresa`.
+Nos dois casos, a liberação é a mesma: `AuthService.liberar_sessao_completa` marca o usuário como `ativo`, descarta os estados temporários do 2FA e grava `id_empresa`. A resposta traz `id_usuario`, `email` e `id_empresa`. Se o usuário foi desativado enquanto o 2FA estava pendente, nada é liberado: o status não é alterado e a sessão é encerrada.
 
 ## Step-up authentication: reconfirmar mesmo já logado
 

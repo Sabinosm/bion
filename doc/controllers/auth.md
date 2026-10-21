@@ -118,15 +118,15 @@ Dados do usuário da sessão, suas configurações e os dispositivos WebAuthn. *
 
 ## `GET /check-session`
 
-Verifica se já existe sessão ativa.
+Verifica se já existe sessão iniciada. Sessão com onboarding pendente conta como não iniciada; sessão com 2FA pendente conta como iniciada, e o frontend decide o encaminhamento.
 
-**Resposta:** 200 se existe, 401 se não.
+**Resposta:** `{"authenticated": true}` com 200 se existe, `{"authenticated": false}` com 401 se não.
 
 ---
 
 # Onboarding (`onboarding.py`, blueprint `onboarding`)
 
-Todas exigem **Onboarding**.
+Todas exigem **Onboarding**. Em `/definir-senha` e `/concluir`, um usuário desativado durante o onboarding tem a sessão encerrada.
 
 ## `POST /definir-senha`
 
