@@ -69,6 +69,19 @@ def marcar_fator_comprovado():
         session[FATOR_COMPROVADO_NA_SESSAO] = True
 
 
+def _bloquear_se_inativo(usuario):
+    """Encerra a sessão se o usuário foi desativado (ou removido) durante o onboarding.
+
+    Devolve a resposta de bloqueio (401 `sessao_invalida`), ou None se o
+    usuário segue ativo. Sem essa checagem, definir a senha reativaria quem um
+    admin acabou de desativar, e concluir o onboarding liberaria a sessão dele.
+    """
+    if usuario is None or usuario.status == "inativo":
+        session.clear()
+        return jsonify({"erro": "sessao_invalida"}), 401
+    return None
+
+
 def onboarding_ainda_pendente(usuario) -> bool:
     """Reavalia o onboarding do usuário no login e informa se ele continua pendente.
 
@@ -114,8 +127,14 @@ class Onboarding():
             200 com `status: escolher_2fa` e `id_usuario`, se a senha foi
                 definida ou já existia.
             400 com o motivo da invalidação se a senha não passar nas regras.
+            401 com `sessao_invalida` se o usuário foi desativado durante o
+                onboarding (a sessão é encerrada).
         """
         usuario = get_usuario_sessao()
+
+        bloqueio = _bloquear_se_inativo(usuario)
+        if bloqueio:
+            return bloqueio
 
         if not usuario.hash_senha:
             dados = request.get_json()
@@ -175,8 +194,14 @@ class Onboarding():
                 se o usuário já tinha fator; o frontend segue para o 2FA.
             400 com `senha_nao_definida` ou `2fa_nao_configurado`, indicando
                 ao frontend o passo para o qual voltar.
+            401 com `sessao_invalida` se o usuário foi desativado durante o
+                onboarding (a sessão é encerrada).
         """
         usuario = get_usuario_sessao()
+
+        bloqueio = _bloquear_se_inativo(usuario)
+        if bloqueio:
+            return bloqueio
 
         if not usuario.hash_senha:
             return jsonify({"erro": "senha_nao_definida"}), 400
