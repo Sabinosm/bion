@@ -15,6 +15,11 @@ antes de gravar e entram num único commit (ou nada entra).
 
 INPUT DE PROTOCOLO: mesmo guard e mesmo gate da coleta; a coleta precisa
 pertencer ao atendimento da rota (senão 404). O tenant vem do guard.
+
+TIPOS_COM_INPUT_PROTOCOLO: tipos de atendimento que geram input de protocolo
+(triagem, avaliacao-medica e reavaliacao), os mesmos valores do enum
+InputProtocolo.tipo_input. Em alta e procedimento ele não existe (409). Esta
+lista deve andar junto com TIPOS_COM_PROTOCOLO do pacote input_ia.
 """
 
 from datetime import datetime, timezone
@@ -28,9 +33,7 @@ from src.domains.atendimento.binario.binario_gate import exigir_binario_completo
 from .schema import SinaisVitaisIn, ColetaClinicaIn, InputProtocoloIn
 from .repository import ColetaClinicaRepository, SinalVitalRepository, InputProtocoloRepository
 
-# O enum InputProtocolo.tipo_input só tem estes dois valores; Atendimento.tipo_atendimento
-# tem mais (reavaliacao, alta, procedimento). Nesses, input de protocolo não existe.
-TIPOS_COM_INPUT_PROTOCOLO = ("triagem", "avaliacao-medica")
+TIPOS_COM_INPUT_PROTOCOLO = ("triagem", "avaliacao-medica", "reavaliacao")
 
 
 class DadosClinicosService:
@@ -136,8 +139,8 @@ class DadosClinicosService:
         servidor (InputModel) e congelado no OutputBion ao enviar à IA
         (ver EnvioIaService).
 
-        Só existe em atendimento de triagem ou avaliação médica; nos demais
-        tipos (reavaliacao, alta, procedimento) = 409.
+        Só existe em atendimento de triagem, avaliação médica ou reavaliação;
+        nos demais tipos (alta, procedimento) = 409.
         `tipo_input`: padrão = tipo do atendimento; se vier, tem de ser igual (422).
         O conteúdo de `input_json` é livre (ainda não há schema por protocolo).
         InputProtocolo é parte do domínio Protocolo/IA, fora do escopo FHIR.
@@ -154,7 +157,7 @@ class DadosClinicosService:
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         if ctx.atendimento.tipo_atendimento not in TIPOS_COM_INPUT_PROTOCOLO:
             raise ConflictoError(
-                "Input de protocolo só existe em atendimento de triagem ou avaliação médica "
+                "Input de protocolo só existe em atendimento de triagem, avaliação médica ou reavaliação "
                 f"(este é '{ctx.atendimento.tipo_atendimento}')."
             )
         exigir_binario_completo(ctx.atendimento)
