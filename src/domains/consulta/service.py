@@ -87,9 +87,12 @@ class ConsultaService:
             resultado.append(d)
         return resultado
     
-    def listar_por_paciente(self, uuid_paciente: str, id_empresa: int):
+    def listar_por_paciente(self, uuid_paciente: str, id_empresa: int, limit:bool):
         paciente = self._paciente_svc().buscar_por_uuid(uuid_paciente, id_empresa)
-        return self.repo.find_por_paciente(paciente.id, id_empresa)
+        if limit:
+            return self.repo.find_por_paciente_limitado(paciente.id, id_empresa)
+        else:
+            return self.repo.find_por_paciente(paciente.id, id_empresa)
 
     # --------------------------------------------------------------- abrir
     def abrir(self, dados: dict, id_usuario: int, id_empresa: int):

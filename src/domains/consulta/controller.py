@@ -64,9 +64,21 @@ class ConsultasController():
     @bp_consulta.get("/paciente/historico/<uuid_paciente>")
     @requer_admin_ou_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="historico de consultas do paciente", operacao="leitura")
+    def consultas_do_paciente_limitado(uuid_paciente):
+        try:
+            itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), True)
+            return json_success(data=[c.to_dict() for c in itens])
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+    
+    
+    @staticmethod
+    @bp_consulta.get("/historico-por-paciente/<uuid_paciente>")
+    @requer_admin_ou_papel_clinico("enfermeiro", "medico")
+    @acesso_auditado(recurso="historico de consultas do paciente", operacao="leitura")
     def consultas_do_paciente(uuid_paciente):
         try:
-            itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao())
+            itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), False)
             return json_success(data=[c.to_dict() for c in itens])
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

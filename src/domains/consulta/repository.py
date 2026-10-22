@@ -36,6 +36,12 @@ class ConsultaRepository(IRepository[Consulta]):
     def rollback(self) -> None:
         db.session.rollback()
 
+    def travar(self, consulta: Consulta) -> Consulta:
+        """Relê a linha da Consulta com SELECT ... FOR UPDATE; a trava vale até o commit/rollback.
+        Serializa as aberturas de Atendimento na mesma Consulta e devolve o status já atualizado."""
+        db.session.refresh(consulta, with_for_update=True)
+        return consulta
+
     # ---------------------------------------------------------------- leitura
     def find_by_id(self, id: int) -> Optional[Consulta]:
         """Busca pela chave primária. SEM filtro de empresa: só use com
@@ -49,8 +55,13 @@ class ConsultaRepository(IRepository[Consulta]):
     def find_por_paciente(self, id_paciente: int, id_empresa: int) -> List[Consulta]:
         return (Consulta.query
                 .filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
-                .order_by(Consulta.data_hora_inicio.desc()).limit(5))
+                .order_by(Consulta.data_hora_inicio.desc()).all())
 
+    def find_por_paciente_limitado(self, id_paciente: int, id_empresa: int) -> List[Consulta]:
+        return (Consulta.query
+                .filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
+                .order_by(Consulta.data_hora_inicio.desc()).limit(5))
+    
     def find_abertas(self, id_empresa: int) -> List[Consulta]:
         return (Consulta.query.filter_by(id_empresa=id_empresa)
                 .filter(Consulta.status_consulta != "encerrada")
