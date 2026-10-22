@@ -2,7 +2,8 @@
 
 Junta o que a IA disse (OutputIA) com o que o sistema gravou
 (ResultadoPrescricao.to_dict()) e com a qualidade do input (indices).
-Nao acessa banco: recebe dicts.
+Nao acessa banco: recebe dicts. `substituida=True`: o rascunho desta avaliacao foi
+trocado por uma avaliacao mais nova; a conduta nao e mostrada, so a explicacao.
 """
 from __future__ import annotations
 
@@ -10,9 +11,10 @@ from .schema import OutputIA
 
 
 def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
-                        indices: dict | None = None, lacunas: list[str] | None = None) -> dict:
+                        indices: dict | None = None, lacunas: list[str] | None = None,
+                        substituida: bool = False) -> dict:
     p = output.proposta
-    if (p.medicamentos or p.exames) and resultado is None:
+    if (p.medicamentos or p.exames) and resultado is None and not substituida:
         raise ValueError("proposta com itens exige o resultado gravado (ResultadoPrescricao.to_dict()).")
 
     conduta = None
@@ -41,7 +43,8 @@ def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
                    "medicamentos": meds, "exames": exs}
 
     ind = indices or {}
-    return {"precisa_mais_informacao": output.precisa_mais_informacao,
+    return {"conduta_substituida": bool(substituida and resultado is None),
+            "precisa_mais_informacao": output.precisa_mais_informacao,
             "perguntas": [q.model_dump(mode="json") for q in output.perguntas_pendentes],
             "explicacao": output.detalhamento_explicacao,
             "conduta": conduta,

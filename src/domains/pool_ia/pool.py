@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from src.domains.output_ia.requisicoes import RequisicaoIA, colunas_requisicoes
+from output_ia.requisicoes import RequisicaoIA, colunas_requisicoes
 
 from .contexto import ContextoPool
 from .registro import Metodo, descobrir
