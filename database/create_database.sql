@@ -987,6 +987,7 @@ CREATE TABLE `conduta_enfermagem` (
   `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
   `descricao_conduta` text NOT NULL,
   `realizado_por` bigint(20) NOT NULL,
+  `funcao_clinica` enum('medico','enfermeiro') NOT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id_conduta`),
   KEY `fk_conduta_atendimento` (`id_atendimento`),
@@ -1056,7 +1057,7 @@ CREATE TABLE `input_protocolo` (
   `queixa_principal` text DEFAULT NULL,
   `valor_avpu` varchar(20) DEFAULT NULL,
   `dados_criticos_ausentes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`dados_criticos_ausentes_json`)),
-  `tipo_input` enum('triagem','consulta','avaliacao-medica') DEFAULT NULL,
+  `tipo_input` enum('triagem','avaliacao-medica','reavaliacao') DEFAULT NULL,
   PRIMARY KEY (`id_input`),
   UNIQUE KEY `uuid_input` (`uuid_input`),
   KEY `id_coleta_clinica` (`id_coleta_clinica`),
@@ -1175,9 +1176,13 @@ CREATE TABLE `output_bion` (
   `input_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`input_ia_json`)),
   `requisicoes_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`requisicoes_ia_json`)),
   `versao_input_model` smallint(6) DEFAULT NULL,
+  `status` enum('processando','concluido','falhou') NOT NULL DEFAULT 'processando',
+  `erro_codigo` varchar(40) DEFAULT NULL,
+  `concluido_em` datetime DEFAULT NULL,
   PRIMARY KEY (`id_output`),
   UNIQUE KEY `uuid_output` (`uuid_output`),
   KEY `ix_output_bion_atendimento_criado` (`id_atendimento`,`criado_em`),
+  KEY `ix_output_bion_atendimento_status` (`id_atendimento`,`status`),
   CONSTRAINT `fk_output_bion_atendimento` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
   CONSTRAINT `ck_output_bion_indice_completude` CHECK (`indice_completude` is null or `indice_completude` >= 0 and `indice_completude` <= 100),
   CONSTRAINT `ck_output_bion_indice_confianca` CHECK (`indice_confianca` is null or `indice_confianca` >= 0 and `indice_confianca` <= 100)
@@ -1360,5 +1365,8 @@ CREATE TABLE `reacao_alergia` (
   CONSTRAINT `fk_reacao_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `fk_reacao_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
 
 SET FOREIGN_KEY_CHECKS = 1;
