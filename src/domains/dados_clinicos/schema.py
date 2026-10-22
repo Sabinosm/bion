@@ -88,7 +88,7 @@ class ColetaClinicaIn(BaseModel):
     _v_horas = field_validator("desde_quando_sintomas", mode="before")(_sem_bool)
 
 
-TipoInput = Literal["triagem", "avaliacao-medica"]
+TipoInput = Literal["avaliacao-medica", "reavaliacao"]
 
 
 class InputProtocoloIn(BaseModel):
