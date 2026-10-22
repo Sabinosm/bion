@@ -1,41 +1,67 @@
 """
-Schema Pydantic de ENTRADA para Empresa (cadastro e atualização).
+schema_empresa.py
 
-AtualizacaoEmpresaSchema divide os campos por sensibilidade:
-
-- AUTOGERENCIÁVEIS: a própria empresa (via seu admin) pode alterar
-  livremente. Dado cadastral comum, sem implicação legal ou financeira.
-  Inclui o CNES: ele NÃO é coluna de Empresa, e sim um registro em
-  EmpresaIdentificador (tipo "cnes"). Por isso o schema só valida o
-  formato; a escrita é responsabilidade do service, via
-  empresa.definir_cnes() -- nunca setattr(empresa, "cnes", ...), já que
-  `cnes` é uma property somente leitura no model.
-  O CNPJ continua fora daqui (fixo após o cadastro, exige alteração de
-  registro na Receita).
-
-- RESTRITOS: hoje NINGUÉM pode alterar via este schema, porque o Bion
-  ainda não tem um papel de "admin Bion" separado do "admin cliente".
-  Quando esse papel existir, estes campos devem migrar para um
-  schema/rota própria, acessível só por esse papel superior -- nunca
-  pelo admin da empresa dona do dado, já que são campos que a própria
-  empresa não deveria conseguir se autoconceder (ex: reativar o
-  próprio plano suspenso).
+Schemas Pydantic de ENTRADA do domínio Empresa: um para o cadastro, em que os
+campos obrigatórios continuam obrigatórios, e outro para a atualização
+parcial. Normalizam e validam o payload (CNPJ, CNES e CEP ficam só com
+dígitos, campos em branco do DPO viram nulos, o endereço aninhado enviado pelo
+front é achatado) e rejeitam qualquer campo não previsto, o que impede o
+cliente de enviar dados que ele não pode definir ou alterar. Não consultam o
+banco nem aplicam regras que dependam de outros registros; isso fica no
+service.
 """
 
 import re
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from src.core import validacoes as vl
-from src.core.erros_pydantic import erros_pydantic_por_campo
+from src.core.erros_pydantic import erros_pydantic_por_campo  # noqa: F401 (mantido para imports legados)
 
 
 REGEX_CEP_LIMPO = re.compile(r"^\d{8}$")
-REGEX_NUMERO_ENDERECO = re.compile(r"^[A-Za-z0-9°ºª\s\-/.,]{1,20}$")
+REGEX_NUMERO_ENDERECO = re.compile(r"^[A-Za-z0-9°ºª\s\-/.,]{1,10}$")
+STATUS_PLANO_VALIDOS = {"ativo", "inativo", "suspenso", "cancelado"}
+
+
+def _normalizar_cnes(v: Optional[str]) -> Optional[str]:
+    """Vazio vira None; caso contrário mantém só dígitos e exige 7."""
+    if v is None or v == "":
+        return None
+    v = re.sub(r"\D", "", v)
+    if len(v) != 7:
+        raise ValueError("CNES deve conter 7 dígitos.")
+    return v
+
+
+def _normalizar_cep(v: Optional[str]) -> Optional[str]:
+    """Vazio vira None; caso contrário valida o CEP e devolve só os dígitos."""
+    if v is None or v == "":
+        return None
+    if not vl.validar_cep(v):
+        raise ValueError("CEP inválido.")
+    return re.sub(r"\D", "", v)
+
+
+def _normalizar_numero(v: Optional[str]) -> Optional[str]:
+    """Vazio vira None; caso contrário valida os caracteres permitidos do número do endereço."""
+    if v is None or v == "":
+        return None
+    v = v.strip()
+    if not REGEX_NUMERO_ENDERECO.match(v):
+        raise ValueError("Número do endereço contém caracteres inválidos.")
+    return v
+
+
+def _vazio_para_none(v):
+    """Texto vazio ou só com espaços vira None; qualquer outro valor passa direto."""
+    if isinstance(v, str) and not v.strip():
+        return None
+    return v
 
 
 class CadastroEmpresaSchema(BaseModel):
-    """Usado na criação: campos obrigatórios permanecem obrigatórios."""
+    """Payload de criação da empresa. Exige ao menos CNPJ ou CNES."""
 
     # Tamanhos alinhados com o model Empresa (255/255/150) e com o front.
     nome_fantasia: str = Field(..., min_length=2, max_length=255)
@@ -68,28 +94,30 @@ class CadastroEmpresaSchema(BaseModel):
     @field_validator("cnes")
     @classmethod
     def valida_cnes(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v == "":
-            return None
-        v = re.sub(r"\D", "", v)
-        if len(v) != 7:
-            raise ValueError("CNES deve conter 7 dígitos.")
-        return v
+        return _normalizar_cnes(v)
 
     @field_validator("cep")
     @classmethod
     def valida_cep(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v == "":
-            return None
-        if not vl.validar_cep(v):
-            raise ValueError("CEP inválido.")
-        return re.sub(r"\D", "", v)
+        return _normalizar_cep(v)
+
+    @field_validator("dpo_nome", "dpo_email", mode="before")
+    @classmethod
+    def dpo_vazio_vira_none(cls, v):
+        """"" ou só espaços viram None (EmailStr rejeitaria ""). Sem DPO, o
+        service usa nome e e-mail do admin que está sendo criado."""
+        return _vazio_para_none(v)
+
+    @field_validator("numero")
+    @classmethod
+    def valida_numero(cls, v: Optional[str]) -> Optional[str]:
+        return _normalizar_numero(v)
 
     @field_validator("status_plano")
     @classmethod
     def valida_status_plano(cls, v: str) -> str:
-        permitidos = {"ativo", "inativo", "suspenso", "cancelado"}
-        if v not in permitidos:
-            raise ValueError(f"status_plano deve ser um de: {', '.join(sorted(permitidos))}.")
+        if v not in STATUS_PLANO_VALIDOS:
+            raise ValueError(f"status_plano deve ser um de: {', '.join(sorted(STATUS_PLANO_VALIDOS))}.")
         return v
 
     @model_validator(mode="after")
@@ -100,10 +128,22 @@ class CadastroEmpresaSchema(BaseModel):
 
 
 class AtualizacaoEmpresaSchema(BaseModel):
-    """Atualização parcial de Empresa -- ver docstring do módulo para a
-    divisão entre campos autogerenciáveis e restritos."""
+    """Atualização parcial da empresa, só com campos AUTOGERENCIÁVEIS.
 
-    # -- Autogerenciáveis pelo admin da própria empresa ----------------
+    São os dados cadastrais comuns que a própria empresa pode alterar, sem
+    implicação legal ou financeira. O CNES entra aqui, mas não é coluna de
+    Empresa (é um registro em EmpresaIdentificador): o schema valida só o
+    formato e o service grava via empresa.definir_cnes(), nunca por setattr.
+
+    Ficam de fora, e `extra: forbid` rejeita se enviados:
+    - CNPJ: fixo após o cadastro (mudança exige alteração na Receita).
+    - Campos RESTRITOS (ex.: status_plano, plano): ninguém altera por este
+      schema, pois o Bion ainda não tem um papel "admin Bion" separado do
+      admin cliente. Quando existir, devem migrar para uma rota própria desse
+      papel, já que a empresa não pode se autoconceder, por exemplo, a
+      reativação do próprio plano suspenso.
+    """
+
     nome_fantasia: Optional[str] = Field(None, min_length=2, max_length=255)
     cnes: Optional[str] = Field(None, max_length=20)
     numero: Optional[str] = Field(None, max_length=10)
@@ -115,15 +155,14 @@ class AtualizacaoEmpresaSchema(BaseModel):
 
     model_config = {
         "str_strip_whitespace": True,
-        "extra": "forbid",  # qualquer campo restrito enviado já quebra aqui
+        "extra": "forbid",
     }
 
     @model_validator(mode="before")
     @classmethod
     def achatar_endereco(cls, dados):
-        """O front (empresa.js) envia o endereço aninhado em `endereco`
-        (mesmo formato do to_dict()); o schema é plano. Achata aqui para
-        que "extra: forbid" não rejeite a chave `endereco`."""
+        """Achata `endereco` (formato do to_dict(), enviado pelo front) nos
+        campos planos do schema, para o `extra: forbid` não rejeitar a chave."""
         if isinstance(dados, dict) and isinstance(dados.get("endereco"), dict):
             dados = {**dados}
             endereco = dados.pop("endereco")
@@ -135,48 +174,22 @@ class AtualizacaoEmpresaSchema(BaseModel):
     @field_validator("cnes")
     @classmethod
     def valida_cnes(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v == "":
-            return None
-        v = re.sub(r"\D", "", v)
-        if len(v) != 7:
-            raise ValueError("CNES deve conter 7 dígitos.")
-        return v
+        return _normalizar_cnes(v)
 
     @field_validator("dpo_nome", "dpo_email", mode="before")
     @classmethod
     def dpo_vazio_vira_none(cls, v):
-        """"" / só espaços viram None (EmailStr rejeitaria ""). O service
-        interpreta None EXPLÍCITO nesses campos como "voltar ao padrão":
-        nome e e-mail do admin fundador da empresa. DPO nunca fica nulo."""
-        if isinstance(v, str) and not v.strip():
-            return None
-        return v
+        """"" ou só espaços viram None (EmailStr rejeitaria ""). O service lê
+        None EXPLÍCITO nesses campos como "voltar ao padrão" (nome e e-mail do
+        admin fundador): o DPO nunca fica nulo."""
+        return _vazio_para_none(v)
 
     @field_validator("cep")
     @classmethod
     def valida_cep(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v == "":
-            return None
-        if not vl.validar_cep(v):
-            raise ValueError("CEP inválido.")
-        return re.sub(r"\D", "", v)
-
-    @field_validator("nome_fantasia")
-    @classmethod
-    def valida_nome_fantasia(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        v = v.strip()
-        if len(v) < 2:
-            raise ValueError("Nome fantasia muito curto.")
-        return v
+        return _normalizar_cep(v)
 
     @field_validator("numero")
     @classmethod
     def valida_numero(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v == "":
-            return None
-        v = v.strip()
-        if not REGEX_NUMERO_ENDERECO.match(v):
-            raise ValueError("Número do endereço contém caracteres inválidos.")
-        return v
+        return _normalizar_numero(v)

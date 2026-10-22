@@ -1,22 +1,24 @@
 """
-ALTERADO: Empresa(cnpj=...) não funciona mais no construtor (cnpj não
-é mais coluna). Substituído por empresa.definir_cnpj(schema.cnpj) logo
-após instanciar o objeto, nos dois pontos de criação
-(cadastrar e cadastrar_com_admin).
+service.py
 
-atualizar(): o schema de atualização (AtualizacaoEmpresaSchema) bloqueia
-CNPJ via "extra": "forbid" -- esse service nunca escreve CNPJ em uma
-atualização, só na criação. O CNES, por outro lado, é editável: como é
-um identificador (EmpresaIdentificador) e não coluna, é escrito com
-empresa.definir_cnes() após checar duplicidade, e não via setattr.
+Regras de negócio do domínio Empresa. Orquestra o cadastro da empresa (sozinha
+ou junto com o administrador fundador, na mesma transação), a atualização dos
+dados autogerenciáveis e as consultas de existência de identificadores. Valida
+a entrada pelos schemas, impede duplicidade de CNPJ e CNES, resolve a região
+geográfica a partir do CEP e mantém o DPO sempre preenchido, usando o admin
+fundador como padrão. CNPJ e CNES são identificadores, não colunas, e por isso
+são gravados pelos métodos próprios do model; o CNPJ só é escrito na criação.
 """
+
+import re
 
 from pydantic import ValidationError
 
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError, BionException
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from .repository import EmpresaRepository
 from src.models.corp.empresa import Empresa
-from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema, erros_pydantic_por_campo
+from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
 
@@ -27,10 +29,20 @@ class EmpresaService:
         self.repo = EmpresaRepository()
         self.usuario_service = UsuarioService()
 
+    def buscar_por_id(self, id_empresa: int) -> Empresa:
+        """Retorna a empresa pelo id.
+
+        Raises:
+            RecursoNaoEncontradoError: empresa inexistente.
+        """
+        empresa = self.repo.find_by_id(id_empresa)
+        if not empresa:
+            raise RecursoNaoEncontradoError("Empresa não encontrada.")
+        return empresa
+
     def _resolver_regiao(self, cep):
-        """Busca a região geográfica pelo CEP (usado nos dois fluxos de
-        cadastro). Sem CEP, devolve None. CEP sem região correspondente
-        levanta DadosInvalidosError no campo "cep"."""
+        """Busca a região geográfica pelo CEP. Sem CEP devolve None; CEP sem
+        região correspondente levanta DadosInvalidosError no campo "cep"."""
         if not cep:
             return None
         try:
@@ -42,29 +54,30 @@ class EmpresaService:
                 campo="cep",
             )
 
-    def cadastrar(self, dados: dict) -> "Empresa":
+    @staticmethod
+    def _validar_cadastro(dados: dict) -> CadastroEmpresaSchema:
+        """Valida o payload de cadastro; erros de validação viram DadosInvalidosError."""
         try:
-            schema = CadastroEmpresaSchema(**dados)
+            return CadastroEmpresaSchema(**dados)
         except ValidationError as e:
             raise DadosInvalidosError(
                 erros_pydantic_por_campo(e),
                 erros=erros_pydantic_por_campo(e, campo_geral="cnpj"),
             )
-        except Exception as e:
-            raise
 
+    def _garantir_identificadores_livres(self, schema: CadastroEmpresaSchema) -> None:
+        """Levanta ConflictoError se o CNPJ ou o CNES informado já existir."""
         if schema.cnpj and self.repo.find_by_cnpj(schema.cnpj):
             raise ConflictoError("CNPJ já cadastrado.", campo="cnpj")
-
         if schema.cnes and self.repo.find_by_cnes(schema.cnes):
             raise ConflictoError("CNES já cadastrado.", campo="cnes")
 
-        regiao = self._resolver_regiao(schema.cep)
-
+    @staticmethod
+    def _montar_empresa(schema: CadastroEmpresaSchema, regiao, dpo_nome, dpo_email) -> Empresa:
+        """Instancia a empresa (sem salvar). CNPJ/CNES entram como identificadores."""
         empresa = Empresa(
             nome_fantasia=schema.nome_fantasia,
             razao_social=schema.razao_social,
-            # cnpj REMOVIDO do construtor
             numero=schema.numero,
             bairro=schema.bairro,
             complemento=schema.complemento,
@@ -72,67 +85,56 @@ class EmpresaService:
             id_regiao_geografica=regiao.id if regiao else None,
             status_plano=schema.status_plano,
             plano=schema.plano,
-            dpo_nome=schema.dpo_nome,
-            dpo_email=schema.dpo_email,
+            dpo_nome=dpo_nome,
+            dpo_email=dpo_email,
         )
         if schema.cnpj:
             empresa.definir_cnpj(schema.cnpj)
         if schema.cnes:
             empresa.definir_cnes(schema.cnes)
+        return empresa
+
+    def cadastrar(self, dados: dict) -> Empresa:
+        """Cadastra uma empresa sem administrador, com commit imediato.
+
+        Raises:
+            DadosInvalidosError: payload inválido ou CEP sem região.
+            ConflictoError: CNPJ ou CNES já cadastrado.
+        """
+        schema = self._validar_cadastro(dados)
+        self._garantir_identificadores_livres(schema)
+        regiao = self._resolver_regiao(schema.cep)
+
+        empresa = self._montar_empresa(schema, regiao, schema.dpo_nome, schema.dpo_email)
         return self.repo.save(empresa)
 
     def cadastrar_com_admin(self, dados_empresa: dict, dados_admin: dict) -> tuple:
+        """Cadastra a empresa e o admin fundador (super admin) numa única transação.
+
+        A região geográfica é resolvida pelo CEP. Se o DPO não for informado,
+        usa nome e e-mail do admin criado (editável depois no PUT da empresa).
+        Qualquer falha desfaz a transação inteira.
+
+        Returns:
+            (empresa, admin)
+
+        Raises:
+            DadosInvalidosError: payload inválido ou CEP sem região.
+            ConflictoError: CNPJ ou CNES já cadastrado.
         """
-        Cadastra uma empresa e um usuário admin associado a ela, em uma única transação.
-        Validando dados de entrada e retornando erro caso não esteja de acordo.
-        Também já adiciona à empresa o id_regiao através do cep, se não achar tenta procurar se já existe
-        """
-        
-        try:
-            schema_empresa = CadastroEmpresaSchema(**dados_empresa)
-        except ValidationError as e:
-            raise DadosInvalidosError(
-                erros_pydantic_por_campo(e),
-                erros=erros_pydantic_por_campo(e, campo_geral="cnpj"),
-            )
-        except Exception as e:
-            raise
+        schema = self._validar_cadastro(dados_empresa)
 
         dados_admin = {**dados_admin, "is_admin": True}
 
-        # DPO é opcional no cadastro: se não informado, usa o nome e o e-mail
-        # do admin que está sendo criado (editável depois em PUT /empresas/).
         # Chaves conforme o model Usuario: nome_completo e email.
-        dpo_nome = schema_empresa.dpo_nome or dados_admin.get("nome_completo")
-        dpo_email = schema_empresa.dpo_email or dados_admin.get("email")
+        dpo_nome = schema.dpo_nome or dados_admin.get("nome_completo")
+        dpo_email = schema.dpo_email or dados_admin.get("email")
 
-        if schema_empresa.cnpj and self.repo.find_by_cnpj(schema_empresa.cnpj):
-            raise ConflictoError("CNPJ já cadastrado.", campo="cnpj")
+        self._garantir_identificadores_livres(schema)
+        regiao = self._resolver_regiao(schema.cep)
 
-        if schema_empresa.cnes and self.repo.find_by_cnes(schema_empresa.cnes):
-            raise ConflictoError("CNES já cadastrado.", campo="cnes")
-
-        regiao = self._resolver_regiao(schema_empresa.cep)
-        
         try:
-            empresa = Empresa(
-                nome_fantasia=schema_empresa.nome_fantasia,
-                razao_social=schema_empresa.razao_social,
-                numero=schema_empresa.numero,
-                bairro=schema_empresa.bairro,
-                complemento=schema_empresa.complemento,
-                cep=schema_empresa.cep,
-                id_regiao_geografica=regiao.id if regiao else None,
-                status_plano=schema_empresa.status_plano,
-                plano=schema_empresa.plano,
-                dpo_nome=dpo_nome,
-                dpo_email=dpo_email,
-            )
-            
-            if schema_empresa.cnpj:
-                empresa.definir_cnpj(schema_empresa.cnpj)
-            if schema_empresa.cnes:
-                empresa.definir_cnes(schema_empresa.cnes)
+            empresa = self._montar_empresa(schema, regiao, dpo_nome, dpo_email)
             self.repo.save(empresa, False)
             # empresa.id já existe aqui (flush interno do save com commit=False)
 
@@ -146,13 +148,25 @@ class EmpresaService:
             raise
 
     def atualizar(self, id_empresa: int, dados: dict, uuid_empresa: str, commit: bool = True) -> Empresa:
-        """Atualiza campos autogerenciáveis da empresa (ver
-        AtualizacaoEmpresaSchema). CNPJ nunca é alterado aqui; CNES é
-        tratado à parte por ser um identificador, não uma coluna."""
+        """Atualiza os campos autogerenciáveis da empresa (ver AtualizacaoEmpresaSchema).
 
-        empresa = self.repo.find_by_id(id_empresa)
-        if not empresa:
-            raise DadosInvalidosError("Empresa não encontrada.")
+        Args:
+            id_empresa: id da empresa a atualizar (vem da sessão).
+            dados: payload parcial; campos ausentes não são alterados.
+            uuid_empresa: uuid da empresa da sessão; precisa bater com o da empresa carregada.
+            commit: False só faz flush, deixando a transação aberta para o chamador.
+
+        Regras: o CNPJ nunca é alterado aqui; CNES vazio significa "sem mudança";
+        mudar o CEP recalcula a região geográfica; o DPO nunca fica nulo (se
+        limpo de propósito ou já vazio, volta ao nome e e-mail do admin fundador).
+
+        Raises:
+            RecursoNaoEncontradoError: empresa inexistente.
+            DadosInvalidosError: payload inválido ou CEP sem região.
+            ConflictoError: CNES já pertence a outra empresa.
+            BionException: uuid não corresponde à empresa informada.
+        """
+        empresa = self.buscar_por_id(id_empresa)
 
         if empresa.uuid != uuid_empresa:
             raise BionException("Não é possível alterar outras empresas.")
@@ -164,8 +178,13 @@ class EmpresaService:
 
         atualizacoes = schema.model_dump(exclude_unset=True, exclude_none=True)
 
-        # CNES: property somente leitura no model -> escrita via definir_cnes.
-        # Vazio/None = "sem mudança" (não remove o CNES existente).
+        # CEP novo: resolve a região antes de alterar qualquer coisa (pode levantar erro).
+        nova_regiao = None
+        novo_cep = atualizacoes.get("cep")
+        if novo_cep and novo_cep != empresa.cep:
+            nova_regiao = self._resolver_regiao(novo_cep)
+
+        # CNES é property somente leitura no model: escrita via definir_cnes.
         novo_cnes = atualizacoes.pop("cnes", None)
         if novo_cnes and novo_cnes != empresa.cnes:
             outra = self.repo.find_by_cnes(novo_cnes)
@@ -176,9 +195,9 @@ class EmpresaService:
         for campo, valor in atualizacoes.items():
             setattr(empresa, campo, valor)
 
-        # DPO nunca fica nulo: se vier limpo de propósito (None/"" explícito)
-        # ou se já estava vazio (empresas anteriores a este campo), volta ao
-        # padrão -- nome e e-mail do admin fundador (super admin).
+        if nova_regiao:
+            empresa.id_regiao_geografica = nova_regiao.id
+
         dono = next((u for u in empresa.usuarios if u.is_super_admin), None)
         if dono:
             for campo, atributo_dono in (("dpo_nome", "nome_completo"), ("dpo_email", "email")):
@@ -188,10 +207,26 @@ class EmpresaService:
 
         return self.repo.save(empresa, commit=commit)
 
+    @staticmethod
+    def _exigir_somente_digitos(valor: str, campo: str) -> None:
+        """CNPJ e CNES são gravados só com dígitos; valor com máscara ou outro
+        caractere é bloqueado para evitar consulta enganosa (falso "não existe")."""
+        if not re.fullmatch(r"[0-9]+", valor or ""):
+            raise DadosInvalidosError(
+                f"{campo.upper()} deve conter apenas números, sem pontos, barras ou traços.",
+                campo=campo,
+            )
+
     def cnpj_ja_cadastrado(self, cnpj: str) -> bool:
-        """Verifica se o CNPJ já está cadastrado no sistema."""
+        """Raises:
+            DadosInvalidosError: valor com caracteres que não são dígitos.
+        """
+        self._exigir_somente_digitos(cnpj, "cnpj")
         return self.repo.find_by_cnpj(cnpj) is not None
 
     def cnes_ja_cadastrado(self, cnes: str) -> bool:
-        """Verifica se o CNES já está cadastrado no sistema."""
+        """Raises:
+            DadosInvalidosError: valor com caracteres que não são dígitos.
+        """
+        self._exigir_somente_digitos(cnes, "cnes")
         return self.repo.find_by_cnes(cnes) is not None
