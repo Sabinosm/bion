@@ -41,6 +41,19 @@ def _extrair_resposta_e_detalhes(resultado):
     return resultado, {}
 
 
+def _status_da_resposta(resposta):
+    """Extrai o status HTTP da resposta da view.
+
+    Aceita Response e tupla (Response, status), que é o formato que algumas
+    implementações de json_error devolvem.
+    """
+    if isinstance(resposta, tuple):
+        if len(resposta) >= 2 and isinstance(resposta[1], int):
+            return resposta[1]
+        resposta = resposta[0]
+    return getattr(resposta, "status_code", 200)
+
+
 def acao_sensivel(acao: str, *, tabela: str):
     """Decorator para escrita/exclusão: exige step-up recente e audita de forma atômica.
 
@@ -50,7 +63,10 @@ def acao_sensivel(acao: str, *, tabela: str):
     campo_alterado, valor_anterior, valor_novo e justificativa (obrigatória
     quando operacao == "DELETE").
 
-    Qualquer exceção (da view ou do log) desfaz a transação inteira.
+    Qualquer exceção (da view ou do log) desfaz a transação inteira. Se a view
+    devolver uma resposta de erro (status >= 400) sem lançar exceção, a
+    transação também é desfeita e nenhum log de alteração é gravado: a ação não
+    aconteceu, então não há o que auditar nem o que commitar.
 
     Args:
         acao: nome da ação auditada (ex.: "editar_paciente"); também é a ação
@@ -68,6 +84,10 @@ def acao_sensivel(acao: str, *, tabela: str):
         def wrapper(*args, **kwargs):
             try:
                 resposta, detalhes = _extrair_resposta_e_detalhes(f(*args, **kwargs))
+
+                if _status_da_resposta(resposta) >= 400:
+                    db.session.rollback()
+                    return resposta
 
                 if "id_registro" not in detalhes or "uuid_registro" not in detalhes:
                     raise ValueError(
