@@ -1,7 +1,7 @@
 """Bloco 'alergias': alergias vigentes e suas reacoes."""
 from __future__ import annotations
 
-from ..nucleo import Bloco, bloco_lista, iso, limpar
+from ..nucleo import Bloco, Sinal, bloco_lista, iso, limpar
 from ..registro import bloco
 
 NOME = "alergias"
@@ -24,4 +24,5 @@ def montar(at) -> Bloco:
             "data": iso(r.data_ocorrencia),
         } for r in a.reacoes_ativas],
     }) for a in ativas]
-    return bloco_lista(NOME, itens, at.binario)
+    nao_confirmadas = sum(not a.flag_confirmado for a in ativas)
+    return bloco_lista(NOME, itens, at.binario, sinais=(Sinal.ALERGIA_NAO_CONFIRMADA,) * nao_confirmadas)

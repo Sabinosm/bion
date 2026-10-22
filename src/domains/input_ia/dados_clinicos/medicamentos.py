@@ -1,7 +1,7 @@
 """Bloco 'medicamentos': medicamentos em uso."""
 from __future__ import annotations
 
-from ..nucleo import Bloco, bloco_lista, iso, limpar
+from ..nucleo import Bloco, Sinal, bloco_lista, iso, limpar
 from ..registro import bloco
 
 NOME = "medicamentos"
@@ -23,4 +23,5 @@ def montar(at) -> Bloco:
             # False = fora do catalogo: ninguem checou interacoes deste item
             "interacoes_verificaveis": m.id_catalogo is not None,
         }))
-    return bloco_lista(NOME, itens, at.binario)
+    sem_catalogo = sum(m.id_catalogo is None for m in ativos)
+    return bloco_lista(NOME, itens, at.binario, sinais=(Sinal.MEDICAMENTO_SEM_CATALOGO,) * sem_catalogo)

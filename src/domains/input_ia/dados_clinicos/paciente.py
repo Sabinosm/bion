@@ -34,4 +34,5 @@ def montar(at) -> Bloco:
             ("altura", altura is None),
         ) if ausente
     )
-    return Bloco(NOME, dados, lacunas)
+    presentes = sum(v is not None for v in (anos, peso, altura))
+    return Bloco(NOME, dados, lacunas, esperados=3, presentes=presentes)
