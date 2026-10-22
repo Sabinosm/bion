@@ -201,3 +201,4 @@ class CadastroMixin:
             if commit:
                 self.repo.rollback()
             raise
+        

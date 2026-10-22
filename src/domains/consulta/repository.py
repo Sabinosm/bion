@@ -49,7 +49,7 @@ class ConsultaRepository(IRepository[Consulta]):
     def find_por_paciente(self, id_paciente: int, id_empresa: int) -> List[Consulta]:
         return (Consulta.query
                 .filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
-                .order_by(Consulta.data_hora_inicio.desc()).all())
+                .order_by(Consulta.data_hora_inicio.desc()).limit(5))
 
     def find_abertas(self, id_empresa: int) -> List[Consulta]:
         return (Consulta.query.filter_by(id_empresa=id_empresa)
