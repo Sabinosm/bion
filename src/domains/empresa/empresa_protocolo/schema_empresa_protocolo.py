@@ -1,10 +1,12 @@
-"""Schema Pydantic de ENTRADA para EmpresaProtocolo (liberação institucional).
+"""
+schema_empresa_protocolo.py
 
-Separação por sensibilidade, no mesmo espírito de AtualizacaoEmpresaSchema:
-- alterar 'ativo' e 'politica' é ação de governança clínica, sempre exige
-  quem aprovou (aprovado_por vem da sessão, nunca do payload do cliente).
-- escopo_default_institucional é uma ação derivada, tratada em método
-  próprio do Service (não faz parte deste schema de toggle simples).
+Schemas Pydantic de ENTRADA da liberação institucional de protocolos: um para
+liberar/bloquear um protocolo e escolher sua política, outro para definir o
+padrão institucional de um escopo. Validam os valores aceitos e rejeitam
+qualquer campo não previsto. Dados de governança, como quem aprovou e quando,
+nunca fazem parte do payload: vêm da sessão e são preenchidos pelo service,
+para que o cliente não possa forjá-los.
 """
 
 from typing import Optional
@@ -17,8 +19,10 @@ POLITICAS_VALIDAS = {"obrigatorio", "opcional"}
 
 
 class AlterarStatusEmpresaProtocoloSchema(BaseModel):
+    """Liberar/bloquear um protocolo. `politica` None = não altera a atual."""
+
     ativo: bool
-    politica: Optional[str] = None  # None = não altera a política atual
+    politica: Optional[str] = None
 
     model_config = {
         "extra": "forbid",
@@ -33,6 +37,8 @@ class AlterarStatusEmpresaProtocoloSchema(BaseModel):
 
 
 class DefinirDefaultInstitucionalSchema(BaseModel):
+    """Escopo para o qual o protocolo será o padrão institucional."""
+
     escopo: str
 
     model_config = {
