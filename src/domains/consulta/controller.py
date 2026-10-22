@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.erros_pydantic import erros_pydantic_por_campo
-from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao
+from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin_ou_papel_clinico
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from .schema_consulta import (
     ConsultaAbrirSchema, ConsultaEncerrarSchema, ConsultaEvadirSchema,
@@ -41,7 +41,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.get("/")
-    @requer_papel_clinico("enfermeiro","medico")
+    @requer_admin_ou_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="lista de consultas", operacao="leitura")
     def lista_consultas():
         """?abertas=true filtra as não encerradas."""
@@ -51,7 +51,7 @@ class ConsultasController():
     
     @staticmethod
     @bp_consulta.get("/<uuid>")
-    @requer_papel_clinico("enfermeiro","medico")
+    @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="visualizar consulta", operacao="leitura")
     def detalhe_consulta(uuid):
         try:
@@ -62,7 +62,7 @@ class ConsultasController():
 
     @staticmethod
     @bp_consulta.get("/paciente/historico/<uuid_paciente>")
-    @requer_papel_clinico("enfermeiro","medico")
+    @requer_admin_ou_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="historico de consultas do paciente", operacao="leitura")
     def consultas_do_paciente(uuid_paciente):
         try:
