@@ -10,17 +10,22 @@ from typing import Protocol
 
 
 class RepoMedicamentos(Protocol):
-    def find_by_uuid(self, uuid: str): ...                                   # [confirmar]
-    def buscar_por_principio(self, termo: str, limite: int) -> list: ...     # [adicionar] principio_ativo + sinonimos, normalizado
-    def buscar_por_indicacao(self, termo: str, limite: int) -> list: ...     # [adicionar] via indicacoes_terapeuticas
-    def buscar_por_classe(self, termo: str, limite: int) -> list: ...       # [adicionar] classe_farmaceutica
-    def interacoes_entre(self, uuid: str, outros_uuids: list[str]) -> list[dict]: ...
-    # [adicionar] cada item: {"uuid_a","uuid_b","gravidade","descricao"} (tabela InteracoesMedicamentos)
+    # CatalogoMedicamentosRepository (todos [existe] apos a atualizacao do repository)
+    def find_by_uuid(self, uuid: str): ...
+    def buscar_por_principio(self, termo: str, limite: int) -> list: ...     # principio ativo, normalizado ou sinonimo
+    def buscar_por_indicacao(self, termo: str, limite: int) -> list: ...     # via indicacoes_terapeuticas
+    def buscar_por_classe(self, termo: str, limite: int) -> list: ...        # classe_farmaceutica
+    def interacoes_entre(self, uuid: str, outros_uuids: list[str]) -> list: ...
+    # devolve InteracoesMedicamentos (uuid, gravidade, medicamento_a, medicamento_b)
 
 
 class RepoExames(Protocol):
-    def find_by_uuid(self, uuid: str): ...                                   # [existe]
+    # CatalogoExamesRepository
+    def find_by_uuid(self, uuid: str): ...
     def buscar_ativos(self, termo: str, tipo: str | None, limite: int) -> list: ...
-    # [adicionar] como listar_paginado, mas sem paginacao: ativos, nome pt/en ou sinonimo
-    def conteudo_por_exame(self, uuid: str, idioma: str) -> dict | None: ...
-    # [adicionar] CatalogoExamesConteudo: {"titulo","fonte","texto_plano","hash_conteudo"} ou None
+
+
+class RepoExamesConteudo(Protocol):
+    # CatalogoExamesConteudoRepository (usa o id interno do exame, nao o uuid)
+    def contexto_para_ia(self, id_catalogo_exame: int, idioma: str, max_chars: int) -> dict | None: ...
+    # {"texto","fonte","url","idioma","buscado_em"} ou None

@@ -16,6 +16,15 @@ def compacto_med(m) -> dict:
             "contraindicacoes": d.get("contraindicacoes") or []}
 
 
+def compacto_interacao(i) -> dict:
+    """Projecao de InteracoesMedicamentos (uuid, gravidade e os dois medicamentos)."""
+    a, b = i.medicamento_a, i.medicamento_b
+    d = {"medicamento_a": {"uuid_catalogo": a.uuid, "principio_ativo": a.principio_ativo},
+         "medicamento_b": {"uuid_catalogo": b.uuid, "principio_ativo": b.principio_ativo},
+         "gravidade": i.gravidade, "descricao": getattr(i, "descricao", None)}
+    return {k: v for k, v in d.items() if v is not None}
+
+
 def compacto_exame(e) -> dict:
     d = e.to_dict()
     return {k: v for k, v in {"uuid_exame": d["uuid"], "nome_exame": d.get("nome_exame"),

@@ -4,7 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from .registro import Retorno, metodo
-from .util import Limite, Termo, compacto_med
+from .util import Limite, Termo, compacto_interacao, compacto_med
 
 
 class _Args(BaseModel):
@@ -60,5 +60,6 @@ def interacoes(ctx, a: ArgsUuid) -> Retorno:
     if not ctx.uuids_em_uso:
         return Retorno({"interacoes": [], "observacao": "paciente sem medicamento em uso com catalogo"},
                        resumo={"n": 0})
-    itens = ctx.medicamentos.interacoes_entre(a.uuid_catalogo, sorted(ctx.uuids_em_uso))
+    itens = [compacto_interacao(i) for i in
+             ctx.medicamentos.interacoes_entre(a.uuid_catalogo, sorted(ctx.uuids_em_uso))]
     return Retorno({"interacoes": itens}, resumo={"n": len(itens)})

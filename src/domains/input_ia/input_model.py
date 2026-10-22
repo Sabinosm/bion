@@ -8,13 +8,12 @@ from .indices import Indices, calcular
 from .nucleo import Bloco
 from .registro import Fabrica, fabricas
 
-# Versão do FORMATO do snapshot (blocos/chaves). Suba ao mudar a estrutura de
-# um bloco; vai para OutputBion.versao_input_model para ler snapshots antigos.
-VERSAO_INPUT_MODEL = 1
-
 
 class InputModel:
-    VERSAO = VERSAO_INPUT_MODEL   # usado por output_ia.colunas_envio
+    # Versao do formato dos blocos. Vai para OutputBion.versao_input_model.
+    # Incremente quando a forma de um bloco mudar de modo que um snapshot
+    # antigo deixe de ser lido do mesmo jeito (campo renomeado ou removido).
+    VERSAO = 1
 
     def __init__(self, blocos: list[Bloco], config: Config | None = None,
                  meta: dict[str, Fabrica] | None = None):

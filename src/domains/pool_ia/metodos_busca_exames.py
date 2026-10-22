@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .registro import Retorno, metodo
 from .util import Limite, Termo, compacto_exame
 
-TEXTO_MAX = 3000   # o que a IA recebe do texto longo; o hash cobre o texto inteiro
+TEXTO_MAX = 3000   # limite de caracteres do texto longo entregue a IA (corte em fronteira de secao)
 
 
 class _Args(BaseModel):
@@ -43,14 +43,20 @@ def detalhe(ctx, a: ArgsExameUuid) -> Retorno:
     return Retorno(d, exames=frozenset({d["uuid_exame"]}), resumo={"n": 1, "uuids": [d["uuid_exame"]]})
 
 
+IDIOMAS_CONTEUDO = ("en", "es")   # idiomas guardados do MedlinePlus; outro cai em "en"
+
+
 @metodo("exame_conteudo",
-        "Texto educativo do exame (MedlinePlus): para que serve e como interpretar.", ArgsExameUuid)
+        "Texto educativo do exame (MedlinePlus): o que e, para que serve, preparo e resultados. "
+        "Conteudo geral de base americana, nao protocolo brasileiro.", ArgsExameUuid)
 def conteudo(ctx, a: ArgsExameUuid) -> Retorno:
-    c = ctx.exames.conteudo_por_exame(a.uuid_exame, ctx.idioma.split("-")[0])
-    if not c or not c.get("texto_plano"):
+    e = ctx.exames.find_by_uuid(a.uuid_exame)
+    if e is None or getattr(e, "ativo", True) is False:
+        return Retorno({"erro": "exame nao encontrado ou inativo no catalogo"}, resumo={"n": 0})
+    curto = ctx.idioma.split("-")[0]
+    c = ctx.exames_conteudo.contexto_para_ia(e.id, curto if curto in IDIOMAS_CONTEUDO else "en", TEXTO_MAX)
+    if not c or not c.get("texto"):
         return Retorno({"erro": "sem conteudo para este exame"}, resumo={"n": 0})
-    texto = c["texto_plano"]
-    h = c.get("hash_conteudo") or hashlib.sha256(texto.encode("utf-8")).hexdigest()
-    dados = {"titulo": c.get("titulo"), "fonte": c.get("fonte"), "texto": texto[:TEXTO_MAX],
-             "truncado": len(texto) > TEXTO_MAX}
-    return Retorno(dados, resumo={"n": 1, "uuid_exame": a.uuid_exame, "caracteres": len(texto)}, hash_conteudo=h)
+    h = hashlib.sha256(c["texto"].encode("utf-8")).hexdigest()    # do texto que a IA realmente viu
+    dados = {k: c.get(k) for k in ("texto", "fonte", "url", "idioma", "buscado_em")}
+    return Retorno(dados, resumo={"n": 1, "uuid_exame": a.uuid_exame, "caracteres": len(c["texto"])}, hash_conteudo=h)

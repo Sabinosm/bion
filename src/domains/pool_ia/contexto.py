@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .repositorios import RepoExames, RepoMedicamentos
+from .repositorios import RepoExames, RepoExamesConteudo, RepoMedicamentos
 
 
 @dataclass(frozen=True)
 class ContextoPool:
     medicamentos: RepoMedicamentos
     exames: RepoExames
+    exames_conteudo: RepoExamesConteudo
     idioma: str = "pt-BR"
     id_empresa: int | None = None
     id_atendimento: int | None = None
