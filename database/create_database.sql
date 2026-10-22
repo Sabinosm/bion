@@ -575,7 +575,7 @@ CREATE TABLE `log_alteracao` (
   `valor_novo` text DEFAULT NULL,
   `alterado_por` bigint(20) DEFAULT NULL,
   `alterado_em` timestamp NOT NULL DEFAULT current_timestamp(),
-  `ip_origem` varchar(45) DEFAULT NULL,
+  `ip_origem` varchar(255) DEFAULT NULL,
   `justificativa` text DEFAULT NULL,
   `acao` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id_alteracao`),

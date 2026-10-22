@@ -36,7 +36,7 @@ class LogAlteracao(db.Model):
     valor_anterior = db.Column(db.Text)
     valor_novo = db.Column(db.Text)
     alterado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
-    ip_origem = db.Column(db.String(45))
+    ip_origem = db.Column(db.String(255))
     justificativa = db.Column(db.Text)
     alterado_em = db.Column(db.DateTime(timezone=True),
                              default=lambda: datetime.now(timezone.utc), nullable=False)
