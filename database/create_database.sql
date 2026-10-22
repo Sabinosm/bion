@@ -5,23 +5,6 @@ use `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode
 -- Desativar verificação de FK
 SET FOREIGN_KEY_CHECKS = 0;
 
--- bion_testes.catalogo_exames definition
-
-CREATE TABLE `catalogo_exames` (
-  `id_catalogo_exame` bigint(20) NOT NULL AUTO_INCREMENT,
-  `uuid_catalogo_exame` char(36) NOT NULL,
-  `codigo_tuss` varchar(20) DEFAULT NULL,
-  `nome_exame` varchar(255) NOT NULL,
-  `tipo` enum('laboratorial','imagem','funcional','outro') DEFAULT NULL,
-  `material` varchar(100) DEFAULT NULL,
-  `jejum_horas` smallint(6) DEFAULT NULL,
-  `observacoes` text DEFAULT NULL,
-  `ativo` tinyint(1) DEFAULT 1,
-  PRIMARY KEY (`id_catalogo_exame`),
-  UNIQUE KEY `uuid_catalogo_exame` (`uuid_catalogo_exame`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- bion_testes.catalogo_fluxogramas_mts definition
 
 CREATE TABLE `catalogo_fluxogramas_mts` (
@@ -115,6 +98,34 @@ CREATE TABLE `loinc_sinal_vital` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- bion_testes.loinc_termo definition
+
+CREATE TABLE `loinc_termo` (
+  `loinc_num` varchar(10) NOT NULL,
+  `componente` varchar(255) DEFAULT NULL,
+  `propriedade` varchar(255) DEFAULT NULL,
+  `tempo` varchar(255) DEFAULT NULL,
+  `sistema` varchar(255) DEFAULT NULL,
+  `escala` varchar(255) DEFAULT NULL,
+  `metodo` varchar(255) DEFAULT NULL,
+  `classe` varchar(255) DEFAULT NULL,
+  `classtype` tinyint(4) DEFAULT NULL,
+  `status` varchar(20) DEFAULT NULL,
+  `order_obs` varchar(15) DEFAULT NULL,
+  `panel_type` varchar(50) DEFAULT NULL,
+  `nome_longo` varchar(255) DEFAULT NULL,
+  `nome_exibicao` varchar(255) DEFAULT NULL,
+  `nome_curto` varchar(255) DEFAULT NULL,
+  `unidade_exemplo_ucum` varchar(255) DEFAULT NULL,
+  `rank_teste` int(11) DEFAULT NULL,
+  `rank_pedido` int(11) DEFAULT NULL,
+  `versao_loinc` varchar(20) DEFAULT NULL,
+  PRIMARY KEY (`loinc_num`),
+  KEY `ix_loinc_termo_escopo` (`classtype`,`status`),
+  KEY `ix_loinc_termo_rank_pedido` (`rank_pedido`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
 -- bion_testes.protocolo_catalogo definition
 
 CREATE TABLE `protocolo_catalogo` (
@@ -172,6 +183,75 @@ CREATE TABLE `variavel_clinica` (
   CONSTRAINT `ck_variavel_opcoes_coerentes` CHECK (`tipo_dado` = 'categorico' and `opcoes_json` is not null or `tipo_dado` <> 'categorico' and `opcoes_json` is null),
   CONSTRAINT `ck_variavel_opcoes_json_valido` CHECK (`opcoes_json` is null or json_valid(`opcoes_json`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.catalogo_exames definition
+
+CREATE TABLE `catalogo_exames` (
+  `id_catalogo_exame` bigint(20) NOT NULL AUTO_INCREMENT,
+  `uuid_catalogo_exame` char(36) NOT NULL,
+  `codigo_tuss` varchar(20) DEFAULT NULL,
+  `nome_exame` varchar(255) NOT NULL,
+  `nome_exame_en` varchar(255) DEFAULT NULL,
+  `tipo` enum('laboratorial','imagem','funcional','outro') DEFAULT NULL,
+  `material` varchar(100) DEFAULT NULL,
+  `material_en` varchar(100) DEFAULT NULL,
+  `jejum_horas` smallint(6) DEFAULT NULL,
+  `observacoes` text DEFAULT NULL,
+  `ativo` tinyint(1) DEFAULT 1,
+  `codigo_loinc` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `nome_normalizado` varchar(255) DEFAULT NULL,
+  `busca_normalizada` text DEFAULT NULL,
+  `sinonimos_busca_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`sinonimos_busca_json`)),
+  PRIMARY KEY (`id_catalogo_exame`),
+  UNIQUE KEY `uuid_catalogo_exame` (`uuid_catalogo_exame`),
+  UNIQUE KEY `uq_catalogo_exames_nome_normalizado` (`nome_normalizado`),
+  KEY `ix_catalogo_exames_loinc` (`codigo_loinc`),
+  CONSTRAINT `fk_catalogo_exames_loinc` FOREIGN KEY (`codigo_loinc`) REFERENCES `loinc_termo` (`loinc_num`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.catalogo_exames_conteudo definition
+
+CREATE TABLE `catalogo_exames_conteudo` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_catalogo_exame` bigint(20) NOT NULL,
+  `idioma` varchar(5) NOT NULL,
+  `fonte` varchar(30) NOT NULL,
+  `tipo` varchar(10) NOT NULL,
+  `titulo` varchar(255) DEFAULT NULL,
+  `url` varchar(500) DEFAULT NULL,
+  `url_hash` char(40) NOT NULL,
+  `outros_nomes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`outros_nomes_json`)),
+  `secoes_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`secoes_json`)),
+  `texto_plano` mediumtext DEFAULT NULL,
+  `atribuicao` varchar(255) DEFAULT NULL,
+  `codigo_loinc_consultado` varchar(10) DEFAULT NULL,
+  `hash_conteudo` char(64) DEFAULT NULL,
+  `buscado_em` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_conteudo_exame_fonte_url` (`id_catalogo_exame`,`idioma`,`fonte`,`url_hash`),
+  KEY `ix_conteudo_exame` (`id_catalogo_exame`,`idioma`),
+  CONSTRAINT `fk_conteudo_exame` FOREIGN KEY (`id_catalogo_exame`) REFERENCES `catalogo_exames` (`id_catalogo_exame`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- bion_testes.catalogo_exames_conteudo_consulta definition
+
+CREATE TABLE `catalogo_exames_conteudo_consulta` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `id_catalogo_exame` bigint(20) NOT NULL,
+  `idioma` varchar(5) NOT NULL,
+  `fonte` varchar(30) NOT NULL,
+  `codigo_loinc` varchar(10) DEFAULT NULL,
+  `status` varchar(15) NOT NULL,
+  `http_status` smallint(6) DEFAULT NULL,
+  `mensagem` varchar(255) DEFAULT NULL,
+  `consultado_em` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_consulta_exame_fonte` (`id_catalogo_exame`,`idioma`,`fonte`),
+  CONSTRAINT `fk_consulta_exame` FOREIGN KEY (`id_catalogo_exame`) REFERENCES `catalogo_exames` (`id_catalogo_exame`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
 -- bion_testes.catalogo_medicamentos_contraindicacoes definition
@@ -254,6 +334,40 @@ CREATE TABLE `log_sincronizacao_catalogo` (
   KEY `idx_log_sync_executado_em` (`executado_em`),
   CONSTRAINT `fk_log_sync_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_medicamentos` (`id_catalogo_medicamentos`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- bion_testes.loinc_painel_item definition
+
+CREATE TABLE `loinc_painel_item` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `painel_loinc` varchar(10) NOT NULL,
+  `filho_loinc` varchar(10) NOT NULL,
+  `sequencia` int(11) DEFAULT NULL,
+  `obrigatoriedade` varchar(20) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_loinc_painel_item_painel` (`painel_loinc`,`sequencia`),
+  KEY `fk_loinc_painel_item_filho` (`filho_loinc`),
+  CONSTRAINT `fk_loinc_painel_item_filho` FOREIGN KEY (`filho_loinc`) REFERENCES `loinc_termo` (`loinc_num`),
+  CONSTRAINT `fk_loinc_painel_item_painel` FOREIGN KEY (`painel_loinc`) REFERENCES `loinc_termo` (`loinc_num`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- bion_testes.loinc_termo_traducao definition
+
+CREATE TABLE `loinc_termo_traducao` (
+  `loinc_num` varchar(10) NOT NULL,
+  `idioma` varchar(10) NOT NULL,
+  `componente` varchar(255) DEFAULT NULL,
+  `propriedade` varchar(255) DEFAULT NULL,
+  `tempo` varchar(255) DEFAULT NULL,
+  `sistema` varchar(255) DEFAULT NULL,
+  `escala` varchar(255) DEFAULT NULL,
+  `metodo` varchar(255) DEFAULT NULL,
+  `nome_curto` varchar(255) DEFAULT NULL,
+  `nomes_relacionados` text DEFAULT NULL,
+  PRIMARY KEY (`loinc_num`,`idioma`),
+  CONSTRAINT `fk_loinc_traducao_termo` FOREIGN KEY (`loinc_num`) REFERENCES `loinc_termo` (`loinc_num`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
 -- bion_testes.modulo_versao definition
@@ -424,6 +538,7 @@ CREATE TABLE `usuarios` (
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
   `senha_versao` int(11) NOT NULL DEFAULT 1,
+  `avatar_filename` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `uuid_usuario` (`uuid_usuario`),
   UNIQUE KEY `cpf` (`cpf`),
@@ -1058,11 +1173,14 @@ CREATE TABLE `output_bion` (
   `criado_em` datetime NOT NULL DEFAULT current_timestamp(),
   `id_atendimento` bigint(20) NOT NULL,
   `input_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`input_ia_json`)),
+  `requisicoes_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`requisicoes_ia_json`)),
   `versao_input_model` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`id_output`),
   UNIQUE KEY `uuid_output` (`uuid_output`),
   KEY `ix_output_bion_atendimento_criado` (`id_atendimento`,`criado_em`),
-  CONSTRAINT `fk_output_bion_atendimento` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`)
+  CONSTRAINT `fk_output_bion_atendimento` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
+  CONSTRAINT `ck_output_bion_indice_completude` CHECK (`indice_completude` is null or `indice_completude` >= 0 and `indice_completude` <= 100),
+  CONSTRAINT `ck_output_bion_indice_confianca` CHECK (`indice_confianca` is null or `indice_confianca` >= 0 and `indice_confianca` <= 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -1242,6 +1360,5 @@ CREATE TABLE `reacao_alergia` (
   CONSTRAINT `fk_reacao_criado_por` FOREIGN KEY (`criado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `fk_reacao_deletado_por` FOREIGN KEY (`deletado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 SET FOREIGN_KEY_CHECKS = 1;
