@@ -49,10 +49,11 @@ def _registrar_blueprints(app: Flask):
     from src.domains.medicamentos.contra_indicacao.contraindicacao_controller import bp_contraindicacoes as catalogo_contraindicacoes_bp
     from src.domains.medicamentos.indicacao_terapeutica.indicacao_terapeutica_controller import bp_indicacoes_terapeuticas as catalogo_indicacoes_terapeuticas_bp
     from src.domains.estatisticas.controller import bp as bp_estatisticas
-
+    from src.domains.avaliacao_bion.controller import bp_bion as bp_ia
     from src.domains.protocolo.protocolo_catalogo_controller import bp_protocolo as protocolo_bp
     from src.domains.protocolo.news2 import protocolo_escore_config_controller 
     from src.domains.protocolo.protocolo_composto import protocolo_composto_controller 
+    from src.domains.atendimento.conduta_enfermagem.controller import bp_conduta_enfermagem
     from src.domains.empresa.empresa_protocolo.empresa_protocolo_controller import bp as empresa_protocolo_bp
     from src.domains.catalogo_fluxogramas_mts.controller import bp_catalogo_fluxogramas_mts as bp_mts
     from src.domains.consulta.controller import bp_consulta as consulta_bp
@@ -107,6 +108,8 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(consentimento_digital_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
     app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")
+    app.register_blueprint(bp_ia, url_prefix="/v1/api/bion")
+    app.register_blueprint(bp_conduta_enfermagem, url_prefix="/v1/api/conduta-enfermagem")
     
     @app.get("/v1/api/health")
     def health():

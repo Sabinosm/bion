@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from ..repositories import PacienteRepository, ObservacaoTipoSanguineoRepository
 from src.domains.paciente.schemas.schema_tipo_sanguineo import (
-    TipoSanguineoCreateSchema, erros_pydantic_por_campo,
+    ObservacaoTipoSanguineoCreateSchema, erros_pydantic_por_campo,
 )
 from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
 
@@ -63,7 +63,7 @@ class ObservacaoTipoSanguineoService:
     def registrar_tipo_sanguineo(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
                                  autor: AutorClinico, commit: bool = True):
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
-        entrada = self._validar(TipoSanguineoCreateSchema, dados)
+        entrada = self._validar(ObservacaoTipoSanguineoCreateSchema, dados)
 
         vigente = self.repo.find_mais_recente_por_paciente(ctx.paciente.id)
         if vigente and vigente.tipo_sanguineo == entrada.tipo_sanguineo:

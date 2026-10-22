@@ -2,7 +2,7 @@
 
 FLUXO (abrir_envio):
   1. guard de escrita (dono, em andamento, mesmo paciente, sem óbito);
-  2. só triagem / avaliação médica (mesma regra do input de protocolo);
+  2. só triagem / avaliação médica / reavaliação (mesma regra do input de protocolo);
   3. binário completo (409);
   4. precisa existir um input de protocolo no atendimento (409): o vigente é
      o de maior id (insert-only);
@@ -55,7 +55,7 @@ class EnvioIaService:
         at = ctx.atendimento
         if at.tipo_atendimento not in TIPOS_COM_INPUT_PROTOCOLO:
             raise ConflictoError(
-                "O envio à IA só existe em atendimento de triagem ou avaliação médica "
+                "O envio à IA só existe em atendimento de triagem, avaliação médica ou reavaliação "
                 f"(este é '{at.tipo_atendimento}')."
             )
         exigir_binario_completo(at)

@@ -1,102 +1,148 @@
-"""Envio do input à IA: monta o snapshot e abre o registro do envio (OutputBion).
+"""Execução determinística de protocolo sobre o input VIGENTE do atendimento.
 
-FLUXO (abrir_envio):
-  1. guard de escrita (dono, em andamento, mesmo paciente, sem óbito);
-  2. só triagem / avaliação médica / reavaliação (mesma regra do input de protocolo);
-  3. binário completo (409);
-  4. precisa existir um input de protocolo no atendimento (409): o vigente é
-     o de maior id (insert-only);
-  5. numa única transação: trava o atendimento, reconcilia o binário com os
-     registros ativos (dado inserido depois pela rota granular), monta o
-     InputModel e GRAVA o OutputBion com o snapshot, ainda sem resposta;
-  6. a chamada à IA acontece DEPOIS, fora daqui; a resposta entra por
-     `gravar_resposta`. Envio sem resposta (output_ia_json NULL) = falha ou
-     em andamento, e o que foi enviado fica registrado.
+Guardas (nesta ordem): guard de escrita (404/409/403) -> só triagem/avaliação
+médica -> binário completo -> catálogo ativo, escopo de uso compatível e
+liberado pela empresa (EmpresaProtocolo.ativo é o único gate real) -> input
+vigente (maior id) -> executa.
 
-O QUE É CONGELADO (OutputBion.input_ia_json): InputModel.to_dict(), isto é,
-binário (nega ≠ não coletado), dados clínicos ativos, sinais vitais, coleta,
-queixa, protocolos e lacunas, tudo vindo dos blocos. Não se remonta depois:
-alergia muda no lugar, código dos blocos evolui, binário é reconciliado.
+As respostas vêm de InputProtocolo.input_json, filtradas pelos campos que o
+protocolo declara (chave de outro protocolo no mesmo input_json não derruba a
+execução). Reexecutar o mesmo protocolo no mesmo input = 409 (UNIQUE); o
+médico que ajusta as respostas cria outro input e executa de novo.
 
-VIGENTE: só o último OutputBion do atendimento vale; os anteriores ficam.
+Ao fim, InputProtocolo.dados_criticos_ausentes_json é preenchido pelo sistema
+com os dados ausentes consolidados de todas as execuções do input. Tudo em
+uma transação.
+
+RESOLVEDORES: tipo_protocolo -> callable(id_protocolo_catalogo, id_input,
+respostas, executor, commit). Registre aqui o 'protocolo-composto'.
 """
+import unicodedata
 
-from src.core.exceptions import ConflictoError
+from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
 from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
 from src.domains.atendimento.binario.binario_gate import exigir_binario_completo
-from src.domains.atendimento.binario.binario_service import BinarioService
 from src.domains.atendimento.repository import AtendimentoRepository
-from src.domains.input_ia.input_model import InputModel, VERSAO_INPUT_MODEL
-from src.models.protocolos.output_bion import OutputBion
-from .repository import InputProtocoloRepository, OutputBionRepository
+from .repository import InputProtocoloRepository
 from .service import TIPOS_COM_INPUT_PROTOCOLO
 
+ESCOPO_USO_POR_TIPO = {"triagem": "triagem", "avaliacao-medica": "consulta"}
 
-class EnvioIaService:
+
+def filtrar_respostas(input_json, campos: set) -> dict:
+    """Só as chaves que o protocolo declara."""
+    if not isinstance(input_json, dict):
+        return {}
+    # None/"" = nao respondido: fora do dict, vira dado ausente (o composto
+    # rejeitaria None como valor invalido)
+    return {k: v for k, v in input_json.items()
+            if k in campos and v is not None and not (isinstance(v, str) and not v.strip())}
+
+
+_VERDADEIRO = {"true", "sim", "s", "yes", "y", "1", "verdadeiro"}
+_FALSO = {"false", "nao", "n", "no", "0", "falso"}
+
+
+def traduzir_booleano(v):
+    """bool, 'true'/'false', 'sim'/'nao' (sem acento, caixa livre), 1/0 -> bool.
+    Qualquer outra coisa volta INTACTA: a validacao do protocolo rejeita (422)
+    em vez de adivinharmos."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)) and v in (0, 1):
+        return bool(v)
+    if isinstance(v, str):
+        t = unicodedata.normalize("NFKD", v).encode("ascii", "ignore").decode().strip().lower()
+        if t in _VERDADEIRO:
+            return True
+        if t in _FALSO:
+            return False
+    return v
+
+
+def traduzir_respostas(respostas: dict, tipos: dict) -> dict:
+    """Traduz so os campos declarados como booleano; o resto passa igual."""
+    return {k: (traduzir_booleano(v) if tipos.get(k) == "booleano" else v)
+            for k, v in respostas.items()}
+
+
+def consolidar_ausentes(execucoes) -> list:
+    """dados_ausentes únicos (ordem estável) de todas as execuções."""
+    out = []
+    for e in execucoes:
+        for x in (e.dados_ausentes_json or []):
+            nome = x if isinstance(x, str) else (x.get("campo") if isinstance(x, dict) else str(x))
+            if nome not in out:
+                out.append(nome)
+    return out
+
+
+def _resolver_escore(svc, id_cat, id_input, respostas, executor, commit):
+    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service  # ajuste o caminho
+    return News2Service().executar(id_cat, id_input, respostas, executor, commit=commit)
+
+
+def _resolver_composto(svc, id_cat, id_input, respostas, executor, commit):
+    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService  # ajuste
+    return ProtocoloCompostoService().executar(id_cat, id_input, respostas, executor, commit=commit)
+
+
+class ExecucaoAtendimentoService:
+
+    RESOLVEDORES = {"escore-ponderado": _resolver_escore, "protocolo-composto": _resolver_composto}
 
     def __init__(self):
+        from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository  # ajuste
+        from src.domains.protocolo.shared.repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository  # ajuste
+        from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
         self._ctx = ContextoClinicoService()
-        self._atendimento_repo = AtendimentoRepository()
+        self._at_repo = AtendimentoRepository()
         self._input_repo = InputProtocoloRepository()
-        self._output_repo = OutputBionRepository()
-        self._binario = BinarioService()
+        self._catalogo = ProtocoloCatalogoRepository()
+        self._exec_repo = InputProtocoloExecucaoRepository()
+        self._emp_prot = EmpresaProtocoloRepository()
 
-    def abrir_envio(self, uuid_atendimento: str, uuid_paciente: str,
-                    autor: AutorClinico) -> OutputBion:
-        """Congela o que a IA vai receber e cria o registro do envio.
-        Devolve o OutputBion (id para `gravar_resposta`).
+    def executar(self, uuid_atendimento, uuid_paciente, uuid_protocolo, autor: AutorClinico):
+        from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
 
-        Raises:
-            RecursoNaoEncontradoError / ConflictoError / PermissaoNegadaError: do guard.
-            ConflictoError: tipo de atendimento sem IA; binário incompleto;
-                nenhum input de protocolo registrado.
-        """
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         at = ctx.atendimento
         if at.tipo_atendimento not in TIPOS_COM_INPUT_PROTOCOLO:
-            raise ConflictoError(
-                "O envio à IA só existe em atendimento de triagem, avaliação médica ou reavaliação "
-                f"(este é '{at.tipo_atendimento}')."
-            )
+            raise ConflictoError("Execução de protocolo só existe em triagem ou avaliação médica "
+                                 f"(este é '{at.tipo_atendimento}').")
         exigir_binario_completo(at)
 
-        input_protocolo = self._input_repo.find_ultimo_do_atendimento(at.id)
-        if input_protocolo is None:
-            raise ConflictoError(
-                "Registre o input de protocolo deste atendimento antes de enviar à IA."
-            )
+        cat = self._catalogo.find_by_uuid(uuid_protocolo)
+        if not cat:
+            raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid_protocolo}")
+        if cat.status != "ativo":
+            raise ConflictoError("Este protocolo não está ativo.")
+        if cat.escopo_uso not in (None, "ambos", ESCOPO_USO_POR_TIPO[at.tipo_atendimento]):
+            raise ConflictoError("Este protocolo não se aplica a este tipo de atendimento.")
+        vinculo = self._emp_prot.find_por_empresa_e_protocolo(autor.id_empresa, cat.id)
+        if not vinculo or not vinculo.ativo:
+            raise ConflictoError("Este protocolo não está liberado pela instituição.")
+        resolver = self.RESOLVEDORES.get(cat.tipo_protocolo)
+        if not resolver:
+            raise ConflictoError(f"Tipo de protocolo sem execução disponível: {cat.tipo_protocolo}.")
+
+        inp = self._input_repo.find_ultimo_do_atendimento(at.id)
+        if inp is None:
+            raise ConflictoError("Registre o input de protocolo antes de executar.")
+
+        strategy = ProtocoloFactory.obter(cat.tipo_protocolo)
+
+        def respostas(estrutura, _strategy):
+            esperados = strategy.campos_esperados(estrutura)
+            filtradas = filtrar_respostas(inp.input_json, {c.campo for c in esperados})
+            return traduzir_respostas(filtradas, {c.campo: c.tipo_campo for c in esperados})
 
         try:
-            self._atendimento_repo.travar(at)
-            self._binario.reconciliar(at, autor.id_empresa)
-
-            # O input do protocolo, a queixa e a coleta já entram pelos blocos
-            # "protocolo", "queixa" e "coleta_clinica": não se injeta de novo.
-            snapshot = InputModel.de_atendimento(at).to_dict()
-
-            output = OutputBion(
-                id_atendimento=at.id,
-                input_ia_json=snapshot,
-                versao_input_model=VERSAO_INPUT_MODEL,
-            )
-            self._output_repo.save(output, commit=False)
-            self._output_repo.confirmar(commit=True)
-            return output
+            self._at_repo.travar(at)
+            execucao = resolver(self, cat.id, inp.id, respostas, autor.id_usuario, False)
+            inp.dados_criticos_ausentes_json = consolidar_ausentes(self._exec_repo.find_por_input(inp.id))
+            self._input_repo.save(inp, commit=True)
+            return execucao
         except Exception:
-            self._output_repo.rollback()
-            raise
-
-    def gravar_resposta(self, output: OutputBion, output_ia_json: dict,
-                        versao_modelo_ia: str = None, indice_completude=None,
-                        indice_confianca=None) -> OutputBion:
-        """Completa o envio com a resposta da IA. O snapshot enviado não muda."""
-        try:
-            output.output_ia_json = output_ia_json
-            output.versao_modelo_ia = versao_modelo_ia
-            output.indice_completude = indice_completude
-            output.indice_confianca = indice_confianca
-            self._output_repo.save(output, commit=True)
-            return output
-        except Exception:
-            self._output_repo.rollback()
+            self._input_repo.rollback()
             raise

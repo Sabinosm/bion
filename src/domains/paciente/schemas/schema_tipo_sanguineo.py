@@ -21,7 +21,7 @@ _MAPA_NORMALIZACAO = {v: v for v in _TIPOS_VALIDOS if v != "DESCONHECIDO"}
 _MAPA_NORMALIZACAO["DESCONHECIDO"] = "desconhecido"
 
 
-class TipoSanguineoCreateSchema(BaseModel):
+class ObservacaoTipoSanguineoCreateSchema(BaseModel):
     tipo_sanguineo: Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "desconhecido"]
 
     @field_validator("tipo_sanguineo", mode="before")
