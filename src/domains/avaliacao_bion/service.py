@@ -6,7 +6,10 @@
                                troca os rascunhos antigos da IA.
   consultar() (na requisicao)  status e, se concluido, o output_front.
 
-Regras: so o MEDICO da avaliacao medica em andamento usa a IA (o rascunho sai em nome
+Pre-requisito: o atendimento precisa ter um input de protocolo registrado (o vigente e o
+de maior id); sem ele, iniciar() devolve 409 e nada e enfileirado.
+
+Regras: so o MEDICO da avaliacao medica ou da reavaliacao em andamento (TIPOS_COM_BION) usa a IA (o rascunho sai em nome
 de quem fez o atendimento). Enfermeiro/triagem seguem sem IA, pelos protocolos.
 
 Status de OutputBion: processando -> concluido | falhou (+ erro_codigo).
@@ -30,6 +33,7 @@ from .helpers.tarefa import Tarefa
 log = logging.getLogger(__name__)
 
 TTL_PROCESSANDO = timedelta(minutes=10)
+TIPOS_COM_BION = ("avaliacao-medica", "reavaliacao")
 
 
 class AvaliacaoBionService:
@@ -47,11 +51,14 @@ class AvaliacaoBionService:
         at = self.d.atendimentos.buscar_por_uuid(uuid_atendimento, id_empresa)   # 404 se de outra empresa
         if at.realizado_por != id_usuario:
             raise PermissaoNegadaError("Só o profissional do atendimento pode pedir a avaliação do Bion.")
-        if at.tipo_atendimento != "avaliacao-medica":
-            raise ConflictoError("A avaliação do Bion só está disponível na avaliação médica.")
+        if at.tipo_atendimento not in TIPOS_COM_BION:
+            raise ConflictoError("A avaliação do Bion só está disponível na avaliação médica e na reavaliação.")
         if at.status != "em-andamento":
             raise ConflictoError("A avaliação do Bion exige atendimento em andamento.")
         self.d.consultas.exigir_consentimento(at.consulta)         # pode ter mudado desde a abertura
+        if self.d.inputs_protocolo.find_ultimo_do_atendimento(at.id) is None:
+            raise ConflictoError(
+                "Registre o input de protocolo deste atendimento antes de pedir a avaliação do Bion.")
 
         # Serializa cliques simultaneos: trava o atendimento ate o commit da criacao.
         self.d.atendimentos.repo.travar(at)

@@ -1,5 +1,8 @@
 """Monta as dependencias reais do service. >>> AJUSTE os imports ao seu projeto <<<
-(ficam dentro da funcao para o pacote poder ser importado em teste sem o projeto)."""
+(ficam dentro da funcao para o pacote poder ser importado em teste sem o projeto).
+
+inputs_protocolo: InputProtocoloRepository (find_ultimo_do_atendimento). O service
+o usa para exigir o input de protocolo antes de iniciar a avaliacao."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -22,13 +25,14 @@ class Dependencias:
     resultados: object        # ResultadoRascunhoRepository
     criar_pool: Callable[[Tarefa], Pool]
     cliente: ClienteIA
+    inputs_protocolo: object
     executor: Executor | None = None   # definido pelo service se None
 
 
 def criar_pool(tarefa: Tarefa) -> Pool:
-    from src.domains.medicamentos.repository import CatalogoMedicamentosRepository            # ajuste
-    from src.domains.exames.repository import CatalogoExamesRepository                # ajuste
-    from src.domains.exames.conteudo.catalogo_exames_conteudo_repository import CatalogoExamesConteudoRepository  # ajuste
+    from src.domains.medicamentos.repository import CatalogoMedicamentosRepository 
+    from src.domains.exames.repository import CatalogoExamesRepository               
+    from src.domains.exames.conteudo.catalogo_exames_conteudo_repository import CatalogoExamesConteudoRepository
     return Pool(ContextoPool(CatalogoMedicamentosRepository(), CatalogoExamesRepository(),
                              CatalogoExamesConteudoRepository(), idioma=tarefa.idioma,
                              id_empresa=tarefa.id_empresa, id_atendimento=tarefa.id_atendimento,
@@ -36,11 +40,12 @@ def criar_pool(tarefa: Tarefa) -> Pool:
 
 
 def padrao(cliente: ClienteIA | None = None) -> Dependencias:
-    from src.domains.atendimento.service import AtendimentoService                 # ajuste
+    from src.domains.atendimento.service import AtendimentoService                 
     from src.domains.consulta.service import ConsultaService
     from src.domains.configuracao import service as cfg_svc
-    from src.domains.prescricao.prescricao_ia_service import PrescricaoIAService   # ajuste
+    from src.domains.prescricao.prescricao_ia_service import PrescricaoIAService
     from ..repository import OutputBionRepository, ResultadoRascunhoRepository
+    from src.domains.dados_clinicos.repository import InputProtocoloRepository
     return Dependencias(AtendimentoService(), ConsultaService(), cfg_svc, PrescricaoIAService(),
                         OutputBionRepository(), ResultadoRascunhoRepository(), criar_pool,
-                        cliente or ClienteIAIndisponivel())
+                        cliente or ClienteIAIndisponivel(), InputProtocoloRepository())

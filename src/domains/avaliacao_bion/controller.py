@@ -34,7 +34,7 @@ class AvaliacaoBionController:
     @requer_papel_clinico("medico")
     def iniciar(uuid_atendimento):
         """Inicia a avaliação do Bion (assíncrona). 403 se não for o médico do atendimento;
-        409 se não for avaliação médica em andamento ou já houver uma avaliação em curso."""
+        409 se não for avaliação médica ou reavaliação em andamento, faltar o input de protocolo ou já houver uma avaliação em curso."""
         try:
             out = servico().iniciar(uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao(),
                                     eh_medico=get_funcao_clinica_sessao() == "medico")
