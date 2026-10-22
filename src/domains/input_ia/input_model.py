@@ -5,15 +5,16 @@ from typing import Callable, Iterable
 
 from .config import Config
 from .indices import Indices, calcular
-from .nucleo import Bloco
+from .nucleo import Bloco, linhas
 from .registro import Fabrica, fabricas
+
+# Versão do FORMATO do snapshot (blocos/chaves). Suba ao mudar a estrutura de
+# um bloco; vai para OutputBion.versao_input_model para ler snapshots antigos.
+VERSAO_INPUT_MODEL = 1
 
 
 class InputModel:
-    # Versao do formato dos blocos. Vai para OutputBion.versao_input_model.
-    # Incremente quando a forma de um bloco mudar de modo que um snapshot
-    # antigo deixe de ser lido do mesmo jeito (campo renomeado ou removido).
-    VERSAO = 1
+    VERSAO = VERSAO_INPUT_MODEL   # usado por output_ia.colunas_envio
 
     def __init__(self, blocos: list[Bloco], config: Config | None = None,
                  meta: dict[str, Fabrica] | None = None):
@@ -90,6 +91,19 @@ class InputModel:
         return {"idioma_resposta": self.idioma,
                 "faltando": self.campos_faltando(),
                 "contexto": self.contexto_total()}
+
+    @staticmethod
+    def prompt_de_snapshot(snapshot: dict) -> str:
+        """Mesmo texto de to_prompt(), a partir do snapshot gravado em
+        OutputBion.input_ia_json. Permite montar a conversa em outro processo,
+        sem refazer o input (o que a IA ve e exatamente o que foi congelado)."""
+        partes = [f"idioma_resposta: {snapshot.get('idioma_resposta')}"]
+        falt = snapshot.get("faltando") or []
+        if falt:
+            partes.append("## lacunas\n" + "\n".join(f"- {x}" for x in falt))
+        for nome, dados in (snapshot.get("contexto") or {}).items():
+            partes.append("\n".join([f"## {nome}", *linhas(dados)]))
+        return "\n\n".join(partes)
 
     def to_prompt(self, nomes: Iterable[str] | None = None) -> str:
         blocos = self._selecionar(nomes)
