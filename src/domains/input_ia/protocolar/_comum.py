@@ -1,14 +1,16 @@
 """Apoio compartilhado do grupo 'protocolar' (nao e um bloco: o '_' impede o registro).
 
 Projecoes de InputProtocolo / InputProtocoloExecucao / ProtocoloCatalogo.
+
+TIPOS_COM_PROTOCOLO: tipos de atendimento que geram InputProtocolo (triagem,
+avaliacao-medica e reavaliacao). Neles a ausencia de queixa ou de protocolo e
+lacuna; nos demais tipos nao e.
 """
 from __future__ import annotations
 
 from ..nucleo import iso, limpar
 
-# So triagem e avaliacao-medica geram InputProtocolo; nos demais tipos a
-# ausencia de protocolo nao e lacuna.
-TIPOS_COM_PROTOCOLO = ("triagem", "avaliacao-medica")
+TIPOS_COM_PROTOCOLO = ("triagem", "avaliacao-medica", "reavaliacao")
 
 _CHAVES_SCHEMA_RESULTADO = ("classificacao", "trilha_explicativa", "dados_ausentes", "metadata")
 
