@@ -1,37 +1,83 @@
+"""
+service.py
+
+Regras de negócio do domínio Região Geográfica: consulta, listagem e cadastro
+de unidades territoriais, com ênfase em municípios identificados pelo código
+IBGE. Quando um município ainda não existe no banco, ele é confirmado na API
+pública de localidades do IBGE e cadastrado automaticamente, junto com a
+população estimada (tabela de estimativas do IBGE) e o centroide (dataset
+aberto de municípios, baixado uma vez por processo e guardado em memória).
+
+As consultas externas são tolerantes a falha: erro de rede, tempo esgotado ou
+resposta inesperada viram "sem dado" (None ou dicionário vazio), nunca exceção,
+para uma indisponibilidade de terceiros não derrubar o fluxo de quem chamou. A
+população e o centroide são dados "melhor com, mas não essenciais": sem eles a
+região é criada mesmo assim.
+"""
+
 import csv
 import io
+import re
+from typing import Optional
 
 import requests
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
-from .repository import RegiaoRepository
+from src.models.corp.regiao_geografica import RegiaoGeografica
+from .repository import RegiaoRepository, PER_PAGE_PADRAO, limit_seguro
 
 
 IBGE_MUNICIPIO_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios/{codigo}"
 IBGE_TIMEOUT_SEGUNDOS = 5
 
 # Tabela SIDRA 6579 = "Estimativas da População" (pesquisa anual do IBGE,
-# data de referência 1º de julho de cada ano); variável 9324 = "População
-# residente estimada". periodos/-1 pede sempre o último período disponível,
-# então não precisamos fixar/atualizar um ano manualmente no código.
+# referência em 1º de julho de cada ano); variável 9324 = "População residente
+# estimada". periodos/-1 pede sempre o último período disponível, então não é
+# preciso fixar nem atualizar um ano manualmente no código.
 IBGE_POPULACAO_URL = (
     "https://servicodados.ibge.gov.br/api/v3/agregados/6579"
     "/periodos/-1/variaveis/9324?localidades=N6[{codigo}]"
 )
 
-# Fonte estática de centroides de município (lat/long) -- o IBGE não
-# expõe um endpoint simples que devolva um ponto de centroide pronto
-# (só a malha/polígono completo, que exigiria calcular o centroide
-# geometricamente). kelvins/Municipios-Brasileiros é um dataset aberto
-# (MIT) amplamente usado, com os 5.570 municípios e coordenadas
-# derivadas do IBGE. Baixado uma vez por processo e cacheado em
-# memória -- ver _carregar_centroides_municipios.
+# Fonte estática de centroides de município (lat/long): o IBGE não expõe um
+# endpoint simples que devolva o ponto de centroide pronto (só a malha/polígono
+# completo, que exigiria calcular o centroide geometricamente).
+# kelvins/Municipios-Brasileiros é um dataset aberto (MIT), amplamente usado,
+# com os 5.570 municípios e coordenadas derivadas do IBGE.
 CENTROIDES_MUNICIPIOS_URL = (
     "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/main/csv/municipios.csv"
 )
 CENTROIDES_TIMEOUT_SEGUNDOS = 10
 
-_cache_centroides_municipios: dict | None = None
+# Código IBGE de município: sempre 7 dígitos.
+_PADRAO_CODIGO_MUNICIPIO = re.compile(r"\d{7}")
+
+_cache_centroides_municipios: Optional[dict] = None
+
+
+def codigo_municipio_valido(codigo_ibge) -> bool:
+    """True se o valor tem o formato de um código IBGE de município (7 dígitos)."""
+    return isinstance(codigo_ibge, str) and _PADRAO_CODIGO_MUNICIPIO.fullmatch(codigo_ibge) is not None
+
+
+def _obter_json(url: str, timeout: int):
+    """GET que devolve o JSON da resposta, ou None se qualquer coisa der errado.
+
+    Erro de rede, tempo esgotado, status diferente de 200 e corpo que não é
+    JSON válido resultam todos em None.
+    """
+    try:
+        resposta = requests.get(url, timeout=timeout)
+    except requests.RequestException:
+        return None
+
+    if resposta.status_code != 200:
+        return None
+
+    try:
+        return resposta.json()
+    except ValueError:
+        return None
 
 
 class RegiaoService:
@@ -39,38 +85,77 @@ class RegiaoService:
     def __init__(self):
         self.repo = RegiaoRepository()
 
-    def buscar_por_id(self, id:int):
+    # ------------------------------------------------------------------
+    # Consulta e cadastro
+    # ------------------------------------------------------------------
+
+    def buscar_por_id(self, id: int) -> RegiaoGeografica:
         r = self.repo.find_by_id(id)
         if not r:
             raise RecursoNaoEncontradoError(f"Região geográfica não encontrada: {id}")
         return r
-    
-    def buscar_por_uuid(self, uuid: str):
+
+    def buscar_por_uuid(self, uuid: str) -> RegiaoGeografica:
         r = self.repo.find_by_uuid(uuid)
         if not r:
             raise RecursoNaoEncontradoError(f"Região geográfica não encontrada: {uuid}")
         return r
 
-    def listar(self, tipo: str = None):
+    def buscar_por_codigo(self, codigo_ibge: str) -> RegiaoGeografica:
+        """Região pelo código IBGE, só no banco. Levanta RecursoNaoEncontradoError se não existir."""
+        regiao = self.repo.find_by_codigo_ibge(codigo_ibge)
+        if not regiao:
+            raise RecursoNaoEncontradoError(f"Região geográfica não encontrada: {codigo_ibge}")
+        return regiao
+
+    # Nome antigo, com acento, mantido como alias para quem ainda o chama.
+    buscar_por_código = buscar_por_codigo
+
+    def listar(self, tipo: Optional[str] = None) -> list:
+        """Todas as regiões, ou só as de um tipo (ex.: "municipio") se informado."""
         if tipo:
             return self.repo.find_por_tipo(tipo)
         return self.repo.find_all()
 
-    def criar(self, dados: dict):
-        """
-        ALTERADO: RegiaoGeografica importada do módulo correto (estava
-        vindo de src.models.corp.empresa por engano) e tipo_regiao
-        resolvido via TipoJurisdicao -- não é mais possível passar
-        tipo_regiao=... direto no construtor, já que virou @property
-        somente-leitura .
-        """
-        from src.models.corp.regiao_geografica import RegiaoGeografica
-        from src.models.corp.tipo_jurisdicao import TipoJurisdicao
+    def listar_paginado(
+        self, tipo: Optional[str] = None, page: int = 1, limit: int = PER_PAGE_PADRAO
+    ) -> dict:
+        """Uma página de regiões (15 por padrão), todas ou só de um tipo.
 
+        Args:
+            tipo: código do tipo de jurisdição (ex.: "municipio"), opcional.
+            page: número da página, a partir de 1 (valores menores viram 1).
+            limit: tamanho da página; vazio ou não positivo volta ao padrão e
+                valores acima do máximo do repository são cortados.
+
+        Returns:
+            {"itens": [...], "total": int, "page": int, "limit": int}, com o
+            `page` e o `limit` efetivamente usados.
+        """
+        page = max(page, 1)
+        limit = limit_seguro(limit)
+        itens, total = self.repo.find_paginado(tipo, page, limit)
+        return {"itens": itens, "total": total, "page": page, "limit": limit}
+
+    def criar(self, dados: dict) -> RegiaoGeografica:
+        """Cadastra uma região a partir de um dicionário de dados.
+
+        `tipo_regiao` é o código do tipo de jurisdição (ex.: "municipio") e é
+        resolvido para a chave estrangeira; o tipo não pode ser passado direto
+        ao construtor, pois na entidade é uma propriedade somente-leitura.
+
+        Args:
+            dados: obrigatórios `nome_regiao` e `tipo_regiao`; opcionais
+                `codigo_ibge`, `uf`, `latitude_centroide`,
+                `longitude_centroide` e `populacao_estimada`.
+
+        Raises:
+            DadosInvalidosError: se faltar campo obrigatório ou o tipo não existir.
+        """
         if not dados.get("nome_regiao") or not dados.get("tipo_regiao"):
             raise DadosInvalidosError("nome_regiao e tipo_regiao são obrigatórios.")
 
-        tipo_jurisdicao = TipoJurisdicao.query.filter_by(codigo=dados["tipo_regiao"]).first()
+        tipo_jurisdicao = self.repo.find_tipo_jurisdicao_por_codigo(dados["tipo_regiao"])
         if not tipo_jurisdicao:
             raise DadosInvalidosError(f"tipo_regiao inválido: {dados['tipo_regiao']}")
 
@@ -85,41 +170,38 @@ class RegiaoService:
         )
         return self.repo.save(r)
 
-    def buscar_por_código(self, codigo_ibge: str):
-        regiao = self.repo.find_by_codigo_ibge(codigo_ibge)
-        if not regiao:
-            raise RecursoNaoEncontradoError(f"Região geográfica não encontrada: {codigo_ibge}")
-        return regiao
+    def buscar_ou_criar_por_codigo_ibge(self, codigo_ibge: str) -> Optional[RegiaoGeografica]:
+        """Busca a região pelo código IBGE de município, cadastrando-a se ainda não existir.
 
-    def buscar_ou_criar_por_codigo_ibge(self, codigo_ibge: str):
-        """
-        Busca a região pelo código IBGE de município. Se já existir no
-        banco, retorna direto. Se não existir, consulta a API pública
-        do IBGE para confirmar que o código é válido e, em caso
-        positivo, cadastra a região automaticamente (nome, código e UF).
+        Se já existir no banco, devolve direto. Senão, confirma o código na API
+        do IBGE e, se for válido, cadastra a região automaticamente (nome,
+        código, UF, população estimada e centroide). Códigos fora do formato
+        de 7 dígitos não chegam a ser consultados no IBGE.
 
-        Retorna a RegiaoGeografica encontrada/criada, ou None se o
-        código não existir no IBGE ou se a consulta falhar por
-        qualquer motivo (rede, timeout, resposta inesperada etc. --
-        erros de infraestrutura aqui não devem quebrar o fluxo de quem
-        chamou, por isso são engolidos e viram None, não exceção).
+        Erros de infraestrutura (rede, tempo esgotado, resposta inesperada,
+        falha ao gravar) não quebram o fluxo de quem chamou: viram None. Se a
+        gravação falhar, a transação é desfeita e a região é procurada de
+        novo, porque outra requisição pode tê-la cadastrado no meio-tempo.
+
+        Returns:
+            A região encontrada ou criada, ou None se o código não existir no
+            IBGE, tiver formato inválido ou a consulta falhar.
         """
         regiao_existente = self.repo.find_by_codigo_ibge(codigo_ibge)
         if regiao_existente:
             return regiao_existente
 
+        if not codigo_municipio_valido(codigo_ibge):
+            return None
+
         dados_ibge = self._consultar_municipio_ibge(codigo_ibge)
         if dados_ibge is None:
             return None
 
-        from src.models.corp.regiao_geografica import RegiaoGeografica
-        from src.models.corp.tipo_jurisdicao import TipoJurisdicao
-
-        tipo_municipio = TipoJurisdicao.query.filter_by(codigo="municipio").first()
+        # Sem o tipo "municipio" na tabela de referência não dá para persistir
+        # a região corretamente; não é um problema do código IBGE em si.
+        tipo_municipio = self.repo.find_tipo_jurisdicao_por_codigo("municipio")
         if not tipo_municipio:
-            # Tabela de referência sem o tipo esperado cadastrado --
-            # não é um problema do código IBGE em si, mas sem isso não
-            # dá pra persistir a região corretamente.
             return None
 
         centroide = self._buscar_centroide_municipio(dados_ibge["codigo_ibge"])
@@ -137,81 +219,60 @@ class RegiaoService:
         try:
             return self.repo.save(regiao)
         except Exception:
-            return None
+            self.repo.rollback()
+            return self.repo.find_by_codigo_ibge(dados_ibge["codigo_ibge"])
 
-    def _consultar_municipio_ibge(self, codigo_ibge: str) -> dict | None:
+    # ------------------------------------------------------------------
+    # Consultas externas (tolerantes a falha)
+    # ------------------------------------------------------------------
+
+    def _consultar_municipio_ibge(self, codigo_ibge: str) -> Optional[dict]:
+        """Consulta o município na API de localidades do IBGE.
+
+        Returns:
+            {"nome", "codigo_ibge", "uf"}, ou None se o código não existir ou
+            qualquer coisa der errado (rede, tempo esgotado, JSON inesperado).
         """
-        Chama a API pública de localidades do IBGE para um código de
-        município e devolve um dict simplificado {nome, codigo_ibge, uf},
-        ou None se o código não existir (404) ou se qualquer coisa der
-        errado (rede, timeout, JSON inesperado etc).
-        """
-        url = IBGE_MUNICIPIO_URL.format(codigo=codigo_ibge)
+        dados = _obter_json(IBGE_MUNICIPIO_URL.format(codigo=codigo_ibge), IBGE_TIMEOUT_SEGUNDOS)
+        if dados is None:
+            return None
 
         try:
-            resposta = requests.get(url, timeout=IBGE_TIMEOUT_SEGUNDOS)
-        except requests.RequestException:
-            return None
-
-        if resposta.status_code != 200:
-            return None
-
-        try:
-            dados = resposta.json()
-            uf_sigla = dados["microrregiao"]["mesorregiao"]["UF"]["sigla"]
             return {
                 "nome": dados["nome"],
                 "codigo_ibge": str(dados["id"]),
-                "uf": uf_sigla,
+                "uf": dados["microrregiao"]["mesorregiao"]["UF"]["sigla"],
             }
-        except (KeyError, ValueError, TypeError):
+        except (KeyError, TypeError):
             return None
 
-    def _consultar_populacao_ibge(self, codigo_ibge: str) -> int | None:
-        """
-        Consulta a tabela SIDRA 6579 (Estimativas da População) para o
-        município e devolve a população estimada mais recente como int,
-        ou None se a consulta falhar por qualquer motivo -- população é
-        um dado "melhor com, mas não essencial" aqui: se essa chamada
-        falhar, a região ainda é criada normalmente sem ela (quem quiser
-        pode tentar preencher depois).
-        """
-        url = IBGE_POPULACAO_URL.format(codigo=codigo_ibge)
+    def _consultar_populacao_ibge(self, codigo_ibge: str) -> Optional[int]:
+        """População estimada mais recente do município, na tabela SIDRA 6579.
 
-        try:
-            resposta = requests.get(url, timeout=IBGE_TIMEOUT_SEGUNDOS)
-        except requests.RequestException:
-            return None
-
-        if resposta.status_code != 200:
+        Returns:
+            A população como int, ou None se a consulta falhar por qualquer
+            motivo (inclusive quando o IBGE devolve valor não numérico).
+        """
+        dados = _obter_json(IBGE_POPULACAO_URL.format(codigo=codigo_ibge), IBGE_TIMEOUT_SEGUNDOS)
+        if dados is None:
             return None
 
         try:
-            dados = resposta.json()
             series = dados[0]["resultados"][0]["series"][0]["serie"]
-            # `serie` é um dict {"<ano>": "<valor>"} com uma única chave
-            # (o ano do último período), então pegamos o único valor
-            # presente em vez de fixar o ano no código.
-            valor = next(iter(series.values()))
-            return int(valor)
+            # `serie` é {"<ano>": "<valor>"} com uma única chave (o ano do
+            # último período); pega-se o único valor em vez de fixar o ano.
+            return int(next(iter(series.values())))
         except (KeyError, IndexError, ValueError, TypeError, StopIteration):
             return None
 
     def _carregar_centroides_municipios(self) -> dict:
-        """
-        Baixa o CSV de kelvins/Municipios-Brasileiros e devolve um dict
-        {codigo_ibge (str): {"latitude": float, "longitude": float}}.
+        """Centroides de todos os municípios, {codigo_ibge: {"latitude", "longitude"}}.
 
-        Resultado é cacheado em memória no nível do módulo -- o arquivo
-        tem ~5.570 linhas e não muda com frequência (municípios novos
-        são raríssimos), então baixar uma vez por processo é suficiente
-        e evita uma chamada HTTP a cada cadastro de região.
-
-        Se o download falhar por qualquer motivo, devolve {} (dict
-        vazio) em vez de lançar exceção -- quem chama trata isso como
-        "sem centroide disponível", não como erro.
+        O CSV (~5.570 linhas) é baixado uma vez por processo e guardado em
+        memória no nível do módulo, já que raramente muda e baixá-lo a cada
+        cadastro seria desperdício. Se o download ou a leitura falharem,
+        devolve {} (sem guardar), e quem chama trata como "sem centroide".
         """
-        
         global _cache_centroides_municipios
 
         if _cache_centroides_municipios is not None:
@@ -238,14 +299,10 @@ class RegiaoService:
         _cache_centroides_municipios = centroides
         return centroides
 
-    def _buscar_centroide_municipio(self, codigo_ibge: str) -> dict | None:
+    def _buscar_centroide_municipio(self, codigo_ibge: str) -> Optional[dict]:
+        """Centroide do município, {"latitude", "longitude"}, ou None se não houver.
+
+        Aproximação em nível de município: não substitui geocodificação fina
+        por CEP ou endereço em análises que precisem de mais granularidade.
         """
-        Devolve {"latitude": float, "longitude": float} do centroide do
-        município (fonte estática, ver _carregar_centroides_municipios),
-        ou None se o código não estiver na base ou se o download falhar.
-        Aproximação de nível município -- não substitui geocoding fino
-        por CEP/endereço para análises que precisem de mais granularidade.
-        """
-        centroides = self._carregar_centroides_municipios()
-        return centroides.get(codigo_ibge)
-        
+        return self._carregar_centroides_municipios().get(codigo_ibge)
