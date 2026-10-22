@@ -24,7 +24,7 @@ class InputProtocolo(db.Model):
     # "consulta" renomeado para "avaliacao-medica": alinha com
     # Atendimento.tipo_atendimento e evita ambiguidade com Consulta
     # (a entidade "episódio inteiro"), que não é o que este campo indica.
-    tipo_input = db.Column(db.Enum("triagem", "avaliacao-medica"))
+    tipo_input = db.Column(db.Enum("triagem", "avaliacao-medica", "reavaliacao"))
     # RESPOSTAS DO PROFISSIONAL AO PROTOCOLO escolhido (campos do fluxograma/
     # módulo). NÃO guarda a queixa (coluna própria abaixo) nem o contexto
     # clínico do paciente (binário, alergias, sinais vitais...): esse é montado

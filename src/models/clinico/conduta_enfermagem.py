@@ -1,8 +1,12 @@
 """
 Dominio Clinico (nucleo do ciclo de vida do atendimento/visita).
 
-Novo: conduta de enfermagem registrada dentro de um atendimento,
+Conduta de enfermagem registrada dentro de um atendimento de triagem,
 opcionalmente referenciando o protocolo do catalogo que a motivou.
+
+INSERT-ONLY: o registro nunca é editado nem apagado; correção é uma nova
+conduta. funcao_clinica guarda a função de quem escreveu NO MOMENTO da escrita
+(o médico também pode registrar, pela regra de nível mínimo).
 """
 
 from datetime import datetime, timezone
@@ -22,6 +26,7 @@ class CondutaEnfermagem(db.Model):
                                        nullable=True)
     descricao_conduta = db.Column(db.Text, nullable=False)
     realizado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"), nullable=False)
+    funcao_clinica = db.Column(db.Enum("medico", "enfermeiro"), nullable=False)
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -31,9 +36,10 @@ class CondutaEnfermagem(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "atendimento_uuid": self.atendimento.uuid if self.atendimento else None,
+            "protocolo_uuid": self.protocolo_catalogo.uuid if self.protocolo_catalogo else None,
             "descricao_conduta": self.descricao_conduta,
-            "realizado_por": self.realizado_por,
+            "funcao_clinica": self.funcao_clinica,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
 
