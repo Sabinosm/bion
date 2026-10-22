@@ -5,7 +5,7 @@ termos mais citados como queixa principal.
 import re
 from collections import Counter
 
-from src.domains.protocolos_ia.service import OutputBionService
+from src.domains.avaliacao_bion.service import OutputBionService
 
 obs = OutputBionService()
 

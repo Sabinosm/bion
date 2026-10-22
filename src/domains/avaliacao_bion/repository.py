@@ -1,15 +1,29 @@
-"""Repositório de acesso a dados da entidade OutputBion (resultados de IA)."""
+"""Acesso a dados da avaliacao Bion (OutputBion e rascunhos da IA)."""
+from __future__ import annotations
 
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional
 
-from src.models import db
-from src.core.interfaces import IRepository
-from src.models.protocolos import OutputBion
-from src.models.clinico import Consulta, Atendimento, ColetaClinica, InputProtocolo
+from realtime import List
+
+from .helpers.modelos import Atendimento, Consulta, OutputBion, ResultadoPrescricao, db
+
+from .helpers.status import EXPIRADO, FALHOU, PROCESSANDO
 
 
-class OutputBionRepository(IRepository[OutputBion]):
-    """Encapsula todo acesso a dados de OutputBion via SQLAlchemy."""
+def _agora() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class OutputBionRepository:
+
+    def criar(self, id_atendimento: int, colunas: dict) -> OutputBion:
+        """Cria a linha do envio (status=processando) e COMMITA: o envio fica
+        registrado mesmo que a avaliacao falhe depois."""
+        o = OutputBion(id_atendimento=id_atendimento, status=PROCESSANDO, **colunas)
+        db.session.add(o)
+        db.session.commit()
+        return o
 
     def find_by_id(self, id: int) -> Optional[OutputBion]:
         """Busca um OutputBion pelo ID interno (chave primária)."""
@@ -19,64 +33,44 @@ class OutputBionRepository(IRepository[OutputBion]):
         """Busca um OutputBion pelo UUID público exposto na API."""
         return OutputBion.query.filter_by(uuid=uuid).first()
 
-    def save(self, entity: OutputBion) -> OutputBion:
-        """Persiste (insert ou update) um OutputBion e commita a transação."""
-        db.session.add(entity)
+    def find_por_uuid_da_empresa(self, uuid: str, id_empresa: int) -> Optional[OutputBion]:
+        """A posse vem da Consulta; 'nao existe' e 'e de outra empresa' dao o mesmo None."""
+        return (OutputBion.query
+                .join(Atendimento, OutputBion.id_atendimento == Atendimento.id)
+                .join(Consulta, Atendimento.id_consulta == Consulta.id)
+                .filter(OutputBion.uuid == uuid, Consulta.id_empresa == id_empresa)
+                .first())
+
+    def em_processamento(self, id_atendimento: int) -> bool:
+        return db.session.query(OutputBion.id).filter(
+            OutputBion.id_atendimento == id_atendimento, OutputBion.status == PROCESSANDO).first() is not None
+
+    def expirar_travados(self, id_atendimento: int, antes_de: datetime) -> int:
+        """'processando' parado desde antes de `antes_de` (servidor reiniciou, tarefa perdida)
+        vira 'falhou'/'expirado'. Sem commit: roda dentro da transacao de quem chama."""
+        n = (OutputBion.query
+             .filter(OutputBion.id_atendimento == id_atendimento, OutputBion.status == PROCESSANDO,
+                     OutputBion.criado_em < antes_de)
+             .update({"status": FALHOU, "erro_codigo": EXPIRADO, "concluido_em": _agora()},
+                     synchronize_session=False))
+        db.session.flush()
+        return n
+
+    def gravar_resposta(self, o: OutputBion, colunas: dict) -> None:
+        """Grava o que a IA respondeu (status continua 'processando' ate registrar a proposta)."""
+        for k, v in colunas.items():
+            setattr(o, k, v)
         db.session.commit()
-        return entity
 
-    def delete(self, id: int) -> bool:
-        """Remove um OutputBion pelo ID. Retorna False se não existir."""
-        e = self.find_by_id(id)
-        if not e:
-            return False
-        db.session.delete(e)
+    def marcar(self, o: OutputBion, status: str, erro_codigo: str | None = None,
+               colunas: dict | None = None) -> None:
+        for k, v in (colunas or {}).items():
+            setattr(o, k, v)
+        o.status = status
+        o.erro_codigo = erro_codigo
+        o.concluido_em = _agora()
         db.session.commit()
-        return True
 
-    def find_all(self) -> List[OutputBion]:
-        """Lista todos os OutputBion cadastrados, sem filtro."""
-        return OutputBion.query.all()
-
-    def find_output_triagem_da_consulta(self, uuid_consulta: str) -> Optional[OutputBion]:
-        """
-        Navega Consulta -> Atendimento(tipo=triagem) -> ColetaClinica ->
-        InputProtocolo -> OutputBion mais recente. Usado pela tela de
-        avaliação médica para reaproveitar o resultado já calculado pela
-        IA na triagem, sem reprocessar.
-        """
-        consulta = Consulta.query.filter_by(uuid=uuid_consulta).first()
-        if not consulta:
-            return None
-
-        atendimento_triagem = (
-            Atendimento.query
-            .filter_by(id_consulta=consulta.id, tipo_atendimento="triagem")
-            .order_by(Atendimento.data_hora_inicio.desc())
-            .first()
-        )
-        if not atendimento_triagem:
-            return None
-
-        coleta = (
-            ColetaClinica.query
-            .filter_by(id_atendimento=atendimento_triagem.id)
-            .order_by(ColetaClinica.id.desc())
-            .first()
-        )
-        if not coleta:
-            return None
-
-        input_protocolo = (
-            InputProtocolo.query
-            .filter_by(id_coleta_clinica=coleta.id)
-            .order_by(InputProtocolo.id.desc())
-            .first()
-        )
-        if not input_protocolo or not input_protocolo.outputs:
-            return None
-
-        return sorted(input_protocolo.outputs, key=lambda o: o.criado_em, reverse=True)[0]
 
     def _query_filtrada_empresa(self, id_empresa: int, dias: int):
         """Monta a base de query com os 4 joins até Usuario, reaproveitada
@@ -179,7 +173,8 @@ class OutputBionRepository(IRepository[OutputBion]):
         from datetime import datetime, timedelta, timezone
         from src.models.usuarios import Usuario
         from src.models.clinico import ColetaClinica, Atendimento
- 
+        from src.models.clinico import InputProtocolo
+        
         limite_data = datetime.now(timezone.utc) - timedelta(days=dias)
  
         linhas = (
@@ -195,5 +190,29 @@ class OutputBionRepository(IRepository[OutputBion]):
             .all()
         )
         return [linha[0] for linha in linhas if linha[0] and linha[0].strip()]
- 
- 
+    
+    
+    
+class ResultadoRascunhoRepository:
+
+    def de_output(self, id_output: int) -> Optional[ResultadoPrescricao]:
+        return ResultadoPrescricao.query.filter_by(id_output=id_output).first()
+
+    def rascunhos_ia(self, id_atendimento: int, exceto_id: int) -> list[ResultadoPrescricao]:
+        """Rascunhos que vieram da IA (id_output preenchido) neste atendimento, menos o novo."""
+        return (ResultadoPrescricao.query
+                .filter(ResultadoPrescricao.id_atendimento == id_atendimento,
+                        ResultadoPrescricao.status == "rascunho",
+                        ResultadoPrescricao.id_output.isnot(None),
+                        ResultadoPrescricao.id != exceto_id)
+                .all())
+
+    def excluir(self, resultados: list[ResultadoPrescricao]) -> None:
+        """O cascade do model leva medicamentos e exames junto."""
+        for r in resultados:
+            db.session.delete(r)
+        db.session.commit()
+
+
+    
+    

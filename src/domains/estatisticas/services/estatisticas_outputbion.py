@@ -3,7 +3,7 @@ outputs do Bion, versões de modelo em uso e correlação entre as duas
 primeiras métricas.
 """
 
-from src.domains.protocolos_ia.service import OutputBionService
+from src.domains.avaliacao_bion.service import OutputBionService
 from src.domains.estatisticas.interpretacao_helper import (
     interpretacao_percentual, calcular_comparacao, valor_periodo_anterior,
 )

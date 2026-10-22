@@ -1,13 +1,28 @@
 """Regras de negócio da entidade ProtocoloCatalogo."""
 
+from datetime import date, datetime
+
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
-from src.domains.protocolos_ia.helpers import parse_data
 
 CAMPOS_OBRIGATORIOS_PROTOCOLO = (
     "nome_protocolo", "sigla", "tipo_resultado", "versao_vigente", "data_vigencia",
 )
 
+def parse_data(valor):
+    """
+    Converte uma string 'YYYY-MM-DD' em objeto date. Aceita também um
+    date já pronto ou None, retornando-os sem alteração.
+
+    Raises:
+        DadosInvalidosError: se o valor não estiver no formato esperado.
+    """
+    if valor is None or isinstance(valor, date):
+        return valor
+    try:
+        return datetime.strptime(valor, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise DadosInvalidosError(f"Data inválida: '{valor}'. Use o formato YYYY-MM-DD.")
 
 class ProtocoloCatalogoService:
     """Casos de uso de cadastro e consulta de ProtocoloCatalogo."""

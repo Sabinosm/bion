@@ -50,7 +50,6 @@ def _registrar_blueprints(app: Flask):
     from src.domains.medicamentos.indicacao_terapeutica.indicacao_terapeutica_controller import bp_indicacoes_terapeuticas as catalogo_indicacoes_terapeuticas_bp
     from src.domains.estatisticas.controller import bp as bp_estatisticas
 
-    from src.domains.protocolos_ia.controller import bp_ia as ia_bp
     from src.domains.protocolo.protocolo_catalogo_controller import bp_protocolo as protocolo_bp
     from src.domains.protocolo.news2 import protocolo_escore_config_controller 
     from src.domains.protocolo.protocolo_composto import protocolo_composto_controller 
@@ -92,7 +91,6 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(catalogo_indicacoes_terapeuticas_bp, url_prefix="/v1/api/catalogo/indicacoes-terapeuticas")
     app.register_blueprint(protocolo_bp, url_prefix="/v1/api/protocolos")
     app.register_blueprint(empresa_protocolo_bp, url_prefix="/v1/api/liberacao-protocolos")
-    app.register_blueprint(ia_bp, url_prefix="/v1/api/ia")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
