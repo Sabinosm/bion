@@ -3,6 +3,7 @@
 Permissões por NÍVEL MÍNIMO (médico ⊃ enfermeiro; ver sessaoPapeis.py):
   - triagem ........... enfermeiro ou médico
   - avaliação médica .. só médico
+  - reavaliação ....... só médico (Consulta em em-observacao)
 Finalizar e cancelar: só o profissional que abriu o atendimento (o service
 devolve 403 para os demais). Finalizar também exige o binário completo.
 Toda rota passa o id_empresa da sessão: Atendimento herda a posse da
@@ -82,11 +83,24 @@ class AtendimentoController():
             return json_error(ex.message, ex.status_code)
 
     @staticmethod
+    @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-reavaliacao")
+    @requer_papel_clinico("medico")
+    def abrir_reavaliacao(uuid_consulta):
+        """Abre um Atendimento do tipo reavaliação (retorno do médico) para a Consulta informada.
+        409 se a Consulta não estiver em em-observacao, houver atendimento em andamento,
+        o consentimento estiver pendente ou a Consulta estiver encerrada."""
+        try:
+            a = _svc.abrir_reavaliacao(uuid_consulta, get_id_usuario_sessao(), get_id_empresa_sessao())
+            return json_success(data=a.to_dict(), message="Reavaliação aberta.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+    @staticmethod
     @bp_atendimento.post("/<uuid_atendimento>/finalizar")
     @requer_papel_clinico("enfermeiro", "medico")
     def finalizar_atendimento(uuid_atendimento):
         """Finaliza um Atendimento em andamento. Só o dono (403); exige o
-        binário completo (409). Avaliação médica: só médico (403 para enfermeiro)."""
+        binário completo (409). Avaliação médica e reavaliação: só médico (403 para enfermeiro)."""
         dados = request.get_json(silent=True)
         if not isinstance(dados, dict):
             dados = {}

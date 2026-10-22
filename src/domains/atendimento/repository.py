@@ -53,11 +53,12 @@ class AtendimentoRepository(IRepository[Atendimento]):
         )
 
     def find_por_consulta(self, id_consulta: int) -> List[Atendimento]:
-        """Lista os Atendimentos de uma Consulta, em ordem cronológica."""
+        """Lista os Atendimentos de uma Consulta em ordem cronológica crescente, com o id como
+        desempate (sincronizar_status_consulta depende dessa ordem para achar o último)."""
         return (
             Atendimento.query
             .filter_by(id_consulta=id_consulta)
-            .order_by(Atendimento.data_hora_inicio.asc())
+            .order_by(Atendimento.data_hora_inicio.asc(), Atendimento.id.asc())
             .all()
         )
 

@@ -19,6 +19,15 @@ BINÁRIO: finalizar exige o binário completo (as 4 seções conferidas neste
 atendimento, 409) e, na mesma transação, o reconcilia com os registros
 ativos do paciente (BinarioService.reconciliar). Cancelar NÃO exige nem
 reconcilia: abandonar o atendimento não pode depender de preencher nada.
+ABERTURA SERIALIZADA: a abertura trava a linha da Consulta (SELECT ... FOR UPDATE)
+antes de checar "um em andamento por vez", então duas aberturas simultâneas
+não criam dois Atendimentos em andamento. A trava cai no commit ou no rollback.
+
+REAVALIAÇÃO: só médico, e só com a Consulta em STATUS_PARA_REAVALIACAO (hoje
+"em-observacao": atendimento concluído, Consulta ainda aberta). Se esse status
+for renomeado, basta mudar a constante. Finalizar reavaliação é só médico,
+como a avaliação médica (TIPOS_SOMENTE_MEDICO).
+
 Na ABERTURA o binário é derivado do paciente (derivar_na_abertura): seção
 consistente é repassada como "automatico"; seção cujo dado mudou desde a
 última conferência fica "requer-revisao" e trava o finalizar até confirmar.
@@ -34,6 +43,9 @@ from .binario.binario_gate import exigir_binario_completo
 from src.domains.consulta.repository import ConsultaRepository
 from src.domains.consulta.service import ConsultaService
 from src.domains.consulta.status_sync import sincronizar_status_consulta
+
+TIPOS_SOMENTE_MEDICO = ("avaliacao-medica", "reavaliacao")
+STATUS_PARA_REAVALIACAO = ("em-observacao",)
 
 MOTIVOS_CANCELAMENTO = (
     "erro-abertura", "paciente-nao-compareceu", "paciente-recusou", "transferencia", "outro",
@@ -84,14 +96,32 @@ class AtendimentoService:
         sincronizar_status_consulta(consulta, atendimentos)
         self.consulta_repo.save(consulta, commit=commit)
 
-    def _consulta_para_abrir(self, uuid_consulta: str, id_empresa: int):
-        """Consulta da empresa, não encerrada e com consentimento válido."""
-        c = self.consulta_svc.buscar_por_uuid(uuid_consulta, id_empresa)
-        if c.status_consulta == "encerrada":
+    def _validar_abertura(self, consulta, status_permitidos=None):
+        """Valida, com a Consulta já travada, se um novo Atendimento pode abrir: Consulta não
+        encerrada, consentimento válido, nenhum outro em andamento e, quando
+        `status_permitidos` é informado, status_consulta dentro dele (usado pela reavaliação)."""
+        if consulta.status_consulta == "encerrada":
             raise ConflictoError("Consulta encerrada: não é possível abrir novo atendimento.")
-        # GANCHO DO BLOCO 1: lança ConflictoError se o consentimento está pendente.
-        self.consulta_svc.exigir_consentimento(c)
-        return c
+        self.consulta_svc.exigir_consentimento(consulta)
+        self._exigir_sem_em_andamento(consulta)
+        if status_permitidos is not None and consulta.status_consulta not in status_permitidos:
+            raise ConflictoError(
+                "Reavaliação só pode ser aberta depois de um atendimento concluído "
+                f"(status atual da Consulta: {consulta.status_consulta})."
+            )
+
+    def _abrir(self, uuid_consulta: str, tipo_atendimento: str, id_usuario: int,
+               id_empresa: int, status_permitidos=None):
+        """Caminho único de abertura: busca a Consulta da empresa, trava a linha, valida e cria o
+        Atendimento. Qualquer falha antes da criação faz rollback para soltar a trava."""
+        c = self.consulta_svc.buscar_por_uuid(uuid_consulta, id_empresa)
+        try:
+            self.consulta_repo.travar(c)
+            self._validar_abertura(c, status_permitidos)
+        except Exception:
+            self.repo.rollback()
+            raise
+        return self._criar(c, tipo_atendimento, id_usuario)
 
     def _exigir_sem_em_andamento(self, consulta):
         """Um Atendimento em andamento por vez na Consulta."""
@@ -135,9 +165,7 @@ class AtendimentoService:
             ConflictoError: Consulta encerrada; consentimento pendente; ou
                 já há outro Atendimento em andamento.
         """
-        c = self._consulta_para_abrir(uuid_consulta, id_empresa)
-        self._exigir_sem_em_andamento(c)
-        return self._criar(c, "triagem", id_usuario)
+        return self._abrir(uuid_consulta, "triagem", id_usuario, id_empresa)
 
     def abrir_avaliacao_medica(self, uuid_consulta: str, id_usuario: int, id_empresa: int):
         """
@@ -150,9 +178,22 @@ class AtendimentoService:
             ConflictoError: Consulta encerrada; consentimento pendente; ou
                 já há outro Atendimento em andamento.
         """
-        c = self._consulta_para_abrir(uuid_consulta, id_empresa)
-        self._exigir_sem_em_andamento(c)
-        return self._criar(c, "avaliacao-medica", id_usuario)
+        return self._abrir(uuid_consulta, "avaliacao-medica", id_usuario, id_empresa)
+
+    def abrir_reavaliacao(self, uuid_consulta: str, id_usuario: int, id_empresa: int):
+        """
+        Abre um Atendimento do tipo reavaliação (retorno do médico dentro do mesmo episódio).
+
+        Só abre com a Consulta em STATUS_PARA_REAVALIACAO. A permissão de médico é
+        aplicada no controller; a finalização também é só médico (TIPOS_SOMENTE_MEDICO).
+
+        Raises:
+            RecursoNaoEncontradoError: Consulta inexistente ou de outra empresa.
+            ConflictoError: Consulta encerrada; consentimento pendente; já há outro
+                Atendimento em andamento; ou a Consulta não está em em-observacao.
+        """
+        return self._abrir(uuid_consulta, "reavaliacao", id_usuario, id_empresa,
+                           STATUS_PARA_REAVALIACAO)
 
     # ------------------------------------------------- finalizar / cancelar
     @staticmethod
@@ -172,7 +213,7 @@ class AtendimentoService:
 
         Só o dono (403). Exige o binário completo (409), em qualquer tipo de
         atendimento. `eh_medico` vem da sessão (controller): avaliação
-        médica só é finalizada por médico.
+        médica e reavaliação só são finalizadas por médico.
 
         Raises:
             RecursoNaoEncontradoError: Atendimento inexistente ou de outra empresa.
@@ -184,8 +225,8 @@ class AtendimentoService:
         """
         atendimento = self.buscar_por_uuid(uuid_atendimento, id_empresa)
         self._exigir_dono(atendimento, id_usuario, "finalizá-lo")
-        if atendimento.tipo_atendimento == "avaliacao-medica" and not eh_medico:
-            raise PermissaoNegadaError("Somente médico pode finalizar uma avaliação médica.")
+        if atendimento.tipo_atendimento in TIPOS_SOMENTE_MEDICO and not eh_medico:
+            raise PermissaoNegadaError("Somente médico pode finalizar avaliação médica ou reavaliação.")
         if atendimento.status == "finalizado":
             raise ConflictoError("Atendimento já está finalizado.")
         if atendimento.status == "cancelado":
