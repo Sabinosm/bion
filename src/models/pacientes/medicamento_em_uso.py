@@ -40,7 +40,7 @@ class MedicamentoEmUso(db.Model):
         db.Index("idx_medicamento_em_uso_paciente_deletado", "id_paciente", "deletado"),
     )
 
-    id = db.Column("id_medicamento_uso", BigIntPK, primary_key=True, autoincrement=True)
+    id = db.Column("id_medicamentos_uso", BigIntPK, primary_key=True, autoincrement=True)
     uuid = db.Column("uuid_medicamentos_uso", db.String(36), unique=True, nullable=False,
                       default=lambda: str(_uuid.uuid4()))
     id_paciente = db.Column(db.BigInteger,
