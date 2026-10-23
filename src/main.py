@@ -104,7 +104,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(bp_alergia, url_prefix="/v1/api/dadosClinicos/alergia")
     app.register_blueprint(bp_doenca_cronica, url_prefix="/v1/api/dadosClinicos/doencaCronica")
     app.register_blueprint(bp_med_em_uso, url_prefix="/v1/api/dadosClinicos/MedicamentosUso")
-    app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes/lgpd")
+    app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(consentimento_digital_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
     app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")
