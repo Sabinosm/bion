@@ -72,3 +72,14 @@ class BinarioController():
             return json_success(data=r, message="Seção do binário conferida.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
+        
+    @staticmethod
+    @bp_binario.get("/<uuid_atendimento>/binario/do-paciente")
+    @requer_login
+    @acesso_auditado(recurso="binario do paciente", operacao="leitura")
+    def binario_do_paciente(uuid_atendimento):
+        try:
+            return json_success(
+                data=_svc.binario_do_paciente(uuid_atendimento, get_id_empresa_sessao()))
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
