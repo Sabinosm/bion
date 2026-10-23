@@ -1,31 +1,23 @@
-"""Regras de negócio do domínio Usuario.
+"""service.py -- regras de negócio do domínio Usuario.
 
-Este módulo concentra o CRUD principal (`UsuarioService`), incluindo as
-rotinas de reset de credenciais (reset_2fa/reset_total). As funções
-puras de apoio ficam em `service_helpers.py`; as validações de
-autorização em `service_validacoes.py`; a atualização parcial em
-`service_atualizar.py`.
+Concentra o CRUD de usuários (criação, listagem, ativação/desativação,
+troca de senha, contagens para estatísticas e foto de perfil) e aplica
+as regras de hierarquia entre administradores. A atualização parcial, as
+validações de autorização e as rotinas de reset ficam em módulos
+vizinhos, compostos aqui no service.
 
-is_admin e tipo_papel são eixos independentes: um usuário pode ter
-is_admin=True e tipo_papel="medico" ao mesmo tempo (admin que também
-atende), e passa pelas mesmas regras de super admin/senha que um admin
-puro. Criar um usuário com is_admin=True exige que o solicitante seja o
-super admin, exceto na criação do primeiro admin de uma empresa nova
-(ver Empresa.cadastrar_com_admin, único fluxo que passa
-is_super_admin=True). Um usuário que já é admin só pode ser
-desativado/ativado/resetado pelo super admin; o próprio super admin
-nunca pode ser desativado ou resetado, por ninguém.
+is_admin e tipo_papel (função clínica) são eixos independentes: um admin
+pode também atender. Criar um admin exige o super admin, exceto na
+criação do primeiro admin de uma empresa nova (fluxo de cadastro da
+empresa, o único que cria o super admin). Um usuário que já é admin só
+pode ser ativado, desativado ou resetado pelo super admin, e o próprio
+super admin nunca pode ser desativado ou resetado.
 
-alterar_senha() é autoatendimento, chamado pelo próprio usuário já
-reconfirmado via step-up no controller (este método não reautentica
-nada, só valida força/repetição e persiste). resetar_senha_usuario() é
-o reset feito por um super admin na conta de terceiro: não existe
-conceito de "senha temporária" gerada pelo sistema, pois isso daria ao
-admin uma senha válida da conta de outra pessoa; em vez disso o reset
-zera hash_senha e devolve o usuário ao onboarding, para que ele mesmo
-defina a nova senha. Ambas incrementam senha_versao, o que torna
-qualquer sessão aberta com versão antiga detectável pelas rotas de
-leitura sensível decoradas com `@requer_senha_atualizada` (session.py).
+A troca de senha pelo próprio usuário não reautentica (a prova de
+identidade vem do step-up); o reset feito por um admin nunca gera senha
+temporária: zera a senha e devolve o usuário ao onboarding. Ambos
+incrementam senha_versao, o que invalida sessões antigas nas rotas
+protegidas por `@requer_senha_atualizada` (session.py).
 """
 
 from argon2.exceptions import VerifyMismatchError
@@ -37,7 +29,8 @@ from ..repository import UsuarioRepository
 from .service_helpers import monta_dados_papel
 from .service_atualizar import att
 from .service_reset import ResetCredenciaisMixin
-from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema, erros_pydantic_por_campo
+from src.core.erros_pydantic import erros_pydantic_por_campo
+from src.domains.usuario.schema_usuario import CadastroUsuarioSchema, AlterarSenhaSchema
 from src.models.usuarios import Usuario
 from src.models.usuarios.papel_profissional import PapelProfissional
 from .service_validacoes import (
@@ -48,11 +41,12 @@ from .service_validacoes import (
 )
 from .service_storage_pfp import StorageService
 
-class UsuarioService(ResetCredenciaisMixin, StorageService):
-    """Serviço de domínio para o CRUD de usuários e regras associadas.
 
-    Os métodos de reset de credenciais (reset_2fa, reset_total,
-    resetar_senha_usuario) vêm de ResetCredenciaisMixin (service_reset.py).
+class UsuarioService(ResetCredenciaisMixin, StorageService):
+    """CRUD de usuários e regras associadas.
+
+    Herda os resets de credencial de ResetCredenciaisMixin e o acesso ao
+    storage de avatar de StorageService.
     """
 
     _checar_duplicidade = _checar_duplicidade
@@ -61,11 +55,9 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
     _valida_alteracao_admin = _valida_alteracao_admin
 
     def __init__(self):
-        # Sem isso, StorageService.__init__ nunca roda e upload/remoção
-        # de avatar quebram com AttributeError (bucket_name, supabase).
-        super().__init__()
+        super().__init__()  # sem isso o StorageService fica sem bucket/credenciais
         self.repo = UsuarioRepository()
-    
+
     def buscar_por_uuid(self, uuid: str):
         """Busca um usuário pelo UUID.
 
@@ -82,40 +74,64 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         if not u:
             raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
         return u
-    
+
     def buscar_por_id(self, id: int):
-            """Busca um usuário pelo ID.
-    
-            Parâmetros:
-                id: identificador único do usuário.
-    
-            Retorno:
-                Instância de Usuario correspondente.
-    
-            Levanta:
-                RecursoNaoEncontradoError: se nenhum usuário for encontrado.
-            """
-            u = self.repo.find_by_id(id)
-            if not u:
-                raise RecursoNaoEncontradoError(f"Usuário não encontrado: {id}")
-            return u
-    
-    def listar(self, id_empresa, offset: int = 0, especialidade: str = 0, status: str = 0):
-        """Lista todos os usuários de uma empresa.
+        """Busca um usuário pelo ID.
+
+        Parâmetros:
+            id: identificador único do usuário.
+
+        Retorno:
+            Instância de Usuario correspondente.
+
+        Levanta:
+            RecursoNaoEncontradoError: se nenhum usuário for encontrado.
+        """
+        u = self.repo.find_by_id(id)
+        if not u:
+            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {id}")
+        return u
+
+    def listar(self, id_empresa, offset: int = 0, especialidade: str | None = None, status: str | None = None):
+        """Lista uma página de usuários da empresa (exceto o super admin).
 
         Parâmetros:
             id_empresa: identificador da empresa.
+            offset: quantos registros pular (a página tem 8).
+            especialidade: filtro opcional.
+            status: filtro opcional ('pendente', 'ativo' ou 'inativo').
 
         Retorno:
-            Lista de instâncias de Usuario.
+            Query paginada de Usuario.
         """
         return self.repo.find_all_param(id_empresa=id_empresa, offset=offset, especialidade=especialidade, status=status)
+
+    def buscar_por_uuid_da_empresa(self, uuid: str, id_empresa: int):
+        """Busca um usuário pelo UUID, restrito a uma empresa.
+
+        Um usuário de outra empresa é tratado como inexistente (e não
+        como "acesso negado"), para não revelar que o uuid existe.
+
+        Parâmetros:
+            uuid: identificador único do usuário.
+            id_empresa: empresa à qual o usuário precisa pertencer.
+
+        Retorno:
+            Instância de Usuario correspondente.
+
+        Levanta:
+            RecursoNaoEncontradoError: se não existir ou for de outra empresa.
+        """
+        u = self.buscar_por_uuid(uuid)
+        if u.id_empresa != id_empresa:
+            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid}")
+        return u
 
     def criar(
         self,
         id_empresa,
         dados: dict,
-        commitar: bool = True,
+        commit: bool = True,
         solicitante_eh_super_admin: bool = False,
         is_super_admin: bool = False,
     ):
@@ -125,7 +141,7 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
             id_empresa: identificador da empresa dona do cadastro.
             dados: dicionário bruto de entrada, validado internamente
                 via CadastroUsuarioSchema.
-            commitar: se True, persiste e comita a transação imediatamente.
+            commit: se True, persiste e comita a transação imediatamente.
             solicitante_eh_super_admin: se True, quem está pedindo a
                 criação é o super admin da empresa -- necessário para
                 criar um usuário com is_admin=True. Ignorado quando
@@ -197,15 +213,13 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
 
         dados_papel = monta_dados_papel(schema)
         if dados_papel:
-            # Associa via relationship, não via FK manual -- o SQLAlchemy
-            # resolve o id_usuario sozinho no flush/commit, mesmo que
-            # 'u' ainda não tenha id definitivo neste ponto (relevante
-            # quando commitar=False).
+            # Via relationship: o SQLAlchemy resolve id_usuario no flush,
+            # mesmo sem commit (commit=False).
             u.papeis.append(PapelProfissional(**dados_papel))
 
-        return self.repo.save(u, commitar)
+        return self.repo.save(u, commit)
 
-    def desativar(self, uuid: str, solicitante_eh_super_admin: bool = False, commit: bool = True):
+    def desativar(self, uuid: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit: bool = True):
         """Desativa um usuário, definindo seu status como 'inativo'.
 
         Um usuário que já é admin (comum ou super) só pode ser
@@ -214,6 +228,8 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
 
         Parâmetros:
             uuid: identificador do usuário a desativar.
+            id_empresa_solicitante: empresa de quem pede; o alvo precisa
+                pertencer a ela.
             solicitante_eh_super_admin: se True, quem está pedindo é o
                 super admin da empresa.
 
@@ -223,8 +239,9 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         Levanta:
             DadosInvalidosError: se o alvo for admin e o solicitante não
                 for o super admin, ou se o alvo for o próprio super admin.
+            RecursoNaoEncontradoError: alvo inexistente ou de outra empresa.
         """
-        u = self.buscar_por_uuid(uuid)
+        u = self.buscar_por_uuid_da_empresa(uuid, id_empresa_solicitante)
 
         if u.is_super_admin:
             raise DadosInvalidosError("O administrador principal não pode ser desativado.")
@@ -235,17 +252,20 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
             )
 
         u.status = "inativo"
-        return self.repo.save(u, commit)  # commit feito via decorator de ação sensível
+        return self.repo.save(u, commit)  # com commit=False, quem fecha é o @acao_sensivel
 
-    def ativar(self, uuid: str, solicitante_eh_super_admin: bool = False):
+    def ativar(self, uuid: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit: bool = True):
         """Reativa um usuário, definindo seu status como 'ativo'.
 
         Mesma regra de desativar(): só o super admin ativa outro admin.
 
         Parâmetros:
             uuid: identificador do usuário a ativar.
+            id_empresa_solicitante: empresa de quem pede; o alvo precisa
+                pertencer a ela.
             solicitante_eh_super_admin: se True, quem está pedindo é o
                 super admin da empresa.
+            commit: se False, só faz flush (commit fica com quem chama).
 
         Retorno:
             Instância de Usuario atualizada e salva, ou None se o
@@ -255,8 +275,9 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         Levanta:
             DadosInvalidosError: se o alvo for admin e o solicitante não
                 for o super admin.
+            RecursoNaoEncontradoError: alvo inexistente ou de outra empresa.
         """
-        u = self.buscar_por_uuid(uuid)
+        u = self.buscar_por_uuid_da_empresa(uuid, id_empresa_solicitante)
 
         if u.is_admin and not solicitante_eh_super_admin:
             raise DadosInvalidosError(
@@ -265,7 +286,7 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
 
         if u.status != "pendente":
             u.status = "ativo"
-            return self.repo.save(u)
+            return self.repo.save(u, commit)
         return None
 
     def atualizar(
@@ -274,9 +295,15 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         dados: dict,
         solicitante_is_admin: bool,
         solicitante_uuid: str,
+        id_empresa_solicitante: int,
         solicitante_eh_super_admin: bool = False,
     ):
-        return att(self, uuid, dados, solicitante_is_admin, solicitante_uuid, solicitante_eh_super_admin)
+        """Atualiza parcialmente um usuário; ver `att` em service_atualizar.py
+        para parâmetros, regras e exceções."""
+        return att(
+            self, uuid, dados, solicitante_is_admin, solicitante_uuid,
+            id_empresa_solicitante, solicitante_eh_super_admin,
+        )
 
     def alterar_senha(self, uuid: str, dados: dict, commit: bool = True):
         """Troca a senha do próprio usuário autenticado.
@@ -325,37 +352,56 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         return self.repo.save(u, commit)
 
     def contagem_profissionais(self, id_empresa):
+        """Total de usuários da empresa, sem contar o super admin."""
         return self.repo.count_no_super_admin_users(id_empresa=id_empresa)
 
     def contagem_profissionais_por_status(self, id_empresa, status):
+        """Total de usuários (sem o super admin) com o status informado."""
         return self.repo.count_status_users(id_empresa=id_empresa, status=status)
 
     def efetivo_por_papel(self, id_empresa: int):
         """Contagem bruta de usuários ativos por papel (medico/enfermeiro/admin).
-        Sem lógica de negócio aqui -- a leitura/texto fica na camada de
-        estatística."""
+
+        A interpretação do resultado fica na camada de estatística."""
         return self.repo.contar_ativos_por_papel(id_empresa=id_empresa)
 
-    def inativos_ha_dias(self, id_empresa: int, dias: int = 7):
+    def inativos_ha_dias(self, id_empresa: int, dias: int = 7) -> int:
+        """Quantos usuários ativos estão sem acesso há mais de `dias` dias."""
         return self.repo.contar_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
 
     def lista_inativos_ha_dias(self, id_empresa: int, dias: int = 7):
+        """Lista os usuários ativos sem acesso há mais de `dias` dias."""
         return self.repo.find_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
-    
+
     def atualizar_avatar_usuario(self, id_usuario: int, file) -> Usuario:
+        """Troca a foto de perfil: envia a nova, grava no banco e só então
+        apaga a antiga do storage. Se a gravação no banco falhar, a nova
+        é removida do storage e o erro é repropagado.
+
+        Parâmetros:
+            id_usuario: usuário dono do avatar.
+            file: FileStorage do Flask com a imagem.
+
+        Retorno:
+            Instância de Usuario atualizada.
+
+        Levanta:
+            RecursoNaoEncontradoError: se o usuário não existir.
+            DadosInvalidosError / BionException: ver upload_avatar.
+        """
         usuario = self.buscar_por_id(id_usuario)
         avatar_antigo = usuario.avatar_filename
-        
-        # 1. Faz o upload da nova imagem usando o StorageService (ou self)
+
         novo_filename = self.upload_avatar(file)
-        
-        # 2. Atualiza a referência no banco através do repositório
-        usuario = self.repo.salvar_pfp(usuario, novo_filename=novo_filename)
-        
-        # 3. Apaga do Supabase a foto antiga (após garantir que o banco atualizou)
+        try:
+            usuario = self.repo.salvar_pfp(usuario, novo_filename=novo_filename)
+        except Exception:
+            self.deletar_avatar(novo_filename)  # não deixa arquivo órfão no bucket
+            raise
+
         if avatar_antigo and avatar_antigo != novo_filename:
             self.deletar_avatar(avatar_antigo)
-                            
+
         return usuario
 
     def verificar_avatar_usuario(self, id_usuario: int) -> dict:
@@ -377,12 +423,16 @@ class UsuarioService(ResetCredenciaisMixin, StorageService):
         return {"tem_avatar": True, "url": self.url_avatar(filename)}
 
     def remover_avatar_usuario(self, id_usuario: int):
-        # Desempacotamento seguro (deletar_pfp sempre retorna uma tupla de 2 elementos)
+        """Remove a foto de perfil do banco e do storage.
+
+        Retorno:
+            Instância de Usuario atualizada, ou None se o usuário não
+            existir ou não tiver avatar.
+        """
         usuario, avatar_antigo = self.repo.deletar_pfp(id_usuario)
-        
+
         if not usuario or not avatar_antigo:
             return None
-            
-        # Se encontrou um avatar antigo para o usuário, remove do Supabase
+
         self.deletar_avatar(avatar_antigo)
         return usuario

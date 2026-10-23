@@ -1,21 +1,24 @@
-"""Mixin com as rotinas de reset de credenciais do domínio Usuario.
+"""service_reset.py -- rotinas de reset de credenciais de usuário.
 
-UsuarioService (service.py) herda deste mixin. Requer que a classe que
-o utiliza tenha `self.repo` (UsuarioRepository) e `self.buscar_por_uuid`.
+Agrupa, em um mixin herdado pelo service principal, as operações em que o
+administrador principal devolve a conta de outra pessoa a um estado de
+onboarding: só a senha, só o 2º fator, ou ambos. Nenhuma delas gera
+credencial temporária; o próprio usuário define a nova no próximo login.
+Requer que a classe que o usa tenha `repo` (UsuarioRepository) e
+`buscar_por_uuid_da_empresa`.
 """
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 
 
 class ResetCredenciaisMixin:
-    """Mixin de reset de credenciais e senha.
+    """Resets de credenciais feitos pelo super admin sobre usuários da
+    própria empresa.
 
-    Todos os métodos aqui exigem que o solicitante seja o super admin
-    da empresa, e bloqueiam qualquer ação sobre o próprio super admin
-    (que nunca pode ter senha/2FA resetados, nem por si mesmo). O alvo
-    precisa pertencer à mesma empresa do solicitante -- senão é tratado
-    como "não encontrado" (RecursoNaoEncontradoError), não como "acesso
-    negado", pra não revelar que o uuid existe em outra empresa.
+    Todos exigem que o solicitante seja o super admin. Um alvo de outra
+    empresa é tratado como "não encontrado" (e não como "acesso negado")
+    para não revelar que o uuid existe. Resetar a senha e resetar por
+    completo e só o 2FA recusam o próprio super admin como alvo.
     """
 
     def resetar_senha_usuario(
@@ -23,42 +26,33 @@ class ResetCredenciaisMixin:
         uuid_usuario: str,
         id_empresa_solicitante: int,
         solicitante_eh_super_admin: bool = False,
-        commit: bool = True
+        commit: bool = True,
     ):
-        """Reseta SÓ a senha de um usuário-alvo, devolvendo-o ao
-        onboarding para que ele mesmo defina a nova senha.
+        """Zera só a senha do alvo e o devolve ao onboarding.
 
-        Não existe conceito de "senha temporária" gerada pelo sistema
-        -- isso daria ao admin uma senha válida da conta de outra
-        pessoa. O reset zera hash_senha; o usuário define a própria
-        senha nova, do mesmo jeito que no cadastro inicial. Diferente
-        de reset_total: não mexe em WebAuthn nem em status -- só a
-        senha, sem forçar o usuário a recadastrar 2FA.
+        2FA e status permanecem. Incrementa senha_versao, derrubando
+        sessões abertas nas rotas protegidas por `requer_senha_atualizada`.
 
         Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo (ver
-                get_id_empresa_sessao() no controller).
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
+            uuid_usuario: usuário alvo.
+            id_empresa_solicitante: empresa de quem pede.
+            solicitante_eh_super_admin: se quem pede é o super admin.
+            commit: se False, só faz flush (o commit fica com quem chama).
 
         Retorno:
-            Instância de Usuario atualizada e salva.
+            Instância de Usuario atualizada.
 
         Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin,
-                ou se o alvo for o próprio super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
+            DadosInvalidosError: solicitante não é super admin, ou alvo é
+                o próprio super admin.
+            RecursoNaoEncontradoError: alvo inexistente ou de outra empresa.
         """
         if not solicitante_eh_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode resetar a senha de um usuário."
             )
 
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+        u = self.buscar_por_uuid_da_empresa(uuid_usuario, id_empresa_solicitante)
 
         if u.is_super_admin:
             raise DadosInvalidosError(
@@ -66,111 +60,98 @@ class ResetCredenciaisMixin:
             )
 
         u.hash_senha = None
-        # Derruba qualquer sessão aberta dele nas rotas de leitura
-        # sensível (ver requer_senha_atualizada em session.py), mesmo
-        # que o onboarding em si já impeça uso normal.
         u.senha_versao = (u.senha_versao or 1) + 1
-        # CORRIGIDO: faltava sinalizar onboarding_pendente=True. Sem
-        # isso, o usuário fica com hash_senha=None mas nenhum estado
-        # que direcione o próximo login para o fluxo de onboarding --
-        # login.py já documentava esse comportamento esperado ("zera
-        # hash_senha e marca onboarding_pendente=True"), mas o service
-        # nunca fazia a segunda parte.
+        # Sem onboarding_pendente o login não encaminharia o usuário ao
+        # fluxo de definição de senha.
         u.onboarding_pendente = True
         return self.repo.save(u, commit=commit)
 
-    def reset_2fa(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit:bool=True):
-        """Reseta o 2FA de um usuário: remove TODAS as credenciais
-        WebAuthn cadastradas, forçando o cadastro de um dispositivo novo
-        no próximo login. A senha permanece válida.
+    def reset_2fa(
+        self,
+        uuid_usuario: str,
+        id_empresa_solicitante: int,
+        solicitante_eh_super_admin: bool = False,
+        commit: bool = True,
+    ):
+        """Remove todas as credenciais de 2º fator do alvo (WebAuthn e
+        TOTP), forçando o cadastro de um novo método. A senha permanece.
 
-        Diferente de desativar()/ativar() (onde a trava de super admin
-        só entra se o ALVO for admin), aqui a trava é sobre quem
-        SOLICITA, sempre -- resetar 2FA de terceiros é sensível por si
-        só, mesmo para um usuário sem papel de admin.
+        Diferente de ativar/desativar (cuja trava depende de o ALVO ser
+        admin), aqui a trava é sempre sobre quem SOLICITA.
 
         Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo (ver
-                get_id_empresa_sessao() no controller).
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
+            uuid_usuario: usuário alvo.
+            id_empresa_solicitante: empresa de quem pede.
+            solicitante_eh_super_admin: se quem pede é o super admin.
+            commit: se False, só faz flush, preservando a atomicidade
+                esperada por @acao_sensivel.
 
         Retorno:
-            Instância de Usuario (para manter o padrão de retorno do
-            controller, que chama u.to_dict()).
+            Instância de Usuario atualizada.
 
         Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
+            DadosInvalidosError: solicitante não é super admin, ou alvo é
+                o próprio super admin.
+            RecursoNaoEncontradoError: alvo inexistente ou de outra empresa.
         """
         if not solicitante_eh_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode resetar o 2FA de um usuário."
             )
 
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+        u = self.buscar_por_uuid_da_empresa(uuid_usuario, id_empresa_solicitante)
+
+        if u.is_super_admin:
+            raise DadosInvalidosError(
+                "O administrador principal não pode ter o 2FA resetado por outra pessoa."
+            )
 
         self.repo.remover_credenciais(u.id, commit=commit)
-        # CORRIGIDO: mesmo raciocínio de resetar_senha_usuario -- sem
-        # 2FA confirmado, o usuário está com um requisito de onboarding
-        # em falta (senha OK, 2FA não), e login.py/oauth.py só tratam
-        # onboarding como concluído quando os dois estão presentes
-        # (ver correção do "or" -> "and" nesses arquivos). Sem sinalizar
-        # aqui, o usuário reseta o 2FA mas nunca é reconduzido para
-        # recadastrar um método. Usa o mesmo `commit` recebido -- não
-        # força commit aqui, pra não quebrar a atomicidade esperada por
-        # acao_sensivel quando o controller passa commit=False.
+        # O login/oauth só consideram o onboarding concluído com senha E
+        # 2FA; sem esta flag o usuário nunca seria reconduzido ao cadastro
+        # de um novo método.
         u.onboarding_pendente = True
         return self.repo.save(u, commit=commit)
 
-    def reset_total(self, uuid_usuario: str, id_empresa_solicitante: int, solicitante_eh_super_admin: bool = False, commit: bool = True):
-        """Reset completo de credenciais de um usuário: remove o 2FA
-        (mesma lógica de reset_2fa) e também zera a senha, devolvendo o
-        usuário ao estado de onboarding pendente -- ele precisa refazer
-        o fluxo de ativação de conta do zero.
-
-        RESTRIÇÕES: mesmas de reset_2fa (só super admin, só dentro da
-        própria empresa), mais uma: o próprio super admin nunca pode ser
-        resetado (nem por ele mesmo), mesma lógica de proteção já
-        aplicada em desativar().
+    def reset_total(
+        self,
+        uuid_usuario: str,
+        id_empresa_solicitante: int,
+        solicitante_eh_super_admin: bool = False,
+        commit: bool = True,
+    ):
+        """Remove o 2FA e zera a senha do alvo, deixando-o 'pendente' para
+        refazer a ativação de conta do zero. Incrementa senha_versao
+        (a senha foi zerada); reset_2fa não incrementa, pois a senha
+        permanece válida.
 
         Parâmetros:
-            uuid_usuario: identificador do usuário alvo.
-            id_empresa_solicitante: empresa de quem está pedindo.
-            solicitante_eh_super_admin: se True, quem está pedindo é o
-                super admin da empresa.
+            uuid_usuario: usuário alvo.
+            id_empresa_solicitante: empresa de quem pede.
+            solicitante_eh_super_admin: se quem pede é o super admin.
+            commit: se False, só faz flush (o commit fica com quem chama).
 
         Retorno:
-            Instância de Usuario atualizada e salva.
+            Instância de Usuario atualizada.
 
         Levanta:
-            DadosInvalidosError: se o solicitante não for o super admin,
-                ou se o alvo for o próprio super admin.
-            RecursoNaoEncontradoError: se o usuário não existir ou não
-                pertencer à empresa do solicitante.
+            DadosInvalidosError: solicitante não é super admin, ou alvo é
+                o próprio super admin.
+            RecursoNaoEncontradoError: alvo inexistente ou de outra empresa.
         """
         if not solicitante_eh_super_admin:
             raise DadosInvalidosError(
                 "Apenas o administrador principal pode resetar um usuário por completo."
             )
 
-        u = self.buscar_por_uuid(uuid_usuario)
-        if u.id_empresa != id_empresa_solicitante:
-            raise RecursoNaoEncontradoError(f"Usuário não encontrado: {uuid_usuario}")
+        u = self.buscar_por_uuid_da_empresa(uuid_usuario, id_empresa_solicitante)
 
         if u.is_super_admin:
             raise DadosInvalidosError("O administrador principal não pode ser resetado.")
 
         self.repo.remover_credenciais(u.id, commit=commit)
         u.hash_senha = None
+        u.senha_versao = (u.senha_versao or 1) + 1
         u.status = "pendente"
-        # CORRIGIDO: por coerência com resetar_senha_usuario/reset_2fa
-        # -- reset_total zera os dois requisitos (senha e 2FA), então
-        # onboarding_pendente também precisa refletir isso
-        # explicitamente, não só o status="pendente".
-        u.onboarding_pendente = True
+        u.onboarding_pendente = True  # senha e 2FA zerados: reflete isso além do status
         return self.repo.save(u, commit=commit)

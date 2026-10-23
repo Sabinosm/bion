@@ -1,3 +1,12 @@
+"""service_storage_pfp.py -- armazenamento de fotos de perfil (avatar).
+
+Cuida do ciclo de vida da imagem no bucket do Supabase: valida o arquivo
+pelo conteúdo, normaliza (orientação, fundo, tamanho, formato) e envia
+com nome aleatório, além de montar a URL pública e remover arquivos
+antigos. O cliente do Supabase é criado só quando necessário, então
+operações que apenas leem a URL não exigem credenciais.
+"""
+
 import os
 import io
 import uuid
@@ -5,7 +14,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from supabase import create_client, Client
 from src.core.exceptions import BionException, DadosInvalidosError
 import logging
+
 logger = logging.getLogger(__name__)
+
 # Formatos aceitos no upload de avatar (identificados pelo CONTEÚDO do
 # arquivo pelo Pillow, nunca pela extensão ou content-type do cliente).
 FORMATOS_ACEITOS = {"JPEG", "PNG", "WEBP"}
@@ -27,13 +38,15 @@ class StorageService:
 
     @property
     def supabase(self) -> Client:
-        """Cliente do Supabase criado sob demanda.
+        """Cliente do Supabase, criado na primeira vez que é usado.
 
-        Lazy de propósito: UsuarioService é instanciado no import do
-        controller, e só upload/remoção precisam do cliente. Assim, ler
-        a URL do avatar (url_avatar) não exige a chave de serviço e uma
-        credencial ausente só falha quando de fato se tenta mexer no
-        storage.
+        Lazy porque o service é instanciado no import do controller e
+        só upload/remoção precisam do cliente; credencial ausente só
+        falha quando se tenta mexer no storage.
+
+        Levanta:
+            ValueError: se SUPABASE_URL ou SUPABASE_KEY não estiverem
+                definidas.
         """
         if self._supabase is None:
             if not self.url or not self.key:
@@ -42,19 +55,28 @@ class StorageService:
         return self._supabase
 
     def url_avatar(self, filename: str):
-        """URL pública do avatar no bucket (None se não houver filename).
+        """URL pública do avatar no bucket, ou None se não houver filename.
 
-        Mesmo formato usado em Usuario.to_dict(), para o front receber
-        sempre a mesma URL por qualquer caminho.
+        Mesmo formato de Usuario.to_dict(), para o front receber sempre a
+        mesma URL por qualquer caminho.
         """
         if not filename:
             return None
         return f"{self.url}/storage/v1/object/public/{self.bucket_name}/{filename}"
 
     def upload_avatar(self, file_storage) -> str:
-        """
-        Recebe um objeto FileStorage do Flask, otimiza com o Pillow e envia para o Supabase Storage.
-        Retorna apenas o nome do ficheiro gerado (ex: e7b44a2c.webp).
+        """Valida, otimiza (Pillow) e envia o avatar ao bucket.
+
+        Parâmetros:
+            file_storage: FileStorage do Flask com a imagem enviada.
+
+        Retorno:
+            Nome do arquivo gerado (ex: e7b44a2c.webp).
+
+        Levanta:
+            BionException: 413 se passar de 4MB; 500 se o upload falhar.
+            DadosInvalidosError: se o arquivo for vazio, de formato não
+                aceito, grande demais em pixels ou não for imagem.
         """
         # Lê no máximo max_size + 1 bytes: o +1 basta para saber que
         # passou do limite sem carregar na memória um corpo gigante.
@@ -121,19 +143,15 @@ class StorageService:
             raise BionException("Falha interna ao guardar a imagem no Supabase.", 500)
 
     def deletar_avatar(self, filename: str) -> None:
-        """
-        Remove um ficheiro de avatar do bucket do Supabase.
-        Se o filename for None ou vazio, não faz nada.
+        """Remove um avatar do bucket (não faz nada se filename for vazio).
+
+        Falhas só são registradas em log, nunca propagadas: uma imagem
+        antiga já apagada não pode bloquear o upload da nova.
         """
         if not filename:
             return
 
         try:
-            # O SDK do Supabase espera uma lista com os caminhos dos ficheiros a remover
             self.supabase.storage.from_(self.bucket_name).remove([filename])
-        except Exception as e:
-            # Importante: Fazemos log do aviso em vez de travar a aplicação.
-            # Se a imagem antiga já tiver sido apagada manualmente ou não existir, 
-            # não queremos que isso bloqueie o upload da nova foto.
-            logger.exception("Erro no upload do avatar para o Supabase")
-            print(f"Aviso: Não foi possível eliminar o avatar antigo '{filename}': {e}")
+        except Exception:
+            logger.exception("Erro ao remover o avatar '%s' do Supabase", filename)

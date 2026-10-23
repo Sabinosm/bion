@@ -1,15 +1,17 @@
-"""Repositorio de acesso a dados de Usuario.
+"""repository.py -- acesso a dados do domínio Usuario.
 
-find_by_tipo_papel() lista usuarios por funcao clinica (join com
-PapelProfissional); find_admins() lista administradores (filtro por
-is_admin). tipo_usuario nao existe como coluna nem property, entao
-nenhum filtro aqui pode usa-lo.
+Concentra todas as consultas e gravações da tabela de usuários e das
+tabelas ligadas a ele (papéis profissionais e credenciais de 2º fator),
+incluindo buscas por identificadores, filtros por função clínica,
+contagens agregadas para estatísticas e manutenção do avatar. Métodos de
+escrita aceitam `commit=False` para que a transação seja fechada por
+quem chama (ex.: decorator de ação sensível). Não existe coluna nem
+property `tipo_usuario`: nenhum filtro pode usá-la.
 """
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-from sqlalchemy import or_
-from sqlalchemy import func
+from sqlalchemy import or_, func
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -27,10 +29,20 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.filter_by(uuid=uuid).first()
 
     def find_by_login(self, login: str) -> Optional[Usuario]:
+        """Busca por login entre usuários 'ativo' ou 'pendente' (inativos
+        ficam de fora)."""
         return Usuario.query.filter(
             Usuario.user_login == login,
             or_(Usuario.status == "ativo", Usuario.status == "pendente"),
         ).first()
+
+    def find_by_user_login(self, login: str) -> Optional[Usuario]:
+        """Busca por login em QUALQUER status (inclui 'inativo').
+
+        Usado na checagem de duplicidade: o login de um usuário inativo
+        continua ocupado. O login de autenticação usa find_by_login.
+        """
+        return Usuario.query.filter_by(user_login=login).first()
 
     def find_by_cpf_hash(self, cpf_hash: str) -> Optional[Usuario]:
         """Busca por HMAC-SHA256 do CPF (índice determinístico); ver nota em
@@ -79,7 +91,7 @@ class UsuarioRepository(IRepository[Usuario]):
         return row[0] if row else None
 
     def remover_credenciais(self, id_usuario: int, commit: bool = True) -> int:
-        """Remove TODAS as credenciais WebAuthn de um usuário.
+        """Remove TODAS as credenciais de 2º fator (WebAuthn e TOTP) de um usuário.
 
         Usado pelo reset de 2FA disparado por um super admin
         (UsuarioService.reset_2fa / reset_total). Diferente da
@@ -90,11 +102,11 @@ class UsuarioRepository(IRepository[Usuario]):
         novo no próximo login.
 
         Retorno:
-            Quantidade de credenciais removidas.
+            Quantidade de credenciais removidas (WebAuthn + TOTP).
         """
         apagadas = CredencialWebAuthn.query.filter_by(id_usuario=id_usuario).delete()
         apagadas += CredencialTOTP.query.filter_by(id_usuario=id_usuario).delete()
-        
+
         if commit:
             db.session.commit()
         else:
@@ -109,9 +121,6 @@ class UsuarioRepository(IRepository[Usuario]):
             db.session.flush()
         return entity
 
-    def save_sem_commit(self, entity):
-        return entity
-
     def delete(self, id: int) -> bool:
         u = self.find_by_id(id)
         if not u:
@@ -124,6 +133,11 @@ class UsuarioRepository(IRepository[Usuario]):
         return Usuario.query.filter_by(id_empresa=id_empresa).all()
 
     def find_all_param(self, id_empresa: int, offset: int = 0, especialidade: str = None, status: str = None, nome: str = None, email: str = None, cpf: str = None):
+        """Lista paginada (8 por página) de usuários não-super-admin da
+        empresa, com filtros opcionais de especialidade e status.
+
+        `nome`, `email` e `cpf` ainda não são aplicados (ver TODO).
+        """
         filtros = {
             "id_empresa": id_empresa,
             "is_super_admin": 0
@@ -209,7 +223,7 @@ class UsuarioRepository(IRepository[Usuario]):
                 Usuario.id_empresa == id_empresa,
                 Usuario.status == "ativo",
                 Usuario.is_super_admin == False,
-                db.or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
+                or_(Usuario.ultimo_acesso < limite, Usuario.ultimo_acesso.is_(None)),
             )
             .all()
         )
@@ -233,11 +247,27 @@ class UsuarioRepository(IRepository[Usuario]):
         )
     
     def salvar_pfp(self, usuario: Usuario, novo_filename: str) -> Usuario:
-        usuario.avatar_filename = novo_filename
-        db.session.commit()
+        """Grava o nome do novo avatar no usuário e commita.
+
+        Em caso de falha faz rollback e repropaga o erro, para quem chama
+        poder descartar o arquivo já enviado ao storage.
+        """
+        try:
+            usuario.avatar_filename = novo_filename
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return usuario
     
     def deletar_pfp(self, id: int):
+        """Limpa a referência de avatar do usuário e commita.
+
+        Retorno:
+            (usuario, avatar_antigo): avatar_antigo é o filename removido
+            do banco, ou None se não havia avatar; (None, None) se o
+            usuário não existir.
+        """
         usuario = self.find_by_id(id)
         
         if not usuario:
@@ -249,7 +279,4 @@ class UsuarioRepository(IRepository[Usuario]):
             db.session.commit()
             return usuario, avatar_antigo
         
-        # Retorna o usuário, mas indica que não havia avatar antigo para deletar no storage
         return usuario, None
-        
-    

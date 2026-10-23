@@ -1,5 +1,11 @@
-"""Funções de validação/autorização usadas por UsuarioService na
-atualização de cadastro (ver service_atualizar.py).
+"""service_validacoes.py -- validações de autorização e unicidade do Usuario.
+
+Reúne as checagens que o service aplica antes de alterar um cadastro:
+quem pode editar quem, quais campos exigem privilégio, como a função
+clínica pode ser trocada, que o cargo de admin não muda por edição e que
+CPF, e-mail e login continuam únicos. São funções soltas que recebem o
+service como `self` e são anexadas à classe UsuarioService, só para
+manter o service principal enxuto.
 """
 
 from src.core.exceptions import ConflictoError, DadosInvalidosError
@@ -12,36 +18,38 @@ def _valida_permissao_edicao(
     dados: dict,
     solicitante_is_admin: bool,
     solicitante_eh_super_admin: bool,
-    eh_auto_edicao: bool,
     u: "Usuario",
 ):
-    """Valida se o solicitante tem permissão para os campos enviados.
+    """Valida se o solicitante pode editar este usuário e estes campos.
 
-    Cobre estas regras de autorização:
-      1. Ninguém que não seja super admin pode alterar um usuário que
-         já é admin (comum ou super) -- nem outro admin comum, nem o
-         próprio super admin (que tem outras proteções específicas
-         contra auto-rebaixamento em service.py e
-         service_atualizar.py). Um admin comum não pode editar nenhum
-         admin, incluindo ele mesmo neste sentido de dados restritos.
-      2. Usuários não-admin não podem alterar campos restritos (tipo
-         de usuário, registros profissionais).
+    Regras:
+      1. Só o super admin altera o cadastro de um usuário que já é admin
+         (comum ou super). Isso vale também para um admin comum editando
+         a si mesmo.
+      2. Quem não é admin não pode enviar campos restritos
+         (CAMPOS_RESTRITOS_A_ADMIN).
+      3. Senha nunca é alterada por edição de cadastro, nem pelo próprio
+         usuário: a troca é feita em alterar_senha (com step-up) e o
+         reset por um admin em resetar_senha_usuario.
 
     Parâmetros:
-        dados: dicionário parcial com os campos a alterar.
-        solicitante_is_admin: se True, o solicitante é admin (comum
-            ou super).
-        solicitante_eh_super_admin: se True, o solicitante é
-            especificamente o super admin da empresa.
-        eh_auto_edicao: se True, o solicitante está editando a si mesmo.
-        u: instância atual do Usuario, usada para comparar valores.
+        dados: payload parcial com os campos a alterar.
+        solicitante_is_admin: se o solicitante é admin (comum ou super).
+        solicitante_eh_super_admin: se é especificamente o super admin.
+        u: usuário sendo editado.
 
     Levanta:
-        DadosInvalidosError: se alguma das regras de autorização for violada.
+        DadosInvalidosError: se alguma regra for violada.
     """
     if u.is_admin and not solicitante_eh_super_admin:
         raise DadosInvalidosError(
             "Apenas o administrador principal pode alterar o cadastro de um administrador."
+        )
+
+    if "senha" in dados:
+        raise DadosInvalidosError(
+            "A senha não pode ser alterada por edição de cadastro. "
+            "Use a troca de senha."
         )
 
     if not solicitante_is_admin:
@@ -55,19 +63,17 @@ def _valida_permissao_edicao(
 def _valida_troca_tipo(self, papel_atual: str | None, novo_papel: str | None, papel_mudou: bool, dados: dict):
     """Valida a troca de função clínica (médico <-> enfermeiro <-> nenhuma).
 
-    Cobre só o eixo de função clínica -- a troca de/para admin é
-    validada separadamente por _valida_alteracao_admin.
+    Só olha a função clínica; o cargo de admin é validado por
+    _valida_alteracao_admin.
 
     Parâmetros:
-        papel_atual: função clínica antes da atualização
-            ("medico"/"enfermeiro"/None).
-        novo_papel: função clínica resultante da atualização.
-        papel_mudou: se True, a função clínica está sendo alterada.
-        dados: dicionário parcial com os campos enviados na requisição.
+        papel_atual: função antes da atualização ("medico"/"enfermeiro"/None).
+        novo_papel: função resultante.
+        papel_mudou: se a função está mudando.
+        dados: payload da requisição (formato da API, chaves com hífen).
 
     Levanta:
-        DadosInvalidosError: se os atributos exigidos pelo novo papel
-            não estiverem completos.
+        DadosInvalidosError: se faltarem os dados exigidos pelo novo papel.
     """
     if not papel_mudou:
         return
@@ -82,21 +88,17 @@ def _valida_troca_tipo(self, papel_atual: str | None, novo_papel: str | None, pa
         )
 
 
-def _valida_alteracao_admin(self, is_admin_atual: bool, novo_is_admin: bool, admin_mudou: bool):
-    """Valida o eixo is_admin isoladamente, independente da função clínica.
+def _valida_alteracao_admin(self, admin_mudou: bool):
+    """Impede qualquer mudança do cargo de admin por edição de cadastro.
 
-    Cargo de admin nunca é alterado por edição de cadastro (nem
-    promover, nem rebaixar), para qualquer solicitante, inclusive o
-    super admin. Virar admin só acontece em criar(); rebaixar um admin
-    nunca é permitido.
+    Nem promover nem rebaixar, para qualquer solicitante, inclusive o
+    super admin. Virar admin só acontece na criação.
 
     Parâmetros:
-        is_admin_atual: se o usuário já é admin antes da atualização.
-        novo_is_admin: valor de is_admin resultante da atualização.
-        admin_mudou: se True, is_admin está sendo alterado no payload.
+        admin_mudou: se is_admin está sendo alterado pelo payload.
 
     Levanta:
-        DadosInvalidosError: se o payload tentar mudar is_admin.
+        DadosInvalidosError: se admin_mudou for True.
     """
     if admin_mudou:
         raise DadosInvalidosError(
@@ -108,11 +110,11 @@ def _checar_duplicidade(self, *, cpf_hash=None, email=None, login=None, ignorar_
     """Garante unicidade de CPF, e-mail e login entre usuários.
 
     Parâmetros:
-        cpf_hash: hash do CPF a validar, ou None para pular a checagem.
-        email: e-mail a validar, ou None para pular a checagem.
-        login: login a validar, ou None para pular a checagem.
-        ignorar_uuid: UUID do próprio usuário, para não conflitar
-            consigo mesmo em uma atualização.
+        cpf_hash: hash do CPF a checar, ou None para pular.
+        email: e-mail a checar, ou None para pular.
+        login: login a checar, ou None para pular.
+        ignorar_uuid: UUID do próprio usuário, para não conflitar consigo
+            mesmo numa atualização.
 
     Levanta:
         ConflictoError: se algum valor já pertencer a outro usuário.
@@ -120,7 +122,7 @@ def _checar_duplicidade(self, *, cpf_hash=None, email=None, login=None, ignorar_
     checagens = (
         (cpf_hash, self.repo.find_by_cpf_hash, "CPF"),
         (email, self.repo.find_by_email, "E-mail"),
-        (login, self.repo.find_by_login, "Login"),
+        (login, self.repo.find_by_user_login, "Login"),
     )
     for valor, buscador, rotulo in checagens:
         if not valor:

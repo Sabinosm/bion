@@ -1,33 +1,35 @@
-"""Rotas JSON do dominio Usuario (CRUD administrativo).
+"""controller.py -- rotas JSON do domínio Usuario.
 
-@requer_admin protege as rotas administrativas checando g.is_admin. Em
-atualizar(), a exigencia de reconfirmacao de identidade (step-up) e
-condicional ao conteudo do payload: so dispara quando o usuario tenta
-alterar is_admin ou tipo_papel, ja que o mesmo endpoint tambem edita
-campos triviais (telefone, email) que nao devem pedir reconfirmacao.
-criar()/atualizar()/desativar()/ativar() repassam g.is_super_admin ao
-service, que decide se o solicitante pode mexer num usuario que ja e
-admin.
+Expõe o CRUD administrativo de usuários (listar, detalhar, criar,
+atualizar, ativar, desativar), os resets de credencial feitos pelo
+administrador principal (2FA, senha, reset completo), a troca de senha
+pelo próprio usuário e o gerenciamento da foto de perfil.
 
-IMPORTANTE -- contrato com @acao_sensivel:
-Toda view decorada com @acao_sensivel PRECISA retornar
-(resposta_flask, detalhes), com pelo menos 'id_registro' e
-'uuid_registro' em detalhes -- ver acaoSensivel.py. Sem isso, o
-decorator levanta ValueError e faz rollback de QUALQUER alteração
-pendente na sessão, mesmo que a resposta HTTP já tenha sido montada
-como sucesso. Isso vale inclusive para os retornos de erro precoce
-(ex: checagem de super admin) dentro dessas views -- por isso cada
-retorno abaixo, mesmo os de erro, devolve a tupla.
+@requer_admin só garante "é admin de alguma empresa"; operações sobre
+outros administradores e os resets exigem o super admin (g.is_super_admin),
+checado aqui e de novo no service. A atualização exige reconfirmação de
+identidade (step-up) apenas quando o payload mexe em is_admin ou
+tipo_papel, pois o mesmo endpoint edita campos triviais (telefone, e-mail,
+CRM/COREN). A troca de senha pelo próprio usuário também exige step-up.
+Todo acesso a um usuário-alvo é restrito à empresa da sessão.
+
+IMPORTANTE -- contrato com @acao_sensivel: toda view decorada precisa
+retornar (resposta_flask, detalhes), com ao menos 'id_registro' e
+'uuid_registro' em detalhes (ver acaoSensivel.py). Sem isso o decorator
+levanta ValueError e faz rollback de QUALQUER alteração pendente na
+sessão, mesmo com a resposta HTTP já montada como sucesso. Vale também
+para retornos de erro precoce: nesses casos os detalhes vão "vazios"
+(id_registro=None, operacao="NOOP"), só para cumprir o contrato.
 """
 
 from flask import Blueprint, request, g
 from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
-from src.core.exceptions import BionException, RecursoNaoEncontradoError
+from src.core.exceptions import BionException
 from src.core.session import requer_login, requer_admin, get_id_empresa_sessao, get_id_usuario_sessao
 from .services.service import UsuarioService
-from src.domains.auth.step_up import StepUp, token_recente_valido
+from src.domains.auth.step_up import token_recente_valido
 from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("usuario", __name__)
@@ -52,7 +54,7 @@ class UsuarioController():
     @requer_admin
     def detalhe(uuid):
         try:
-            u = _svc.buscar_por_uuid(uuid)
+            u = _svc.buscar_por_uuid_da_empresa(uuid, get_id_empresa_sessao())
             return json_success(data=u.to_dict(True))
         except BionException as e:
             return json_error(e.message, e.status_code)
@@ -66,7 +68,7 @@ class UsuarioController():
             u = _svc.criar(
                 id_empresa=get_id_empresa_sessao(),
                 dados=dados,
-                commitar=True,
+                commit=True,
                 solicitante_eh_super_admin=g.is_super_admin,
             )
             return json_success(data=u.to_dict(), message="Usuário criado com sucesso.", status=201)
@@ -79,9 +81,6 @@ class UsuarioController():
     @bp.put("/<uuid>")
     @requer_admin
     def atualizar(uuid):
-        if uuid != g.uuid_usuario and not g.is_admin:
-            return json_error("Você só pode atualizar o seu próprio cadastro.", 403)
-
         dados = request.get_json(silent=True) or {}
 
         # Step-up condicional: só exige reconfirmação de identidade quando
@@ -103,6 +102,7 @@ class UsuarioController():
                 dados,
                 solicitante_is_admin=g.is_admin,
                 solicitante_uuid=g.uuid_usuario,
+                id_empresa_solicitante=get_id_empresa_sessao(),
                 solicitante_eh_super_admin=g.is_super_admin,
             )
             return json_success(data=u.to_dict(), message="Usuário atualizado.")
@@ -117,7 +117,12 @@ class UsuarioController():
     @acao_sensivel(acao="desativar_profissional", tabela="Usuarios")
     def desativar(uuid):
         try:
-            u = _svc.desativar(uuid, solicitante_eh_super_admin=g.is_super_admin, commit=False)
+            u = _svc.desativar(
+                uuid,
+                id_empresa_solicitante=get_id_empresa_sessao(),
+                solicitante_eh_super_admin=g.is_super_admin,
+                commit=False,
+            )
             resposta = json_success(data=u.to_dict(), message="Usuário desativado.")
             return resposta, {
                 "id_registro": u.id,
@@ -127,9 +132,6 @@ class UsuarioController():
                 "valor_novo": "inativo",
             }
         except BionException as e:
-            # Nenhuma alteração foi feita na sessão -- devolver detalhes
-            # "vazios" mas presentes, só para satisfazer o contrato do
-            # decorator sem fingir que um registro foi afetado.
             resposta = json_error(e.message, e.status_code)
             return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
@@ -139,7 +141,12 @@ class UsuarioController():
     @acao_sensivel(acao="ativar_profissional", tabela="Usuarios")
     def ativar(uuid):
         try:
-            u = _svc.ativar(uuid, solicitante_eh_super_admin=g.is_super_admin)
+            u = _svc.ativar(
+                uuid,
+                id_empresa_solicitante=get_id_empresa_sessao(),
+                solicitante_eh_super_admin=g.is_super_admin,
+                commit=False,
+            )
             if u:
                 resposta = json_success(data=u.to_dict(), message="Usuário ativado.")
                 return resposta, {
@@ -161,8 +168,6 @@ class UsuarioController():
     @requer_admin
     @acao_sensivel(acao="resetar_2fa_usuario", tabela="Usuarios")
     def resetar_2fa(uuid_usuario):
-        # @requer_admin garante só "é admin de alguma empresa"; resetar
-        # 2FA de terceiros exige especificamente o super admin.
         if not g.is_super_admin:
             resposta = json_error(
                 "Apenas o administrador principal pode resetar o 2FA de um usuário.",
@@ -229,6 +234,13 @@ class UsuarioController():
     @requer_login
     @acao_sensivel(acao="alterar_senha", tabela="Usuarios")
     def alterar_senha():
+        if not token_recente_valido("alterar_senha"):
+            resposta = json_error(
+                "Confirmação de identidade necessária para alterar a senha.",
+                403,
+            )
+            return resposta, {"id_registro": None, "uuid_registro": g.uuid_usuario, "operacao": "NOOP"}
+
         dados = request.get_json(silent=True) or {}
         try:
             u = _svc.alterar_senha(g.uuid_usuario, dados, commit=False)
@@ -250,10 +262,8 @@ class UsuarioController():
     @requer_admin
     @acao_sensivel(acao="resetar_senha_usuario", tabela="Usuarios")
     def resetar_senha(uuid_usuario):
-        # Reset isolado de senha (diferente de resetar_completo: aqui só
-        # a senha muda, WebAuthn e status permanecem intactos). Sem senha
-        # temporária no retorno: o usuário define a própria no próximo
-        # login, caindo no fluxo de onboarding já existente.
+        # Só a senha muda (2FA e status ficam intactos) e nenhuma senha
+        # temporária é devolvida: o usuário define a nova no onboarding.
         if not g.is_super_admin:
             resposta = json_error(
                 "Apenas o administrador principal pode resetar a senha de um usuário.",
@@ -282,7 +292,7 @@ class UsuarioController():
         except BionException as e:
             resposta = json_error(e.message, e.status_code)
             return resposta, {"id_registro": None, "uuid_registro": uuid_usuario, "operacao": "NOOP"}
-    
+
     @staticmethod
     @bp.get("/avatar")
     @requer_login
@@ -298,20 +308,18 @@ class UsuarioController():
     @staticmethod
     @bp.delete("/avatar")
     @requer_login
-    def remover_avatar():            
+    def remover_avatar():
         try:
             usuario = _svc.remover_avatar_usuario(get_id_usuario_sessao())
-            
             if not usuario:
-                raise RecursoNaoEncontradoError("Nenhuma imagem encontrada para ser deletada.", 404)
-            
+                return json_error("Nenhuma imagem encontrada para ser deletada.", 404)
             return json_success(data=usuario.to_dict(), message="Avatar removido com sucesso.")
         except BionException as e:
             return json_error(e.message, e.status_code)
 
     @staticmethod
     @bp.post("/avatar")
-    @requer_login 
+    @requer_login
     def atualizar_avatar():
         if 'file' not in request.files or request.files['file'].filename == '':
             return json_error("Nenhum arquivo foi selecionado.", 400)

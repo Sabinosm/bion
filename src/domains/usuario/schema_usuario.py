@@ -1,45 +1,33 @@
-"""
-Schemas Pydantic para o recurso Usuario (cadastro, atualização e troca de senha).
+"""schema_usuario.py -- schemas Pydantic do recurso Usuario.
 
-Contém:
-- CadastroUsuarioSchema: payload de criação de usuário. Todo usuário deve
-  ser administrador (is_admin=True) e/ou ter uma função clínica
-  (tipo_papel="medico" | "enfermeiro"); as duas coisas são independentes
-  e podem coexistir (ex.: admin que também atende clinicamente).
-  Médicos exigem numero-crm/uf-crm; enfermeiros exigem numero-coren/
-  uf-coren/especialidade. Senha só é aceita no cadastro para o super
-  admin fundador — médicos e enfermeiros comuns recebem acesso por um
-  fluxo de ativação separado (ver UsuarioService).
-- AtualizacaoUsuarioSchema: mesma validação de formato do cadastro, mas
-  com todos os campos opcionais (update parcial). is_admin usa
-  Optional[bool] com None = "não alterar" e False = "remover admin
-  explicitamente". A invariante "usuário final precisa ter admin ou
-  papel clínico" não é checada aqui porque depende do estado atual do
-  usuário no banco — isso é responsabilidade do service, após mesclar
-  o payload com os dados existentes.
-- AlterarSenhaSchema: payload de troca de senha por autoatendimento.
-  Não tem campo de senha atual porque a prova de identidade já ocorre
-  no step-up (WebAuthn ou senha+Google) antes do endpoint ser chamado.
+Define a validação de entrada de três operações: cadastro de usuário,
+atualização parcial e troca de senha pelo próprio usuário. Todo usuário
+deve ser administrador e/ou ter função clínica (médico ou enfermeiro),
+duas condições independentes que podem coexistir. Cada função clínica
+exige seus próprios dados de conselho profissional, e a senha só é aceita
+no cadastro do administrador principal fundador; os demais recebem acesso
+por um fluxo de ativação separado, decidido no service.
 
-Exceções de domínio: DadosInvalidosError, ConflictoError.
+A atualização reaproveita as regras de formato do cadastro com todos os
+campos opcionais. A regra "usuário final precisa ter admin ou função
+clínica" depende do estado salvo no banco, então na atualização é checada
+pelo service após mesclar o payload com os dados atuais. A troca de senha
+não pede a senha atual, pois a prova de identidade já ocorre no step-up.
 """
 
 import re
 from typing import Optional, Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from src.core import validacoes as vl
-from src.core.erros_pydantic import erros_pydantic_por_campo
-
-class DadosInvalidosError(Exception):
-    """Erro de validação de dados de entrada (camada de negócio)."""
-
-    pass
+from src.core.erros_pydantic import erros_pydantic_por_campo  # noqa: F401 (reexportado)
+# Reexportadas para quem ainda importa daqui; são as mesmas classes de BionException.
+from src.core.exceptions import DadosInvalidosError, ConflictoError  # noqa: F401
 
 
-# Regras de formato reaproveitáveis
 REGEX_LOGIN = re.compile(r"^[a-zA-Z0-9._@-]{3,30}$")
 REGEX_UF = re.compile(r"^[A-Z]{2}$")
+REGEX_NOME = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$")
 
 
 class CadastroUsuarioSchema(BaseModel):
@@ -54,7 +42,6 @@ class CadastroUsuarioSchema(BaseModel):
     telefone: Optional[str] = None
     senha: Optional[str] = Field(None, min_length=8, max_length=128)
 
-    # Campos específicos opcionais no payload geral
     numero_crm: Optional[str] = Field(None, alias="numero-crm")
     uf_crm: Optional[str] = Field(None, alias="uf-crm")
     rqe: Optional[str] = None
@@ -69,33 +56,39 @@ class CadastroUsuarioSchema(BaseModel):
         "extra": "forbid",
     }
 
-    # -- Validadores de campo individuais -----------------------------------
+    # -- Validadores de campo (tolerantes a None para servir à atualização) --
 
     @field_validator("nome_completo")
     @classmethod
-    def valida_nome_completo(cls, v: str) -> str:
+    def valida_nome_completo(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         partes = v.split()
         if len(partes) < 2:
             raise ValueError("Informe nome e sobrenome.")
-        if not all(re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$", p) for p in partes):
+        if not all(REGEX_NOME.match(p) for p in partes):
             raise ValueError("Nome completo contém caracteres inválidos.")
         return v
 
     @field_validator("cpf")
     @classmethod
-    def valida_e_limpa_cpf(cls, v: str) -> str:
+    def valida_e_limpa_cpf(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         if not vl.validar_cpf(v):
             raise ValueError("O CPF está incorreto.")
         return re.sub(r"\D", "", v)
 
     @field_validator("email")
     @classmethod
-    def normaliza_email(cls, v: str) -> str:
-        return v.lower()
+    def normaliza_email(cls, v: Optional[str]) -> Optional[str]:
+        return v.lower() if v else v
 
     @field_validator("user_login")
     @classmethod
-    def valida_login(cls, v: str) -> str:
+    def valida_login(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         if not REGEX_LOGIN.match(v):
             raise ValueError(
                 "Login deve ter 3-30 caracteres e conter apenas letras, "
@@ -145,7 +138,6 @@ class CadastroUsuarioSchema(BaseModel):
     @field_validator("senha")
     @classmethod
     def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
-        """Reaproveita vl.validar_senha (mesma função usada na atualização)."""
         if v is None:
             return None
         senha_valida, resposta = vl.validar_senha(v)
@@ -155,21 +147,12 @@ class CadastroUsuarioSchema(BaseModel):
 
     # -- Validação cruzada entre campos --------------------------------------
 
-    @model_validator(mode="after")
-    def valida_campos_por_profissao(self):
-        """
-        tipo_papel e is_admin são checagens independentes (podem ambos ser
-        verdadeiros: admin que também atende clinicamente). Todo usuário
-        precisa ser admin ou ter um papel clínico definido — nunca nenhum
-        dos dois, pra evitar conta "fantasma" sem regra de autorização
-        aplicável. A obrigatoriedade/proibição de senha por tipo de conta
-        (só o super admin fundador pode ter senha no cadastro) é resolvida
-        no service via is_super_admin, não aqui.
-        """
+    def _valida_dados_profissionais(self):
+        """Confere os dados de conselho exigidos (ou proibidos) para o
+        tipo_papel e a regra de senha de médicos/enfermeiros."""
         if self.tipo_papel == "medico":
             if not self.numero_crm or not self.uf_crm:
                 raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
-            # Exceção: admin fundador que também é médico já recebe senha no cadastro.
             if self.senha and not self.is_admin:
                 raise ValueError(
                     "Médicos não devem informar 'senha' no cadastro; o acesso "
@@ -188,7 +171,6 @@ class CadastroUsuarioSchema(BaseModel):
                 )
 
         else:
-            # Sem profissão clínica: não deve vir com campos de médico/enfermeiro.
             campos_indevidos = [
                 nome
                 for nome, valor in [
@@ -205,37 +187,36 @@ class CadastroUsuarioSchema(BaseModel):
                     f"Sem 'tipo_papel' definido, não deve informar: {', '.join(campos_indevidos)}."
                 )
 
+    @model_validator(mode="after")
+    def valida_campos_por_profissao(self):
+        """tipo_papel e is_admin são independentes (admin que também
+        atende). Todo usuário precisa de pelo menos um dos dois, para não
+        existir conta sem regra de autorização aplicável. A regra de senha
+        por tipo de admin (só o fundador define senha) fica no service."""
+        self._valida_dados_profissionais()
+
         if not self.is_admin and self.tipo_papel is None:
             raise ValueError(
                 "Usuário sem 'is_admin' precisa ter 'tipo_papel' definido "
                 "('medico' ou 'enfermeiro') — todo usuário precisa ser "
                 "administrador ou ter uma função clínica."
             )
-
         return self
 
 
-class ConflictoError(Exception):
-    """CPF, e-mail ou login já cadastrados para outro usuário."""
-
-    pass
-
-
 class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
-    """
-    Payload de update parcial: mesmas regras de formato do cadastro, mas
-    nada é obrigatório — o cliente só envia o que quer alterar.
+    """Payload de PUT /usuarios/<uuid>: update parcial, nada é obrigatório.
 
-    is_admin é Optional[bool] = None aqui (diferente do default False no
-    cadastro): None significa "não veio no payload, não mexer"; False
-    significa "remover admin explicitamente". O service precisa
-    distinguir os dois casos ao mesclar com os dados atuais.
+    is_admin é Optional[bool] = None (no cadastro o default é False): None
+    significa "não veio, não mexer". Na prática o service rejeita qualquer
+    mudança de is_admin por edição de cadastro.
 
-    A invariante "usuário precisa ter admin ou papel clínico" (herdada
-    do cadastro) é sobrescrita abaixo: num update parcial, ausência dos
-    dois campos é o caso comum (payload não mexe neles) e não deve
-    disparar erro — essa checagem só faz sentido após o service mesclar
-    o payload com o estado atual do usuário no banco.
+    As regras que dependem do estado atual (função clínica, dados de
+    conselho, "precisa ter admin ou função clínica") não são checadas
+    aqui: o payload parcial não as tem por inteiro (ex.: dá para mudar só
+    o CRM sem enviar tipo_papel). O service as valida depois, ao mesclar o
+    payload com os dados salvos e revalidar como cadastro completo. Os
+    validadores de formato dos campos são herdados do cadastro.
     """
 
     nome_completo: Optional[str] = Field(None, min_length=3, max_length=150)
@@ -248,102 +229,14 @@ class AtualizacaoUsuarioSchema(CadastroUsuarioSchema):
 
     @model_validator(mode="after")
     def valida_campos_por_profissao(self):
-        """Mesma lógica de CRM/COREN/campos-indevidos do cadastro, mas sem a
-        checagem de "sem admin e sem papel" — inaplicável a update parcial."""
-        if self.tipo_papel == "medico":
-            if not self.numero_crm or not self.uf_crm:
-                raise ValueError("Médicos precisam preencher 'numero-crm' e 'uf-crm'.")
-            if self.senha and not self.is_admin:
-                raise ValueError(
-                    "Médicos não devem informar 'senha' no cadastro; o acesso "
-                    "é definido em um fluxo de ativação de conta separado."
-                )
-
-        elif self.tipo_papel == "enfermeiro":
-            if not self.numero_coren or not self.uf_coren or not self.especialidade:
-                raise ValueError(
-                    "Enfermeiros precisam preencher 'numero-coren', 'uf-coren' e 'especialidade'."
-                )
-            if self.senha and not self.is_admin:
-                raise ValueError(
-                    "Enfermeiros não devem informar 'senha' no cadastro; o acesso "
-                    "é definido em um fluxo de ativação de conta separado."
-                )
-
-        else:
-            campos_indevidos = [
-                nome
-                for nome, valor in [
-                    ("numero-crm", self.numero_crm),
-                    ("uf-crm", self.uf_crm),
-                    ("numero-coren", self.numero_coren),
-                    ("uf-coren", self.uf_coren),
-                    ("especialidade", self.especialidade),
-                ]
-                if valor
-            ]
-            if campos_indevidos:
-                raise ValueError(
-                    f"Sem 'tipo_papel' definido, não deve informar: {', '.join(campos_indevidos)}."
-                )
-
-        # A checagem de "usuário final sem admin e sem papel" precisa do
-        # estado atual do banco mesclado ao payload — feita no service.
         return self
-
-    @field_validator("cpf")
-    @classmethod
-    def valida_e_limpa_cpf(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        if not vl.validar_cpf(v):
-            raise ValueError("O CPF está incorreto.")
-        return re.sub(r"\D", "", v)
-
-    @field_validator("user_login")
-    @classmethod
-    def valida_login(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        if not REGEX_LOGIN.match(v):
-            raise ValueError(
-                "Login deve ter 3-30 caracteres e conter apenas letras, "
-                "números, ponto, hífen, underline ou @."
-            )
-        return v.lower()
-
-    @field_validator("senha")
-    @classmethod
-    def valida_forca_senha(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        senha_valida, resposta = vl.validar_senha(v)
-        if senha_valida:
-            return v
-        raise ValueError(resposta["erro"])
-
-    @field_validator("nome_completo")
-    @classmethod
-    def valida_nome_completo(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        partes = v.split()
-        if len(partes) < 2:
-            raise ValueError("Informe nome e sobrenome.")
-        if not all(re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ'\-]+$", p) for p in partes):
-            raise ValueError("Nome completo contém caracteres inválidos.")
-        return v
 
 
 class AlterarSenhaSchema(BaseModel):
-    """
-    Payload de PUT /usuarios/senha — troca de senha pelo próprio usuário
-    autenticado (ver UsuarioService.alterar_senha).
+    """Payload de PUT /usuarios/senha: troca de senha pelo próprio usuário.
 
-    Sem campo `senha_atual`: a prova de identidade já ocorre no step-up
-    (WebAuthn, ou senha+Google com prompt=login) antes deste endpoint ser
-    chamado, então pedir a senha atual de novo duplicaria uma prova sem
-    ganho de segurança (ver step_up.py).
+    Sem `senha_atual`: a prova de identidade deveria ocorrer no step-up
+    antes do endpoint (ver step_up.py).
     """
 
     senha_nova: str = Field(..., min_length=8, max_length=128)

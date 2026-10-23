@@ -1,4 +1,11 @@
-"""Funções puras e constantes de apoio ao domínio Usuario."""
+"""service_helpers.py -- apoio puro ao domínio Usuario.
+
+Reúne constantes e funções sem acesso a banco nem efeitos colaterais,
+usadas pelo cadastro e pela atualização de usuário. Ficam aqui as listas
+de campos (editáveis e restritos a admin) e a conversão entre o formato
+do payload da API e os atributos do papel profissional (função clínica)
+do usuário.
+"""
 
 CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "nome_completo",
@@ -7,10 +14,10 @@ CAMPOS_SIMPLES_ATUALIZAVEIS = (
     "user_login",
 )
 
-# As chaves com hífen (numero-crm etc) são o formato do payload de
-# ENTRADA da API, mantido por compatibilidade com o front. is_admin e
-# tipo_papel são os dois eixos ortogonais de permissão/registro
-# profissional, ambos restritos a admin.
+# Chaves com hífen (numero-crm etc) são o formato do payload de ENTRADA
+# da API, mantido por compatibilidade com o front. is_admin e tipo_papel
+# são eixos independentes de permissão/função clínica, ambos restritos a
+# admin. Obs.: "senha" não está nesta lista.
 CAMPOS_RESTRITOS_A_ADMIN = (
     "is_admin",
     "tipo_papel",
