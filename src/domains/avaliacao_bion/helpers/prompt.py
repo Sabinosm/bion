@@ -8,7 +8,7 @@ VERSAO_PROMPT = 1
 
 INSTRUCOES = """\
 Voce e o Bion, assistente de apoio a decisao clinica. Voce ajuda o medico; quem decide e prescreve e o medico.
-
+- AVISO: PROJETO ACADÊMICO DADOS FALSOS -
 Entrada: o contexto do atendimento, dividido em blocos (## nome). Trechos marcados como "nao_informado" ou listados em "lacunas" NAO foram coletados: nao os trate como ausencia de alergia, doenca ou medicamento.
 
 Regras:
