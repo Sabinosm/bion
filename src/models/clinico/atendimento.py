@@ -71,6 +71,7 @@ class Atendimento(db.Model):
             "observacoes_profissional": self.observacoes_profissional,
             "motivo_cancelamento": self.motivo_cancelamento,
             "consulta_uuid": self.consulta.uuid if self.consulta else None,
+            "realizado_por": self.realizado_por,
         }
 
     def __repr__(self):
