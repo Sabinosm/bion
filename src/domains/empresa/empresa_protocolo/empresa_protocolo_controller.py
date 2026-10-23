@@ -23,9 +23,9 @@ bp = Blueprint("empresa_protocolo", __name__)
 _svc = EmpresaProtocoloService()
 
 
-def _auditoria(id_registro, operacao):
+def _auditoria(id_registro, operacao, uuid_registro):
     """Metadados de auditoria da ação. id_registro é o id do protocolo do catálogo; uuid_registro não é preenchido."""
-    return {"id_registro": id_registro, "uuid_registro": None, "operacao": operacao}
+    return {"id_registro": id_registro, "uuid_registro": uuid_registro, "operacao": operacao}
 
 
 def _serializar_item(item: dict) -> dict:
@@ -64,11 +64,12 @@ class EmpresaProtocoloController:
         try:
             catalogo = _svc.resolver_catalogo(uuid_protocolo)
             id_registro = catalogo.id
+            uuid_registro = catalogo.uuid
             vinculo = _svc.alterar_status(id_empresa, catalogo, dados)
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
                 message="Status do protocolo atualizado.")
-            return resposta, _auditoria(id_registro, "UPDATE")
+            return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
             return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")
 
@@ -87,10 +88,11 @@ class EmpresaProtocoloController:
         try:
             catalogo = _svc.resolver_catalogo(uuid_protocolo)
             id_registro = catalogo.id
+            uuid_registro = catalogo.uuid
             vinculo = _svc.definir_default_institucional(id_empresa, catalogo, dados)
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
                 message="Protocolo padrão institucional definido.")
-            return resposta, _auditoria(id_registro, "UPDATE")
+            return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
             return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")
