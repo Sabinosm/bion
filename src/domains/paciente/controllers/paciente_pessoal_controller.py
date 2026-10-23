@@ -41,7 +41,7 @@ from flask import Blueprint, request, session
 
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin
+from src.core.session import requer_login, requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin, requer_admin_ou_papel_clinico
 from src.domains.paciente.services import PacienteService
 from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
 
@@ -110,10 +110,9 @@ class PacientePessoalController():
     @requer_login
     @acesso_auditado(recurso="visualizar dados pessoais paciente", operacao="leitura")
     def detalhe(uuid):
-        com_pii = _pode_ver_clinico()
         try:
             p = _svc.buscar_por_uuid(uuid, get_id_empresa_sessao())
-            return json_success(data=_serializar(p, com_pii))
+            return json_success(data=_serializar(p, True))
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 
@@ -132,7 +131,7 @@ class PacientePessoalController():
 
     @staticmethod
     @bp.put("/<uuid>")
-    @requer_papel_clinico("medico", "enfermeiro", "admin")
+    @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     def atualizar_pessoal(uuid):
         dados = request.get_json(silent=True) or {}
         try:
