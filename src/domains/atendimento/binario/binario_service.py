@@ -131,6 +131,113 @@ class BinarioService:
             "secoes": secoes,
         }
 
+    # ------------------------------------------- binário a partir do paciente
+    @staticmethod
+    def _entrada_alergia(a) -> dict:
+        """Formato de AlergiaCreateSchema (uma reação: a mais recente ativa).
+        `uuid`, `gravidade_maxima` e `reacoes` são só para exibição."""
+        return {
+            "uuid": a.uuid,
+            "substancia": a.substancia,
+            "codigo_substancia": a.codigo_substancia,
+            "flag_confirmado": a.flag_confirmado,
+            "tipo_reacao": a.tipo_reacao,
+            "gravidade": a.gravidade,
+            "descricao_reacao": a.descricao_reacao,
+            # o schema de criação só comporta 1 reação; a maior gravidade e o
+            # histórico ativo vão à parte para não se perderem na exibição
+            "gravidade_maxima": a.gravidade_maxima,
+            "reacoes": [r.to_dict() for r in a.reacoes_ativas],
+        }
+
+    @staticmethod
+    def _entrada_doenca(d) -> dict:
+        """Formato de DoencaCronicaCreateSchema."""
+        return {
+            "uuid": d.uuid,
+            "codigo_cid10": d.codigo_cid10,
+            "descricao_cid10": d.descricao_cid10,
+            "desde": d.desde.isoformat() if d.desde else None,
+            "status": d.status,
+            "observacoes": d.observacoes,
+        }
+
+    @staticmethod
+    def _entrada_medicamento(m) -> dict:
+        """Formato de MedicamentoEmUsoCreateSchema."""
+        cat = m.catalogo_medicamentos
+        return {
+            "uuid": m.uuid,
+            "uuid_catalogo": cat.uuid if cat else None,
+            "descricao": m.descricao,
+            "dose": m.dose,
+            "frequencia": m.frequencia,
+            "desde": m.desde.isoformat() if m.desde else None,
+        }
+
+    _SERIALIZADOR = {
+        "alergias": "_entrada_alergia",
+        "doenca_cronica": "_entrada_doenca",
+        "medicamentos": "_entrada_medicamento",
+    }
+
+    def binario_do_paciente(self, uuid_atendimento: str, id_empresa: int) -> dict:
+        """Binário no formato do BinarioIn, montado a partir do PACIENTE.
+
+        Registros ativos são a verdade. Seção sem registro ativo herda
+        "nega"/"nao-coletado" da última conferência confirmada (atendimentos
+        finalizados anteriores); sem histórico, fica pendente (possui=None).
+        Só leitura: não grava nada."""
+        at = self._atendimento_repo.find_by_uuid(uuid_atendimento, id_empresa)
+        if not at:
+            raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
+        paciente = at.consulta.paciente
+        anteriores = self._atendimento_repo.find_anteriores_do_paciente(
+            paciente.id, at.id, id_empresa)
+
+        binario, confirmacao, pendentes = {}, {}, []
+        for s in SECOES_BINARIO:
+            ativos = self._ativos(s, paciente.uuid, id_empresa)
+            nao_coletado = False
+
+            if ativos:
+                possui = True
+            else:
+                ultimo = self._ultimo_estado_confirmado(s, anteriores)
+                if ultimo == "nega" and s != "tipo_sanguineo":
+                    possui = False
+                elif ultimo == "nao-coletado":
+                    possui, nao_coletado = False, True
+                else:
+                    possui = None
+
+            if s == "tipo_sanguineo":
+                valor = ativos[0].tipo_sanguineo if ativos else None
+                binario[s] = {"possui": possui,
+                              "nao_foi_possivel_coletar": nao_coletado,
+                              "tipo_sanguineo": valor}
+                corpo = dict(binario[s])
+            else:
+                ser = getattr(self, self._SERIALIZADOR[s])
+                binario[s] = {"possui": possui,
+                              "nao_foi_possivel_coletar": nao_coletado,
+                              "itens": [ser(o) for o in ativos]}
+                # confirmar o que já existe: SEM itens (evita duplicar registros)
+                corpo = {"possui": possui, "nao_foi_possivel_coletar": nao_coletado, "itens": []}
+
+            if possui is None:
+                pendentes.append(s)
+            else:
+                confirmacao[s] = corpo
+
+        return {
+            "uuid_atendimento": at.uuid,
+            "binario": binario,          # para exibir/editar (com itens)
+            "confirmacao": confirmacao,  # seções resolvidas, prontas p/ POST sem duplicar
+            "pendentes": pendentes,      # seções sem base: o profissional decide
+            "completo": not pendentes,   # True => `confirmacao` serve na rota agregada
+        }
+
     def exigir_binario_completo(self, atendimento) -> None:
         exigir_binario_completo(atendimento)
 
@@ -313,109 +420,3 @@ class BinarioService:
         self._tipo.registrar_tipo_sanguineo(
             uuid_at, uuid_pac, {"tipo_sanguineo": normalizado}, autor, commit=False)
         return 1, None
-    
-    @staticmethod
-    def _entrada_alergia(a) -> dict:
-        """Formato de AlergiaCreateSchema (uma reação, a mais recente ativa).
-        `uuid`, `gravidade_maxima` e `reacoes` são só para exibição: o
-        schema não tem extra="forbid", então são ignorados se voltarem."""
-        return {
-            "uuid": a.uuid,
-            "substancia": a.substancia,
-            "codigo_substancia": a.codigo_substancia,
-            "flag_confirmado": a.flag_confirmado,
-            "tipo_reacao": a.tipo_reacao,
-            "gravidade": a.gravidade,
-            "descricao_reacao": a.descricao_reacao,
-            # display: o schema de criação só comporta 1 reação; o histórico
-            # completo e a maior gravidade vão à parte para não se perderem
-            "gravidade_maxima": a.gravidade_maxima,
-            "reacoes": [r.to_dict() for r in a.reacoes_ativas],
-        }
-
-    @staticmethod
-    def _entrada_doenca(d) -> dict:
-        """Formato de DoencaCronicaCreateSchema."""
-        return {
-            "uuid": d.uuid,
-            "codigo_cid10": d.codigo_cid10,
-            "descricao_cid10": d.descricao_cid10,
-            "desde": d.desde.isoformat() if d.desde else None,
-            "status": d.status,
-            "observacoes": d.observacoes,
-        }
-
-    @staticmethod
-    def _entrada_medicamento(m) -> dict:
-        """Formato de MedicamentoEmUsoCreateSchema."""
-        cat = m.catalogo_medicamentos
-        return {
-            "uuid": m.uuid,
-            "uuid_catalogo": cat.uuid if cat else None,
-            "descricao": m.descricao,
-            "dose": m.dose,
-            "frequencia": m.frequencia,
-            "desde": m.desde.isoformat() if m.desde else None,
-        }
-
-    _SERIALIZADOR = {
-        "alergias": "_entrada_alergia",
-        "doenca_cronica": "_entrada_doenca",
-        "medicamentos": "_entrada_medicamento",
-    }
-
-    def binario_do_paciente(self, uuid_atendimento: str, id_empresa: int) -> dict:
-        """Binário no formato do BinarioIn, montado a partir do PACIENTE.
-
-        Registros ativos são a verdade. Seção sem registro ativo herda
-        "nega"/"nao-coletado" da última conferência confirmada; sem
-        histórico, fica pendente (possui=None). Só leitura."""
-        at = self._atendimento_repo.find_by_uuid(uuid_atendimento, id_empresa)
-        if not at:
-            raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")
-        paciente = at.consulta.paciente
-        anteriores = self._atendimento_repo.find_anteriores_do_paciente(
-            paciente.id, at.id, id_empresa)
-
-        binario, confirmacao, pendentes = {}, {}, []
-        for s in SECOES_BINARIO:
-            ativos = self._ativos(s, paciente.uuid, id_empresa)
-            nao_coletado = False
-
-            if ativos:
-                possui = True
-            else:
-                ultimo = self._ultimo_estado_confirmado(s, anteriores)
-                if ultimo == "nega" and s != "tipo_sanguineo":
-                    possui = False
-                elif ultimo == "nao-coletado":
-                    possui, nao_coletado = False, True
-                else:
-                    possui = None
-
-            if s == "tipo_sanguineo":
-                valor = ativos[0].tipo_sanguineo if ativos else None
-                binario[s] = {"possui": possui,
-                              "nao_foi_possivel_coletar": nao_coletado,
-                              "tipo_sanguineo": valor}
-                corpo = dict(binario[s])
-            else:
-                ser = getattr(self, self._SERIALIZADOR[s])
-                binario[s] = {"possui": possui,
-                              "nao_foi_possivel_coletar": nao_coletado,
-                              "itens": [ser(o) for o in ativos]}
-                # confirmar o que já existe: SEM itens (evita duplicar)
-                corpo = {"possui": possui, "nao_foi_possivel_coletar": nao_coletado, "itens": []}
-
-            if possui is None:
-                pendentes.append(s)
-            else:
-                confirmacao[s] = corpo
-
-        return {
-            "uuid_atendimento": at.uuid,
-            "binario": binario,          # para exibir/editar (com itens)
-            "confirmacao": confirmacao,  # seções resolvidas, prontas p/ POST sem duplicar
-            "pendentes": pendentes,      # seções sem base: o profissional decide
-            "completo": not pendentes,   # True => `confirmacao` serve direto na rota agregada
-        }
