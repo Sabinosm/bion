@@ -1,21 +1,28 @@
 """
-Helper compartilhado para o campo "interpretacao" nos retornos de
-estatística. Usado pelas classes EstatisticasX -- não é chamado
-diretamente pelas rotas.
+interpretacao_helper.py
 
-Localização sugerida: src/domains/estatisticas/interpretacao.py
-(ajustar conforme estrutura real do projeto)
+Utilitários compartilhados para montar o campo "interpretacao" dos retornos
+de estatística. Aqui ficam a classificação de percentuais em níveis de
+qualidade (do "otimo" ao "ruim", com a escala podendo ser invertida para
+métricas em que valor alto é ruim), a montagem do dicionário de interpretação
+(com ou sem nível), o texto de comparação com o período anterior e o cálculo
+do valor do período imediatamente anterior, com a mesma duração e sem
+sobreposição. É usado pelos serviços de estatística; as rotas não o chamam
+diretamente.
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Callable, Optional
+
+_DIRECOES_PERCENTUAL = {"alto_bom", "alto_ruim"}
+
 
 def nivel_por_percentual(valor: float) -> str:
-    """Classifica um valor 0-100 em nivel, conforme thresholds definidos:
-    85+ otimo, 70+ bom, 60+ ok, 50+ medio, 40+ medio_ruim, <40 ruim.
+    """Classifica um valor de 0 a 100 em nível.
 
-    Uso: métricas onde valor ALTO é bom (ex: taxa_conclusao, confianca_ia).
-    Para métricas onde valor ALTO é ruim (ex: % de casos graves), usar
-    nivel_por_percentual_invertido.
+    Limiares: 85+ otimo, 70+ bom, 60+ ok, 50+ medio, 40+ medio_ruim, abaixo de 40 ruim.
+    Para métricas em que valor ALTO é bom (ex.: taxa de conclusão, confiança da IA).
+    Quando valor ALTO é ruim, usar nivel_por_percentual_invertido.
     """
     if valor >= 85:
         return "otimo"
@@ -31,23 +38,37 @@ def nivel_por_percentual(valor: float) -> str:
 
 
 def nivel_por_percentual_invertido(valor: float) -> str:
-    """Mesmos thresholds de nivel_por_percentual, mas com a escala
-    invertida -- para métricas onde valor ALTO é ruim (ex: % de reações
-    alérgicas graves, % de abandono). Um valor de 5% aqui é "otimo",
-    um valor de 90% é "ruim".
+    """Mesmos limiares de nivel_por_percentual, com a escala invertida.
+
+    Para métricas em que valor ALTO é ruim (ex.: % de reações alérgicas graves,
+    % de abandono): 5% é "otimo" e 90% é "ruim".
     """
     return nivel_por_percentual(100 - valor)
 
 
-def interpretacao_percentual(valor: float, texto: str, direcao: str = "alto_bom", comparacao: str = None) -> dict:
-    """Monta o dict de interpretação completo para métricas 0-100 com
-    threshold conhecido (Grupo 1: taxa_conclusao, confianca_ia,
-    completude_ia, gravidade %, etc).
+def interpretacao_percentual(
+    valor: float,
+    texto: str,
+    direcao: str = "alto_bom",
+    comparacao: Optional[str] = None,
+) -> dict:
+    """Monta a interpretação de uma métrica percentual (0 a 100) com limiar conhecido.
 
-    direcao: "alto_bom" (mais % é melhor, usa nivel_por_percentual) ou
-    "alto_ruim" (mais % é pior, usa nivel_por_percentual_invertido --
-    ex: % de casos graves, % de abandono).
+    Args:
+        valor: percentual medido.
+        texto: explicação em linguagem natural do resultado.
+        direcao: "alto_bom" (mais é melhor) ou "alto_ruim" (mais é pior, usa a
+            escala invertida).
+        comparacao: texto de comparação com o período anterior, se houver.
+
+    Returns:
+        {"direcao", "texto", "nivel", "comparacao"}
+
+    Raises:
+        ValueError: se `direcao` não for "alto_bom" nem "alto_ruim".
     """
+    if direcao not in _DIRECOES_PERCENTUAL:
+        raise ValueError(f"direcao inválida: '{direcao}'. Valores aceitos: {sorted(_DIRECOES_PERCENTUAL)}.")
     nivel = nivel_por_percentual_invertido(valor) if direcao == "alto_ruim" else nivel_por_percentual(valor)
     return {
         "direcao": direcao,
@@ -57,13 +78,14 @@ def interpretacao_percentual(valor: float, texto: str, direcao: str = "alto_bom"
     }
 
 
-def interpretacao_sem_nivel(texto: str, direcao: str = "neutro", comparacao: str = None) -> dict:
-    """Monta o dict de interpretação para métricas do Grupo 2: volume/
-    contagem sem threshold absoluto, mas onde direcao e/ou comparacao
-    ainda agregam valor (ex: volume_atendimentos, tempo_medio_atendimento).
+def interpretacao_sem_nivel(texto: str, direcao: str = "neutro", comparacao: Optional[str] = None) -> dict:
+    """Monta a interpretação de métricas sem limiar absoluto (volume, contagem, tempo médio).
 
-    nivel sempre None aqui -- não existe "85 atendimentos é ótimo",
-    depende de contexto que o sistema não tem.
+    O nível é sempre None: não existe "85 atendimentos é ótimo", pois depende
+    de um contexto que o sistema não tem. Direção e comparação ainda agregam valor.
+
+    Returns:
+        {"direcao", "texto", "nivel": None, "comparacao"}
     """
     return {
         "direcao": direcao,
@@ -73,10 +95,16 @@ def interpretacao_sem_nivel(texto: str, direcao: str = "neutro", comparacao: str
     }
 
 
-def calcular_comparacao(valor_atual: float, valor_anterior: float, unidade: str = "%") -> str:
-    """Formata o texto de comparação padrão: 'Aumento/Queda de X% em
-    comparação com o período anterior'. Retorna None se não houver
-    base de comparação (valor_anterior None ou 0).
+def calcular_comparacao(
+    valor_atual: Optional[float],
+    valor_anterior: Optional[float],
+    unidade: str = "%",
+) -> Optional[str]:
+    """Texto padrão de comparação com o período anterior.
+
+    Retorna "Aumento de X% ..." ou "Queda de X% ..." (variação arredondada a
+    uma casa), "Sem variação ..." quando a variação é zero, e None quando não
+    há base de comparação (valor atual ou anterior ausente, ou anterior igual a 0).
     """
     if valor_anterior is None or valor_anterior == 0 or valor_atual is None:
         return None
@@ -89,12 +117,16 @@ def calcular_comparacao(valor_atual: float, valor_anterior: float, unidade: str 
     return f"{direcao_texto} de {abs(variacao)}% em comparação com o período anterior"
 
 
+def valor_periodo_anterior(metodo_periodo: Callable, id_empresa: int, dias: int, **kwargs):
+    """Obtém a métrica do período anterior: mesma duração, imediatamente antes
+    do período atual e sem sobreposição.
 
-def valor_periodo_anterior(metodo_periodo, id_empresa, dias, **kwargs):
-    """Busca o valor do período anterior (mesma duração, sem
-    sobreposição) usando o método de repository/service passado.
-    Aceita kwargs extras para métodos que precisam de parâmetros
-    além de id_empresa/data_inicio/data_fim (ex: codigo_cid10).
+    Args:
+        metodo_periodo: método de repository/service que aceita id_empresa,
+            data_inicio e data_fim (datas em UTC).
+        id_empresa: empresa consultada.
+        dias: duração do período atual, que define a do anterior.
+        **kwargs: parâmetros extras repassados ao método (ex.: codigo_cid10).
     """
     agora = datetime.now(timezone.utc)
     inicio_atual = agora - timedelta(days=dias)

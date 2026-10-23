@@ -1,11 +1,17 @@
-"""Estatísticas de prescrições: medicamentos mais prescritos por classe
-farmacêutica e princípios ativos dentro de uma classe.
+"""
+estatisticas_prescricao.py
+
+Estatísticas de prescrições: classes farmacêuticas mais prescritas e, dentro
+de uma classe, os princípios ativos mais prescritos. São rankings
+informativos, sem nível nem comparação com período anterior; o detalhamento
+por princípio ativo nem traz interpretação, pois a leitura fica no ranking de
+classes.
 """
 
 from src.domains.estatisticas.interpretacao_helper import interpretacao_sem_nivel
 from src.domains.prescricao.prescricao_service import PrescricaoService
 
-p_svc = PrescricaoService()
+_prescricao_svc = PrescricaoService()
 
 
 class EstatisticasPrescricao:
@@ -19,7 +25,7 @@ class EstatisticasPrescricao:
 
         Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
-        ranking = p_svc.top_por_classe(id_empresa=id_empresa, dias=dias, limite=limite)
+        ranking = _prescricao_svc.top_por_classe(id_empresa=id_empresa, dias=dias, limite=limite)
 
         leitura = None
         if ranking:
@@ -43,7 +49,7 @@ class EstatisticasPrescricao:
 
         Retorna: {"classe": str, "ranking": [...], "leitura": str}
         """
-        ranking = p_svc.top_principios_ativos_por_classe(
+        ranking = _prescricao_svc.top_principios_ativos_por_classe(
             id_empresa=id_empresa, classe=classe, dias=dias, limite=limite
         )
 

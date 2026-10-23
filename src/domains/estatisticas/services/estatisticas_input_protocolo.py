@@ -1,5 +1,10 @@
-"""Estatísticas de texto livre dos protocolos: ranking aproximado de
-termos mais citados como queixa principal.
+"""
+estatisticas_input_protocolo.py
+
+Estatísticas sobre o texto livre digitado nos protocolos: ranking aproximado
+dos termos mais citados como queixa principal. A contagem é por palavra, não
+por frase, e ignora preposições e palavras muito curtas, então serve como
+direção geral e não como estatística médica precisa.
 """
 
 import re
@@ -7,7 +12,7 @@ from collections import Counter
 
 from src.domains.avaliacao_bion.service import OutputBionService
 
-obs = OutputBionService()
+_output_bion_svc = OutputBionService()
 
 # stopwords mínimas de português pra não poluir o ranking com preposições
 _STOPWORDS = {
@@ -16,7 +21,8 @@ _STOPWORDS = {
 }
 
 
-def _tokenizar(texto: str) -> list:
+def _tokenizar(texto: str) -> list[str]:
+    """Palavras minúsculas do texto, sem stopwords e com mais de 2 letras."""
     palavras = re.findall(r"[a-zà-ú]+", texto.lower())
     return [p for p in palavras if p not in _STOPWORDS and len(p) > 2]
 
@@ -36,7 +42,7 @@ class EstatisticasInputProtocolo:
 
         Retorna: {"termos": [{"termo", "total"}, ...], "total_queixas_analisadas": int, "leitura": str}
         """
-        queixas = obs.queixas_recentes(id_empresa=id_empresa, dias=dias)
+        queixas = _output_bion_svc.queixas_recentes(id_empresa=id_empresa, dias=dias)
 
         contador = Counter()
         for queixa in queixas:

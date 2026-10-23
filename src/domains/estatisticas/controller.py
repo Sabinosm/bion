@@ -1,14 +1,70 @@
-from flask import Blueprint, request, session
+"""
+controller.py
+
+Camada HTTP das estatísticas do Bion (dashboards). Todas as rotas são GET e
+consultam os dados da empresa da sessão. O bloco operacional e as métricas de
+versão do modelo e de correlação da IA exigem admin; as demais métricas de
+qualidade da IA, o epidemiológico, a farmacovigilância e o histórico clínico
+exigem apenas login, para que médicos e enfermeiros também acessem.
+Os parâmetros opcionais (período em dias, limite de itens) vêm da query string
+e são repassados ao service, que concentra o cálculo: valores que não sejam
+inteiros são ignorados e vale o padrão de cada rota, e valores fora da faixa
+permitida são rejeitados com erro de validação. Exceções de negócio
+(BionException) viram resposta de erro; qualquer outra exceção não é tratada
+aqui e segue para o tratamento global de erros da aplicação.
+"""
+
+from functools import wraps
+
+from flask import Blueprint, request
 from src.core.responses import json_success, json_error
+from src.core.exceptions import BionException, DadosInvalidosError
 from .service import EstatisticasService
-from src.core.session import requer_admin, get_id_empresa_sessao
+from src.core.session import requer_admin, requer_login, get_id_empresa_sessao
 
 
 bp = Blueprint("estatisticas", __name__)
 _svc = EstatisticasService()
 
 
-class EstatisticasController():
+# Faixas aceitas para os parâmetros numéricos da query string.
+_DIAS_MIN, _DIAS_MAX = 1, 365
+_LIMITE_MIN, _LIMITE_MAX = 1, 50
+
+
+def _responder_erros(rota):
+    """Converte BionException da rota em json_error; outras exceções não são tratadas aqui."""
+    @wraps(rota)
+    def interna(*args, **kwargs):
+        try:
+            return rota(*args, **kwargs)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+    return interna
+
+
+def _arg_int(nome: str, padrao: int, minimo: int, maximo: int) -> int:
+    """Lê um inteiro da query string.
+
+    Ausente ou não numérico devolve o padrão; fora de [minimo, maximo] levanta
+    DadosInvalidosError.
+    """
+    valor = request.args.get(nome, default=padrao, type=int)
+    if not minimo <= valor <= maximo:
+        raise DadosInvalidosError(f"'{nome}' deve estar entre {minimo} e {maximo}.", campo=nome)
+    return valor
+
+
+def _dias(padrao: int) -> int:
+    return _arg_int("dias", padrao, _DIAS_MIN, _DIAS_MAX)
+
+
+def _limite(padrao: int, nome: str = "limite") -> int:
+    return _arg_int(nome, padrao, _LIMITE_MIN, _LIMITE_MAX)
+
+
+class EstatisticasController:
+
     # ============================================================
     # ADMIN — Gerenciamento operacional (volume, tempo, equipe)
     # ============================================================
@@ -16,349 +72,253 @@ class EstatisticasController():
     @staticmethod
     @bp.get("/geral")
     @requer_admin
+    @_responder_erros
     def estatisticas_geral():
-        try:
-            dados = _svc.estatisticas_geral(get_id_empresa_sessao())
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """Resumo geral: profissionais (total, ativos, pendentes), consultas de hoje e pacientes cadastrados."""
+        return json_success(data=_svc.estatisticas_geral(get_id_empresa_sessao()))
 
-    # --- A1: Volume de atendimentos ---
     @staticmethod
     @bp.get("/atendimentos/volume")
     @requer_admin
+    @_responder_erros
     def volume_atendimentos():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.volume_atendimentos(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """A1: volume de atendimentos por dia. Query: dias (padrão 30)."""
+        dados = _svc.volume_atendimentos(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- A2: Tempo médio de atendimento ---
     @staticmethod
     @bp.get("/atendimentos/tempo-medio")
     @requer_admin
+    @_responder_erros
     def tempo_medio_atendimento():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.tempo_medio_atendimento(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """A2: tempo médio de atendimento por tipo. Query: dias (padrão 30)."""
+        dados = _svc.tempo_medio_atendimento(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- A3: Taxa de conclusão vs. abandono ---
     @staticmethod
     @bp.get("/atendimentos/taxa-conclusao")
     @requer_admin
+    @_responder_erros
     def taxa_conclusao():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.taxa_conclusao(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """A3: taxa de conclusão vs. abandono. Query: dias (padrão 30)."""
+        dados = _svc.taxa_conclusao(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- A4: Efetivo ativo por papel ---
     @staticmethod
     @bp.get("/equipe/efetivo")
     @requer_admin
+    @_responder_erros
     def efetivo_ativo():
-        try:
-            dados = _svc.efetivo_ativo(get_id_empresa_sessao())
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """A4: efetivo ativo por papel."""
+        return json_success(data=_svc.efetivo_ativo(get_id_empresa_sessao()))
 
-
-    # --- A5: Engajamento/atividade da equipe ---
     @staticmethod
     @bp.get("/equipe/engajamento")
     @requer_admin
+    @_responder_erros
     def engajamento_equipe():
-        try:
-            dias = request.args.get("dias", default=7, type=int)
-            dados = _svc.engajamento_equipe(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """A5: engajamento/atividade da equipe. Query: dias (padrão 7)."""
+        dados = _svc.engajamento_equipe(get_id_empresa_sessao(), dias=_dias(7))
+        return json_success(data=dados)
 
-
-    # --- E2: Tendência de eficiência acumulada ---
     @staticmethod
     @bp.get("/atendimentos/tendencia-eficiencia")
     @requer_admin
+    @_responder_erros
     def tendencia_eficiencia():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.tendencia_eficiencia(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """E2: tendência de eficiência acumulada. Query: dias (padrão 30)."""
+        dados = _svc.tendencia_eficiencia(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- F3: Distribuição de tipo sanguíneo na base ---
     @staticmethod
     @bp.get("/pacientes/tipo-sanguineo")
     @requer_admin
+    @_responder_erros
     def distribuicao_tipo_sanguineo():
-        try:
-            dados = _svc.distribuicao_tipo_sanguineo(get_id_empresa_sessao())
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
-
+        """F3: distribuição de tipo sanguíneo na base de pacientes."""
+        return json_success(data=_svc.distribuicao_tipo_sanguineo(get_id_empresa_sessao()))
 
     # ============================================================
     # ADMIN + MÉDICO — Qualidade e confiabilidade da IA
     # ============================================================
 
-    # --- B1: Confiança média da IA ---
     @staticmethod
     @bp.get("/ia/confianca-media")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def confianca_media_ia():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.confianca_media_ia(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """B1: confiança média da IA. Query: dias (padrão 30)."""
+        dados = _svc.confianca_media_ia(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- B2: Completude média dos dados de entrada ---
     @staticmethod
     @bp.get("/ia/completude-media")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def completude_media_ia():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.completude_media_ia(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """B2: completude média dos dados de entrada. Query: dias (padrão 30)."""
+        dados = _svc.completude_media_ia(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- B4: Versão do modelo de IA em uso ---
     @staticmethod
     @bp.get("/ia/versoes-em-uso")
     @requer_admin
+    @_responder_erros
     def versoes_ia_em_uso():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.versoes_ia_em_uso(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """B4: versões do modelo de IA em uso. Query: dias (padrão 30)."""
+        dados = _svc.versoes_ia_em_uso(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- E3: Correlação completude x confiança ---
     @staticmethod
     @bp.get("/ia/correlacao-completude-confianca")
     @requer_admin
+    @_responder_erros
     def correlacao_completude_confianca():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.correlacao_completude_confianca(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
-
+        """E3: correlação entre completude dos dados e confiança da IA. Query: dias (padrão 30)."""
+        dados = _svc.correlacao_completude_confianca(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
     # ============================================================
     # MÉDICO / ENFERMEIRO — Epidemiológico (pesquisa e vigilância)
     # ============================================================
 
-    # --- C1: Doenças mais comuns por região ---
     @staticmethod
     @bp.get("/epidemiologico/top-cid-regiao")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def top_cid_por_regiao():
-        try:
-            dias = request.args.get("dias", default=14, type=int)
-            limite = request.args.get("limite", default=10, type=int)
-            dados = _svc.top_cid_por_regiao(get_id_empresa_sessao(), dias=dias, limite=limite)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """C1: doenças (CID) mais comuns por região. Query: dias (padrão 14), limite (padrão 10)."""
+        dados = _svc.top_cid_por_regiao(
+            get_id_empresa_sessao(), dias=_dias(14), limite=_limite(10)
+        )
+        return json_success(data=dados)
 
-
-    # --- C2: Evolução temporal de um CID específico ---
     @staticmethod
     @bp.get("/epidemiologico/evolucao-cid/<string:codigo_cid10>")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def evolucao_cid(codigo_cid10):
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.evolucao_cid(get_id_empresa_sessao(), codigo_cid10=codigo_cid10, dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """C2: evolução temporal de um CID específico. Query: dias (padrão 30)."""
+        dados = _svc.evolucao_cid(
+            get_id_empresa_sessao(), codigo_cid10=codigo_cid10, dias=_dias(30)
+        )
+        return json_success(data=dados)
 
-
-    # --- C3: Incidência por 100 mil habitantes ---
     @staticmethod
     @bp.get("/epidemiologico/incidencia-regiao")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def incidencia_por_regiao():
-        try:
-            dias = request.args.get("dias", default=14, type=int)
-            dados = _svc.incidencia_por_regiao(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """C3: incidência por 100 mil habitantes, por região. Query: dias (padrão 14)."""
+        dados = _svc.incidencia_por_regiao(get_id_empresa_sessao(), dias=_dias(14))
+        return json_success(data=dados)
 
-
-    # --- C4: Tempo até busca por atendimento (sintoma -> consulta) ---
     @staticmethod
     @bp.get("/epidemiologico/tempo-ate-atendimento")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def tempo_ate_atendimento():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.tempo_ate_atendimento(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """C4: tempo até a busca por atendimento (sintoma -> consulta). Query: dias (padrão 30)."""
+        dados = _svc.tempo_ate_atendimento(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- C5: Queixas principais mais frequentes ---
     @staticmethod
     @bp.get("/epidemiologico/queixas-frequentes")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def queixas_mais_frequentes():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            top = request.args.get("top", default=15, type=int)
-            dados = _svc.queixas_mais_frequentes(get_id_empresa_sessao(), dias=dias, top=top)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
-
+        """C5: queixas principais mais frequentes. Query: dias (padrão 30), top (padrão 15)."""
+        dados = _svc.queixas_mais_frequentes(
+            get_id_empresa_sessao(), dias=_dias(30), top=_limite(15, "top")
+        )
+        return json_success(data=dados)
 
     # ============================================================
     # MÉDICO — Farmacovigilância e segurança do paciente
     # ============================================================
 
-    # --- D1: Interações medicamentosas cadastradas por gravidade ---
     @staticmethod
     @bp.get("/medicamentos/interacoes-gravidade")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def interacoes_por_gravidade():
-        try:
-            dados = _svc.interacoes_por_gravidade()
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """D1: interações medicamentosas cadastradas, por gravidade (dado global, não filtra por empresa)."""
+        return json_success(data=_svc.interacoes_por_gravidade())
 
-
-    # --- D2: Alergias mais reportadas (por substância) ---
     @staticmethod
     @bp.get("/alergias/top-substancias")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def alergias_top_substancias():
-        try:
-            limite = request.args.get("limite", default=10, type=int)
-            dados = _svc.alergias_top_substancias(get_id_empresa_sessao(), limite=limite)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """D2: alergias mais reportadas, por substância. Query: limite (padrão 10)."""
+        dados = _svc.alergias_top_substancias(get_id_empresa_sessao(), limite=_limite(10))
+        return json_success(data=dados)
 
-
-    # --- D2 (detalhe): gravidade por substância ---
     @staticmethod
     @bp.get("/alergias/<string:substancia>/gravidade")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def alergia_gravidade_por_substancia(substancia):
-        try:
-            dados = _svc.alergia_gravidade_por_substancia(get_id_empresa_sessao(), substancia=substancia)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """D2 (detalhe): gravidade das reações a uma substância."""
+        dados = _svc.alergia_gravidade_por_substancia(get_id_empresa_sessao(), substancia=substancia)
+        return json_success(data=dados)
 
-
-    # --- F4: Gravidade geral das reações alérgicas (sem filtro por substância) ---
     @staticmethod
     @bp.get("/alergias/gravidade-geral")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def alergias_gravidade_geral():
-        try:
-            dados = _svc.alergias_gravidade_geral(get_id_empresa_sessao())
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """F4: gravidade geral das reações alérgicas (sem filtro por substância)."""
+        return json_success(data=_svc.alergias_gravidade_geral(get_id_empresa_sessao()))
 
-
-    # --- D3: Urgência de exames -- IA vs. profissional ---
     @staticmethod
     @bp.get("/exames/urgencia-por-origem")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def urgencia_exames_por_origem():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            dados = _svc.urgencia_exames_por_origem(get_id_empresa_sessao(), dias=dias)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """D3: urgência de exames, IA vs. profissional. Query: dias (padrão 30)."""
+        dados = _svc.urgencia_exames_por_origem(get_id_empresa_sessao(), dias=_dias(30))
+        return json_success(data=dados)
 
-
-    # --- D4: Medicamentos mais prescritos por classe ---
     @staticmethod
     @bp.get("/medicamentos/top-por-classe")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def medicamentos_top_por_classe():
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            limite = request.args.get("limite", default=10, type=int)
-            dados = _svc.medicamentos_top_por_classe(get_id_empresa_sessao(), dias=dias, limite=limite)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """D4: medicamentos mais prescritos por classe. Query: dias (padrão 30), limite (padrão 10)."""
+        dados = _svc.medicamentos_top_por_classe(
+            get_id_empresa_sessao(), dias=_dias(30), limite=_limite(10)
+        )
+        return json_success(data=dados)
 
-
-    # --- D4 (detalhe): princípios ativos dentro de 1 classe ---
     @staticmethod
     @bp.get("/medicamentos/top-por-classe/<string:classe>")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def medicamentos_top_principios_por_classe(classe):
-        try:
-            dias = request.args.get("dias", default=30, type=int)
-            limite = request.args.get("limite", default=10, type=int)
-            dados = _svc.medicamentos_top_principios_por_classe(
-                get_id_empresa_sessao(), classe=classe, dias=dias, limite=limite
-            )
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
-
+        """D4 (detalhe): princípios ativos mais prescritos dentro de uma classe. Query: dias (padrão 30), limite (padrão 10)."""
+        dados = _svc.medicamentos_top_principios_por_classe(
+            get_id_empresa_sessao(), classe=classe, dias=_dias(30), limite=_limite(10)
+        )
+        return json_success(data=dados)
 
     # ============================================================
     # MÉDICO — Histórico clínico da base de pacientes
     # ============================================================
 
-    # --- F1: Doenças crônicas mais comuns na base ---
     @staticmethod
     @bp.get("/pacientes/doencas-cronicas-top")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def doencas_cronicas_top():
-        try:
-            limite = request.args.get("limite", default=10, type=int)
-            dados = _svc.doencas_cronicas_top(get_id_empresa_sessao(), limite=limite)
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """F1: doenças crônicas mais comuns na base. Query: limite (padrão 10)."""
+        dados = _svc.doencas_cronicas_top(get_id_empresa_sessao(), limite=_limite(10))
+        return json_success(data=dados)
 
-
-    # --- F2: Pacientes em uso contínuo de medicação (%) ---
     @staticmethod
     @bp.get("/pacientes/uso-continuo-medicacao")
-    @requer_admin
+    @requer_login
+    @_responder_erros
     def uso_continuo_medicacao():
-        try:
-            dados = _svc.uso_continuo_medicacao(get_id_empresa_sessao())
-            return json_success(dados)
-        except Exception as e:
-            return json_error(str(e))
+        """F2: percentual de pacientes em uso contínuo de medicação."""
+        return json_success(data=_svc.uso_continuo_medicacao(get_id_empresa_sessao()))

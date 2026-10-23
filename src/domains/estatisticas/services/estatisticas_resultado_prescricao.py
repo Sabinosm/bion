@@ -1,13 +1,17 @@
-"""Estatísticas epidemiológicas a partir dos resultados de prescrição:
-CID10 mais comuns por região, incidência por 100 mil habitantes e
-evolução temporal de um CID específico.
+"""
+estatisticas_resultado_prescricao.py
+
+Estatísticas epidemiológicas a partir dos resultados de prescrição: CID10 mais
+comuns por região, incidência por 100 mil habitantes (casos normalizados pela
+população estimada da região) e evolução temporal de um CID específico. Só a
+evolução de um CID traz comparação com o período anterior; os rankings por
+região são multidimensionais e ficam sem nível e sem comparação.
 """
 
 from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 from src.domains.prescricao.resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
-from src.models.corp.regiao_geografica import RegiaoGeografica
 
-ps = ResultadoPrescricaoService()
+_resultado_prescricao_svc = ResultadoPrescricaoService()
 
 
 class EstatisticasResultadoPrescricao:
@@ -21,7 +25,7 @@ class EstatisticasResultadoPrescricao:
 
         Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
-        ranking = ps.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
+        ranking = _resultado_prescricao_svc.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
 
         leitura = None
         if ranking:
@@ -53,17 +57,12 @@ class EstatisticasResultadoPrescricao:
 
         Retorna: {"ranking": [...], "leitura": str, "interpretacao": {...}}
         """
-        # 1 única query pra todas as regiões envolvidas
-        casos_por_regiao = ps.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
-        ids_regiao = [item["id_regiao"] for item in casos_por_regiao]
-        regioes = {
-            r.id: r for r in RegiaoGeografica.query.filter(RegiaoGeografica.id.in_(ids_regiao))
-        }
+        # a população estimada já vem junto com os casos de cada região
+        casos_por_regiao = _resultado_prescricao_svc.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
 
         ranking = []
         for item in casos_por_regiao:
-            regiao = regioes.get(item["id_regiao"])
-            populacao = regiao.populacao_estimada if regiao else None
+            populacao = item["populacao_estimada"]
 
             incidencia = None
             if populacao:
@@ -76,6 +75,7 @@ class EstatisticasResultadoPrescricao:
                 "incidencia_por_100mil": incidencia,
             })
 
+        # maior incidência primeiro; regiões sem incidência (sem população) por último
         ranking.sort(key=lambda x: (x["incidencia_por_100mil"] is None, -(x["incidencia_por_100mil"] or 0)))
 
         leitura = None
@@ -108,16 +108,19 @@ class EstatisticasResultadoPrescricao:
         Retorna: {"codigo_cid10": str, "serie": [...], "total_periodo": int,
                   "leitura": str, "interpretacao": {...}}
         """
-        serie = ps.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
+        serie = _resultado_prescricao_svc.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
         total = sum(item["total"] for item in serie)
 
         serie_anterior = valor_periodo_anterior(
-            ps.evolucao_cid_periodo, id_empresa, dias, codigo_cid10=codigo_cid10
+            _resultado_prescricao_svc.evolucao_cid_periodo, id_empresa, dias, codigo_cid10=codigo_cid10
         )
         total_anterior = sum(item["total"] for item in serie_anterior)
 
-        leitura = f"{total} casos de {codigo_cid10} registrados nos últimos {dias} dias" if total else \
+        leitura = (
+            f"{total} casos de {codigo_cid10} registrados nos últimos {dias} dias"
+            if total else
             f"Nenhum caso de {codigo_cid10} registrado nos últimos {dias} dias"
+        )
 
         interpretacao = interpretacao_sem_nivel(
             texto="Aumento acentuado no número de casos merece investigação -- pode indicar surto; queda pode indicar melhora ou sub-notificação, avalie o contexto",

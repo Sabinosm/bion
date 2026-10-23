@@ -1,22 +1,42 @@
-"""Estatísticas de consultas: contagem do dia, volume diário e taxa de
-conclusão vs. abandono.
+"""
+estatisticas_consulta.py
+
+Estatísticas de consultas: contagem do dia, série diária de volume e taxa de
+conclusão. O volume não tem nível (o certo depende da capacidade da equipe),
+só comparação com o período anterior. A taxa de conclusão considera apenas
+consultas encerradas, separando as concluídas das abandonadas (evasão), e é um
+percentual com interpretação completa: nível, direção (mais é melhor) e
+comparação com o período anterior.
 """
 
-from ..interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
+from src.domains.estatisticas.interpretacao_helper import interpretacao_percentual, calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 from src.domains.consulta.service import ConsultaService
 
-cs = ConsultaService()
+_consulta_svc = ConsultaService()
 
-# status_consulta que conta como "concluído" para efeito de A3.
-# 'encerrada' é o único status terminal "positivo" no enum de Consulta;
-# os demais (aguardando-*, em-*) são em andamento, não abandono.
-_STATUS_CONCLUIDO = "encerrada"
+# Desfecho final (de uma consulta 'encerrada') que conta como abandono em A3.
+# Evasão não é um status: é um desfecho_final. Os demais desfechos (alta,
+# internacao, transferencia, obito) e a ausência de desfecho contam como
+# concluída. Consultas ainda em andamento não entram na taxa.
+_DESFECHO_ABANDONO = "evasao"
+
+
+def _percentual(parte, total, vazio=None):
+    """Percentual de `parte` sobre `total` (uma casa decimal); `vazio` se total é 0."""
+    return round((parte / total) * 100, 1) if total else vazio
+
+
+def _concluidas_e_abandonadas(por_desfecho: dict) -> tuple:
+    """(concluidas, abandonadas) a partir da contagem de consultas encerradas por desfecho."""
+    abandonadas = por_desfecho.get(_DESFECHO_ABANDONO, 0)
+    concluidas = sum(por_desfecho.values()) - abandonadas
+    return concluidas, abandonadas
 
 
 class EstatisticasConsulta:
 
     def consultas_hoje(self, id_empresa):
-        return cs.contar_consultas_hoje(id_empresa=id_empresa)
+        return _consulta_svc.contar_consultas_hoje(id_empresa=id_empresa)
 
     def volume_por_dia(self, id_empresa, dias=30):
         """Série diária de consultas iniciadas, para gráfico de linha/barra (A1).
@@ -27,10 +47,10 @@ class EstatisticasConsulta:
 
         Retorna: {"serie": [...], "total_periodo": int, "leitura": str, "interpretacao": {...}}
         """
-        serie = cs.consultas_por_dia(id_empresa=id_empresa, dias=dias)
+        serie = _consulta_svc.consultas_por_dia(id_empresa=id_empresa, dias=dias)
         total_periodo = sum(item["total"] for item in serie)
 
-        serie_anterior = valor_periodo_anterior(cs.consultas_por_dia_periodo, id_empresa, dias)
+        serie_anterior = valor_periodo_anterior(_consulta_svc.consultas_por_dia_periodo, id_empresa, dias)
         total_anterior = sum(item["total"] for item in serie_anterior)
 
         interpretacao = interpretacao_sem_nivel(
@@ -47,28 +67,32 @@ class EstatisticasConsulta:
         }
 
     def taxa_conclusao(self, id_empresa, dias=30):
-        """Percentual de consultas que chegaram a status 'encerrada' (A3),
-        com interpretação completa (nível + direção + comparação com o
-        período anterior).
+        """Percentual de consultas encerradas que foram concluídas, sem
+        evasão (A3), com interpretação completa (nível + direção +
+        comparação com o período anterior).
+
+        Só entram consultas 'encerrada': concluída é a encerrada sem
+        desfecho 'evasao'; abandonada é a encerrada com desfecho 'evasao'.
+        Consultas em andamento não contam. `total` = concluídas + abandonadas.
 
         Retorna: {"percentual": float, "total": int, "concluidas": int,
+                  "abandonadas": int, "por_desfecho": {desfecho: total, ...},
                   "por_status": {status: total, ...}, "leitura": str,
                   "interpretacao": {...}}
         """
-        por_status = cs.consultas_por_status(id_empresa=id_empresa, dias=dias)
-        total = sum(por_status.values())
-        concluidas = por_status.get(_STATUS_CONCLUIDO, 0)
-        percentual = round((concluidas / total) * 100, 1) if total else 0.0
+        por_desfecho = _consulta_svc.consultas_por_desfecho(id_empresa=id_empresa, dias=dias)
+        concluidas, abandonadas = _concluidas_e_abandonadas(por_desfecho)
+        total = concluidas + abandonadas
+        percentual = _percentual(concluidas, total, vazio=0.0)
 
         # período anterior, mesma duração, sem sobreposição
-        por_status_anterior = valor_periodo_anterior(cs.consultas_por_status_periodo, id_empresa, dias)
-        total_anterior = sum(por_status_anterior.values())
-        concluidas_anterior = por_status_anterior.get(_STATUS_CONCLUIDO, 0)
-        percentual_anterior = round((concluidas_anterior / total_anterior) * 100, 1) if total_anterior else None
+        por_desfecho_anterior = valor_periodo_anterior(_consulta_svc.consultas_por_desfecho_periodo, id_empresa, dias)
+        concluidas_anterior, abandonadas_anterior = _concluidas_e_abandonadas(por_desfecho_anterior)
+        percentual_anterior = _percentual(concluidas_anterior, concluidas_anterior + abandonadas_anterior)
 
         interpretacao = interpretacao_percentual(
             valor=percentual,
-            texto="Alto = fluxo saudável de atendimento; baixo = investigar em qual etapa os pacientes estão travando ou abandonando",
+            texto="Alto = poucos pacientes abandonam o fluxo antes de concluir o atendimento; baixo = investigar em qual etapa (triagem, espera) os pacientes estão desistindo",
             direcao="alto_bom",
             comparacao=calcular_comparacao(percentual, percentual_anterior),
         )
@@ -77,7 +101,9 @@ class EstatisticasConsulta:
             "percentual": percentual,
             "total": total,
             "concluidas": concluidas,
-            "por_status": por_status,
-            "leitura": f"{percentual}% dos atendimentos iniciados foram concluídos",
+            "abandonadas": abandonadas,
+            "por_desfecho": por_desfecho,
+            "por_status": _consulta_svc.consultas_por_status(id_empresa=id_empresa, dias=dias),
+            "leitura": f"{percentual}% das consultas encerradas foram concluídas, sem evasão ({abandonadas} evasões no período)",
             "interpretacao": interpretacao,
         }

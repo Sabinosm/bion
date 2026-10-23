@@ -1,19 +1,29 @@
-"""Estatísticas da equipe (usuários/profissionais): contagens, efetivo
-ativo por papel e engajamento/atividade recente."""
+"""
+estatisticas_usuario.py
+
+Estatísticas da equipe (usuários e profissionais): contagens totais e por
+status, efetivo ativo por papel e engajamento recente. O engajamento mede
+quantos profissionais estão sem acessar o sistema há alguns dias, com direção
+"alto é ruim", e a comparação é a proporção de inativos sobre o efetivo ativo,
+não um confronto com período anterior.
+"""
 
 from src.domains.estatisticas.interpretacao_helper import interpretacao_sem_nivel
 from src.domains.usuario.services.service import UsuarioService
 
-us = UsuarioService()
+_usuario_svc = UsuarioService()
+
+# Papéis exibidos na leitura do efetivo, na ordem de prioridade de leitura.
+_ROTULOS_PAPEL = (("medico", "médicos"), ("enfermeiro", "enfermeiros"), ("admin", "admins"))
 
 
 class EstatisticasUsuario:
 
     def contagem_profissionais(self, id_empresa):
-        return us.contagem_profissionais(id_empresa=id_empresa)
+        return _usuario_svc.contagem_profissionais(id_empresa=id_empresa)
 
-    def profissonais_status(self, id_empresa, status):
-        return us.contagem_profissionais_por_status(id_empresa=id_empresa, status=status)
+    def profissionais_status(self, id_empresa, status):
+        return _usuario_svc.contagem_profissionais_por_status(id_empresa=id_empresa, status=status)
 
     def efetivo_ativo(self, id_empresa):
         """Contagem de usuários ativos por papel (médico, enfermeiro,
@@ -21,14 +31,10 @@ class EstatisticasUsuario:
 
         Retorna: {"por_papel": {papel: total, ...}, "leitura": str}
         """
-        por_papel = us.efetivo_por_papel(id_empresa=id_empresa)
+        por_papel = _usuario_svc.efetivo_por_papel(id_empresa=id_empresa)
 
-        # monta a leitura só com os papéis presentes, na ordem
-        # medico -> enfermeiro -> admin (ordem de prioridade de leitura)
-        partes = []
-        for papel, rotulo in (("medico", "médicos"), ("enfermeiro", "enfermeiros"), ("admin", "admins")):
-            if por_papel.get(papel):
-                partes.append(f"{por_papel[papel]} {rotulo}")
+        # só os papéis presentes, na ordem medico -> enfermeiro -> admin
+        partes = [f"{por_papel[papel]} {rotulo}" for papel, rotulo in _ROTULOS_PAPEL if por_papel.get(papel)]
 
         leitura = f"Equipe ativa: {', '.join(partes)}" if partes else "Nenhum profissional ativo no momento"
 
@@ -47,12 +53,12 @@ class EstatisticasUsuario:
         Retorna: {"total_inativos": int, "dias": int, "profissionais": [...],
                   "leitura": str, "interpretacao": {...}}
         """
-        total = us.inativos_ha_dias(id_empresa=id_empresa, dias=dias)
-        lista = us.lista_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
+        total = _usuario_svc.inativos_ha_dias(id_empresa=id_empresa, dias=dias)
+        lista = _usuario_svc.lista_inativos_ha_dias(id_empresa=id_empresa, dias=dias)
 
         leitura = f"{total} profissionais sem acesso ao sistema há mais de {dias} dias"
 
-        por_papel = us.efetivo_por_papel(id_empresa=id_empresa)
+        por_papel = _usuario_svc.efetivo_por_papel(id_empresa=id_empresa)
         total_ativos = sum(por_papel.values())
         comparacao = None
         if total_ativos:

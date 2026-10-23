@@ -1,5 +1,14 @@
-"""Estatísticas de tempo de atendimento: duração média por tipo,
-tendência de eficiência entre períodos e tempo até o primeiro atendimento.
+"""
+estatisticas_atendimento.py
+
+Estatísticas de tempo de atendimento: duração média por tipo, tendência de
+eficiência entre dois períodos consecutivos e tempo médio entre o início dos
+sintomas e o atendimento. As métricas de duração não têm nível (o que é
+"rápido" varia por tipo), só direção (menor é melhor) e comparação com o
+período anterior. Quando a base mistura, em proporção relevante, consultas em
+que o mesmo profissional faz triagem e avaliação com consultas em que as
+etapas são de profissionais diferentes, a média combinada vem acompanhada de
+um aviso com o detalhamento por grupo.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -7,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from src.domains.atendimento.service import AtendimentoService
 from src.domains.estatisticas.interpretacao_helper import calcular_comparacao, interpretacao_sem_nivel, valor_periodo_anterior
 
-ats = AtendimentoService()
+_atendimento_svc = AtendimentoService()
 
 # A partir de que fração das consultas segmentáveis (mesmo_profissional
 # + transferencia) sendo "mesmo_profissional" a média combinada de A2/E2
@@ -24,6 +33,13 @@ def _formatar_duracao(segundos: float) -> str:
     return f"{minutos}min{seg:02d}s"
 
 
+def _media_ponderada(lista: list):
+    """Média geral de segundos ponderada pelo total de cada tipo, ou None se não há atendimentos."""
+    total_seg = sum(item["media_segundos"] * item["total"] for item in lista)
+    total_n = sum(item["total"] for item in lista)
+    return (total_seg / total_n) if total_n else None
+
+
 def _aviso_mistura_profissional(id_empresa, dias):
     """
     Verifica se a base de Consultas do período mistura, em proporção
@@ -35,7 +51,7 @@ def _aviso_mistura_profissional(id_empresa, dias):
     opcional, mostrado só quando a mistura é grande o bastante pra
     distorcer a leitura da média combinada.
     """
-    segmentado = ats.tempo_medio_por_tipo_segmentado(id_empresa=id_empresa, dias=dias)
+    segmentado = _atendimento_svc.tempo_medio_por_tipo_segmentado(id_empresa=id_empresa, dias=dias)
     if not segmentado:
         return None
 
@@ -91,7 +107,7 @@ class EstatisticasAtendimento:
                   "interpretacao": {...}|None,
                   "aviso_mistura_profissional": {...}|None}
         """
-        bruto = ats.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
+        bruto = _atendimento_svc.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
 
         por_tipo = [
             {**item, "media_formatada": _formatar_duracao(item["media_segundos"])}
@@ -104,17 +120,10 @@ class EstatisticasAtendimento:
                 "aviso_mistura_profissional": None,
             }
 
-        def media_geral(lista):
-            """Média geral ponderada pelo total de cada tipo, usada para
-            a comparação de período (não a leitura por tipo)."""
-            total_seg = sum(item["media_segundos"] * item["total"] for item in lista)
-            total_n = sum(item["total"] for item in lista)
-            return (total_seg / total_n) if total_n else None
+        media_atual = _media_ponderada(por_tipo)
 
-        media_atual = media_geral(por_tipo)
-
-        bruto_anterior = valor_periodo_anterior(ats.tempo_medio_por_tipo_periodo, id_empresa, dias)
-        media_anterior = media_geral(bruto_anterior)
+        bruto_anterior = valor_periodo_anterior(_atendimento_svc.tempo_medio_por_tipo_periodo, id_empresa, dias)
+        media_anterior = _media_ponderada(bruto_anterior)
 
         principal = max(por_tipo, key=lambda item: item["total"])
         leitura = f"Tempo médio de atendimento ({principal['tipo_atendimento']}): {principal['media_formatada']}"
@@ -147,18 +156,13 @@ class EstatisticasAtendimento:
         agora = datetime.now(timezone.utc)
         inicio_atual = agora - timedelta(days=dias)
 
-        periodo_atual = ats.tempo_medio_por_tipo_periodo(
+        periodo_atual = _atendimento_svc.tempo_medio_por_tipo_periodo(
             id_empresa=id_empresa, data_inicio=inicio_atual, data_fim=agora
         )
-        periodo_anterior = valor_periodo_anterior(ats.tempo_medio_por_tipo_periodo, id_empresa, dias)
+        periodo_anterior = valor_periodo_anterior(_atendimento_svc.tempo_medio_por_tipo_periodo, id_empresa, dias)
 
-        def media_geral(lista):
-            total_seg = sum(item["media_segundos"] * item["total"] for item in lista)
-            total_n = sum(item["total"] for item in lista)
-            return (total_seg / total_n) if total_n else None
-
-        media_atual = media_geral(periodo_atual)
-        media_anterior = media_geral(periodo_anterior)
+        media_atual = _media_ponderada(periodo_atual)
+        media_anterior = _media_ponderada(periodo_anterior)
 
         if media_atual is None:
             return {
@@ -175,11 +179,14 @@ class EstatisticasAtendimento:
             }
 
         variacao = round(((media_atual - media_anterior) / media_anterior) * 100, 1)
-        direcao_texto = "mais rápida" if variacao < 0 else "mais lenta"
-        leitura = (
-            f"A equipe está {abs(variacao)}% {direcao_texto} nos últimos {dias} dias, "
-            f"comparado aos {dias} dias anteriores"
-        )
+        if variacao == 0:
+            leitura = f"Sem variação no tempo de atendimento nos últimos {dias} dias, comparado aos {dias} dias anteriores"
+        else:
+            direcao_texto = "mais rápida" if variacao < 0 else "mais lenta"
+            leitura = (
+                f"A equipe está {abs(variacao)}% {direcao_texto} nos últimos {dias} dias, "
+                f"comparado aos {dias} dias anteriores"
+            )
 
         interpretacao = interpretacao_sem_nivel(
             texto="Queda no tempo médio indica ganho de eficiência; alta sustentada pode indicar sobrecarga da equipe ou casos mais complexos",
@@ -200,7 +207,7 @@ class EstatisticasAtendimento:
 
         Retorna: {"media_horas": float|None, "leitura": str}
         """
-        media = ats.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
+        media = _atendimento_svc.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
 
         leitura = None
         if media is not None:

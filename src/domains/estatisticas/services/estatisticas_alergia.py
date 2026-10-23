@@ -1,11 +1,25 @@
-"""Estatísticas de alergias reportadas: ranking de substâncias mais
-comuns e distribuição de gravidade das reações (geral e por substância).
+"""
+estatisticas_alergia.py
+
+Estatísticas de alergias reportadas: ranking das substâncias mais comuns e
+distribuição de gravidade das reações, geral e por substância. O ranking é
+apenas informativo. A gravidade traz interpretação em que percentual alto de
+reações graves é ruim, sem comparação com período anterior, pois o cadastro é
+acumulado e não há filtro de período.
 """
 
 from src.domains.paciente.services.alergia_service import AlergiaService
-from ..interpretacao_helper import interpretacao_percentual
+from src.domains.estatisticas.interpretacao_helper import interpretacao_percentual
 
-als = AlergiaService()
+_alergia_svc = AlergiaService()
+
+
+def _percentual_graves(por_gravidade: dict):
+    """Percentual de reações 'grave' (uma casa decimal), ou None se não há reações."""
+    total = sum(por_gravidade.values())
+    if not total:
+        return None
+    return round((por_gravidade.get("grave", 0) / total) * 100, 1)
 
 
 class EstatisticasAlergia:
@@ -18,7 +32,7 @@ class EstatisticasAlergia:
 
         Retorna: {"ranking": [{"substancia", "total"}, ...], "leitura": str}
         """
-        ranking = als.top_substancias(id_empresa=id_empresa, limite=limite)
+        ranking = _alergia_svc.top_substancias(id_empresa=id_empresa, limite=limite)
 
         leitura = None
         if ranking:
@@ -38,14 +52,11 @@ class EstatisticasAlergia:
 
         Retorna: {"substancia": str, "por_gravidade": {...}, "leitura": str, "interpretacao": {...}}
         """
-        por_gravidade = als.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
-        total = sum(por_gravidade.values())
-        graves = por_gravidade.get("grave", 0)
+        por_gravidade = _alergia_svc.gravidade_por_substancia(id_empresa=id_empresa, substancia=substancia)
+        pct_graves = _percentual_graves(por_gravidade)
 
-        if not total:
+        if pct_graves is None:
             return {"substancia": substancia, "por_gravidade": por_gravidade, "leitura": None, "interpretacao": None}
-
-        pct_graves = round((graves / total) * 100, 1)
 
         interpretacao = interpretacao_percentual(
             valor=pct_graves,
@@ -69,14 +80,11 @@ class EstatisticasAlergia:
 
         Retorna: {"por_gravidade": {...}, "leitura": str, "interpretacao": {...}}
         """
-        por_gravidade = als.gravidade_geral(id_empresa=id_empresa)
-        total = sum(por_gravidade.values())
-        graves = por_gravidade.get("grave", 0)
+        por_gravidade = _alergia_svc.gravidade_geral(id_empresa=id_empresa)
+        pct = _percentual_graves(por_gravidade)
 
-        if not total:
+        if pct is None:
             return {"por_gravidade": por_gravidade, "leitura": None, "interpretacao": None}
-
-        pct = round((graves / total) * 100, 1)
 
         interpretacao = interpretacao_percentual(
             valor=pct,

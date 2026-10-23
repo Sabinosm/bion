@@ -1,10 +1,18 @@
-"""Estatísticas de prescrição de exames: cruzamento de urgência x origem
-da sugestão (IA vs. profissional)."""
+"""
+estatisticas_prescricao_exame.py
+
+Estatísticas de prescrição de exames: cruzamento entre a urgência do exame e
+a origem da sugestão (IA ou profissional), com o percentual de participação
+de cada origem dentro de cada nível de urgência. É uma matriz, não um valor
+único, então não tem nível nem comparação com período anterior.
+"""
+
+from collections import Counter
 
 from src.domains.estatisticas.interpretacao_helper import interpretacao_sem_nivel
 from src.domains.prescricao.prescricao_exame.prescricao_exame_service import PrescricaoExameService
 
-pes = PrescricaoExameService()
+_prescricao_exame_svc = PrescricaoExameService()
 
 
 class EstatisticasPrescricaoExame:
@@ -20,11 +28,11 @@ class EstatisticasPrescricaoExame:
 
         Retorna: {"matriz": [...], "leitura": str, "interpretacao": {...}}
         """
-        bruto = pes.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
+        bruto = _prescricao_exame_svc.urgencia_por_origem(id_empresa=id_empresa, dias=dias)
 
-        total_por_urgencia = {}
+        total_por_urgencia = Counter()
         for item in bruto:
-            total_por_urgencia[item["urgencia"]] = total_por_urgencia.get(item["urgencia"], 0) + item["total"]
+            total_por_urgencia[item["urgencia"]] += item["total"]
 
         matriz = [
             {
