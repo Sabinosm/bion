@@ -73,23 +73,18 @@ class OutputBionRepository:
 
 
     def _query_filtrada_empresa(self, id_empresa: int, dias: int):
-        """Monta a base de query com os 4 joins até Usuario, reaproveitada
-        por B1, B2 e B4 -- evita repetir o mesmo caminho 3 vezes.
- 
-        Caminho: OutputBion -> InputProtocolo -> ColetaClinica ->
-        Atendimento -> realizado_por -> Usuario.
+        """Base de query reaproveitada por B1, B2, B4 e E3.
+        Caminho: OutputBion -> Atendimento -> realizado_por -> Usuario,
+        filtrando pela empresa do profissional e pelo período.
         """
         from datetime import datetime, timedelta, timezone
         from src.models.usuarios import Usuario
-        from src.models.clinico import ColetaClinica, Atendimento, InputProtocolo
- 
+        from src.models.clinico import Atendimento
+
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
- 
         return (
             db.session.query(OutputBion)
             .join(Atendimento, OutputBion.id_atendimento == Atendimento.id)
-            .join(ColetaClinica, InputProtocolo.id_coleta_clinica == ColetaClinica.id)
-            .join(Atendimento, ColetaClinica.id_atendimento == Atendimento.id)
             .join(Usuario, Atendimento.realizado_por == Usuario.id)
             .filter(Usuario.id_empresa == id_empresa)
             .filter(OutputBion.criado_em >= limite)

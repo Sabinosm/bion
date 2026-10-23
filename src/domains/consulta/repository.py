@@ -154,19 +154,8 @@ class ConsultaRepository(IRepository[Consulta]):
         Retorna lista de dicts [{"data": date, "total": int}, ...]
         ordenada do dia mais antigo para o mais recente.
         """
-        _, offset_str = self._empresa_e_offset(id_empresa)
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
-        dia_local = func.date(func.convert_tz(Consulta.data_hora_inicio, "+00:00", offset_str))
-
-        linhas = (
-            db.session.query(dia_local.label("data"), func.count(Consulta.id).label("total"))
-            .filter(Consulta.id_empresa == id_empresa)
-            .filter(Consulta.data_hora_inicio >= limite)
-            .group_by(dia_local)
-            .order_by(dia_local.asc())
-            .all()
-        )
-        return [{"data": linha.data, "total": linha.total} for linha in linhas]
+        return self._serie_consultas_por_dia(id_empresa, limite)
 
     # --- A1 (comparação): consultas por dia, com janela explícita ---
     def contar_consultas_por_dia_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
@@ -174,18 +163,24 @@ class ConsultaRepository(IRepository[Consulta]):
         data_inicio/data_fim explícitos -- usado para o total do
         período ANTERIOR na comparação de A1. Mesmo ajuste de fuso.
         """
+        return self._serie_consultas_por_dia(id_empresa, data_inicio, data_fim)
+
+    def _serie_consultas_por_dia(self, id_empresa: int, data_inicio, data_fim=None) -> List[dict]:
+        """Consultas iniciadas por dia, no fuso da empresa (CONVERT_TZ antes de
+        extrair a data). Sem data_fim, vai até agora; com data_fim, a janela é
+        [data_inicio, data_fim). Ordenada do dia mais antigo ao mais recente."""
         _, offset_str = self._empresa_e_offset(id_empresa)
         dia_local = func.date(func.convert_tz(Consulta.data_hora_inicio, "+00:00", offset_str))
 
-        linhas = (
+        query = (
             db.session.query(dia_local.label("data"), func.count(Consulta.id).label("total"))
             .filter(Consulta.id_empresa == id_empresa)
             .filter(Consulta.data_hora_inicio >= data_inicio)
-            .filter(Consulta.data_hora_inicio < data_fim)
-            .group_by(dia_local)
-            .order_by(dia_local.asc())
-            .all()
         )
+        if data_fim is not None:
+            query = query.filter(Consulta.data_hora_inicio < data_fim)
+
+        linhas = query.group_by(dia_local).order_by(dia_local.asc()).all()
         return [{"data": linha.data, "total": linha.total} for linha in linhas]
 
     # --- A3: Taxa de conclusão vs. abandono ---
@@ -196,9 +191,8 @@ class ConsultaRepository(IRepository[Consulta]):
         {"encerrada": 130, "em-atendimento": 8, "em-triagem": 4, ...}
         Evasão NÃO é um status: é um desfecho_final de uma Consulta
         "encerrada". Para separar evasões de altas, agrupe por
-        desfecho_final (não por status_consulta).
-        Base para calcular a taxa de conclusão no service (contagem
-        pura aqui; % é responsabilidade da camada de estatística).
+        desfecho_final (ver contar_consultas_por_desfecho).
+        Contagem pura aqui; % é responsabilidade da camada de estatística.
         """
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
 
@@ -232,3 +226,42 @@ class ConsultaRepository(IRepository[Consulta]):
             .all()
         )
         return {linha.status: linha.total for linha in linhas}
+
+    # --- A3: concluídas (encerradas sem evasão) vs. abandonadas (evasão) ---
+    def contar_consultas_por_desfecho(self, id_empresa: int, dias: int = 30) -> dict:
+        """Contagem de consultas ENCERRADAS por desfecho_final, nos últimos N dias.
+
+        Retorna dict {desfecho_final: total}, ex:
+        {"alta": 120, "internacao": 6, "transferencia": 3, "obito": 1, "evasao": 7}
+        Consultas em andamento ficam de fora (só 'encerrada' tem desfecho).
+        Base da taxa de conclusão vs. abandono: evasão é o abandono; os demais
+        desfechos contam como concluída (contagem pura aqui; % no service).
+        """
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
+        return self._contar_por_desfecho(id_empresa, limite)
+
+    # --- A3 (comparação): consultas encerradas por desfecho, com janela explícita ---
+    def contar_consultas_por_desfecho_periodo(self, id_empresa: int, data_inicio, data_fim) -> dict:
+        """Mesma agregação de contar_consultas_por_desfecho, mas com
+        data_inicio/data_fim explícitos -- usado para o período ANTERIOR
+        (comparação de A3).
+        """
+        return self._contar_por_desfecho(id_empresa, data_inicio, data_fim)
+
+    def _contar_por_desfecho(self, id_empresa: int, data_inicio, data_fim=None) -> dict:
+        """Consultas encerradas agrupadas por desfecho_final. Sem data_fim, vai
+        até agora; com data_fim, a janela é [data_inicio, data_fim)."""
+        query = (
+            db.session.query(
+                Consulta.desfecho_final.label("desfecho"),
+                func.count(Consulta.id).label("total"),
+            )
+            .filter(Consulta.id_empresa == id_empresa)
+            .filter(Consulta.status_consulta == "encerrada")
+            .filter(Consulta.data_hora_inicio >= data_inicio)
+        )
+        if data_fim is not None:
+            query = query.filter(Consulta.data_hora_inicio < data_fim)
+
+        linhas = query.group_by(Consulta.desfecho_final).all()
+        return {linha.desfecho: linha.total for linha in linhas}

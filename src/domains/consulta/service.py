@@ -248,3 +248,11 @@ class ConsultaService:
         return self.repo.contar_consultas_por_status_periodo(
             id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
+
+    def consultas_por_desfecho(self, id_empresa: int, dias: int = 30):
+        return self.repo.contar_consultas_por_desfecho(id_empresa=id_empresa, dias=dias)
+
+    def consultas_por_desfecho_periodo(self, id_empresa: int, data_inicio, data_fim):
+        return self.repo.contar_consultas_por_desfecho_periodo(
+            id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
+        )

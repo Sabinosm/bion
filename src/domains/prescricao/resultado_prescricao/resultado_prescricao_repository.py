@@ -109,11 +109,13 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
     # --- C3 (bônus): base para incidência por 100 mil -- casos por região, sem GROUP BY CID ---
     def total_casos_por_regiao(self, id_empresa: int, dias: int = 14) -> List[dict]:
         """Total de diagnósticos (todos os CIDs juntos) por região, no
-        período. Serve de numerador para C3 -- a divisão por
-        RegiaoGeografica.populacao_estimada fica na camada de
-        estatística, não aqui (repository só agrega, não calcula taxa).
+        período, com a população estimada da região. Serve de base para C3
+        -- a divisão casos/população fica na camada de estatística, não
+        aqui (repository só agrega, não calcula taxa).
 
-        Retorna: [{"id_regiao": 4, "regiao": "Zona Leste", "total": 152}, ...]
+        Retorna: [{"id_regiao": 4, "regiao": "Zona Leste",
+                   "populacao_estimada": 250000, "total": 152}, ...]
+        populacao_estimada é None quando a região não tem população cadastrada.
         """
         from datetime import datetime, timedelta, timezone
         from sqlalchemy import func
@@ -128,6 +130,7 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             db.session.query(
                 RegiaoGeografica.id.label("id_regiao"),
                 RegiaoGeografica.nome_regiao.label("regiao"),
+                RegiaoGeografica.populacao_estimada.label("populacao_estimada"),
                 func.count(ResultadoPrescricao.id).label("total"),
             )
             .join(Atendimento, ResultadoPrescricao.id_atendimento == Atendimento.id)
@@ -138,10 +141,22 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .filter(Usuario.id_empresa == id_empresa)
             .filter(ResultadoPrescricao.data_hora_formulacao >= limite_data)
             .filter(ResultadoPrescricao.status == "confirmado")
-            .group_by(RegiaoGeografica.id, RegiaoGeografica.nome_regiao)
+            .group_by(
+                RegiaoGeografica.id,
+                RegiaoGeografica.nome_regiao,
+                RegiaoGeografica.populacao_estimada,
+            )
             .all()
         )
-        return [{"id_regiao": l.id_regiao, "regiao": l.regiao, "total": l.total} for l in linhas]
+        return [
+            {
+                "id_regiao": l.id_regiao,
+                "regiao": l.regiao,
+                "populacao_estimada": l.populacao_estimada,
+                "total": l.total,
+            }
+            for l in linhas
+        ]
 
     # --- C2: Evolução temporal de um CID específico ---
     def evolucao_cid(self, id_empresa: int, codigo_cid10: str, dias: int = 30) -> List[dict]:
