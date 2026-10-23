@@ -65,7 +65,8 @@ class AlergiaController():
             return json_success(data=a.to_dict(), message="Alergia atualizada.")
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
-
+        
+        
     @staticmethod
     @bp_escrita.post(_ESC + "/<uuid_alergia>/reacoes")
     @requer_papel_clinico("medico", "enfermeiro")

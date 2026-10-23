@@ -52,6 +52,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationError, fi
 from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.validacoes import validar_e_devolver_cep, validar_telefone_br, validar_cpf
 
+CAMPOS_LIMPAVEIS = {
+    "telefone", "email", "numero_residencia", "rg",
+    "contato_emergencia_nome", "contato_emergencia_telefone",
+}
+
+# dentro de PacienteAtualizarPessoalSchema:
 
 def _strip_ou_none(v: Optional[str]) -> Optional[str]:
     if v is None:
@@ -108,11 +114,12 @@ class PacienteAtualizarPessoalSchema(BaseModel):
         return cep_normalizado
 
     def campos_informados(self) -> dict:
-        """Só os campos que vieram de fato no payload (exclui os que
-        ficaram None por serem opcionais e ausentes) -- para o service
-        aplicar apenas o que foi enviado, igual o `if campo in dados`
-        original fazia antes de existir schema."""
-        return self.model_dump(exclude_none=True, exclude_unset=True)
+        dados = self.model_dump(exclude_unset=True)
+        return {
+            k: v for k, v in dados.items()
+            if v is not None or k in CAMPOS_LIMPAVEIS
+        }
+    
 
 
 class PacienteAtualizarClinicoSchema(BaseModel):
