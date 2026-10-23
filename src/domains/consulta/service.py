@@ -47,6 +47,13 @@ class ConsultaService:
             return self.repo.find_abertas(id_empresa)
         return self.repo.find_all(id_empresa)
 
+    def listar_historico(self, id_empresa: int, id_usuario: int):
+        resposta = self.repo.historico(id_empresa, id_usuario)
+        if resposta:
+            return resposta
+        else:
+            raise DadosInvalidosError("Dados inválidos")
+    
     def _com_paciente(self, c) -> dict:
         """Consulta.to_dict() + bloco `paciente` (nome descriptografado).
 

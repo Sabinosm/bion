@@ -82,6 +82,27 @@ class AtendimentoRepository(IRepository[Atendimento]):
             .all()
         )
 
+    
+    def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0):
+        from src.models.usuarios import Usuario
+        
+        # Garante um limite máximo de 10 registros por consulta sem bloquear a execução
+        limit_efetivo = min(limit, 10) if limit > 0 else 10
+        offset_efetivo = max(offset, 0)
+
+        return (
+            Atendimento.query
+            .join(Usuario, Atendimento.realizado_por == Usuario.id)
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Atendimento.realizado_por == id_usuario
+            )
+            .order_by(Atendimento.data_hora_inicio.desc(), Atendimento.id.desc())
+            .limit(limit_efetivo)
+            .offset(offset_efetivo)
+            .all()
+        )
+    
     def find_ultimo_por_tipo(self, id_consulta: int, tipo_atendimento: str) -> Optional[Atendimento]:
         """Retorna o Atendimento mais recente de um tipo específico dentro de uma Consulta."""
         return (

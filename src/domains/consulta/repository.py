@@ -75,6 +75,8 @@ class ConsultaRepository(IRepository[Consulta]):
         return (Consulta.query.filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
                 .filter(Consulta.status_consulta != "encerrada")
                 .order_by(Consulta.data_hora_inicio.desc()).first())
+        
+    
 
     # --------------------------------------------------------------- escrita
     def nova(self, *, id_paciente, id_empresa, origem_encaminhamento, iniciada_por) -> Consulta:
@@ -265,3 +267,24 @@ class ConsultaRepository(IRepository[Consulta]):
 
         linhas = query.group_by(Consulta.desfecho_final).all()
         return {linha.desfecho: linha.total for linha in linhas}
+    
+    
+    def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0):
+        from src.models.usuarios import Usuario
+        
+        # Garante um limite máximo de 10 registros por consulta sem bloquear a execução
+        limit_efetivo = min(limit, 10) if limit > 0 else 10
+        offset_efetivo = max(offset, 0)
+
+        return (
+            Consulta.query
+            .join(Usuario, Consulta.realizado_por == Usuario.id)
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Consulta.realizado_por == id_usuario
+            )
+            .order_by(Consulta.data_hora_inicio.desc(), Consulta.id.desc())
+            .limit(limit_efetivo)
+            .offset(offset_efetivo)
+            .all()
+        )

@@ -50,6 +50,26 @@ class ConsultasController():
         return json_success(data=itens)
     
     @staticmethod
+    @bp_consulta.get("/historico")
+    @requer_papel_clinico("enfermeiro", "medico")
+    def lista_consultas_do_profissional():
+        try:
+            """Lista as consultas do usuário logado."""
+            # Captura os parâmetros da URL com tratamento de tipo e valores default
+            limit = request.args.get('limit', default=10, type=int)
+            offset = request.args.get('offset', default=0, type=int)
+
+            itens = _svc.listar_historico(
+                id_empresa=get_id_empresa_sessao(),
+                id_usuario=get_id_usuario_sessao(),
+                limit=limit,
+                offset=offset
+            )
+            return json_success(data=[a.to_dict() for a in itens])
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+    
+    @staticmethod
     @bp_consulta.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="visualizar consulta", operacao="leitura")

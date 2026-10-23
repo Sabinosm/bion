@@ -82,6 +82,13 @@ class AtendimentoService:
         """Lista os Atendimentos da empresa."""
         return self.repo.find_all(id_empresa)
 
+    def listar_historico(self, id_empresa: int, id_usuario: int):
+        resposta = self.repo.historico(id_empresa, id_usuario)
+        if resposta:
+            return resposta
+        else:
+            raise DadosInvalidosError("Dados inválidos")
+    
     def listar_por_consulta(self, uuid_consulta: str, id_empresa: int):
         """Lista os Atendimentos de uma Consulta da empresa. A posse é
         checada na Consulta; find_por_consulta em si não filtra empresa."""
