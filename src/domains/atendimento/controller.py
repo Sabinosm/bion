@@ -36,34 +36,13 @@ class AtendimentoController():
         return json_success(data=[a.to_dict() for a in itens])
     
     @staticmethod
-    @bp_atendimento.get("/historico")
-    @requer_papel_clinico("enfermeiro", "medico")
-    def lista_atendimentos_do_profissional():
-        try:
-            """Lista os Atendimentos do usuário logado."""
-            # Captura os parâmetros da URL com tratamento de tipo e valores default
-            limit = request.args.get('limit', default=10, type=int)
-            offset = request.args.get('offset', default=0, type=int)
-
-            itens = _svc.listar_historico(
-                id_empresa=get_id_empresa_sessao(),
-                id_usuario=get_id_usuario_sessao(),
-                limit=limit,
-                offset=offset
-            )
-            return json_success(data=[a.to_dict() for a in itens])
-        except BionException as ex:
-            return json_error(ex.message, ex.status_code)
-
-    @staticmethod
     @bp_atendimento.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="visualizar atendimento", operacao="leitura")
     def detalhe_atendimento(uuid):
-        """Retorna os detalhes de um Atendimento pelo UUID."""
+        """Retorna os detalhes de um Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
         try:
-            a = _svc.buscar_por_uuid(uuid, get_id_empresa_sessao())
-            return json_success(data=a.to_dict())
+            return json_success(data=_svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao()))
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 

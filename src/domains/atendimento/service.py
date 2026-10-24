@@ -39,13 +39,15 @@ from src.core.exceptions import (
     RecursoNaoEncontradoError, ConflictoError, PermissaoNegadaError, DadosInvalidosError,
 )
 from .repository import AtendimentoRepository
+from src.domains.consulta.paciente_resumo_service import bloco_paciente
+from src.domains.consulta.continuar_service import STATUS_PARA_REAVALIACAO, continuidade_atendimento
+from src.models.clinico import Atendimento
 from .binario.binario_gate import exigir_binario_completo
 from src.domains.consulta.repository import ConsultaRepository
 from src.domains.consulta.service import ConsultaService
 from src.domains.consulta.status_sync import sincronizar_status_consulta
 
 TIPOS_SOMENTE_MEDICO = ("avaliacao-medica", "reavaliacao")
-STATUS_PARA_REAVALIACAO = ("em-observacao",)
 
 MOTIVOS_CANCELAMENTO = (
     "erro-abertura", "paciente-nao-compareceu", "paciente-recusou", "transferencia", "outro",
@@ -78,17 +80,26 @@ class AtendimentoService:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid}")
         return e
 
+    def _com_paciente(self, a, id_usuario: int = None) -> dict:
+        """Atendimento.to_dict() + bloco `paciente` (via consulta.paciente; nome descriptografado).
+
+        Com `id_usuario`, soma pode_continuar, proxima_acao e motivo_bloqueio (ver continuar_service.py).
+        Nome é PII: só use em rota de médico/enfermeiro."""
+        d = a.to_dict()
+        d["paciente"] = bloco_paciente(a.consulta.paciente if a.consulta else None)
+        if id_usuario is not None:
+            d.update(continuidade_atendimento(a, id_usuario))
+        return d
+
+    def buscar_resumo(self, uuid: str, id_empresa: int, id_usuario: int = None) -> dict:
+        """Detalhe do Atendimento já com o paciente (404 igual para 'não existe' e 'outra empresa').
+        Com `id_usuario`, inclui os campos de continuidade."""
+        return self._com_paciente(self.buscar_por_uuid(uuid, id_empresa), id_usuario)
+
     def listar(self, id_empresa: int):
         """Lista os Atendimentos da empresa."""
         return self.repo.find_all(id_empresa)
 
-    def listar_historico(self, id_empresa: int, id_usuario: int):
-        resposta = self.repo.historico(id_empresa, id_usuario)
-        if resposta:
-            return resposta
-        else:
-            raise DadosInvalidosError("Dados inválidos")
-    
     def listar_por_consulta(self, uuid_consulta: str, id_empresa: int):
         """Lista os Atendimentos de uma Consulta da empresa. A posse é
         checada na Consulta; find_por_consulta em si não filtra empresa."""
@@ -139,7 +150,6 @@ class AtendimentoService:
 
     def _criar(self, consulta, tipo_atendimento: str, id_usuario: int):
         """Cria o Atendimento e sincroniza a Consulta num único commit."""
-        from src.models.clinico import Atendimento
         try:
             atendimento = Atendimento(
                 id_consulta=consulta.id,

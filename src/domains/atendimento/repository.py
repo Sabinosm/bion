@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from sqlalchemy import func, text
+from sqlalchemy.orm import contains_eager, joinedload
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -62,6 +63,18 @@ class AtendimentoRepository(IRepository[Atendimento]):
             .all()
         )
 
+    def find_em_andamento_por_consultas(self, ids_consulta: List[int]) -> dict:
+        """{id_consulta: Atendimento em andamento}, numa única query, para várias Consultas.
+        Há no máximo um por Consulta (regra do service); ids sem atendimento em andamento ficam de fora."""
+        if not ids_consulta:
+            return {}
+        linhas = (
+            Atendimento.query
+            .filter(Atendimento.id_consulta.in_(ids_consulta), Atendimento.status == "em-andamento")
+            .all()
+        )
+        return {a.id_consulta: a for a in linhas}
+
     def find_anteriores_do_paciente(self, id_paciente: int, id_atendimento_atual: int,
                                     id_empresa: int, limite: int = 50) -> List[Atendimento]:
         """Atendimentos FINALIZADOS anteriores do paciente (de qualquer
@@ -83,26 +96,6 @@ class AtendimentoRepository(IRepository[Atendimento]):
         )
 
     
-    def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0):
-        from src.models.usuarios import Usuario
-        
-        # Garante um limite máximo de 10 registros por consulta sem bloquear a execução
-        limit_efetivo = min(limit, 10) if limit > 0 else 10
-        offset_efetivo = max(offset, 0)
-
-        return (
-            Atendimento.query
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(
-                Usuario.id_empresa == id_empresa,
-                Atendimento.realizado_por == id_usuario
-            )
-            .order_by(Atendimento.data_hora_inicio.desc(), Atendimento.id.desc())
-            .limit(limit_efetivo)
-            .offset(offset_efetivo)
-            .all()
-        )
-    
     def find_ultimo_por_tipo(self, id_consulta: int, tipo_atendimento: str) -> Optional[Atendimento]:
         """Retorna o Atendimento mais recente de um tipo específico dentro de uma Consulta."""
         return (
@@ -117,6 +110,7 @@ class AtendimentoRepository(IRepository[Atendimento]):
         return (
             Atendimento.query
             .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .options(contains_eager(Atendimento.consulta), joinedload(Atendimento.usuario))
             .filter(Consulta.id_empresa == id_empresa)
             .order_by(Atendimento.data_hora_inicio.desc())
             .all()

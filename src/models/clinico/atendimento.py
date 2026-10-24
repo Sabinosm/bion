@@ -1,15 +1,13 @@
-"""
-Dominio Clinico (nucleo do ciclo de vida do atendimento/visita).
+"""atendimento.py -- model do Atendimento.
 
-Consulta, Atendimento e SinalVital ja estavam completos no projeto
-original. ColetaClinica, ResultadoPrescricao, InputProtocolo,
-InputProtocoloExecucao, Prescricao e PrescricaoExame eram stubs ou nem
-existiam como classe -- completados aqui com os campos do schema.
+Etapa de uma Consulta (triagem, avaliação médica, reavaliação etc.), sempre feita por um
+único profissional. Guarda status, horários, observações, a conferência do binário e o
+motivo de cancelamento. A posse por empresa vem da Consulta. O to_dict() usa só dados já
+carregados pelas relações, sem consultar services.
 """
 
 from datetime import datetime, timezone
 import uuid as _uuid
-from src.domains.usuario import UsuarioService
 from src.models import db
 from src.models.types import BigIntPK
 
@@ -62,7 +60,6 @@ class Atendimento(db.Model):
 
    
     def to_dict(self):
-        realizado_por= UsuarioService().buscar_por_id(self.realizado_por).uuid
         return {
             "uuid": self.uuid,
             "tipo_atendimento": self.tipo_atendimento,
@@ -72,7 +69,7 @@ class Atendimento(db.Model):
             "observacoes_profissional": self.observacoes_profissional,
             "motivo_cancelamento": self.motivo_cancelamento,
             "consulta_uuid": self.consulta.uuid if self.consulta else None,
-            "realizado_por": realizado_por,
+            "realizado_por": self.usuario.uuid if self.usuario else None,
         }
 
     def __repr__(self):

@@ -6,8 +6,16 @@ from sqlalchemy.exc import IntegrityError
 
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
 from .repository import ConsultaRepository
+from .paciente_resumo_service import bloco_paciente
+from .filtros import validar_opcao, periodo_em_utc, montar_pagina
+from .continuar_service import avaliar_continuidade, FUNCOES_CLINICAS
+from src.models.clinico import Consulta
 from .schema_consulta import DESFECHOS_VALIDOS, ORIGENS_VALIDAS
 from src.domains.paciente.services.consentimento_service import consentimento_bloqueia_consulta
+
+LIMITE_PADRAO_HISTORICO = 10
+LIMITE_MAXIMO_HISTORICO = 50
+
 
 class ConsultaService:
     """Abertura, consulta e encerramento de Consultas."""
@@ -47,34 +55,82 @@ class ConsultaService:
             return self.repo.find_abertas(id_empresa)
         return self.repo.find_all(id_empresa)
 
-    def listar_historico(self, id_empresa: int, id_usuario: int):
-        resposta = self.repo.historico(id_empresa, id_usuario)
-        if resposta:
-            return resposta
-        else:
-            raise DadosInvalidosError("Dados inválidos")
-    
+    def listar_historico(self, id_empresa: int, id_usuario: int,
+                         limit: int = LIMITE_PADRAO_HISTORICO, offset: int = 0, *,
+                         status=None, desfecho=None, apenas_abertas: bool = False,
+                         data_inicio=None, data_fim=None, funcao=None) -> dict:
+        """Histórico paginado das Consultas iniciadas pelo profissional, da mais recente à mais antiga.
+
+        Cada item vem com o bloco `paciente` e os campos de continuidade (`funcao` é a função
+        clínica do usuário na sessão). Devolve a página: {itens, tem_mais, limit, offset,
+        proximo_offset}. `limit` ausente ou menor que 1 usa o padrão; acima de LIMITE_MAXIMO_HISTORICO
+        usa o teto; `offset` negativo vira 0. Sem resultado, `itens` é lista vazia (não é erro).
+
+        Filtros opcionais: `status` (status_consulta), `desfecho` (desfecho_final), `apenas_abertas`,
+        `data_inicio`/`data_fim` (AAAA-MM-DD no fuso da empresa, sobre o início da Consulta).
+        Valor inválido levanta DadosInvalidosError (422).
+        """
+        if not limit or limit < 1:
+            limit = LIMITE_PADRAO_HISTORICO
+        limit = min(limit, LIMITE_MAXIMO_HISTORICO)
+        offset = max(offset or 0, 0)
+
+        status = validar_opcao(status, tuple(Consulta.status_consulta.type.enums), "status")
+        desfecho = validar_opcao(desfecho, tuple(DESFECHOS_VALIDOS), "desfecho")
+        inicio = fim = None
+        if data_inicio or data_fim:
+            inicio, fim = periodo_em_utc(data_inicio, data_fim, self.repo.fuso_da_empresa(id_empresa))
+
+        brutos = self.repo.historico(
+            id_empresa, id_usuario, limit=limit + 1, offset=offset, status=status,
+            desfecho=desfecho, apenas_abertas=apenas_abertas, inicio=inicio, fim=fim,
+        )
+        pagina = brutos[:limit]
+        em_andamento = self._em_andamento_por_consulta(pagina)
+        itens = [self._com_continuidade(c, em_andamento.get(c.id), id_usuario, funcao) for c in pagina]
+        return montar_pagina(itens, limit, offset, tem_mais=len(brutos) > limit)
+
     def _com_paciente(self, c) -> dict:
         """Consulta.to_dict() + bloco `paciente` (nome descriptografado).
 
         Nome é PII: só use em rota de médico/enfermeiro."""
-        from src.core.security import aes_decrypt
-
         d = c.to_dict()
-        p = c.paciente
-        tem_pessoal = bool(p and p.pessoal)
-        d["paciente"] = {
-            "uuid": p.uuid if p else None,
-            "nome": aes_decrypt(p.pessoal.nome_completo) if tem_pessoal else None,
-            "nao_identificado": bool(p and p.nao_identificado),
-            "anonimizado": bool(p and not tem_pessoal and not p.nao_identificado),
-        }
+        d["paciente"] = bloco_paciente(c.paciente)
         return d
 
-    def buscar_resumo(self, uuid: str, id_empresa: int) -> dict:
-        """Detalhe da consulta já com o paciente (404 igual para
-        'não existe' e 'outra empresa')."""
-        return self._com_paciente(self.buscar_por_uuid(uuid, id_empresa))
+    @staticmethod
+    def _em_andamento_por_consulta(consultas) -> dict:
+        """{id_consulta: Atendimento em andamento} para as Consultas dadas, numa única query."""
+        from src.domains.atendimento.repository import AtendimentoRepository
+        return AtendimentoRepository().find_em_andamento_por_consultas([c.id for c in consultas])
+
+    def _consentimento_pendente(self, c) -> bool:
+        """True se a Consulta ainda não tem consentimento válido e a regra exige um para atender."""
+        situacao = self._consentimento_svc().situacao(c.id_paciente, desde=c.data_hora_inicio)
+        return situacao is None and consentimento_bloqueia_consulta()
+
+    def _com_continuidade(self, c, atendimento_em_andamento, id_usuario: int, funcao) -> dict:
+        """_com_paciente + pode_continuar, proxima_acao, acoes_disponiveis, atendimento_em_andamento
+        e motivo_bloqueio (ver continuar_service.py). O consentimento só é consultado quando faz diferença:
+        Consulta aberta, sem atendimento em andamento e usuário com função clínica."""
+        pendente = (
+            atendimento_em_andamento is None
+            and c.status_consulta != "encerrada"
+            and funcao in FUNCOES_CLINICAS
+            and self._consentimento_pendente(c)
+        )
+        d = self._com_paciente(c)
+        d.update(avaliar_continuidade(c, atendimento_em_andamento, id_usuario, funcao, pendente))
+        return d
+
+    def buscar_resumo(self, uuid: str, id_empresa: int, id_usuario: int = None, funcao=None) -> dict:
+        """Detalhe da consulta já com o paciente (404 igual para 'não existe' e 'outra empresa').
+        Com `id_usuario`, inclui os campos de continuidade (`funcao` = função clínica da sessão)."""
+        c = self.buscar_por_uuid(uuid, id_empresa)
+        if id_usuario is None:
+            return self._com_paciente(c)
+        em_andamento = self._em_andamento_por_consulta([c])
+        return self._com_continuidade(c, em_andamento.get(c.id), id_usuario, funcao)
 
     def listar_resumo(self, id_empresa: int, apenas_abertas: bool = False) -> list[dict]:
         """Itens da lista: _com_paciente + `consentimento`. Só é

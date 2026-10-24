@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 from typing import Optional, List
 
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 from src.models import db
 from src.core.interfaces import IRepository
@@ -43,6 +44,17 @@ class ConsultaRepository(IRepository[Consulta]):
         return consulta
 
     # ---------------------------------------------------------------- leitura
+    @staticmethod
+    def _carregar_paciente():
+        """Opções de eager loading de Paciente + dados pessoais, para listas que mostram o nome."""
+        from src.models.pacientes import Paciente
+        return (joinedload(Consulta.paciente).joinedload(Paciente.pessoal),)
+
+    def fuso_da_empresa(self, id_empresa: int):
+        """Fuso horário (tzinfo) da empresa; UTC se a empresa não existir."""
+        empresa, _ = self._empresa_e_offset(id_empresa)
+        return empresa.fuso_horario if empresa else timezone.utc
+
     def find_by_id(self, id: int) -> Optional[Consulta]:
         """Busca pela chave primária. SEM filtro de empresa: só use com
         um id que já veio de um registro validado (ex: o id_consulta de
@@ -60,15 +72,17 @@ class ConsultaRepository(IRepository[Consulta]):
     def find_por_paciente_limitado(self, id_paciente: int, id_empresa: int) -> List[Consulta]:
         return (Consulta.query
                 .filter_by(id_paciente=id_paciente, id_empresa=id_empresa)
-                .order_by(Consulta.data_hora_inicio.desc()).limit(5))
+                .order_by(Consulta.data_hora_inicio.desc()).limit(5).all())
     
     def find_abertas(self, id_empresa: int) -> List[Consulta]:
-        return (Consulta.query.filter_by(id_empresa=id_empresa)
+        return (Consulta.query.options(*self._carregar_paciente())
+                .filter_by(id_empresa=id_empresa)
                 .filter(Consulta.status_consulta != "encerrada")
                 .order_by(Consulta.data_hora_inicio.desc()).all())
 
     def find_all(self, id_empresa: int) -> List[Consulta]:
-        return (Consulta.query.filter_by(id_empresa=id_empresa)
+        return (Consulta.query.options(*self._carregar_paciente())
+                .filter_by(id_empresa=id_empresa)
                 .order_by(Consulta.data_hora_inicio.desc()).all())
 
     def find_aberta_por_paciente(self, id_paciente: int, id_empresa: int) -> Optional[Consulta]:
@@ -269,22 +283,33 @@ class ConsultaRepository(IRepository[Consulta]):
         return {linha.desfecho: linha.total for linha in linhas}
     
     
-    def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0):
-        from src.models.usuarios import Usuario
-        
-        # Garante um limite máximo de 10 registros por consulta sem bloquear a execução
-        limit_efetivo = min(limit, 10) if limit > 0 else 10
-        offset_efetivo = max(offset, 0)
+    def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0, *,
+                  status=None, desfecho=None, apenas_abertas: bool = False,
+                  inicio=None, fim=None) -> List[Consulta]:
+        """Consultas iniciadas pelo profissional (iniciada_por), da mais recente à mais antiga, paginadas.
 
-        return (
+        Filtros opcionais (todos já validados pelo service): status_consulta, desfecho_final,
+        apenas_abertas (status diferente de 'encerrada') e período sobre data_hora_inicio
+        ([inicio, fim), em UTC). Paciente e dados pessoais vêm na mesma query.
+        """
+        query = (
             Consulta.query
-            .join(Usuario, Consulta.realizado_por == Usuario.id)
-            .filter(
-                Usuario.id_empresa == id_empresa,
-                Consulta.realizado_por == id_usuario
-            )
-            .order_by(Consulta.data_hora_inicio.desc(), Consulta.id.desc())
-            .limit(limit_efetivo)
-            .offset(offset_efetivo)
+            .options(*self._carregar_paciente())
+            .filter_by(id_empresa=id_empresa, iniciada_por=id_usuario)
+        )
+        if status:
+            query = query.filter(Consulta.status_consulta == status)
+        if desfecho:
+            query = query.filter(Consulta.desfecho_final == desfecho)
+        if apenas_abertas:
+            query = query.filter(Consulta.status_consulta != "encerrada")
+        if inicio is not None:
+            query = query.filter(Consulta.data_hora_inicio >= inicio)
+        if fim is not None:
+            query = query.filter(Consulta.data_hora_inicio < fim)
+        return (
+            query.order_by(Consulta.data_hora_inicio.desc(), Consulta.id.desc())
+            .limit(limit)
+            .offset(offset)
             .all()
         )

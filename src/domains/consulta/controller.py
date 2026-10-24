@@ -13,7 +13,10 @@ from pydantic import ValidationError
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.erros_pydantic import erros_pydantic_por_campo
-from src.core.session import requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin_ou_papel_clinico
+from src.core.session import (
+    requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin_ou_papel_clinico,
+    get_funcao_clinica_sessao,
+)
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from .schema_consulta import (
     ConsultaAbrirSchema, ConsultaEncerrarSchema, ConsultaEvadirSchema,
@@ -52,30 +55,37 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/historico")
     @requer_papel_clinico("enfermeiro", "medico")
+    @acesso_auditado(recurso="historico de consultas", operacao="leitura")
     def lista_consultas_do_profissional():
+        """Lista as Consultas iniciadas pelo usuário logado, com o paciente e a continuidade de cada uma (resposta paginada).
+        Query string: limit (padrão 10, máximo 50), offset (padrão 0) e filtros opcionais
+        status, desfecho, abertas=true, data_inicio e data_fim (AAAA-MM-DD). Filtro inválido devolve 422."""
         try:
-            """Lista as consultas do usuário logado."""
-            # Captura os parâmetros da URL com tratamento de tipo e valores default
-            limit = request.args.get('limit', default=10, type=int)
-            offset = request.args.get('offset', default=0, type=int)
-
-            itens = _svc.listar_historico(
+            pagina = _svc.listar_historico(
                 id_empresa=get_id_empresa_sessao(),
                 id_usuario=get_id_usuario_sessao(),
-                limit=limit,
-                offset=offset
+                funcao=get_funcao_clinica_sessao(),
+                limit=request.args.get("limit", default=10, type=int),
+                offset=request.args.get("offset", default=0, type=int),
+                status=request.args.get("status"),
+                desfecho=request.args.get("desfecho"),
+                apenas_abertas=request.args.get("abertas") == "true",
+                data_inicio=request.args.get("data_inicio"),
+                data_fim=request.args.get("data_fim"),
             )
-            return json_success(data=[a.to_dict() for a in itens])
+            return json_success(data=pagina)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
-    
+
     @staticmethod
     @bp_consulta.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="visualizar consulta", operacao="leitura")
     def detalhe_consulta(uuid):
         try:
-            return json_success(data=_svc.buscar_resumo(uuid, get_id_empresa_sessao()))
+            return json_success(data=_svc.buscar_resumo(
+                uuid, get_id_empresa_sessao(), get_id_usuario_sessao(), get_funcao_clinica_sessao(),
+            ))
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
         
