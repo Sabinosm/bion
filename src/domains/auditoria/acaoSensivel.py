@@ -25,10 +25,26 @@ from src.core.session import get_id_usuario_sessao, get_id_empresa_sessao
 _auditoria = AuditoriaService()
 _OPERACOES_LOG_ACESSO = ("leitura", "escrita", "exclusao-logica", "exportacao")
 
+# Sinal devolvido pela view em detalhes["operacao"] quando nada foi alterado
+# (ex.: erro de validação). Não é uma operação auditável em nenhum dos logs.
+_OPERACAO_NOOP = "NOOP"
+
 
 def _ip_origem():
-    """Retorna o IP de origem, considerando proxy reverso (X-Forwarded-For)."""
-    return request.headers.get("X-Forwarded-For", request.remote_addr)
+    """Retorna o IP de origem, considerando proxy reverso (X-Forwarded-For).
+
+    O header pode conter a cadeia inteira de proxies ("cliente, proxy1, ...");
+    o primeiro item é o cliente original. Atenção: esse valor só é confiável se
+    o proxy de borda sobrescrever o header. Em produção, prefira configurar o
+    werkzeug ProxyFix com o número de proxies confiáveis e usar apenas
+    request.remote_addr.
+    """
+    encaminhado = request.headers.get("X-Forwarded-For")
+    if encaminhado:
+        primeiro = encaminhado.split(",")[0].strip()
+        if primeiro:
+            return primeiro
+    return request.remote_addr
 
 
 def _extrair_resposta_e_detalhes(resultado):
@@ -64,9 +80,10 @@ def acao_sensivel(acao: str, *, tabela: str):
     quando operacao == "DELETE").
 
     Qualquer exceção (da view ou do log) desfaz a transação inteira. Se a view
-    devolver uma resposta de erro (status >= 400) sem lançar exceção, a
-    transação também é desfeita e nenhum log de alteração é gravado: a ação não
-    aconteceu, então não há o que auditar nem o que commitar.
+    devolver uma resposta de erro (status >= 400) ou operacao == "NOOP" sem
+    lançar exceção, a transação também é desfeita e nenhum log de alteração é
+    gravado: a ação não aconteceu, então não há o que auditar nem o que
+    commitar.
 
     Args:
         acao: nome da ação auditada (ex.: "editar_paciente"); também é a ação
@@ -83,15 +100,12 @@ def acao_sensivel(acao: str, *, tabela: str):
         @confirmar_identidade
         def wrapper(*args, **kwargs):
             try:
-            
-
                 resposta, detalhes = _extrair_resposta_e_detalhes(f(*args, **kwargs))
 
-                if detalhes.get("operacao") == "NOOP" or _status_da_resposta(resposta) >= 400:
+                if detalhes.get("operacao") == _OPERACAO_NOOP or _status_da_resposta(resposta) >= 400:
                     db.session.rollback()
                     return resposta
 
-                
                 if "id_registro" not in detalhes or "uuid_registro" not in detalhes:
                     raise ValueError(
                         f"acao_sensivel({acao!r}): a view precisa retornar "
@@ -127,6 +141,11 @@ def acesso_auditado(recurso: str, *, operacao: str):
     Não exige step-up. A view pode devolver (resposta, detalhes) para
     sobrescrever recurso_acessado, operacao, resultado e informar uuid_paciente.
 
+    Se detalhes["operacao"] == "NOOP", nada é registrado (mesmo sinal que
+    acao_sensivel entende). Qualquer outra operacao vinda dos detalhes precisa
+    estar em _OPERACOES_LOG_ACESSO, senão levanta ValueError com mensagem clara
+    em vez de estourar no banco (coluna ENUM).
+
     Args:
         recurso: recurso acessado, usado como padrão no log.
         operacao: obrigatória, uma de _OPERACOES_LOG_ACESSO, para evitar
@@ -142,12 +161,24 @@ def acesso_auditado(recurso: str, *, operacao: str):
         def wrapper(*args, **kwargs):
             resposta, detalhes = _extrair_resposta_e_detalhes(f(*args, **kwargs))
 
+            if detalhes.get("operacao") == _OPERACAO_NOOP:
+                db.session.rollback()
+                return resposta
+
             try:
+                operacao_log = detalhes.get("operacao", operacao)
+                if operacao_log not in _OPERACOES_LOG_ACESSO:
+                    raise ValueError(
+                        f"acesso_auditado({recurso!r}): operacao={operacao_log!r} invalida "
+                        f"vinda dos detalhes da view. Use uma de {_OPERACOES_LOG_ACESSO}. "
+                        f"(Se a view faz escrita com step-up, use @acao_sensivel.)"
+                    )
+
                 _auditoria.registrar_acesso(
                     id_empresa=get_id_empresa_sessao(),
                     id_usuario=get_id_usuario_sessao(),
                     recurso=detalhes.get("recurso_acessado", recurso),
-                    operacao=detalhes.get("operacao", operacao),
+                    operacao=operacao_log,
                     ip_origem=_ip_origem(),
                     resultado=detalhes.get("resultado", "sucesso"),
                     uuid_paciente=detalhes.get("uuid_paciente"),
@@ -158,4 +189,4 @@ def acesso_auditado(recurso: str, *, operacao: str):
                 raise
             return resposta
         return wrapper
-    return decorator
+    return decorator    

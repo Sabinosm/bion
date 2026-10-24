@@ -17,7 +17,7 @@ from src.core.session import (
     requer_papel_clinico, get_id_usuario_sessao, get_id_empresa_sessao, requer_admin_ou_papel_clinico,
     get_funcao_clinica_sessao,
 )
-from src.domains.auditoria.acaoSensivel import acesso_auditado
+from src.domains.auditoria.acaoSensivel import acesso_auditado, acao_sensivel
 from .schema_consulta import (
     ConsultaAbrirSchema, ConsultaEncerrarSchema, ConsultaEvadirSchema,
 )
@@ -160,7 +160,7 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.post("/<uuid>/encerrar")
     @requer_papel_clinico("enfermeiro","medico")
-    @acesso_auditado(recurso="encerrar_consulta", operacao="escrita")
+    @acao_sensivel("encerrar_consulta", tabela="consultas")
     def encerrar_consulta(uuid):
         dados = request.get_json(silent=True) or {}
         try:
@@ -180,7 +180,7 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.post("/<uuid>/evadir")
     @requer_papel_clinico("enfermeiro","medico")
-    @acesso_auditado(recurso="evasao_consulta", operacao="escrita")
+    @acao_sensivel("evadir_consulta", tabela="consultas")
     def evadir_consulta(uuid):
         dados = request.get_json(silent=True) or {}
         try:
