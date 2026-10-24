@@ -189,3 +189,4 @@ class DadosClinicosService:
         except Exception:
             self.input_repo.rollback()
             raise
+        

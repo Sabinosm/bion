@@ -1,7 +1,7 @@
 """Repositório de acesso a dados da entidade ProtocoloCatalogo."""
 
 from typing import Optional, List
-
+from sqlalchemy import or_
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.protocolos import ProtocoloCatalogo
@@ -94,3 +94,9 @@ class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
             query = query.filter(EmpresaProtocolo.ativo == True)
 
         return query.offset(offset).limit(20).all()
+    
+    def find_ativos_para_escopo(self, escopo):
+        q = self._query().filter_by(status="ativo")
+        return q.filter(or_(ProtocoloCatalogo.escopo_uso.is_(None),
+                            ProtocoloCatalogo.escopo_uso == "ambos",
+                            ProtocoloCatalogo.escopo_uso == escopo)).all()

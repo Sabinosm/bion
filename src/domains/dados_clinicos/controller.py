@@ -27,6 +27,7 @@ from src.domains.auditoria.acaoSensivel import acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 from .service import DadosClinicosService
 from .execucao_atendimento_service import ExecucaoAtendimentoService
+from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory
 
 bp_dados_clinicos = Blueprint("dados_clinicos", __name__)
 _svc_dados_clinicos = DadosClinicosService()
@@ -102,5 +103,30 @@ class DadosClinicosController():
         try:
             e = _svc_dados_clinicos.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
             return json_success(data=e.to_dict(), message="Protocolo executado.", status=201)
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+        
+
+    @staticmethod
+    @bp_dados_clinicos.get(_ESC + "/protocolos-disponiveis")
+    @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")  # ajuste o operacao se o enum não tiver "leitura"
+    def protocolos_disponiveis(uuid_atendimento, uuid_paciente):
+        """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa."""
+        try:
+            lista = _svc_execucao.listar_disponiveis(uuid_atendimento, _autor())
+            return json_success(data=[c.to_dict() for c in lista])
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)
+
+    @staticmethod
+    @bp_dados_clinicos.get(_ESC + "/protocolos/<uuid_protocolo>/estrutura")
+    @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")
+    def estrutura_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
+        """Campos esperados do protocolo (para o front montar o formulário do input)."""
+        try:
+            return json_success(data=_svc_execucao.estrutura_utilizavel(
+                uuid_atendimento, uuid_protocolo, _autor()))
         except BionException as ex:
             return json_error(ex.message, ex.status_code)

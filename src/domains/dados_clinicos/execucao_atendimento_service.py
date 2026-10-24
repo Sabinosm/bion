@@ -87,6 +87,8 @@ def _resolver_composto(svc, id_cat, id_input, respostas, executor, commit):
     return ProtocoloCompostoService().executar(id_cat, id_input, respostas, executor, commit=commit)
 
 
+
+
 class ExecucaoAtendimentoService:
 
     RESOLVEDORES = {"escore-ponderado": _resolver_escore, "protocolo-composto": _resolver_composto}
@@ -112,16 +114,7 @@ class ExecucaoAtendimentoService:
                                  f"(este é '{at.tipo_atendimento}').")
         exigir_binario_completo(at)
 
-        cat = self._catalogo.find_by_uuid(uuid_protocolo)
-        if not cat:
-            raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid_protocolo}")
-        if cat.status != "ativo":
-            raise ConflictoError("Este protocolo não está ativo.")
-        if cat.escopo_uso not in (None, "ambos", ESCOPO_USO_POR_TIPO[at.tipo_atendimento]):
-            raise ConflictoError("Este protocolo não se aplica a este tipo de atendimento.")
-        vinculo = self._emp_prot.find_por_empresa_e_protocolo(autor.id_empresa, cat.id)
-        if not vinculo or not vinculo.ativo:
-            raise ConflictoError("Este protocolo não está liberado pela instituição.")
+        _, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor)
         resolver = self.RESOLVEDORES.get(cat.tipo_protocolo)
         if not resolver:
             raise ConflictoError(f"Tipo de protocolo sem execução disponível: {cat.tipo_protocolo}.")
@@ -146,3 +139,66 @@ class ExecucaoAtendimentoService:
         except Exception:
             self._input_repo.rollback()
             raise
+
+
+    def exigir_atendimento(self, uuid_atendimento):
+        """404 se o atendimento não existe (leitura; sem guard de escrita)."""
+        at = self._at_repo.find_by_uuid(uuid_atendimento)
+        if not at:
+            raise RecursoNaoEncontradoError("Atendimento não encontrado.")
+        return at
+
+    def exigir_protocolo_utilizavel(self, uuid_atendimento, uuid_protocolo, autor):
+        """Atendimento + protocolo com os gates de uso (mesmos do executar):
+        catálogo ativo, escopo compatível com o tipo de atendimento e
+        liberado pela empresa (EmpresaProtocolo.ativo). Devolve (at, cat)."""
+        at = self.exigir_atendimento(uuid_atendimento)
+        cat = self._catalogo.find_by_uuid(uuid_protocolo)
+        if not cat:
+            raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid_protocolo}")
+        if cat.status != "ativo":
+            raise ConflictoError("Este protocolo não está ativo.")
+        if cat.escopo_uso not in (None, "ambos", ESCOPO_USO_POR_TIPO.get(at.tipo_atendimento)):
+            raise ConflictoError("Este protocolo não se aplica a este tipo de atendimento.")
+        vinculo = self._emp_prot.find_por_empresa_e_protocolo(autor.id_empresa, cat.id)
+        if not vinculo or not vinculo.ativo:
+            raise ConflictoError("Este protocolo não está liberado pela instituição.")
+        return at, cat
+
+    def listar_disponiveis(self, uuid_atendimento, autor):
+        """Catálogo que passa nos mesmos gates de uso, para o select do front."""
+        at = self.exigir_atendimento(uuid_atendimento)
+        escopo = ESCOPO_USO_POR_TIPO.get(at.tipo_atendimento)
+        candidatos = self._catalogo.find_ativos_para_escopo(escopo)
+        liberados = {v.id_protocolo_catalogo
+                     for v in self._emp_prot.find_ativos_por_empresa(autor.id_empresa)}
+        return [c for c in candidatos if c.id in liberados]
+
+    @staticmethod
+    def _campo_dict(c):
+        if hasattr(c, "to_dict"):
+            return c.to_dict()
+        if isinstance(c, dict):
+            return c
+        return {k: getattr(c, k) for k in ("campo", "label", "tipo_campo", "opcoes", "obrigatorio")
+                if hasattr(c, k)}
+
+    def estrutura_utilizavel(self, uuid_atendimento, uuid_protocolo, autor):
+        """Campos esperados do protocolo (para montar o formulário do input)."""
+        at, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor)
+        from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
+        versao = None
+        if cat.versoes:
+            versao = next((v for v in cat.versoes if getattr(v, "status", None) == "vigente"),
+                          cat.versoes[-1])
+        estrutura = getattr(versao, "estrutura_json", None) if versao else None
+        strategy = ProtocoloFactory.obter(cat.tipo_protocolo)
+        campos = strategy.campos_esperados(estrutura)
+        return {
+            "uuid": cat.uuid,
+            "nome_protocolo": cat.nome_protocolo,
+            "sigla": cat.sigla,
+            "tipo_resultado": cat.tipo_resultado,
+            "explicacao_json": cat.explicacao_json,
+            "campos": [self._campo_dict(c) for c in campos],
+        }
