@@ -9,7 +9,7 @@ existiam como classe -- completados aqui com os campos do schema.
 
 from datetime import datetime, timezone
 import uuid as _uuid
-from src.domains.paciente.services.paciente_service import PacienteService
+from src.domains.usuario import UsuarioService
 from src.models import db
 from src.models.types import BigIntPK
 
@@ -62,7 +62,7 @@ class Atendimento(db.Model):
 
    
     def to_dict(self):
-        realizado_por= PacienteService().buscar_por_id(self.realizado_por).uuid
+        realizado_por= UsuarioService().buscar_por_id(self.realizado_por).uuid
         return {
             "uuid": self.uuid,
             "tipo_atendimento": self.tipo_atendimento,
