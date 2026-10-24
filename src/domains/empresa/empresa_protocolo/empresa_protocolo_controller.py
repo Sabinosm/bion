@@ -71,7 +71,7 @@ class EmpresaProtocoloController:
                 message="Status do protocolo atualizado.")
             return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")
+            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP", uuid_registro=None)
 
     @staticmethod
     @bp.put("/<uuid_protocolo>/default")
@@ -95,4 +95,4 @@ class EmpresaProtocoloController:
                 message="Protocolo padrão institucional definido.")
             return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP")
+            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP", uuid_registro=None)
