@@ -111,11 +111,12 @@ class DadosClinicosController():
     @bp_dados_clinicos.get(_ESC + "/protocolos-disponiveis")
     @requer_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")  # ajuste o operacao se o enum não tiver "leitura"
-    def protocolos_disponiveis(uuid_atendimento, uuid_paciente):
-        """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa."""
+    def protocolos_disponiveis(uuid_atendimento):
+        """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa,
+        já com favorito / default_pessoal / padrao_institucional / politica (favoritos primeiro)."""
         try:
             lista = _svc_execucao.listar_disponiveis(uuid_atendimento, _autor(), get_id_empresa_sessao())
-            return json_success(data=[c.to_dict() for c in lista])
+            return json_success(data=lista)  # o service já devolve dicts
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
 

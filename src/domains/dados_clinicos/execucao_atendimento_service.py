@@ -87,11 +87,24 @@ def _resolver_composto(svc, id_cat, id_input, respostas, executor, commit):
     return ProtocoloCompostoService().executar(id_cat, id_input, respostas, executor, commit=commit)
 
 
+# CAMPOS: tipo_protocolo -> callable(id_protocolo_catalogo) -> list[CampoEsperado].
+# Reaproveita o MESMO caminho das rotas /news2/<uuid>/campos e
+# /protocolo-composto/<uuid>/campos (config -> carregar_estrutura -> campos_esperados),
+# em vez de passar uma estrutura crua para a strategy.
+def _campos_escore(id_cat):
+    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service  # ajuste o caminho
+    return News2Service().obter_campos_para_preenchimento(id_cat)
+
+
+def _campos_composto(id_cat):
+    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService  # ajuste
+    return ProtocoloCompostoService().obter_campos_para_preenchimento(id_cat)
 
 
 class ExecucaoAtendimentoService:
 
     RESOLVEDORES = {"escore-ponderado": _resolver_escore, "protocolo-composto": _resolver_composto}
+    CAMPOS = {"escore-ponderado": _campos_escore, "protocolo-composto": _campos_composto}
 
     def __init__(self):
         from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository  # ajuste
@@ -166,34 +179,51 @@ class ExecucaoAtendimentoService:
         return at, cat
 
     def listar_disponiveis(self, uuid_atendimento, autor, id_emp):
-        """Catálogo que passa nos mesmos gates de uso, para o select do front."""
+        """Catálogo que passa nos mesmos gates de uso, para o select do front.
+
+        Devolve DICTS (não models): o to_dict() do catálogo + o resumo que a
+        página de catálogo já usa (ProtocoloCatalogoService._montar_resumos):
+        liberado_pela_empresa, politica, padrao_institucional (escopo em que é
+        o padrão da instituição), favorito (true/false) e default_pessoal
+        (escopo em que é o padrão do profissional). Favoritos ficam primeiro.
+        """
+        from src.domains.protocolo.shared.services.protocolo_catalogo_service import ProtocoloCatalogoService  # ajuste
+
         at = self.exigir_atendimento(uuid_atendimento, id_emp)
         escopo = ESCOPO_USO_POR_TIPO.get(at.tipo_atendimento)
         candidatos = self._catalogo.find_ativos_para_escopo(escopo)
-        liberados = {v.id_protocolo_catalogo
-                     for v in self._emp_prot.find_ativos_por_empresa(autor.id_empresa)}
-        return [c for c in candidatos if c.id in liberados]
+        vinculos = {v.id_protocolo_catalogo: v
+                    for v in self._emp_prot.find_ativos_por_empresa(autor.id_empresa)}
+        linhas = [(c, True, vinculos[c.id].politica) for c in candidatos if c.id in vinculos]
+
+        resumos = ProtocoloCatalogoService()._montar_resumos(id_emp, linhas)
+        itens = [{**c.to_dict(), **resumo} for (c, _, _), resumo in zip(linhas, resumos)]
+        # favoritos primeiro; sort estável preserva a ordem do catálogo dentro de cada grupo
+        itens.sort(key=lambda i: 0 if i.get("favorito") else 1)
+        return itens
 
     @staticmethod
     def _campo_dict(c):
-        if hasattr(c, "to_dict"):
-            return c.to_dict()
+        """CampoEsperado -> dict para o front. Campos explícitos (campo, texto,
+        tipo_campo, opcoes), iguais aos das rotas /campos, independente de o
+        CampoEsperado ser pydantic, dataclass ou objeto simples. `label` é alias
+        de `texto` para quem já lia esse nome."""
         if isinstance(c, dict):
-            return c
-        return {k: getattr(c, k) for k in ("campo", "label", "tipo_campo", "opcoes", "obrigatorio")
-                if hasattr(c, k)}
+            base = dict(c)
+        else:
+            base = {k: getattr(c, k, None) for k in ("campo", "texto", "tipo_campo", "opcoes", "obrigatorio")}
+        if base.get("texto") is None:
+            base["texto"] = base.get("label") or base.get("campo")
+        base["label"] = base["texto"]
+        return base
 
     def estrutura_utilizavel(self, uuid_atendimento, uuid_protocolo, autor):
         """Campos esperados do protocolo (para montar o formulário do input)."""
         at, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor, autor.id_empresa)
-        from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
-        versao = None
-        if cat.versoes:
-            versao = next((v for v in cat.versoes if getattr(v, "status", None) == "vigente"),
-                          cat.versoes[-1])
-        estrutura = getattr(versao, "estrutura_json", None) if versao else None
-        strategy = ProtocoloFactory.obter(cat.tipo_protocolo)
-        campos = strategy.campos_esperados(estrutura)
+        obter_campos = self.CAMPOS.get(cat.tipo_protocolo)
+        if not obter_campos:
+            raise ConflictoError(f"Tipo de protocolo sem estrutura disponível: {cat.tipo_protocolo}.")
+        campos = obter_campos(cat.id)
         return {
             "uuid": cat.uuid,
             "nome_protocolo": cat.nome_protocolo,
