@@ -67,18 +67,19 @@ class BinarioService:
             raise DadosInvalidosError(erros_pydantic_por_campo(e))
 
     def _ativos(self, secao: str, uuid_paciente: str, id_empresa: int) -> list:
-        """Registros ATIVOS da seção (a mesma definição do prontuário):
-        alergias não removidas; doenças vigentes; medicamentos com status
-        ativo e não removidos; tipo sanguíneo vigente."""
-        if secao == "alergias":
-            return list(self._alergia.listar_alergias(uuid_paciente, id_empresa))
-        if secao == "doenca_cronica":
-            return list(self._doenca.listar_doencas(uuid_paciente, id_empresa))
-        if secao == "medicamentos":
-            return list(self._medicamento.listar_medicamentos_em_uso(
-                uuid_paciente, id_empresa, apenas_ativos=True))
-        vigente = self._tipo.tipo_vigente(uuid_paciente, id_empresa)
-        return [vigente] if vigente else []
+        """Registros ATIVOS da seção. Seção sem nenhum registro NÃO é erro: []."""
+        try:
+            if secao == "alergias":
+                return list(self._alergia.listar_alergias(uuid_paciente, id_empresa))
+            if secao == "doenca_cronica":
+                return list(self._doenca.listar_doencas(uuid_paciente, id_empresa))
+            if secao == "medicamentos":
+                return list(self._medicamento.listar_medicamentos_em_uso(
+                    uuid_paciente, id_empresa, apenas_ativos=True))
+            vigente = self._tipo.tipo_vigente(uuid_paciente, id_empresa)
+            return [vigente] if vigente else []
+        except RecursoNaoEncontradoError:
+            return []
 
     @staticmethod
     def _qtd_informada(secao: str, entrada) -> int:
