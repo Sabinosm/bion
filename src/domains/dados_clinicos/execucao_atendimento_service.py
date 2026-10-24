@@ -114,7 +114,7 @@ class ExecucaoAtendimentoService:
                                  f"(este é '{at.tipo_atendimento}').")
         exigir_binario_completo(at)
 
-        _, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor)
+        _, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor, autor.id_empresa)
         resolver = self.RESOLVEDORES.get(cat.tipo_protocolo)
         if not resolver:
             raise ConflictoError(f"Tipo de protocolo sem execução disponível: {cat.tipo_protocolo}.")
@@ -141,18 +141,18 @@ class ExecucaoAtendimentoService:
             raise
 
 
-    def exigir_atendimento(self, uuid_atendimento):
+    def exigir_atendimento(self, uuid_atendimento: str, id_empresa: int):
         """404 se o atendimento não existe (leitura; sem guard de escrita)."""
-        at = self._at_repo.find_by_uuid(uuid_atendimento)
+        at = self._at_repo.find_by_uuid(uuid_atendimento, id_empresa=id_empresa)
         if not at:
             raise RecursoNaoEncontradoError("Atendimento não encontrado.")
         return at
 
-    def exigir_protocolo_utilizavel(self, uuid_atendimento, uuid_protocolo, autor):
+    def exigir_protocolo_utilizavel(self, uuid_atendimento, uuid_protocolo, autor, id_emp):
         """Atendimento + protocolo com os gates de uso (mesmos do executar):
         catálogo ativo, escopo compatível com o tipo de atendimento e
         liberado pela empresa (EmpresaProtocolo.ativo). Devolve (at, cat)."""
-        at = self.exigir_atendimento(uuid_atendimento)
+        at = self.exigir_atendimento(uuid_atendimento, id_emp)
         cat = self._catalogo.find_by_uuid(uuid_protocolo)
         if not cat:
             raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {uuid_protocolo}")
@@ -165,9 +165,9 @@ class ExecucaoAtendimentoService:
             raise ConflictoError("Este protocolo não está liberado pela instituição.")
         return at, cat
 
-    def listar_disponiveis(self, uuid_atendimento, autor):
+    def listar_disponiveis(self, uuid_atendimento, autor, id_emp):
         """Catálogo que passa nos mesmos gates de uso, para o select do front."""
-        at = self.exigir_atendimento(uuid_atendimento)
+        at = self.exigir_atendimento(uuid_atendimento, id_emp)
         escopo = ESCOPO_USO_POR_TIPO.get(at.tipo_atendimento)
         candidatos = self._catalogo.find_ativos_para_escopo(escopo)
         liberados = {v.id_protocolo_catalogo
@@ -185,7 +185,7 @@ class ExecucaoAtendimentoService:
 
     def estrutura_utilizavel(self, uuid_atendimento, uuid_protocolo, autor):
         """Campos esperados do protocolo (para montar o formulário do input)."""
-        at, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor)
+        at, cat = self.exigir_protocolo_utilizavel(uuid_atendimento, uuid_protocolo, autor, autor.id_empresa)
         from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
         versao = None
         if cat.versoes:

@@ -114,7 +114,7 @@ class DadosClinicosController():
     def protocolos_disponiveis(uuid_atendimento, uuid_paciente):
         """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa."""
         try:
-            lista = _svc_execucao.listar_disponiveis(uuid_atendimento, _autor())
+            lista = _svc_execucao.listar_disponiveis(uuid_atendimento, _autor(), get_id_empresa_sessao())
             return json_success(data=[c.to_dict() for c in lista])
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
