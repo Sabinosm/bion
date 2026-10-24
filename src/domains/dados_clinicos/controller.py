@@ -101,7 +101,7 @@ class DadosClinicosController():
     def executar_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
         """Executa o protocolo sobre o input vigente do atendimento (determinístico)."""
         try:
-            e = _svc_dados_clinicos.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
+            e = _svc_execucao.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
             return json_success(data=e.to_dict(), message="Protocolo executado.", status=201)
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
