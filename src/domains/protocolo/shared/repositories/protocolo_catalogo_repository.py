@@ -96,7 +96,7 @@ class ProtocoloCatalogoRepository(IRepository[ProtocoloCatalogo]):
         return query.offset(offset).limit(20).all()
     
     def find_ativos_para_escopo(self, escopo):
-        q = self.query().filter_by(status="ativo")
+        q = ProtocoloCatalogo.query.filter_by(status="ativo")
         return q.filter(or_(ProtocoloCatalogo.escopo_uso.is_(None),
                             ProtocoloCatalogo.escopo_uso == "ambos",
                             ProtocoloCatalogo.escopo_uso == escopo)).all()
