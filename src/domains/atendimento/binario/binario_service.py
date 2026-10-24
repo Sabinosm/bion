@@ -334,14 +334,6 @@ class BinarioService:
             at = repo.travar(ctx.atendimento)
             binario = Binario.de_atendimento(at)
 
-            # 409 só para o que o profissional já confirmou: automático e
-            # requer-revisao são sobrescritos pela confirmação.
-            ja = [s for s, _ in pares if binario.confirmada_manual(s)]
-            if ja:
-                raise ConflictoError(
-                    "Seção(ões) já conferida(s) neste atendimento: " + ", ".join(ja) + "."
-                )
-
             resultados = []
             for secao, entrada in pares:
                 r = self._aplicar(secao, entrada, ctx, autor)

@@ -41,8 +41,6 @@ pela confirmação do profissional, sem 409.
 
 from typing import Dict, List, Optional
 
-from src.core.exceptions import ConflictoError
-
 SECOES_BINARIO = ("alergias", "medicamentos", "tipo_sanguineo", "doenca_cronica")
 ESTADOS_CONFIRMAVEIS = ("preenchido", "nega", "nao-coletado")
 ESTADO_REVISAO = "requer-revisao"
@@ -137,13 +135,13 @@ class Binario:
 
     # ----------------------------------------------------------------- escrita
     def registrar(self, secao: str, estado: str) -> None:
-        """Confirmação MANUAL do profissional. Segunda vez numa seção já
-        confirmada manualmente = 409. Sobrescreve automático/requer-revisao."""
+        """Confirmação MANUAL do profissional. Pode ser refeita quantas vezes
+        for preciso enquanto o atendimento estiver em andamento (o guard do
+        service garante isso): a última confirmação vence e sobrescreve
+        qualquer estado anterior (manual, automático, requer-revisão, reconciliado)."""
         self._validar(secao, estado)
         if estado == ESTADO_REVISAO:
             raise ValueError("requer-revisao não é uma confirmação do profissional")
-        if self.confirmada_manual(secao):
-            raise ConflictoError(f"Seção '{secao}' já conferida neste atendimento.")
         self._itens[secao] = {"estado": estado}
 
     def derivar(self, secao: str, anterior: Optional[str], tem_registro_ativo: bool) -> bool:
