@@ -83,12 +83,15 @@ def acao_sensivel(acao: str, *, tabela: str):
         @confirmar_identidade
         def wrapper(*args, **kwargs):
             try:
+            
+
                 resposta, detalhes = _extrair_resposta_e_detalhes(f(*args, **kwargs))
 
-                if _status_da_resposta(resposta) >= 400:
+                if detalhes.get("operacao") == "NOOP" or _status_da_resposta(resposta) >= 400:
                     db.session.rollback()
                     return resposta
 
+                
                 if "id_registro" not in detalhes or "uuid_registro" not in detalhes:
                     raise ValueError(
                         f"acao_sensivel({acao!r}): a view precisa retornar "

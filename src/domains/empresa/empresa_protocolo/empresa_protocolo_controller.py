@@ -23,7 +23,7 @@ bp = Blueprint("empresa_protocolo", __name__)
 _svc = EmpresaProtocoloService()
 
 
-def _auditoria(id_registro, operacao, uuid_registro):
+def _auditoria(operacao= "NOOP", uuid_registro=None, id_registro=None):
     """Metadados de auditoria da ação. id_registro é o id do protocolo do catálogo; uuid_registro não é preenchido."""
     return {"id_registro": id_registro, "uuid_registro": uuid_registro, "operacao": operacao}
 
@@ -69,9 +69,9 @@ class EmpresaProtocoloController:
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
                 message="Status do protocolo atualizado.")
-            return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
+            return resposta, _auditoria(id_registro=id_registro, operacao="UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP", uuid_registro=None)
+            return json_error(ex.message, ex.status_code), _auditoria()
 
     @staticmethod
     @bp.put("/<uuid_protocolo>/default")
@@ -93,6 +93,6 @@ class EmpresaProtocoloController:
             resposta = json_success(
                 data={**vinculo.to_dict(), "uuid_protocolo": uuid_protocolo},
                 message="Protocolo padrão institucional definido.")
-            return resposta, _auditoria(id_registro, "UPDATE", uuid_registro=uuid_registro)
+            return resposta, _auditoria(id_registro=id_registro, operacao="UPDATE", uuid_registro=uuid_registro)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _auditoria(id_registro, "NOOP", uuid_registro=None)
+            return json_error(ex.message, ex.status_code), _auditoria()

@@ -91,4 +91,22 @@ class EmpresaProtocoloRepository(IRepository[EmpresaProtocolo]):
         return True
 
     def find_all(self) -> List[EmpresaProtocolo]:
+
         return EmpresaProtocolo.query.all()
+    
+    def save_all(self, entidades: List[EmpresaProtocolo], commit: bool = True) -> List[EmpresaProtocolo]:
+        """Persiste vários vínculos de uma vez. Com commit=False só faz flush.
+
+        Raises:
+            ConflictoError: violação de unicidade.
+        """
+        db.session.add_all(entidades)
+        try:
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+        except IntegrityError:
+            db.session.rollback()
+            raise ConflictoError("Operação simultânea detectada. Tente novamente.")
+        return entidades

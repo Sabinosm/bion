@@ -21,13 +21,14 @@ from src.models.corp.empresa import Empresa
 from .schema_empresa import CadastroEmpresaSchema, AtualizacaoEmpresaSchema
 from src.models import db
 from src.domains.usuario.services.service import UsuarioService
-
+from .empresa_protocolo.empresa_protocolo_service import EmpresaProtocoloService
 
 class EmpresaService:
 
     def __init__(self):
         self.repo = EmpresaRepository()
         self.usuario_service = UsuarioService()
+        self.empresa_protocolo_service = EmpresaProtocoloService()
 
     def buscar_por_id(self, id_empresa: int) -> Empresa:
         """Retorna a empresa pelo id.
@@ -139,6 +140,7 @@ class EmpresaService:
             # empresa.id já existe aqui (flush interno do save com commit=False)
 
             admin = self.usuario_service.criar(empresa.id, dados_admin, False, is_super_admin=True)
+            self.empresa_protocolo_service.liberar_todos_para_empresa(empresa.id, admin.id, commit=False)
 
             db.session.commit()
             return empresa, admin

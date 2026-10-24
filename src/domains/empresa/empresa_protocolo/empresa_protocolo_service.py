@@ -14,7 +14,7 @@ pode ser desativado e a empresa mantém um mínimo de protocolos ativos.
 from datetime import datetime, timezone
 
 from pydantic import ValidationError
-
+from typing import List
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError, DadosInvalidosError
 from src.core.session import get_id_usuario_sessao
 from src.core.erros_pydantic import erros_pydantic_por_campo
@@ -24,6 +24,7 @@ from .schema_empresa_protocolo import (
     AlterarStatusEmpresaProtocoloSchema,
     DefinirDefaultInstitucionalSchema,
 )
+
 from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
 
 
@@ -178,3 +179,37 @@ class EmpresaProtocoloService:
         ja_estava_ativo = vinculo_alvo is not None and vinculo_alvo.ativo
         if ja_estava_ativo and ativos <= 2:
             raise ConflictoError("A empresa precisa manter ao menos 2 protocolos ativos.")
+        
+        
+    def liberar_todos_para_empresa(
+    self, id_empresa: int, id_usuario_aprovador: int, commit: bool = False) -> List[EmpresaProtocolo]:
+        """Libera todos os protocolos do catálogo para a empresa (usado na criação).
+
+        Cria vínculos ativos com política "opcional" e sem padrão institucional
+        (obrigatoriedade e defaults são decisões posteriores do super admin).
+        Protocolos que já têm vínculo são ignorados, então é seguro chamar de novo.
+
+        Args:
+            id_aprovador: não vem da sessão, pois na criação da empresa
+                ainda não há usuário logado; é o admin fundador.
+            commit: False (padrão) só faz flush, para rodar na transação do chamador.
+        """
+        catalogo = self.repo_catalogo.find_all()
+        ja_vinculados = {v.id_protocolo_catalogo for v in self.repo.find_all_por_empresa(id_empresa)}
+        agora = datetime.now(timezone.utc)
+
+        novos = [
+            EmpresaProtocolo(
+                id_empresa=id_empresa,
+                id_protocolo_catalogo=p.id,
+                ativo=True,
+                politica="opcional",
+                aprovado_por=id_usuario_aprovador,
+                aprovado_em=agora,
+            )
+            for p in catalogo
+            if p.id not in ja_vinculados
+        ]
+        if novos:
+            self.repo.save_all(novos, commit=commit)
+        return novos
