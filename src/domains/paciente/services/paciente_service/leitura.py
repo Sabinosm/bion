@@ -14,6 +14,12 @@ class LeituraMixin:
 
     POR_PAGINA_RESUMO = 8  # mesmo valor que o controller usa (pagina * 8)
 
+    def buscar_por_id(self, id:int):
+        p = self.repo.find_by_id(id)
+        if not p:
+            raise RecursoNaoEncontradoError(f"Paciente não encontrado: {id}")
+        return p
+    
     def buscar_por_uuid(self, uuid: str, id_empresa: int):
         p = self.repo.find_by_uuid(uuid, id_empresa)
         if not p:

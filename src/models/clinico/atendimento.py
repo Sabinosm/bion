@@ -9,10 +9,9 @@ existiam como classe -- completados aqui com os campos do schema.
 
 from datetime import datetime, timezone
 import uuid as _uuid
-
+from src.domains.paciente.services.paciente_service import PacienteService
 from src.models import db
 from src.models.types import BigIntPK
-
 
 class Atendimento(db.Model):
     __tablename__ = "atendimento"
@@ -61,7 +60,9 @@ class Atendimento(db.Model):
                                        cascade="save-update, merge",
                                        passive_deletes="all")
 
+   
     def to_dict(self):
+        realizado_por= PacienteService().buscar_por_id(self.realizado_por).uuid
         return {
             "uuid": self.uuid,
             "tipo_atendimento": self.tipo_atendimento,
@@ -71,7 +72,7 @@ class Atendimento(db.Model):
             "observacoes_profissional": self.observacoes_profissional,
             "motivo_cancelamento": self.motivo_cancelamento,
             "consulta_uuid": self.consulta.uuid if self.consulta else None,
-            "realizado_por": self.realizado_por,
+            "realizado_por": realizado_por,
         }
 
     def __repr__(self):
