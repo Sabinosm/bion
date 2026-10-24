@@ -111,7 +111,7 @@ class DadosClinicosController():
     @bp_dados_clinicos.get(_ESC + "/protocolos-disponiveis")
     @requer_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")  # ajuste o operacao se o enum não tiver "leitura"
-    def protocolos_disponiveis(uuid_atendimento, uuid_pacientes):
+    def protocolos_disponiveis(uuid_atendimento, uuid_paciente):
         """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa,
         já com favorito / default_pessoal / padrao_institucional / politica (favoritos primeiro)."""
         try:
