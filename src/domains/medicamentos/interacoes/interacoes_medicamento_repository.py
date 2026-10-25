@@ -15,17 +15,6 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
     def find_by_uuid(self, uuid: str) -> Optional[InteracoesMedicamentos]:
         return InteracoesMedicamentos.query.filter_by(uuid=uuid).first()
 
-    def find_por_medicamento(self, id_catalogo: int) -> List[InteracoesMedicamentos]:
-        """Todas as interações que envolvem um medicamento, seja como A ou B."""
-        return (
-            InteracoesMedicamentos.query
-            .filter(or_(
-                InteracoesMedicamentos.id_medicamento_a == id_catalogo,
-                InteracoesMedicamentos.id_medicamento_b == id_catalogo,
-            ))
-            .all()
-        )
-
     def find_por_par_ordenado(self, id_a: int, id_b: int) -> Optional[InteracoesMedicamentos]:
         """Busca exata pelo par (id_a, id_b) já ordenado -- id_a deve
         ser sempre o menor dos dois. Quem chama é responsável por
@@ -96,3 +85,26 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
             .all()
         )
         return {linha.gravidade: linha.total for linha in linhas}
+    
+    def find_por_medicamento(self, id_catalogo: int) -> List[InteracoesMedicamentos]:
+        return (
+            InteracoesMedicamentos.query
+            .options(selectinload(InteracoesMedicamentos.medicamento_a),
+                    selectinload(InteracoesMedicamentos.medicamento_b))
+            .filter(or_(
+                InteracoesMedicamentos.id_medicamento_a == id_catalogo,
+                InteracoesMedicamentos.id_medicamento_b == id_catalogo,
+            ))
+            .all()
+        )
+
+    def find_entre(self, ids) -> List[InteracoesMedicamentos]:
+        """Interações em que os DOIS lados estão na lista de ids."""
+        return (
+            InteracoesMedicamentos.query
+            .options(selectinload(InteracoesMedicamentos.medicamento_a),
+                    selectinload(InteracoesMedicamentos.medicamento_b))
+            .filter(InteracoesMedicamentos.id_medicamento_a.in_(ids),
+                    InteracoesMedicamentos.id_medicamento_b.in_(ids))
+            .all()
+        )

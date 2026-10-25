@@ -2,8 +2,13 @@ from typing import Optional, List
 from src.domains.medicamentos.normalizacao import normalizar_nome
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
+from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos, CatalogoMedicamentosSinonimo
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
+from src.models.catalogos.indicacao_terapeutica import IndicacaoTerapeutica
+from sqlalchemy import cast
+from src.core.consultas import escapar_like
+from src.models.catalogos.contraindicacao import Contraindicacao
+
 
 
 class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
@@ -86,3 +91,57 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
         db.session.add(entity)
         db.session.flush()
         return entity
+
+    @staticmethod
+    def _filtro_busca(termo: str):
+        t = termo.strip()
+        p_norm = f"%{escapar_like(normalizar_nome(t))}%"
+        p_raw = f"%{escapar_like(t.lower())}%"
+        return db.or_(
+            CatalogoMedicamentos.principio_ativo_normalizado.like(p_norm, escape="\\"),
+            CatalogoMedicamentos.principio_ativo.ilike(p_raw, escape="\\"),
+            CatalogoMedicamentos.sinonimos.any(
+                CatalogoMedicamentosSinonimo.nome_normalizado.like(p_norm, escape="\\")),
+            db.func.lower(cast(CatalogoMedicamentos.nomes_comerciais_json, db.Text)).like(p_raw, escape="\\"),
+        )
+
+    def listar_paginado(self, termo, pagina: int, por_pagina: int,
+                        uuid_indicacao=None, uuids_sem_contraindicacao=None, classe=None):
+        q = CatalogoMedicamentos.query
+        if classe:
+            q = q.filter(db.func.lower(CatalogoMedicamentos.classe_farmaceutica) == classe.lower())
+        if uuid_indicacao:
+            q = q.filter(CatalogoMedicamentos.indicacoes_terapeuticas.any(
+                IndicacaoTerapeutica.uuid == uuid_indicacao))
+        if uuids_sem_contraindicacao:
+            q = q.filter(~CatalogoMedicamentos.contraindicacoes.any(
+                Contraindicacao.uuid.in_(uuids_sem_contraindicacao)))
+        ordem = [CatalogoMedicamentos.principio_ativo]
+        if termo and termo.strip():
+            q = q.filter(self._filtro_busca(termo))
+            t = normalizar_nome(termo)
+            prioridade = db.case(
+                (CatalogoMedicamentos.principio_ativo_normalizado == t, 0),
+                (CatalogoMedicamentos.principio_ativo_normalizado.like(f"{escapar_like(t)}%", escape="\\"), 1),
+                else_=2,
+            )
+            ordem.insert(0, prioridade)
+        return q.order_by(*ordem).paginate(page=pagina, per_page=por_pagina, error_out=False)
+
+    def listar_classes(self):
+        linhas = (db.session.query(CatalogoMedicamentos.classe_farmaceutica)
+                .filter(CatalogoMedicamentos.classe_farmaceutica.isnot(None),
+                        CatalogoMedicamentos.classe_farmaceutica != "")
+                .distinct().order_by(CatalogoMedicamentos.classe_farmaceutica).all())
+        return [l[0] for l in linhas]
+
+    def existe_indicacao(self, uuid: str) -> bool:
+        return db.session.query(IndicacaoTerapeutica.id).filter(
+            IndicacaoTerapeutica.uuid == uuid).first() is not None
+
+    def uuids_contraindicacao_existentes(self, uuids) -> set:
+        linhas = db.session.query(Contraindicacao.uuid).filter(Contraindicacao.uuid.in_(uuids)).all()
+        return {l[0] for l in linhas}
+
+    def find_by_uuids(self, uuids):
+        return CatalogoMedicamentos.query.filter(CatalogoMedicamentos.uuid.in_(uuids)).all()

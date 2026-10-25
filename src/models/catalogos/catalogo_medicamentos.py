@@ -65,6 +65,29 @@ class CatalogoMedicamentos(db.Model):
     def __repr__(self):
         return f"<CatalogoMedicamentos {self.uuid} [{self.principio_ativo}]>"
 
+    def to_dict_resumo(self):
+        """Para listas: sem relacionamentos, evitando uma consulta extra por linha."""
+        return {
+            "uuid": self.uuid,
+            "principio_ativo": self.principio_ativo,
+            "classe_farmaceutica": self.classe_farmaceutica,
+            "nomes_comerciais": self.nomes_comerciais_json,
+        }
+
+    def to_dict_detalhe(self):
+        d = self.to_dict_resumo()
+        d.update({
+            "indicacoes_terapeuticas": [
+                {"uuid": i.uuid, "nome": i.nome}
+                for i in sorted(self.indicacoes_terapeuticas, key=lambda i: i.nome)],
+            "contraindicacoes": [
+                {"uuid": c.uuid, "nome": c.nome, "descricao": c.descricao}
+                for c in sorted(self.contraindicacoes, key=lambda c: c.nome)],
+            "fonte_origem": self.fonte_origem,
+            "ultima_verificacao_em": self.ultima_verificacao_em.isoformat()
+            if self.ultima_verificacao_em else None,
+        })
+        return d
 
 class CatalogoMedicamentosSinonimo(db.Model):
     """Nome alternativo (já normalizado) que aponta para um item do
