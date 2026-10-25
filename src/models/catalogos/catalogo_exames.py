@@ -54,5 +54,11 @@ class CatalogoExames(db.Model):
             "ativo": self.ativo,
         }
 
+    def to_dict_detalhe(self):
+        d = self.to_dict()
+        d["observacoes"] = self.observacoes
+        d["sinonimos"] = self.sinonimos_busca_json
+        return d
+
     def __repr__(self):
         return f"<CatalogoExames {self.uuid} [{self.nome_exame}]>"

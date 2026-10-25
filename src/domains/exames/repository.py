@@ -33,12 +33,19 @@ class CatalogoExamesRepository(IRepository[CatalogoExames]):
             .limit(20).all()
         )
 
-    def listar_paginado(self, termo: Optional[str], tipo: Optional[str], pagina: int, por_pagina: int):
+    def listar_paginado(self, termo: Optional[str], tipo: Optional[str], pagina: int, por_pagina: int,
+                    material: Optional[str] = None, exige_jejum: Optional[bool] = None):
         """Só exames ativos. Com termo: nome exato primeiro, depois nome que começa com o termo,
         depois o restante (por nome)."""
         q = CatalogoExames.query.filter(CatalogoExames.ativo.is_(True))
         if tipo:
             q = q.filter(CatalogoExames.tipo == tipo)
+        if material:
+            q = q.filter(db.func.lower(CatalogoExames.material) == material.lower())
+        if exige_jejum is True:
+            q = q.filter(CatalogoExames.jejum_horas > 0)
+        elif exige_jejum is False:
+            q = q.filter(db.or_(CatalogoExames.jejum_horas.is_(None), CatalogoExames.jejum_horas == 0))
         ordem = [CatalogoExames.nome_exame]
         if termo and termo.strip():
             q = q.filter(self._filtro_busca(termo))
@@ -50,6 +57,16 @@ class CatalogoExamesRepository(IRepository[CatalogoExames]):
             )
             ordem.insert(0, prioridade)
         return q.order_by(*ordem).paginate(page=pagina, per_page=por_pagina, error_out=False)
+
+    def listar_materiais(self) -> List[str]:
+        linhas = (db.session.query(CatalogoExames.material)
+                .filter(CatalogoExames.ativo.is_(True),
+                        CatalogoExames.material.isnot(None), CatalogoExames.material != "")
+                .distinct().order_by(CatalogoExames.material).all())
+        return [l[0] for l in linhas]
+
+    def find_por_nome_normalizado(self, nome_normalizado: str) -> Optional[CatalogoExames]:
+        return CatalogoExames.query.filter_by(nome_normalizado=nome_normalizado).first()
 
     def save(self, entity: CatalogoExames) -> CatalogoExames:
         db.session.add(entity)
