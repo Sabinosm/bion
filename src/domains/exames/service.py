@@ -4,7 +4,6 @@ from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError
 from src.models import db
 from .repository import CatalogoExamesRepository
 from .normalizacao import normalizar_texto
-# ASSUMIDO: o repository de conteúdo fica na pasta "conteudo", ao lado do sincronizador.
 from .conteudo.catalogo_exames_conteudo_repository import (
     CatalogoExamesConteudoRepository, FONTE_LEGIVEL,
 )
