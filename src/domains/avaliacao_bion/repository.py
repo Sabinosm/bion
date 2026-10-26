@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
-
-from realtime import List
+from typing import List, Optional
 
 from .helpers.modelos import Atendimento, Consulta, OutputBion, ResultadoPrescricao, db
 
@@ -207,7 +205,3 @@ class ResultadoRascunhoRepository:
         for r in resultados:
             db.session.delete(r)
         db.session.commit()
-
-
-    
-    

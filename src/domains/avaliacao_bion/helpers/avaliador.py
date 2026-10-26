@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 
 from src.domains.output_ia import OutputIA, casca, interpretar
 from src.domains.pool_ia import Pool
+from src.domains.input_ia.nucleo import linhas
+from src.domains.protocolos_ia.domain.context.sanitizer import limpar_estrutura
 
 from .cliente import ClienteIA
 from .status import IA_INDISPONIVEL, RESPOSTA_INVALIDA
@@ -35,11 +37,33 @@ def _versao(cliente: ClienteIA, turno_versao: str | None) -> str:
     return f"{turno_versao or cliente.versao}/p{VERSAO_PROMPT}"[:50]
 
 
-def avaliar(snapshot: dict, pool: Pool, cliente: ClienteIA, *, max_tentativas: int = MAX_TENTATIVAS) -> Avaliacao:
-    from input_ia import InputModel
+def _prompt_de_snapshot(snapshot: dict) -> str:
+    """Renderiza apenas o contexto clinico congelado e remove identificadores comuns."""
+    if not isinstance(snapshot, dict):
+        raise ValueError("snapshot clinico invalido")
+    contexto = snapshot.get("contexto")
+    if not isinstance(contexto, dict) or not contexto:
+        raise ValueError("snapshot sem contexto clinico")
+    idioma = snapshot.get("idioma_resposta")
+    idioma = idioma if isinstance(idioma, str) and idioma.strip() else "pt-BR"
+    partes = [f"idioma_resposta: {idioma}"]
+    faltando = snapshot.get("faltando", [])
+    if not isinstance(faltando, list) or not all(isinstance(x, str) for x in faltando):
+        raise ValueError("lista de lacunas do snapshot invalida")
+    faltando = limpar_estrutura(faltando)
+    if faltando:
+        partes.append("## lacunas\n" + "\n".join(f"- {x}" for x in faltando))
+    for nome, dados in contexto.items():
+        if not isinstance(nome, str) or not nome or not isinstance(dados, dict):
+            raise ValueError("bloco do snapshot invalido")
+        dados = limpar_estrutura(dados)
+        partes.append("\n".join([f"## {nome}", *linhas(dados)]))
+    return "\n\n".join(partes)
 
+
+def avaliar(snapshot: dict, pool: Pool, cliente: ClienteIA, *, max_tentativas: int = MAX_TENTATIVAS) -> Avaliacao:
     nomes = list((snapshot.get("contexto") or {}).keys())
-    conversa = conversa_inicial(InputModel.prompt_de_snapshot(snapshot))
+    conversa = conversa_inicial(_prompt_de_snapshot(snapshot))
     ferramentas, esquema = pool.catalogo(), casca()
     rodada = tentativas = 0
     versao = None

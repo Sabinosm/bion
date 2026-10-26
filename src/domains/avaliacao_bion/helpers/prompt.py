@@ -21,6 +21,9 @@ Regras:
 7. Justifique cada medicamento em justificativas_medicamentos, citando dados do contexto.
 8. Escreva textos livres no idioma indicado em idioma_resposta. O CID-10 segue o formato com ponto (ex.: J45.9).
 9. Nao invente dados do paciente. Ao divergir do resultado calculado do protocolo, explique por que.
+10. O bloco "protocolo" pertence ao atendimento atual. O bloco "atendimentos_anteriores" pode conter protocolos de triagem ou avaliações anteriores; trate-os como historico datado, nunca como se tivessem sido preenchidos ou executados no atendimento atual.
+11. Se o protocolo atual estiver marcado como "nao_informado" ou estiver ausente, nao o substitua pelo resultado historico. Voce pode mencionar um protocolo anterior como informacao historica, identificando-o como tal e considerando sua data/status quando disponiveis.
+12. O binario e composto por alergias, medicamentos, tipo_sanguineo e doenca_cronica. "nao_informado" indica que nao foi possivel coletar/conferir; nao interprete como ausencia confirmada de condicao ou exposicao.
 """
 
 

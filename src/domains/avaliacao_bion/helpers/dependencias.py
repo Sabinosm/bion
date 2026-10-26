@@ -46,6 +46,9 @@ def padrao(cliente: ClienteIA | None = None) -> Dependencias:
     from src.domains.prescricao.prescricao_ia_service import PrescricaoIAService
     from ..repository import OutputBionRepository, ResultadoRascunhoRepository
     from src.domains.dados_clinicos.repository import InputProtocoloRepository
+    if cliente is None:
+        from src.domains.protocolos_ia.infrastructure.llm.cliente_avaliacao_bion import ClienteIAConfiguravel
+        cliente = ClienteIAConfiguravel()
     return Dependencias(AtendimentoService(), ConsultaService(), cfg_svc, PrescricaoIAService(),
                         OutputBionRepository(), ResultadoRascunhoRepository(), criar_pool,
-                        cliente or ClienteIAIndisponivel(), InputProtocoloRepository())
+                        cliente, InputProtocoloRepository())

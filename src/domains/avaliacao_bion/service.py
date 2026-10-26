@@ -56,9 +56,9 @@ class AvaliacaoBionService:
         if at.status != "em-andamento":
             raise ConflictoError("A avaliação do Bion exige atendimento em andamento.")
         self.d.consultas.exigir_consentimento(at.consulta)         # pode ter mudado desde a abertura
-        if self.d.inputs_protocolo.find_ultimo_do_atendimento(at.id) is None:
+        if not self._tem_input_protocolo_disponivel(at):
             raise ConflictoError(
-                "Registre o input de protocolo deste atendimento antes de pedir a avaliação do Bion.")
+                "Registre um input de protocolo no atendimento atual ou em um atendimento clínico anterior finalizado da mesma consulta antes de pedir a avaliação do Bion.")
 
         # Serializa cliques simultaneos: trava o atendimento ate o commit da criacao.
         self.d.atendimentos.repo.travar(at)
@@ -79,6 +79,31 @@ class AvaliacaoBionService:
             self.d.outputs.marcar(out, FALHOU, FILA_INDISPONIVEL)
             raise
         return out
+
+    def _tem_input_protocolo_disponivel(self, at) -> bool:
+        """Exige input atual ou histórico finalizado da mesma consulta, sem aceitar etapas canceladas/em andamento."""
+        repositorio = self.d.inputs_protocolo
+        if repositorio.find_ultimo_do_atendimento(at.id) is not None:
+            return True
+        consulta = getattr(at, "consulta", None)
+        anteriores = getattr(consulta, "atendimentos", ()) if consulta is not None else ()
+        tipos_clinicos = ("triagem", "avaliacao-medica", "reavaliacao")
+        for anterior in anteriores or ():
+            if getattr(anterior, "id", None) == at.id:
+                continue
+            if getattr(anterior, "status", None) != "finalizado":
+                continue
+            if getattr(anterior, "tipo_atendimento", None) not in tipos_clinicos:
+                continue
+            inicio_atual = getattr(at, "data_hora_inicio", None)
+            inicio_anterior = getattr(anterior, "data_hora_inicio", None)
+            if inicio_atual is None or inicio_anterior is None:
+                continue
+            if (inicio_anterior, anterior.id) >= (inicio_atual, at.id):
+                continue
+            if repositorio.find_ultimo_do_atendimento(anterior.id) is not None:
+                return True
+        return False
 
     def _config_usuario(self, id_usuario: int) -> dict | None:
         try:
@@ -189,4 +214,3 @@ class OutputBionService:
         # --- C5: Queixas principais mais frequentes ---
     def queixas_recentes(self, id_empresa: int, dias: int = 30, limite: int = 200):
         return self.repo.queixas_recentes(id_empresa=id_empresa, dias=dias, limite=limite)
-    
