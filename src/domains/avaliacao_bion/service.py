@@ -27,7 +27,8 @@ from .repository import OutputBionRepository
 from .helpers.avaliador import avaliar
 from .helpers.dependencias import Dependencias
 from .helpers.executor import ExecutorThread
-from .helpers.status import (CONCLUIDO, FALHOU, FILA_INDISPONIVEL, INTERNO, PROCESSANDO, REGISTRO_PROPOSTA)
+from .helpers.status import (CONCLUIDO, EXPIRADO, FALHOU, FILA_INDISPONIVEL, INTERNO, PROCESSANDO,
+                             REGISTRO_PROPOSTA)
 from .helpers.tarefa import Tarefa
 
 log = logging.getLogger(__name__)
@@ -161,15 +162,52 @@ class AvaliacaoBionService:
             self.d.resultados.excluir(intactos)
 
     # ----------------------------------------------------------- consultar
-    def consultar(self, uuid_output: str, id_empresa: int, id_usuario: int) -> dict:
+    def _output_do_dono(self, uuid_output: str, id_empresa: int, id_usuario: int):
+        """404 se nao existe ou e de outra empresa; 403 se nao e o profissional do atendimento."""
         out = self.d.outputs.find_por_uuid_da_empresa(uuid_output, id_empresa)
         if out is None:
             raise RecursoNaoEncontradoError(f"Avaliação não encontrada: {uuid_output}")
         if out.atendimento.realizado_por != id_usuario:
             raise PermissaoNegadaError("Só o profissional do atendimento pode ver esta avaliação.")
-        base = {"uuid_output": out.uuid, "status": out.status, "erro_codigo": out.erro_codigo,
+        return out
+
+    def _expirou(self, out) -> bool:
+        """'processando' alem do TTL: a tarefa provavelmente se perdeu. Leitura apenas, nada e gravado."""
+        criado = out.criado_em
+        if criado is None:
+            return False
+        if criado.tzinfo is None:                      # coluna sem fuso: o back grava em UTC
+            criado = criado.replace(tzinfo=timezone.utc)
+        return criado < datetime.now(timezone.utc) - self.ttl
+
+    def _base(self, out) -> dict:
+        """Estado da avaliacao SEM conteudo clinico (seguro para polling e sem auditoria de leitura).
+        Um 'processando' que passou do TTL e mostrado como falhou/expirado, igual ao que o proximo
+        iniciar() gravaria; se o worker ainda concluir, a leitura seguinte ja mostra 'concluido'."""
+        status, erro = out.status, out.erro_codigo
+        if status == PROCESSANDO and self._expirou(out):
+            status, erro = FALHOU, EXPIRADO
+        return {"uuid_output": out.uuid, "status": status, "erro_codigo": erro,
                 "criado_em": out.criado_em.isoformat() if out.criado_em else None}
-        if out.status != CONCLUIDO or not out.output_ia_json:
+
+    def status(self, uuid_output: str, id_empresa: int, id_usuario: int) -> dict:
+        """Rota do polling: so o estado. A leitura do conteudo (auditada) e consultar()."""
+        return self._base(self._output_do_dono(uuid_output, id_empresa, id_usuario))
+
+    def ultima(self, uuid_atendimento: str, id_empresa: int, id_usuario: int) -> dict | None:
+        """Estado da avaliacao mais recente do atendimento (None se nunca houve). Serve para o front
+        retomar apos recarregar a pagina ou apos o 409 de 'ja em andamento'. Sem conteudo clinico."""
+        at = self.d.atendimentos.buscar_por_uuid(uuid_atendimento, id_empresa)   # 404 se de outra empresa
+        if at.realizado_por != id_usuario:
+            raise PermissaoNegadaError("Só o profissional do atendimento pode ver a avaliação do Bion.")
+        out = self.d.outputs.ultimo_do_atendimento(at.id)
+        return None if out is None else self._base(out)
+
+    def consultar(self, uuid_output: str, id_empresa: int, id_usuario: int) -> dict:
+        """Conteudo da avaliacao (conduta, perguntas, explicacao, qualidade). E a leitura AUDITADA."""
+        out = self._output_do_dono(uuid_output, id_empresa, id_usuario)
+        base = self._base(out)
+        if base["status"] != CONCLUIDO or not out.output_ia_json:
             return base
         output = OutputIA.model_validate(out.output_ia_json)
         resultado = self.d.resultados.de_output(out.id)
@@ -179,8 +217,7 @@ class AvaliacaoBionService:
             indices=snap.get("indices_input"), lacunas=snap.get("faltando"),
             substituida=resultado is None and not output.proposta.sem_recomendacao)
         return {**base, **front}
-    
-    
+
 
 class OutputBionService:
     

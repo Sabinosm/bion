@@ -39,6 +39,13 @@ class OutputBionRepository:
                 .filter(OutputBion.uuid == uuid, Consulta.id_empresa == id_empresa)
                 .first())
 
+    def ultimo_do_atendimento(self, id_atendimento: int) -> Optional[OutputBion]:
+        """Avaliacao mais recente do atendimento (qualquer status), ou None."""
+        return (OutputBion.query
+                .filter(OutputBion.id_atendimento == id_atendimento)
+                .order_by(OutputBion.criado_em.desc(), OutputBion.id.desc())
+                .first())
+
     def em_processamento(self, id_atendimento: int) -> bool:
         return db.session.query(OutputBion.id).filter(
             OutputBion.id_atendimento == id_atendimento, OutputBion.status == PROCESSANDO).first() is not None
