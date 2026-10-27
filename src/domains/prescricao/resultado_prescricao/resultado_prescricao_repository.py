@@ -27,6 +27,15 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
             .first()
         )
 
+    def find_do_atendimento(self, id_atendimento: int) -> List[ResultadoPrescricao]:
+        """Todos os resultados do atendimento (rascunho, confirmado e descartado), do mais antigo ao mais novo."""
+        return (
+            ResultadoPrescricao.query
+            .filter(ResultadoPrescricao.id_atendimento == id_atendimento)
+            .order_by(ResultadoPrescricao.criado_em.asc(), ResultadoPrescricao.id.asc())
+            .all()
+        )
+
     def save(self, entity: ResultadoPrescricao, commit: bool = True) -> ResultadoPrescricao:
         db.session.add(entity)
         if commit:

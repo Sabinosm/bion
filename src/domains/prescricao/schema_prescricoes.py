@@ -74,6 +74,68 @@ class ExamePrescritoIn(_Base):
     justificativa: Optional[Texto2000] = None
 
 
+_CERTEZAS = Literal["suspeito", "provavel", "confirmado", "descartado"]
+_TIPOS_PRESCRICAO = Literal["farmacologica", "nao-farmacologica", "encaminhamento", "internacao", "alta"]
+
+
+class ResultadoPrescricaoPatch(_Base):
+    """PATCH do diagnóstico do rascunho: só os campos enviados mudam. tipo_prescricao pode ser
+    limpo com null; os demais são obrigatórios no model, então null neles é erro."""
+    codigo_cid10_principal: Optional[CodigoCid10] = None
+    descricao_cid10_principal: Optional[Texto255] = None
+    certeza_diagnostica: Optional[_CERTEZAS] = None
+    tipo_prescricao: Optional[_TIPOS_PRESCRICAO] = None
+
+    @field_validator("codigo_cid10_principal", mode="before")
+    @classmethod
+    def _cid_maiusculo(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _ao_menos_um(self):
+        enviados = self.model_fields_set
+        if not enviados:
+            raise ValueError("Informe ao menos um campo para alterar.")
+        for campo in ("codigo_cid10_principal", "descricao_cid10_principal", "certeza_diagnostica"):
+            if campo in enviados and getattr(self, campo) is None:
+                raise ValueError(f"'{campo}' não pode ser vazio.")
+        return self
+
+
+class MedicamentoPrescritoPatch(_Base):
+    """PATCH de um medicamento do rascunho: dose, frequência, duração e orientações (null/vazio limpa).
+    Trocar o medicamento é remover e adicionar outro."""
+    dose: Optional[Texto100] = None
+    frequencia: Optional[Texto100] = None
+    duracao: Optional[Texto100] = None
+    orientacoes: Optional[Texto2000] = None
+
+    @model_validator(mode="after")
+    def _ao_menos_um(self):
+        if not self.model_fields_set:
+            raise ValueError("Informe ao menos um campo para alterar.")
+        return self
+
+
+class ExamePrescritoPatch(_Base):
+    """PATCH de um exame do rascunho: urgência (não aceita null) e justificativa (null/vazio limpa)."""
+    urgencia: Optional[Literal["rotina", "urgente", "emergencia"]] = None
+    justificativa: Optional[Texto2000] = None
+
+    @model_validator(mode="after")
+    def _ao_menos_um(self):
+        if not self.model_fields_set:
+            raise ValueError("Informe ao menos um campo para alterar.")
+        if "urgencia" in self.model_fields_set and self.urgencia is None:
+            raise ValueError("'urgencia' não pode ser vazia.")
+        return self
+
+
+class DescartarPrescricaoIn(_Base):
+    """Corpo (opcional) de POST /<uuid_resultado>/descartar."""
+    motivo: Optional[Texto255] = None
+
+
 class ConfirmacaoPrescricaoIn(_Base):
     """Corpo de POST /<uuid_resultado>/confirmar."""
     reconhecer_alertas: StrictBool = False

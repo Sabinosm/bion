@@ -34,9 +34,17 @@ class ResultadoPrescricao(db.Model):
                                       default=lambda: datetime.now(timezone.utc))
     criado_em = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc), nullable=False)
-    # rascunho: proposta (IA ou médico) ainda editável; confirmado: o médico responde por ela.
-    status = db.Column(db.Enum("rascunho", "confirmado"), nullable=False, default="rascunho")
+    # rascunho: proposta (IA ou médico) ainda editável; confirmado: o médico responde por ela;
+    # descartado: o médico desistiu do rascunho (descarte LÓGICO: a linha e os itens ficam).
+    status = db.Column(db.Enum("rascunho", "confirmado", "descartado"), nullable=False, default="rascunho")
     confirmado_em = db.Column(db.DateTime(timezone=True))
+    # Quem responde pelo conteúdo hoje: 'bion_ia' enquanto o médico não mexeu em NADA (diagnóstico,
+    # itens, adição ou remoção); qualquer alteração dele passa para 'medico'. id_output continua
+    # apontando para a avaliação que originou o rascunho (rastro do que a IA sugeriu).
+    origem_sugestao = db.Column(db.Enum("medico", "bion_ia", "protocolo"), nullable=False, default="medico")
+    descartado_em = db.Column(db.DateTime(timezone=True))
+    descartado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
+    motivo_descarte = db.Column(db.Text)
 
     atendimento = db.relationship("Atendimento", back_populates="resultados_prescricao")
     output_bion = db.relationship("OutputBion", back_populates="resultados_prescricao")
@@ -54,7 +62,11 @@ class ResultadoPrescricao(db.Model):
             "certeza_diagnostica": self.certeza_diagnostica,
             "tipo_prescricao": self.tipo_prescricao,
             "status": self.status,
+            "origem_sugestao": self.origem_sugestao,
+            "atendimento_uuid": self.atendimento.uuid if self.atendimento else None,
             "confirmado_em": self.confirmado_em.isoformat() if self.confirmado_em else None,
+            "descartado_em": self.descartado_em.isoformat() if self.descartado_em else None,
+            "motivo_descarte": self.motivo_descarte,
             "data_hora_formulacao": self.data_hora_formulacao.isoformat()
             if self.data_hora_formulacao else None,
             "medicamentos": [p.to_dict() for p in self.prescricoes],
