@@ -99,7 +99,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(empresa_protocolo_bp, url_prefix="/v1/api/liberacao-protocolos")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
-    app.register_blueprint(bp_download_pdf, url_prefix="v1/api/downloads")
+    app.register_blueprint(bp_download_pdf, url_prefix="/v1/api/downloads")
 
     # --- Tudo que vive sob /atendimentos (mesmo prefixo, de propósito) ---
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
