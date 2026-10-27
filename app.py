@@ -6,7 +6,6 @@ from seeds.seedNews2 import seed_news2
 from seeds.protocolo_composicao.persistir import seed_composicao
 from seeds.exames.executar import executar
 
-CAMINHO_BASE_LOINC = "seeds/exames/"
 
 app = create_app(os.getenv("FLASK_ENV", "development"))
 
