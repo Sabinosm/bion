@@ -1204,18 +1204,27 @@ CREATE TABLE `resultado_prescricao` (
   `consistente_com_classificacao` tinyint(1) DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `id_output` bigint(20) DEFAULT NULL,
-  `status` enum('rascunho','confirmado') NOT NULL DEFAULT 'rascunho',
+  `status` enum('rascunho','confirmado','descartado') NOT NULL DEFAULT 'rascunho',
   `confirmado_em` datetime DEFAULT NULL,
+  `origem_sugestao` enum('medico','bion_ia','protocolo') NOT NULL DEFAULT 'medico',
+  `descartado_em` datetime DEFAULT NULL,
+  `descartado_por` bigint(20) DEFAULT NULL,
+  `motivo_descarte` text DEFAULT NULL,
   PRIMARY KEY (`id_resultado`),
   UNIQUE KEY `uuid_resultado` (`uuid_resultado`),
   KEY `id_atendimento` (`id_atendimento`),
   KEY `formulado_por` (`formulado_por`),
   KEY `id_output` (`id_output`),
   KEY `ix_resultado_prescricao_status` (`status`,`data_hora_formulacao`),
+  KEY `fk_resultado_prescricao_descartado_por` (`descartado_por`),
+  CONSTRAINT `fk_resultado_prescricao_descartado_por` FOREIGN KEY (`descartado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `resultado_prescricao_ibfk_1` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
   CONSTRAINT `resultado_prescricao_ibfk_2` FOREIGN KEY (`formulado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `resultado_prescricao_ibfk_3` FOREIGN KEY (`id_output`) REFERENCES `output_bion` (`id_output`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
 
 
 -- bion_testes.sinal_vital definition
