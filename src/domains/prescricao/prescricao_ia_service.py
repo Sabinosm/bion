@@ -15,21 +15,23 @@ class PrescricaoIAService:
         self.exame_svc = PrescricaoExameService()
 
     def registrar_proposta(self, uuid_atendimento: str, proposta: PropostaPrescricaoIA,
-                           id_usuario: int, id_output: int):
+                           id_usuario: int, id_output: int, id_empresa: int):
         """Retorna o ResultadoPrescricao criado, ou None se a IA não recomendou nada
         (nesse caso o registro fica só no Output_bion).
 
         Use: proposta = PropostaPrescricaoIA.model_validate(json_da_ia)
              id_usuario = get_id_usuario_sessao()
         A IA referencia os catálogos pelo uuid público. Se algum item for inválido
-        (uuid inexistente, medicamento repetido), nada é salvo.
+        (uuid inexistente, medicamento repetido), nada é salvo. Também nada é salvo (409) se o
+        atendimento já não está em andamento ou se há rascunho do médico: o worker não escreve
+        em atendimento finalizado/cancelado nem por cima do que o médico está editando.
         Os alertas de interação ficam disponíveis em GET /<uuid_resultado>/alertas.
         """
         if proposta.sem_recomendacao:
             return None
         try:
             resultado = self.resultado_svc.registrar_resultado(
-                uuid_atendimento, proposta.resultado, id_usuario, id_output=id_output, commit=False
+                uuid_atendimento, proposta.resultado, id_empresa, id_usuario, id_output=id_output, commit=False
             )
             for m in proposta.medicamentos:
                 self.prescricao_svc.incluir(resultado, m, origem="bion_ia",

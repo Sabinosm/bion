@@ -1,8 +1,9 @@
 from src.core.exceptions import RecursoNaoEncontradoError
+from src.models import db
 from src.models.clinico import PrescricaoExame
 from .prescricao_exame_repository import PrescricaoExameRepository
 from ..resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
-from ..schema_prescricoes import ExamePrescritoIn
+from ..schema_prescricoes import ExamePrescritoIn, ExamePrescritoPatch
 
 
 class PrescricaoExameService:
@@ -18,16 +19,52 @@ class PrescricaoExameService:
     # Escrita (fluxo do médico)
     # ------------------------------------------------------------------
     def adicionar_exame(self, uuid_resultado: str, item: ExamePrescritoIn, id_empresa: int, id_usuario: int):
-        """Médico adiciona um exame ao seu rascunho. Origem fixa: 'medico'."""
+        """Médico adiciona um exame ao seu rascunho. Origem do item: 'medico'; o resultado deixa de
+        ser 'da IA' (mesma transação)."""
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
-        return self.incluir(resultado, item, origem="medico")
+        try:
+            pe = self.incluir(resultado, item, origem="medico", commit=False)
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        return pe
 
-    def remover_exame(self, uuid_resultado: str, uuid_item: str, id_empresa: int, id_usuario: int):
+    def atualizar_exame(self, uuid_resultado: str, uuid_item: str, patch: ExamePrescritoPatch,
+                        id_empresa: int, id_usuario: int):
+        """Altera urgência ou justificativa. Se algo mudou, o item e o resultado passam a ser do médico."""
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         pe = self.repo.find_do_resultado(uuid_item, resultado.id)
         if not pe:
             raise RecursoNaoEncontradoError(f"Exame prescrito não encontrado: {uuid_item}")
-        self.repo.delete(pe.id)
+        mudancas = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if getattr(pe, k) != v}
+        if not mudancas:
+            return pe
+        try:
+            for campo, valor in mudancas.items():
+                setattr(pe, campo, valor)
+            pe.origem_sugestao = "medico"
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        return pe
+
+    def remover_exame(self, uuid_resultado: str, uuid_item: str, id_empresa: int, id_usuario: int):
+        """Remove o exame do rascunho (inclusive sugestão da IA). O resultado passa a ser do médico."""
+        resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
+        pe = self.repo.find_do_resultado(uuid_item, resultado.id)
+        if not pe:
+            raise RecursoNaoEncontradoError(f"Exame prescrito não encontrado: {uuid_item}")
+        try:
+            db.session.delete(pe)
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
     # ------------------------------------------------------------------
     # Ponto único de criação (médico e IA passam por aqui)

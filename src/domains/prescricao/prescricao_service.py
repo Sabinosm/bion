@@ -1,10 +1,11 @@
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
+from src.models import db
 from src.models.clinico import Prescricao
 from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 from .prescricao_repository import PrescricaoRepository
 from .resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
 from .prescricao_validacao_service import PrescricaoValidacaoService
-from .schema_prescricoes import MedicamentoPrescritoIn
+from .schema_prescricoes import MedicamentoPrescritoIn, MedicamentoPrescritoPatch
 
 
 class PrescricaoService:
@@ -19,23 +20,59 @@ class PrescricaoService:
     # ------------------------------------------------------------------
     def adicionar_medicamento(self, uuid_resultado: str, item: MedicamentoPrescritoIn,
                               id_empresa: int, id_usuario: int):
-        """Médico adiciona um medicamento ao seu rascunho. Origem fixa: 'medico'.
+        """Médico adiciona um medicamento ao seu rascunho. Origem do item: 'medico'; o resultado
+        deixa de ser 'da IA' (mesma transação).
 
         Retorna (prescricao, verificacao): verificacao = {"alertas", "cobertura"} com as
         interações do conjunto atual de medicamentos do rascunho."""
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
-        p = self.incluir(resultado, item, origem="medico")
+        try:
+            p = self.incluir(resultado, item, origem="medico", commit=False)
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         verificacao = self.validacao_svc.verificar_interacoes(
             self.prescricao_repo.ids_catalogo_do_resultado(resultado.id)
         )
         return p, verificacao
 
-    def remover_medicamento(self, uuid_resultado: str, uuid_item: str, id_empresa: int, id_usuario: int):
+    def atualizar_medicamento(self, uuid_resultado: str, uuid_item: str, patch: MedicamentoPrescritoPatch,
+                              id_empresa: int, id_usuario: int):
+        """Altera dose, frequência, duração ou orientações. Se algo mudou, o item e o resultado
+        passam a ser do médico (a sugestão original da IA continua no Output_bion)."""
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         p = self.prescricao_repo.find_do_resultado(uuid_item, resultado.id)
         if not p:
             raise RecursoNaoEncontradoError(f"Medicamento prescrito não encontrado: {uuid_item}")
-        self.prescricao_repo.delete(p.id)
+        mudancas = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if getattr(p, k) != v}
+        if not mudancas:
+            return p
+        try:
+            for campo, valor in mudancas.items():
+                setattr(p, campo, valor)
+            p.origem_sugestao = "medico"
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        return p
+
+    def remover_medicamento(self, uuid_resultado: str, uuid_item: str, id_empresa: int, id_usuario: int):
+        """Remove o item do rascunho (inclusive sugestão da IA). O resultado passa a ser do médico."""
+        resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
+        p = self.prescricao_repo.find_do_resultado(uuid_item, resultado.id)
+        if not p:
+            raise RecursoNaoEncontradoError(f"Medicamento prescrito não encontrado: {uuid_item}")
+        try:
+            db.session.delete(p)
+            self.resultado_svc.marcar_editado(resultado)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
     # ------------------------------------------------------------------
     # Ponto único de criação (médico e IA passam por aqui)
