@@ -48,7 +48,8 @@ class ResultadoPrescricao(db.Model):
 
     atendimento = db.relationship("Atendimento", back_populates="resultados_prescricao")
     output_bion = db.relationship("OutputBion", back_populates="resultados_prescricao")
-    usuario = db.relationship("Usuario")
+    usuario = db.relationship("Usuario", foreign_keys=[formulado_por])
+    usuario_descarte = db.relationship("Usuario", foreign_keys=[descartado_por])
     prescricoes = db.relationship("Prescricao", back_populates="resultado_prescricao",
                                    cascade="all, delete-orphan")
     prescricoes_exame = db.relationship("PrescricaoExame", back_populates="resultado_prescricao",
