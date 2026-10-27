@@ -1,4 +1,4 @@
-"""Rotas da avaliacao Bion. Registre bp_bion no app (ex.: url_prefix="/api").
+"""Rotas da avaliacao Bion. bp_bion é registrado em /v1/api/bion (main.py).
 
   POST /atendimento/<uuid_atendimento>/avaliacao-bion  -> 202 {uuid_output, status}
   GET  /avaliacao-bion/<uuid_output>/status            -> so o estado (polling; sem conteudo clinico, sem auditoria)
@@ -86,9 +86,11 @@ class AvaliacaoBionController:
     @requer_papel_clinico("medico")
     @acesso_auditado(recurso="avaliação do Bion", operacao="leitura")
     def consultar(uuid_output):
-        """Status da avaliação; concluída, traz conduta, perguntas, explicação e qualidade do input."""
+        """Status da avaliação; concluída, traz conduta, perguntas, explicação e qualidade do input.
+        Erro devolve NOOP: o decorator não olha o status HTTP e, sem isso, um 403/404 seria
+        registrado no log de acesso como leitura com sucesso."""
         try:
             return json_success(data=servico().consultar(uuid_output, get_id_empresa_sessao(),
-                                                         get_id_usuario_sessao()))
+                                                         get_id_usuario_sessao())), {}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}

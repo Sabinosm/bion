@@ -221,6 +221,30 @@ class AtendimentoService:
                 f"Só o profissional que abriu o atendimento pode {acao}."
             )
 
+    @staticmethod
+    def _exigir_sem_pendencias_clinicas(atendimento) -> None:
+        """Não deixa registro inconsistente para trás (409): avaliação da IA ainda processando ou
+        prescrição em rascunho. O 'processando' que já passou do TTL é tarefa perdida e não bloqueia.
+        Cancelar continua livre (abandonar não depende de nada); o rascunho que sobrar pode ser
+        descartado depois (POST /prescricoes/<uuid>/descartar)."""
+        # import local: avaliacao_bion depende deste módulo (ciclo de import)
+        from src.domains.avaliacao_bion.service import TTL_PROCESSANDO
+        from src.domains.avaliacao_bion.helpers.status import PROCESSANDO
+
+        limite = datetime.now(timezone.utc) - TTL_PROCESSANDO
+        for o in atendimento.outputs_bion:
+            criado = o.criado_em
+            if criado is not None and criado.tzinfo is None:
+                criado = criado.replace(tzinfo=timezone.utc)
+            if o.status == PROCESSANDO and (criado is None or criado >= limite):
+                raise ConflictoError(
+                    "A avaliação da IA ainda está em andamento: aguarde terminar antes de finalizar o atendimento."
+                )
+        if any(r.status == "rascunho" for r in atendimento.resultados_prescricao):
+            raise ConflictoError(
+                "Há uma prescrição em rascunho neste atendimento: confirme-a ou descarte-a antes de finalizar."
+            )
+
     def finalizar(self, uuid_atendimento: str, id_empresa: int, id_usuario: int,
                   observacoes: str = None, eh_medico: bool = False):
         """
@@ -229,7 +253,8 @@ class AtendimentoService:
         status_consulta na mesma transação.
 
         Só o dono (403). Exige o binário completo (409), em qualquer tipo de
-        atendimento. `eh_medico` vem da sessão (controller): avaliação
+        atendimento, e nenhuma pendência clínica (409): avaliação da IA processando
+        ou prescrição em rascunho. `eh_medico` vem da sessão (controller): avaliação
         médica e reavaliação só são finalizadas por médico.
 
         Raises:
@@ -254,6 +279,7 @@ class AtendimentoService:
             raise ConflictoError("Consulta encerrada: o atendimento não pode mais ser finalizado.")
 
         exigir_binario_completo(atendimento)
+        self._exigir_sem_pendencias_clinicas(atendimento)
         if observacoes is not None and not isinstance(observacoes, str):
             raise DadosInvalidosError({"observacoes": "deve ser texto."})
 

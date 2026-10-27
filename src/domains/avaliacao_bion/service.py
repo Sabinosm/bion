@@ -66,6 +66,10 @@ class AvaliacaoBionService:
         self.d.outputs.expirar_travados(at.id, datetime.now(timezone.utc) - self.ttl)
         if self.d.outputs.em_processamento(at.id):
             raise ConflictoError("Já existe uma avaliação do Bion em andamento para este atendimento.")
+        if self.d.resultados.tem_rascunho_do_medico(at.id):
+            raise ConflictoError(
+                "Há uma prescrição em rascunho do médico neste atendimento: confirme-a ou descarte-a "
+                "antes de pedir uma nova avaliação do Bion.")
 
         config = Config.de_dict(self._config_usuario(id_usuario))
         entrada = InputModel.de_atendimento(at, config)
@@ -139,7 +143,7 @@ class AvaliacaoBionService:
         # 2) rascunho
         try:
             resultado = self.d.prescricao_ia.registrar_proposta(
-                tarefa.uuid_atendimento, av.output.proposta, tarefa.id_usuario, out.id)
+                tarefa.uuid_atendimento, av.output.proposta, tarefa.id_usuario, out.id, tarefa.id_empresa)
         except Exception:
             log.exception("falha ao registrar a proposta da avaliacao %s", tarefa.uuid_output)
             self.d.outputs.marcar(out, FALHOU, REGISTRO_PROPOSTA)

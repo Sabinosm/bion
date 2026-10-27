@@ -199,13 +199,23 @@ class ResultadoRascunhoRepository:
         return ResultadoPrescricao.query.filter_by(id_output=id_output).first()
 
     def rascunhos_ia(self, id_atendimento: int, exceto_id: int) -> list[ResultadoPrescricao]:
-        """Rascunhos que vieram da IA (id_output preenchido) neste atendimento, menos o novo."""
+        """Rascunhos que ainda são DA IA neste atendimento, menos o novo: vieram de uma avaliação
+        (id_output) e o médico não mexeu em nada (origem_sugestao continua 'bion_ia')."""
         return (ResultadoPrescricao.query
                 .filter(ResultadoPrescricao.id_atendimento == id_atendimento,
                         ResultadoPrescricao.status == "rascunho",
                         ResultadoPrescricao.id_output.isnot(None),
+                        ResultadoPrescricao.origem_sugestao == "bion_ia",
                         ResultadoPrescricao.id != exceto_id)
                 .all())
+
+    def tem_rascunho_do_medico(self, id_atendimento: int) -> bool:
+        """Há rascunho neste atendimento que é do médico (manual ou IA já editada)?"""
+        return (ResultadoPrescricao.query
+                .filter(ResultadoPrescricao.id_atendimento == id_atendimento,
+                        ResultadoPrescricao.status == "rascunho",
+                        ResultadoPrescricao.origem_sugestao != "bion_ia")
+                .first()) is not None
 
     def excluir(self, resultados: list[ResultadoPrescricao]) -> None:
         """O cascade do model leva medicamentos e exames junto."""
