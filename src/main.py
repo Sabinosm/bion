@@ -63,7 +63,7 @@ def _registrar_blueprints(app: Flask):
     from src.domains.prescricao.resultado_prescricao.resultado_prescricao_controller import bp_resultado_prescricao
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.dados_clinicos.controller import bp_dados_clinicos
-    
+    from src.domains.download.download_controller import bp_download_pdf
     from src.domains.paciente.controllers import pessoal_bp, bp_alergia, bp_doenca_cronica, lgpd_bp, bp_med_em_uso,p_clinico_bp, consentimento_digital_bp
 
     from src.domains.paciente.controllers.alergia_controller import bp_escrita as alergia_escrita_bp
@@ -99,6 +99,7 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(empresa_protocolo_bp, url_prefix="/v1/api/liberacao-protocolos")
     app.register_blueprint(bp_mts, url_prefix="/v1/api/protocolos/mts")
     app.register_blueprint(consulta_bp, url_prefix="/v1/api/consultas")
+    app.register_blueprint(bp_download_pdf, url_prefix="v1/api/downloads")
 
     # --- Tudo que vive sob /atendimentos (mesmo prefixo, de propósito) ---
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
