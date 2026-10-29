@@ -96,6 +96,6 @@ class CatalogoMedicamentosService:
 
         return {
             "medicamentos": medicamentos,
-            "interacoes": self.repo_interacoes.find_entre([m.id for m in medicamentos]),
+            "interacoes": self.repo_interacoes.find_entre_medicamentos([m.id for m in medicamentos]),
             "total_na_base": self.repo_interacoes.contar(),
         }

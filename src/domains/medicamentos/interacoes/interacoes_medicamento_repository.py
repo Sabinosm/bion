@@ -98,7 +98,7 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
             .all()
         )
 
-    def find_entre(self, ids) -> List[InteracoesMedicamentos]:
+    def find_entre_medicamentos(self, ids) -> List[InteracoesMedicamentos]:
         """Interações em que os DOIS lados estão na lista de ids."""
         return (
             InteracoesMedicamentos.query
