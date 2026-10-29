@@ -19,9 +19,11 @@ from src.core.session import (
 )
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from .service import AtendimentoService
+from .detalhe_atendimento_service import DetalheAtendimentoService   # provisório: ver o arquivo
 
 bp_atendimento = Blueprint("atendimento", __name__)
 _svc = AtendimentoService()
+_detalhe = DetalheAtendimentoService()
 
 
 class AtendimentoController():
@@ -42,21 +44,38 @@ class AtendimentoController():
     def detalhe_atendimento(uuid):
         """Retorna os detalhes de um Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
         try:
-            return json_success(data=_svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao()))
+            dados = _svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
+            return json_success(data=dados), {"uuid_paciente": (dados.get("paciente") or {}).get("uuid")}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            # @acesso_auditado não olha o status HTTP: NOOP evita logar o erro como leitura com sucesso
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
+
+    @staticmethod
+    @bp_atendimento.get("/<uuid>/detalhe")
+    @requer_papel_clinico("enfermeiro", "medico")
+    @acesso_auditado(recurso="detalhe completo do atendimento", operacao="leitura")
+    def detalhe_completo(uuid):
+        """Resumo completo de como foi (ou é) o atendimento: a mesma fonte do PDF detalhado, em JSON pronto
+        para exibir (ver detalhe_atendimento_service.py). Sem CPF e sem nascimento do paciente. Leitura
+        auditada, com uuid_paciente; erro devolve NOOP para não ser logado como leitura com sucesso."""
+        try:
+            dados, uuid_paciente = _detalhe.obter(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
+            return json_success(data=dados), {"uuid_paciente": uuid_paciente}
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
 
     @staticmethod
     @bp_atendimento.get("/consulta/<uuid_consulta>")
     @requer_papel_clinico("enfermeiro","medico")
     @acesso_auditado(recurso="atendimentos da consulta", operacao="leitura")
     def atendimentos_da_consulta(uuid_consulta):
-        """Lista os Atendimentos vinculados a uma Consulta."""
+        """Linha do tempo da Consulta: os Atendimentos em ordem cronológica, cada um com `profissional`
+        ({uuid, nome_completo, funcao_clinica})."""
         try:
-            itens = _svc.listar_por_consulta(uuid_consulta, get_id_empresa_sessao())
-            return json_success(data=[a.to_dict() for a in itens])
+            itens, uuid_paciente = _svc.listar_resumo_por_consulta(uuid_consulta, get_id_empresa_sessao())
+            return json_success(data=itens), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")

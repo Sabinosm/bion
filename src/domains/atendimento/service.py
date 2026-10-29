@@ -106,6 +106,24 @@ class AtendimentoService:
         c = self.consulta_svc.buscar_por_uuid(uuid_consulta, id_empresa)
         return self.repo.find_por_consulta(c.id)
 
+    @staticmethod
+    def _profissional(a) -> dict | None:
+        """Quem fez o atendimento (nome e função clínica atual), para a linha do tempo. Não é PII
+        de paciente: são colegas da mesma empresa. A função é a ATUAL do profissional."""
+        u = a.usuario
+        if not u:
+            return None
+        return {"uuid": u.uuid, "nome_completo": u.nome_completo, "funcao_clinica": u.funcao_clinica}
+
+    def listar_resumo_por_consulta(self, uuid_consulta: str, id_empresa: int):
+        """Linha do tempo da Consulta: (itens, uuid_paciente). Cada item é Atendimento.to_dict() +
+        `profissional`. 404 igual para 'não existe' e 'outra empresa'. Custo: ~2 queries por
+        atendimento (usuário e papéis), poucos por consulta."""
+        c = self.consulta_svc.buscar_por_uuid(uuid_consulta, id_empresa)
+        itens = [{**a.to_dict(), "profissional": self._profissional(a)}
+                 for a in self.repo.find_por_consulta(c.id)]
+        return itens, (c.paciente.uuid if c.paciente else None)
+
     # -------------------------------------------------------- transação
     def _sincronizar(self, consulta, commit: bool):
         """Recalcula status_consulta a partir dos Atendimentos atuais.
