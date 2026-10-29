@@ -73,7 +73,7 @@ class MedicamentoEmUso(db.Model):
                                             db.ForeignKey(_FK_ATENDIMENTO, ondelete="RESTRICT"),
                                             nullable=True)
     id_substituida_por = db.Column(db.BigInteger,
-                                   db.ForeignKey("medicamentos_em_uso.id_medicamento_uso",
+                                   db.ForeignKey("medicamentos_em_uso.id_medicamentos_uso",
                                                  ondelete="RESTRICT"),
                                    nullable=True)
 
