@@ -37,6 +37,11 @@ def _meta_update(c, campo, justificativa=None):
     }
 
 
+# @acesso_auditado NÃO olha o status HTTP: um json_error devolvido normalmente seria gravado como
+# leitura com sucesso. Em erro, a view devolve (resposta, _NOOP) e nada é registrado.
+_NOOP = {"operacao": "NOOP"}
+
+
 def _meta_noop(uuid):
     return {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
 
@@ -57,7 +62,8 @@ class ConsultasController():
     @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="historico de consultas", operacao="leitura")
     def lista_consultas_do_profissional():
-        """Lista as Consultas iniciadas pelo usuário logado, com o paciente e a continuidade de cada uma (resposta paginada).
+        """Lista as Consultas do usuário logado (que ele iniciou ou em que atendeu), com o paciente e a continuidade
+        de cada uma (resposta paginada).
         Query string: limit (padrão 10, máximo 50), offset (padrão 0) e filtros opcionais
         status, desfecho, abertas=true, data_inicio e data_fim (AAAA-MM-DD). Filtro inválido devolve 422."""
         try:
@@ -75,7 +81,7 @@ class ConsultasController():
             )
             return json_success(data=pagina)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), _NOOP
 
     @staticmethod
     @bp_consulta.get("/<uuid>")
@@ -83,11 +89,12 @@ class ConsultasController():
     @acesso_auditado(recurso="visualizar consulta", operacao="leitura")
     def detalhe_consulta(uuid):
         try:
-            return json_success(data=_svc.buscar_resumo(
+            dados = _svc.buscar_resumo(
                 uuid, get_id_empresa_sessao(), get_id_usuario_sessao(), get_funcao_clinica_sessao(),
-            ))
+            )
+            return json_success(data=dados), {"uuid_paciente": (dados.get("paciente") or {}).get("uuid")}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), _NOOP
         
 
     @staticmethod
@@ -97,9 +104,9 @@ class ConsultasController():
     def consultas_do_paciente_limitado(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), True)
-            return json_success(data=[c.to_dict() for c in itens])
+            return json_success(data=[c.to_dict() for c in itens]), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), _NOOP
     
     
     @staticmethod
@@ -109,9 +116,9 @@ class ConsultasController():
     def consultas_do_paciente(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), False)
-            return json_success(data=[c.to_dict() for c in itens])
+            return json_success(data=[c.to_dict() for c in itens]), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), _NOOP
         
         
 

@@ -3,12 +3,12 @@
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional, List
 
-from sqlalchemy import func
+from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import joinedload
 
 from src.models import db
 from src.core.interfaces import IRepository
-from src.models.clinico import Consulta
+from src.models.clinico import Atendimento, Consulta
 from src.models.corp.empresa import Empresa
 
 
@@ -286,16 +286,25 @@ class ConsultaRepository(IRepository[Consulta]):
     def historico(self, id_empresa: int, id_usuario: int, limit: int = 10, offset: int = 0, *,
                   status=None, desfecho=None, apenas_abertas: bool = False,
                   inicio=None, fim=None) -> List[Consulta]:
-        """Consultas iniciadas pelo profissional (iniciada_por), da mais recente à mais antiga, paginadas.
+        """Consultas do profissional, da mais recente à mais antiga, paginadas: as que ele INICIOU
+        (iniciada_por) ou em que fez algum atendimento (realizado_por; cancelado não conta, pois
+        é abertura por engano/abandono). Assim o médico que só fez a avaliação numa consulta aberta
+        pela enfermagem também a vê.
 
         Filtros opcionais (todos já validados pelo service): status_consulta, desfecho_final,
         apenas_abertas (status diferente de 'encerrada') e período sobre data_hora_inicio
         ([inicio, fim), em UTC). Paciente e dados pessoais vêm na mesma query.
         """
+        atendeu = exists().where(
+            Atendimento.id_consulta == Consulta.id,
+            Atendimento.realizado_por == id_usuario,
+            Atendimento.status != "cancelado",
+        )
         query = (
             Consulta.query
             .options(*self._carregar_paciente())
-            .filter_by(id_empresa=id_empresa, iniciada_por=id_usuario)
+            .filter(Consulta.id_empresa == id_empresa,
+                    or_(Consulta.iniciada_por == id_usuario, atendeu))
         )
         if status:
             query = query.filter(Consulta.status_consulta == status)

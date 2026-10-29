@@ -59,7 +59,8 @@ class ConsultaService:
                          limit: int = LIMITE_PADRAO_HISTORICO, offset: int = 0, *,
                          status=None, desfecho=None, apenas_abertas: bool = False,
                          data_inicio=None, data_fim=None, funcao=None) -> dict:
-        """Histórico paginado das Consultas iniciadas pelo profissional, da mais recente à mais antiga.
+        """Histórico paginado das Consultas do profissional (iniciadas por ele ou em que ele atendeu),
+        da mais recente à mais antiga.
 
         Cada item vem com o bloco `paciente` e os campos de continuidade (`funcao` é a função
         clínica do usuário na sessão). Devolve a página: {itens, tem_mais, limit, offset,
