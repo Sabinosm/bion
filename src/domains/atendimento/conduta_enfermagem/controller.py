@@ -43,7 +43,7 @@ def _autor() -> AutorClinico:
 
 def _meta_insert(conduta, uuid_atendimento):
     """Meta de auditoria de uma conduta inserida."""
-    return {"id_registro": conduta.id, "uuid_registro": uuid_atendimento, "operacao": "INSERT"}
+    return {"id_registro": conduta.id, "uuid_registro": uuid_atendimento, "operacao": "escrita"}
 
 
 def _meta_noop(uuid_atendimento):
