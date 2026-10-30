@@ -50,7 +50,6 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/")
     @requer_admin_ou_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="lista de consultas", operacao="leitura")
     def lista_consultas():
         """?abertas=true filtra as não encerradas."""
         apenas_abertas = request.args.get("abertas") == "true"
@@ -60,7 +59,6 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/historico")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="historico de consultas", operacao="leitura")
     def lista_consultas_do_profissional():
         """Lista as Consultas do usuário logado (que ele iniciou ou em que atendeu), com o paciente e a continuidade
         de cada uma (resposta paginada).
@@ -86,7 +84,6 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="visualizar consulta", operacao="leitura")
     def detalhe_consulta(uuid):
         try:
             dados = _svc.buscar_resumo(
@@ -100,7 +97,6 @@ class ConsultasController():
     @staticmethod
     @bp_consulta.get("/paciente/historico/<uuid_paciente>")
     @requer_admin_ou_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="historico de consultas do paciente", operacao="leitura")
     def consultas_do_paciente_limitado(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), True)

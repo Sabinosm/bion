@@ -37,7 +37,6 @@ class ResultadoPrescricaoController():
     @staticmethod
     @bp_resultado_prescricao.post("/atendimento/<uuid_atendimento>")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="criar prescrição", operacao="escrita")
     def registrar_resultado(uuid_atendimento):
         """Registra (em rascunho) o diagnóstico (CID-10) e desfecho de um Atendimento em andamento.
         409 se já houver rascunho no atendimento."""
@@ -56,7 +55,6 @@ class ResultadoPrescricaoController():
     @staticmethod
     @bp_resultado_prescricao.get("/atendimento/<uuid_atendimento>")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="listar prescrições do atendimento", operacao="leitura")
     def listar_do_atendimento(uuid_atendimento):
         """Resultados do atendimento, do mais antigo ao mais novo, com os itens. Só o médico dono.
         É por aqui que a tela reencontra o rascunho depois de recarregar a página."""
@@ -70,7 +68,6 @@ class ResultadoPrescricaoController():
     @staticmethod
     @bp_resultado_prescricao.get("/<uuid_resultado>")
     @requer_login
-    @acesso_auditado(recurso="visualizar prescrição", operacao="leitura")
     def detalhe_resultado(uuid_resultado):
         """Retorna os detalhes de um ResultadoPrescricao (com itens) pelo UUID, só da própria empresa."""
         try:

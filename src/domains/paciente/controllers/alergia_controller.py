@@ -45,7 +45,6 @@ class AlergiaController():
     @staticmethod
     @bp_escrita.post(_ESC)
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="adicionar alergia", operacao="escrita")
     def adicionar_alergia(uuid_atendimento, uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -70,7 +69,6 @@ class AlergiaController():
     @staticmethod
     @bp_escrita.post(_ESC + "/<uuid_alergia>/reacoes")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="adicionar reacao", operacao="escrita")
     def adicionar_reacao(uuid_atendimento, uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:

@@ -73,7 +73,6 @@ class MedicamentosEmUsoController():
     @bp.get("/<uuid_paciente>/medicamentos-em-uso")
     @_responder_erros_bion
     @requer_login
-    @acesso_auditado(_RECURSO, operacao="leitura")
     def listar_medicamentos_em_uso(uuid_paciente):
         """?ativos=true devolve só os ativos."""
         apenas_ativos = request.args.get("ativos", "").lower() in ("1", "true", "sim")
@@ -86,7 +85,6 @@ class MedicamentosEmUsoController():
     @bp.get("/<uuid_paciente>/medicamentos-em-uso/interacoes")
     @_responder_erros_bion
     @requer_login
-    @acesso_auditado(_RECURSO, operacao="leitura")
     def interacoes_do_paciente(uuid_paciente):
         """Cruza os medicamentos ATIVOS do paciente com o catálogo de
         interações. Inclui `nao_verificados` e `cobertura`."""

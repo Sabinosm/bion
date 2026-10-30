@@ -64,7 +64,6 @@ class PacientePessoalController():
     @staticmethod
     @bp.get("/")
     @requer_login
-    @acesso_auditado(recurso="lista de pacientes", operacao="leitura")
     def lista():
         com_pii = _pode_ver_clinico()
         pacientes = _svc.listar(get_id_empresa_sessao())

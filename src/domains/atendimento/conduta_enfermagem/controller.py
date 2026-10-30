@@ -56,7 +56,6 @@ class CondutaEnfermagemController():
     @staticmethod
     @bp_conduta_enfermagem.post(_ESC)
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="conduta de enfermagem", operacao="escrita")
     def registrar_conduta(uuid_atendimento, uuid_paciente):
         """Registra uma conduta de enfermagem no atendimento de triagem em andamento."""
         dados = request.get_json(silent=True)
@@ -77,7 +76,6 @@ class CondutaEnfermagemController():
     @staticmethod
     @bp_conduta_enfermagem.get("/<uuid_atendimento>/condutas-enfermagem")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="condutas de enfermagem do atendimento", operacao="leitura")
     def condutas_do_atendimento(uuid_atendimento):
         """Lista as condutas de enfermagem de um Atendimento."""
         try:
@@ -89,7 +87,6 @@ class CondutaEnfermagemController():
     @staticmethod
     @bp_conduta_enfermagem.get("/consulta/<uuid_consulta>/condutas-enfermagem")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="condutas de enfermagem da consulta", operacao="leitura")
     def condutas_da_consulta(uuid_consulta):
         """Lista as condutas de enfermagem de todos os Atendimentos de uma Consulta."""
         try:

@@ -31,7 +31,6 @@ class AtendimentoController():
     @staticmethod
     @bp_atendimento.get("/")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="lista de atendimentos", operacao="leitura")
     def lista_atendimentos():
         """Lista os Atendimentos da empresa do usuário logado."""
         itens = _svc.listar(get_id_empresa_sessao())
@@ -40,7 +39,6 @@ class AtendimentoController():
     @staticmethod
     @bp_atendimento.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
-    @acesso_auditado(recurso="visualizar atendimento", operacao="leitura")
     def detalhe_atendimento(uuid):
         """Retorna os detalhes de um Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
         try:
@@ -67,7 +65,6 @@ class AtendimentoController():
     @staticmethod
     @bp_atendimento.get("/consulta/<uuid_consulta>")
     @requer_papel_clinico("enfermeiro","medico")
-    @acesso_auditado(recurso="atendimentos da consulta", operacao="leitura")
     def atendimentos_da_consulta(uuid_consulta):
         """Linha do tempo da Consulta: os Atendimentos em ordem cronológica, cada um com `profissional`
         ({uuid, nome_completo, funcao_clinica})."""

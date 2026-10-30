@@ -21,7 +21,6 @@ class PrescricaoController():
     @staticmethod
     @bp_prescricao.post("/<uuid_resultado>/medicamentos")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="adicionar medicamento à prescrição", operacao="escrita")
     def adicionar_medicamento(uuid_resultado):
         """Adiciona um medicamento (por uuid_catalogo) ao rascunho do médico; o resultado passa a ser
         do médico. A resposta traz os alertas de interação do conjunto atual do rascunho."""

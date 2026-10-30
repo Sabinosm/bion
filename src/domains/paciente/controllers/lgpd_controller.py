@@ -42,7 +42,6 @@ class LgpdController:
     @staticmethod
     @bp.get("/<uuid_paciente>/consentimentos")
     @requer_login
-    @acesso_auditado(recurso="lista de consentimentos", operacao="leitura")
     def listar(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao())

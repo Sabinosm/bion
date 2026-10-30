@@ -49,7 +49,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/sinais-vitais")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="sinais vitais", operacao="escrita")
     def registrar_sinais_vitais(uuid_atendimento, uuid_paciente):
         """Registra um ou mais sinais vitais ({"sinais": [...]}) no Atendimento."""
         dados = request.get_json(silent=True) or {}
@@ -67,7 +66,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/coleta-clinica")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="coleta clinica", operacao="escrita")
     def registrar_coleta_clinica(uuid_atendimento, uuid_paciente):
         """Cria uma coleta clínica no Atendimento (exige binário completo)."""
         dados = request.get_json(silent=True) or {}
@@ -82,7 +80,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/coleta-clinica/<uuid_coleta>/input-protocolo")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="input protocolo", operacao="escrita")
     def registrar_input_protocolo(uuid_atendimento, uuid_paciente, uuid_coleta):
         """Registra o input de protocolo de uma coleta clínica do Atendimento (exige binário completo)."""
         dados = request.get_json(silent=True) or {}
@@ -97,7 +94,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/protocolos/<uuid_protocolo>/executar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="execucao protocolo", operacao="escrita")
     def executar_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
         """Executa o protocolo sobre o input vigente do atendimento (determinístico).
         Idempotente: se o protocolo já foi executado neste input, devolve a execução
@@ -118,7 +114,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.get(_ESC + "/protocolos-disponiveis")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")  # ajuste o operacao se o enum não tiver "leitura"
     def protocolos_disponiveis(uuid_atendimento, uuid_paciente):
         """Catálogo ativo, escopo compatível com o tipo de atendimento e liberado pela empresa,
         já com favorito / default_pessoal / padrao_institucional / politica (favoritos primeiro)."""
@@ -131,7 +126,6 @@ class DadosClinicosController():
     @staticmethod
     @bp_dados_clinicos.get(_ESC + "/protocolos/<uuid_protocolo>/estrutura")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="protocolo catalogo", operacao="leitura")
     def estrutura_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
         """Campos esperados do protocolo (para o front montar o formulário do input)."""
         try:

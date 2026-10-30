@@ -21,7 +21,6 @@ class PrescricaoExameController():
     @staticmethod
     @bp_prescricao_exame.post("/<uuid_resultado>/exames")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="adicionar exame à prescrição", operacao="escrita")
     def adicionar_exame(uuid_resultado):
         """Adiciona um exame prescrito a um ResultadoPrescricao (rascunho do próprio médico, atendimento
         em andamento); o resultado passa a ser do médico."""
