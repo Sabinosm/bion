@@ -1,6 +1,9 @@
-"""Schemas do `configuracao_json` por familia. Validados SO no seed --
-nunca em runtime, nunca em rota. Um JSON que nao valida aqui nunca entra
-no banco.
+"""config_schemas.py
+
+Schemas do `configuracao_json` de cada família de módulo (pontuador,
+classificador e regra). São validados no seed, para que um JSON inválido nunca
+entre no banco, e revalidados pelos avaliadores a cada cálculo, como segunda
+linha de defesa. Nunca são usados em rota.
 
 Convencao de faixa (fixada, nao configuravel por instrumento):
     minimo INCLUSIVO, maximo EXCLUSIVO -> [min, max)

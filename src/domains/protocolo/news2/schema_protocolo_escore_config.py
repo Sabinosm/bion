@@ -1,7 +1,9 @@
-"""Valida a estrutura de protocolo_escore_config (família 'escore-ponderado').
+"""schema_protocolo_escore_config.py
 
-Serve o NEWS2 hoje; qualquer futuro escore por soma de parâmetros
-(qSOFA, Glasgow, Apgar) reaproveita este mesmo schema.
+Schemas Pydantic que validam a estrutura de protocolo_escore_config (família
+'escore-ponderado'): parâmetros com faixas ou opções, regra de override e
+faixas de interpretação do escore total. Serve o NEWS2 hoje; qualquer futuro
+escore por soma de parâmetros (qSOFA, Glasgow, Apgar) reaproveita este schema.
 
 Exemplo de estrutura esperada (já desserializada):
 
@@ -31,12 +33,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, field_validator, model_validator
 
 PONTOS_MIN = 0
-PONTOS_MAX = 3  # escala NEWS2; ajuste se um futuro escore (ex: Glasgow) precisar de mais
 
 
 def _validar_pontos(v: int) -> int:
-    if not (PONTOS_MIN <= v <= PONTOS_MAX):
-        raise ValueError(f"pontos deve estar entre {PONTOS_MIN} e {PONTOS_MAX} (escala NEWS2)")
+    """Pontos não podem ser negativos. Não há teto: cada escore define a sua escala
+    (NEWS2 vai até 3 por parâmetro; outros, como o Glasgow, têm valores maiores)."""
+    if v < PONTOS_MIN:
+        raise ValueError(f"pontos não pode ser menor que {PONTOS_MIN}")
     return v
 
 
@@ -117,8 +120,6 @@ class ParametroEscore(BaseModel):
         for anterior, atual in zip(ordenadas, ordenadas[1:]):
             max_ant = float("inf") if anterior.valor_max is None else anterior.valor_max
             min_atu = float("-inf") if atual.valor_min is None else atual.valor_min
-            
-            # CORREÇÃO: > em vez de >=
             if max_ant > min_atu:
                 raise ValueError(f"'{self.campo}': faixas sobrepostas")
 
@@ -205,8 +206,6 @@ class SchemaEscoreConfig(BaseModel):
         for anterior, atual in zip(ordenadas, ordenadas[1:]):
             max_ant = float("inf") if anterior.escore_max is None else anterior.escore_max
             min_atu = float("-inf") if atual.escore_min is None else atual.escore_min
-            
-            # CORREÇÃO: > em vez de >=
             if max_ant > min_atu:
                 raise ValueError("faixas de interpretação sobrepostas")
 

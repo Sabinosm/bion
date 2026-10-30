@@ -1,7 +1,9 @@
-"""Estruturas puras (Pydantic) do protocolo composto.
+"""protocolo_composto_schemas.py
 
-Nada aqui conhece SQLAlchemy: `carregar_estrutura` traduz os Models para
-estes tipos e, a partir dali, o calculo nunca mais toca o banco.
+Estruturas puras (Pydantic) do protocolo composto: a composição carregada
+(módulos, variáveis, agregação e gatilhos) e o resultado de cada módulo.
+Nada aqui conhece SQLAlchemy: a estratégia traduz os Models para estes tipos
+e, a partir dali, o cálculo nunca mais toca o banco.
 """
 from typing import Any, Literal
 

@@ -1,6 +1,9 @@
-"""Schema de validação da explicação obrigatória de todo protocolo.
-Usado só no momento do seed (Caminho A) -- nunca em rota, nunca em runtime."""
+"""schema_explicacao_protocolo.py
 
+Valida a explicação obrigatória que todo protocolo carrega (o que é, quando
+usar e como interpretar). Usado apenas no seed do catálogo, nunca em rota
+nem em tempo de execução.
+"""
 from pydantic import BaseModel
 
 

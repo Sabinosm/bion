@@ -1,29 +1,20 @@
-# shared/services/execucao_protocolo_service.py
-#
-# UNICA MUDANCA vs. o arquivo original: buscar_dado_bruto_config passa a
-# receber a versao vigente como argumento.
-#
-#   antes:  dado_bruto = buscar_dado_bruto_config()
-#   agora:  dado_bruto = buscar_dado_bruto_config(versao_vigente)
-#
-# Motivo: o NEWS2 le a config pelo catalogo (nao versionada), mas o
-# protocolo-composto pendura a composicao em protocolo_versao -- sem a
-# versao em maos, o callback do composto teria que rebuscar a versao
-# vigente por conta propria, duplicando a consulta e abrindo uma janela
-# em que a versao usada no calculo poderia divergir da gravada em
-# id_versao_utilizada. Passando a versao que o Service ja buscou, as
-# duas ficam garantidamente a mesma instancia.
-#
-# Compatibilidade: para o NEWS2 (ou qualquer strategy futura que nao
-# precise da versao), o callback so ignora o argumento -- ver o exemplo
-# de callback do composto logo abaixo do Service.
+"""execucao_protocolo_service.py
 
-from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
+Orquestrador genérico de execução de protocolos. Dado um protocolo e um
+input, carrega a versão vigente e a configuração, valida as respostas, calcula
+o resultado pela estratégia da família e persiste a execução registrando a
+versão utilizada. Não conhece nenhuma família concreta: toda a diferença entre
+elas está na estratégia e no callback que busca a configuração.
+"""
+from typing import Any, Callable
+
+from src.core.exceptions import BionException, ConflictoError, DadosInvalidosError, RecursoNaoEncontradoError
+from src.models.clinico import InputProtocoloExecucao
+
+from ..repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository
 from ..repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
 from ..repositories.protocolo_versao_repository import ProtocoloVersaoRepository
-from ..repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository
 from ..strategy.protocolo_factory import ProtocoloFactory
-from src.models.clinico import InputProtocoloExecucao
 
 
 class ExecucaoProtocoloService:
@@ -33,31 +24,65 @@ class ExecucaoProtocoloService:
         self.repo_versao = ProtocoloVersaoRepository()
         self.repo_execucao = InputProtocoloExecucaoRepository()
 
-    def executar_e_persistir(self, id_protocolo_catalogo, id_input, respostas, executor,
-                             buscar_dado_bruto_config, commit=True):
-        """`respostas` pode ser dict ou callable(estrutura, strategy) -> dict, para quem
-        so conhece os campos depois de carregar a estrutura. `commit=False` deixa a
-        transacao com o chamador (flush apenas)."""
+    def executar_e_persistir(
+        self,
+        id_protocolo_catalogo: int,
+        id_input: int,
+        respostas: dict | Callable[[Any, Any], dict],
+        executor: int,
+        buscar_dado_bruto_config: Callable[[Any], Any],
+        tipo_protocolo_esperado: str | None = None,
+        commit: bool = True,
+    ) -> InputProtocoloExecucao:
+        """Executa o protocolo sobre o input e grava a execução.
+
+        Args:
+            respostas: dict ou callable(estrutura, strategy) -> dict, para quem
+                só conhece os campos depois de carregar a estrutura.
+            executor: ID do usuário que executou.
+            buscar_dado_bruto_config: callable(versao_vigente) -> dado bruto da
+                configuração. Recebe a versão vigente já buscada aqui para que a
+                versão usada no cálculo seja a mesma gravada em
+                `id_versao_utilizada`. Quem não precisa da versão (ex.: NEWS2,
+                cuja configuração não é versionada) a ignora.
+            tipo_protocolo_esperado: `tipo_protocolo` que a família chamadora
+                atende. Impede que a rota de uma família execute um protocolo de
+                outra.
+            commit: com False, apenas faz flush e deixa a transação com o chamador.
+
+        Raises:
+            RecursoNaoEncontradoError: protocolo, versão vigente ou configuração ausente.
+            ConflictoError: protocolo inativo no catálogo ou já executado para este input.
+            DadosInvalidosError: protocolo de outro tipo ou respostas inválidas.
+            ConfiguracaoProtocoloInvalidaError: configuração cadastrada do protocolo inconsistente (500).
+        """
         catalogo = self.repo_catalogo.find_by_id(id_protocolo_catalogo)
         if not catalogo:
             raise RecursoNaoEncontradoError(f"Protocolo não encontrado: {id_protocolo_catalogo}")
 
+        if tipo_protocolo_esperado and catalogo.tipo_protocolo != tipo_protocolo_esperado:
+            raise DadosInvalidosError(
+                f"O protocolo '{catalogo.sigla}' não é do tipo '{tipo_protocolo_esperado}'."
+            )
+        if catalogo.status != "ativo":
+            raise ConflictoError(f"O protocolo '{catalogo.sigla}' não está ativo no catálogo.")
+
         if self.repo_execucao.find_por_input_e_protocolo(id_input, id_protocolo_catalogo):
             raise ConflictoError("Este protocolo já foi executado para este input.")
 
-        # "CONTEXTO" = a versão vigente do protocolo, rastreada na execução
         versao_vigente = self.repo_versao.find_vigente(id_protocolo_catalogo)
         if not versao_vigente:
-            raise RecursoNaoEncontradoError(f"Nenhuma versão vigente encontrada para o protocolo {id_protocolo_catalogo}")
+            raise RecursoNaoEncontradoError(
+                f"Nenhuma versão vigente encontrada para o protocolo {id_protocolo_catalogo}"
+            )
 
         strategy = ProtocoloFactory.obter(catalogo.tipo_protocolo)
 
-        # MUDANCA: versao_vigente passa a ser argumento do callback, para
-        # composto e NEWS2 compartilharem a mesma instancia de versao que
-        # sera gravada em id_versao_utilizada mais abaixo.
         dado_bruto = buscar_dado_bruto_config(versao_vigente)
         if not dado_bruto:
-            raise RecursoNaoEncontradoError(f"Configuração não encontrada para o protocolo {id_protocolo_catalogo}")
+            raise RecursoNaoEncontradoError(
+                f"Configuração não encontrada para o protocolo {id_protocolo_catalogo}"
+            )
 
         estrutura = strategy.carregar_estrutura(dado_bruto)
 
@@ -65,43 +90,21 @@ class ExecucaoProtocoloService:
             respostas = respostas(estrutura, strategy)
 
         try:
-            dados_validados = strategy.validar_respostas(estrutura, respostas)  # SCHEMA VALIDA
+            dados_validados = strategy.validar_respostas(estrutura, respostas)
+        except BionException:
+            raise
         except ValueError as ex:
-            raise DadosInvalidosError(str(ex))  # DÁ ERRO
+            raise DadosInvalidosError(str(ex))
 
-        resultado = strategy.executar(estrutura, dados_validados)  # CALCULA
+        resultado = strategy.executar(estrutura, dados_validados)
 
         execucao = InputProtocoloExecucao(
             id_input=id_input,
             id_protocolo_catalogo=id_protocolo_catalogo,
             executor=executor,
-            status="concluida" if not resultado.dados_ausentes else "incompleta",
-            id_versao_utilizada=versao_vigente.id,   # CONTEXTO salvo aqui
+            status="incompleta" if resultado.dados_ausentes else "concluida",
+            id_versao_utilizada=versao_vigente.id,
             dados_ausentes_json=resultado.dados_ausentes,
             resultado_calculado_json=resultado.model_dump(),
         )
-        return self.repo_execucao.save(execucao, commit=commit)  # SALVA EXECUÇÃO
-
-
-# ---------------------------------------------------------------------
-# Exemplos de callback, para o chamador (controller/rota) que hoje monta
-# `buscar_dado_bruto_config`. Nao faz parte da classe -- e so referencia
-# de como cada strategy passa a receber o argumento novo.
-# ---------------------------------------------------------------------
-
-def callback_news2(repo_escore_config):
-    """NEWS2: a config nao e versionada, vive pelo catalogo. Ignora o
-    argumento `versao` -- e por isso que o parametro tem default None,
-    para nao quebrar uma chamada antiga que ainda nao passe nada."""
-    def _buscar(versao=None):
-        return repo_escore_config.find_by_protocolo(id_protocolo_catalogo=...)
-    return _buscar
-
-
-def callback_protocolo_composto(repo_composicao):
-    """protocolo-composto: PRECISA da versao, porque e nela que
-    protocolo_versao.codigo_composicao e a composicao (protocolo_composicao)
-    estao penduradas."""
-    def _buscar(versao):
-        return repo_composicao.carregar_dado_bruto(versao)
-    return _buscar
+        return self.repo_execucao.save(execucao, commit=commit)

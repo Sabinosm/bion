@@ -1,31 +1,41 @@
-"""Agregacao das saidas de varios modulos calculados em UM resultado.
-Funcoes puras: (list[ResultadoModulo]) -> ResultadoAgregado.
+"""agregacao_protocolo_composto.py
 
-Regra: modulos 'nao_calculavel' ou 'nao_aplicavel' NUNCA entram como zero
-na soma -- sao excluidos e sinalizados (agregacao parcial). Contar como
-zero subestimaria o risco em silencio.
+Agrega as saídas de vários módulos calculados em UM resultado, conforme o tipo
+de agregação do protocolo (soma, máximo, pior categoria, qualquer alerta ou
+nenhuma). Funções puras: (list[ResultadoModulo]) -> ResultadoAgregado.
 
-Cada agregacao so aceita o tipo_saida compatível (validado no seed via
-SQL V4, mas repetimos a checagem aqui como segunda linha de defesa em
-runtime, ja que o motor nao deve confiar cegamente no seed).
+Módulos "nao_calculavel" ou "nao_aplicavel" NUNCA entram como zero: são
+excluídos e sinalizados (agregação parcial), pois contar como zero
+subestimaria o risco em silêncio.
+
+Cada agregação só aceita o tipo_saida compatível. O seed já garante isso, mas
+a checagem é repetida em runtime como segunda linha de defesa.
 """
+from typing import Callable
+
 from pydantic import BaseModel
 
-from ..schemas.protocolo_composto_schemas import CLASSIFICACAO_MULTIPLOS_RESULTADOS, ResultadoModulo, TipoAgregacao
+from ...shared.exceptions_protocolo import ConfiguracaoProtocoloInvalidaError
+from ..schemas.protocolo_composto_schemas import (
+    CLASSIFICACAO_MULTIPLOS_RESULTADOS,
+    ResultadoModulo,
+    TipoAgregacao,
+)
 
 
 class ResultadoAgregado(BaseModel):
     classificacao: str
     valor: float | str | bool | None = None
     gravidade: int | None = None
-    parcial: bool = False              # True se algum modulo do grupo nao entrou
-    modulos_excluidos: list[str] = []  # siglas dos nao-calculados/nao-aplicaveis
+    parcial: bool = False              # True se algum módulo do grupo não entrou
+    modulos_excluidos: list[str] = []  # siglas dos não calculáveis/não aplicáveis
 
 
-class AgregacaoInvalida(ValueError):
-    """Erro de configuracao: agregacao incompativel com o tipo_saida dos
-    modulos do grupo. Segunda linha de defesa; o seed (SQL V4) deveria
-    impedir isso de existir."""
+class AgregacaoInvalida(ConfiguracaoProtocoloInvalidaError):
+    """Erro de configuração: agregação incompatível com o tipo_saida dos
+    módulos do grupo."""
+
+    MENSAGEM_PADRAO = "A agregação configurada para este protocolo é incompatível com seus módulos. Contate o suporte."
 
 
 def _calculaveis(modulos: list[ResultadoModulo]) -> tuple[list[ResultadoModulo], list[str]]:
@@ -99,8 +109,8 @@ def agregar_any_flag(modulos: list[ResultadoModulo]) -> ResultadoAgregado:
 
 
 def agregar_nenhuma(modulos: list[ResultadoModulo]) -> ResultadoAgregado:
-    """Modo paralelo: nao ha resultado combinado. Usa a constante
-    convencional (decisao: opcao A) para o front reconhecer o caso e
+    """Modo paralelo: não há resultado combinado. Usa a classificação
+    convencional CLASSIFICACAO_MULTIPLOS_RESULTADOS, que o front reconhece para
     renderizar metadata['modulos'] em destaque."""
     _, excluidos = _calculaveis(modulos)
     return ResultadoAgregado(
@@ -109,7 +119,7 @@ def agregar_nenhuma(modulos: list[ResultadoModulo]) -> ResultadoAgregado:
     )
 
 
-AGREGADORES: dict[TipoAgregacao, "callable"] = {
+AGREGADORES: dict[TipoAgregacao, Callable[[list[ResultadoModulo]], ResultadoAgregado]] = {
     "nenhuma": agregar_nenhuma,
     "soma": agregar_soma,
     "maximo": agregar_maximo,
@@ -119,9 +129,14 @@ AGREGADORES: dict[TipoAgregacao, "callable"] = {
 
 
 def agregar(tipo: TipoAgregacao, modulos: list[ResultadoModulo]) -> ResultadoAgregado:
-    """So agrega modulos com papel != 'gatilho' e grupo_agregacao != None
-    -- essa filtragem e responsabilidade do chamador (strategy), que
-    conhece ModuloDef; aqui so se recebe a lista ja filtrada."""
+    """Agrega a lista de resultados conforme o tipo.
+
+    A filtragem (só papel != 'gatilho' e com grupo_agregacao) é do chamador, que
+    conhece ModuloDef; aqui se recebe a lista já filtrada.
+
+    Raises:
+        AgregacaoInvalida: se o tipo for desconhecido ou incompatível com os módulos.
+    """
     fn = AGREGADORES.get(tipo)
     if fn is None:
         raise AgregacaoInvalida(f"tipo de agregacao desconhecido: {tipo!r}")

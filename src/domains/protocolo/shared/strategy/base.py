@@ -1,33 +1,50 @@
-"""Interface que toda família de protocolo deve implementar.
+"""base.py
 
-O Service só conhece esta interface — nunca uma classe concreta.
+Interface que toda família de protocolo implementa. O orquestrador de
+execução conhece apenas esta abstração, nunca uma família concreta, o que
+permite adicionar novas famílias sem alterar o fluxo genérico.
 """
 from abc import ABC, abstractmethod
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, ClassVar
+
 from ..schemas.schema_resultado import SchemaResultado
 
 
+@dataclass
 class CampoEsperado:
-    def __init__(self, campo: str, texto: str, tipo_campo: str, opcoes: list[str] | None = None):
-        self.campo = campo
-        self.texto = texto
-        self.tipo_campo = tipo_campo
-        self.opcoes = opcoes
+    """Campo que o front sabe renderizar.
+
+    Contrato único para todas as famílias: `tipo_campo` é "numero", "enum" ou
+    "booleano", e `opcoes` (só para "enum") é uma lista de {"valor", "rotulo"}.
+    """
+    campo: str
+    texto: str
+    tipo_campo: str
+    opcoes: list[dict[str, str]] | None = None
 
 
 class ProtocoloStrategy(ABC):
+
+    # Valor de `ProtocoloCatalogo.tipo_protocolo` que esta família atende.
+    TIPO_PROTOCOLO: ClassVar[str]
+
     @abstractmethod
     def carregar_estrutura(self, dado_bruto: Any) -> Any:
-        """Recebe o Model cru do Repository, devolve a estrutura validada pelo schema_x da família."""
+        """Converte o dado cru vindo do repository na estrutura validada da família."""
 
     @abstractmethod
     def campos_esperados(self, estrutura: Any) -> list[CampoEsperado]:
-        """Achata a estrutura em campos que o front sabe renderizar (numero/enum/booleano)."""
+        """Achata a estrutura nos campos que o front precisa preencher."""
 
     @abstractmethod
     def validar_respostas(self, estrutura: Any, respostas: dict) -> dict:
-        """Cruza respostas do front contra os campos declarados. Chave desconhecida -> rejeita."""
+        """Valida as respostas do front contra os campos declarados.
+
+        Raises:
+            ValueError: se houver campo desconhecido ou valor inválido.
+        """
 
     @abstractmethod
     def executar(self, estrutura: Any, dados_validados: dict) -> SchemaResultado:
-        """Função pura: estrutura + respostas -> SchemaResultado. Nunca acessa banco."""
+        """Calcula o resultado. Função pura: nunca acessa o banco."""

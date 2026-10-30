@@ -1,5 +1,7 @@
-"""Aplica `regra_gatilho_json` (nivel do protocolo) sobre os resultados dos
-modulos-gatilho ja calculados, decidindo quais modulos ficam 'nao_aplicavel'.
+"""gatilhos_protocolo_composto.py
+
+Aplica a `regra_gatilho_json` (nível do protocolo) sobre os resultados dos
+módulos-gatilho já calculados, decidindo quais módulos ficam "nao_aplicavel".
 
 Formato de regra_gatilho_json:
     {
@@ -14,29 +16,34 @@ Formato de regra_gatilho_json:
       ]
     }
 
-Funcao pura: (regra_gatilho_json, {sigla: ResultadoModulo}) -> {sigla: motivo}.
+Função pura: (regra_gatilho_json, {sigla: ResultadoModulo}) -> {sigla: motivo}.
 """
+from ...shared.exceptions_protocolo import ConfiguracaoProtocoloInvalidaError
 from ..schemas.protocolo_composto_schemas import ResultadoModulo
 
 
-class GatilhoInvalido(ValueError):
-    """Erro de configuracao: regra_gatilho_json malformado ou referenciando
-    modulo inexistente. Deveria ser pego no seed (SQL V... + teste), esta
-    checagem aqui e a segunda linha de defesa em runtime."""
+class GatilhoInvalido(ConfiguracaoProtocoloInvalidaError):
+    """Erro de configuração: regra_gatilho_json malformado ou referenciando
+    módulo inexistente. Segunda linha de defesa em runtime; deveria ser pego
+    no seed."""
+
+    MENSAGEM_PADRAO = "A regra de gatilho configurada para este protocolo está inválida. Contate o suporte."
 
 
 def aplicar_gatilhos(
     regra_gatilho_json: dict | None,
     resultados_gatilho: dict[str, ResultadoModulo],
 ) -> dict[str, str]:
-    """Devolve {sigla_do_modulo_desligado: motivo}. Vazio se nao ha
-    regra_gatilho_json ou se nenhum gatilho disparou o desligamento.
+    """Devolve {sigla_do_modulo_desligado: motivo}.
 
-    Se o modulo-gatilho referenciado esta 'nao_calculavel' (condicao nao
-    pode ser avaliada por falta de dado), o gatilho NAO desliga nada --
-    nao assume nem elegivel nem inelegivel; os modulos dependentes seguem
-    para calculo normal e podem, por sua vez, ficar 'nao_calculavel' se
-    de fato precisarem do mesmo dado.
+    Vazio se não há regra_gatilho_json ou se nenhum gatilho disparou. Se o
+    módulo-gatilho está "nao_calculavel" (falta de dado), o gatilho NÃO desliga
+    nada: não assume elegível nem inelegível, e os módulos dependentes seguem
+    para cálculo normal (podendo ficar "nao_calculavel" se precisarem do mesmo
+    dado). Se dois gatilhos desligam o mesmo módulo, vale o primeiro motivo.
+
+    Raises:
+        GatilhoInvalido: se a regra for malformada ou citar gatilho não avaliado.
     """
     if not regra_gatilho_json:
         return {}
@@ -64,12 +71,10 @@ def aplicar_gatilhos(
             )
 
         if resultado_gatilho.status == "nao_calculavel":
-            continue  # nao assume nada; ver docstring
+            continue
 
         if resultado_gatilho.classificacao in quando:
             for sigla_alvo in desliga:
-                # se dois gatilhos concordam em desligar o mesmo modulo,
-                # mantem o primeiro motivo (determinismo: ordem da lista)
                 desligados.setdefault(sigla_alvo, motivo)
 
     return desligados

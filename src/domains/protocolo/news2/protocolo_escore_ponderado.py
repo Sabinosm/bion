@@ -1,25 +1,45 @@
-# news2/strategy/escore_ponderado.py
+"""protocolo_escore_ponderado.py
 
-from ..shared.strategy.base import ProtocoloStrategy, CampoEsperado
+Estratégia da família "escore-ponderado": protocolos cujo resultado vem da
+soma de pontos de parâmetros isolados (NEWS2 hoje; qSOFA, Glasgow, Apgar no
+futuro). Traduz a configuração cadastrada para o schema validado, valida as
+respostas do front e calcula o escore, aplicando a regra de override e a
+interpretação por faixas. O cálculo é puro e não acessa o banco.
+"""
+from pydantic import ValidationError
+
+from ..shared.exceptions_protocolo import EstruturaInvalida
+from ..shared.schemas.schema_resultado import PassoTrilha, SchemaResultado
+from ..shared.strategy.base import CampoEsperado, ProtocoloStrategy
+from ..shared.strategy.conversao_numerica import converter_numero
 from .schema_protocolo_escore_config import (
-    SchemaEscoreConfig,
+    FaixaInterpretacao,
+    FaixaPontuacao,
     ParametroEscore,
     RegraOverride,
-    FaixaInterpretacao,
+    SchemaEscoreConfig,
 )
-from ..shared.schemas.schema_resultado import SchemaResultado, PassoTrilha
 
 
 class EscorePonderadoStrategy(ProtocoloStrategy):
 
+    TIPO_PROTOCOLO = "escore-ponderado"
+
     def carregar_estrutura(self, dado_bruto) -> SchemaEscoreConfig:
-        # db.JSON já devolve list/dict; o schema também aceita JSON em texto.
-        return SchemaEscoreConfig(
-            schema_version=dado_bruto.schema_version,
-            parametros=dado_bruto.parametros_json,
-            regra_override=dado_bruto.regra_override_json,
-            faixas_interpretacao=dado_bruto.faixas_interpretacao_json,
-        )
+        """Converte o model ProtocoloEscoreConfig no schema validado.
+
+        Raises:
+            EstruturaInvalida: se a configuração cadastrada não passar na validação do schema.
+        """
+        try:
+            return SchemaEscoreConfig(
+                schema_version=dado_bruto.schema_version,
+                parametros=dado_bruto.parametros_json,
+                regra_override=dado_bruto.regra_override_json,
+                faixas_interpretacao=dado_bruto.faixas_interpretacao_json,
+            )
+        except ValidationError as ex:
+            raise EstruturaInvalida(f"configuracao de escore invalida: {ex}") from ex
 
     def campos_esperados(self, estrutura: SchemaEscoreConfig) -> list[CampoEsperado]:
         return [
@@ -36,9 +56,13 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
         """Cruza as respostas do front com os parâmetros declarados.
 
         - chave desconhecida -> rejeita
-        - numero: converte para número (int se for inteiro, senão float)
+        - numero: converte para número (int se inteiro, senão float) e exige que
+          ele caiba em alguma faixa do parâmetro
         - enum: o valor precisa ser uma das opções declaradas
         - None / "" -> tratado como ausente (vira dados_ausentes em executar)
+
+        Raises:
+            ValueError: com todos os erros encontrados, separados por "; ".
         """
         por_campo = {p.campo: p for p in estrutura.parametros}
         erros: list[str] = []
@@ -54,18 +78,15 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
                 continue
 
             if parametro.tipo_campo == "numero":
-                if isinstance(bruto, bool):
-                    erros.append(f"'{campo}': valor numérico inválido")
-                    continue
                 try:
-                    numero = float(str(bruto).replace(",", ".")) if isinstance(bruto, str) else float(bruto)
-                except ValueError:
-                    erros.append(f"'{campo}': '{bruto}' não é um número")
+                    numero = converter_numero(campo, bruto)
+                except ValueError as ex:
+                    erros.append(str(ex))
                     continue
-                if numero != numero or numero in (float("inf"), float("-inf")):
-                    erros.append(f"'{campo}': valor numérico inválido")
+                if self._faixa_do_valor(parametro, numero) is None:
+                    erros.append(f"'{campo}': valor {numero} fora das faixas definidas para o parâmetro")
                     continue
-                validados[campo] = int(numero) if numero.is_integer() else numero
+                validados[campo] = numero
             else:
                 valor = str(bruto)
                 if valor not in {o.valor for o in parametro.opcoes}:
@@ -114,39 +135,56 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
             },
         )
 
-    def _pontuar(self, valor, parametro: ParametroEscore) -> tuple[int, str]:
-        """Devolve (pontos, texto_para_trilha). Ramifica por tipo_campo."""
+    @staticmethod
+    def _pontuar(valor, parametro: ParametroEscore) -> tuple[int, str]:
+        """Devolve (pontos, texto para a trilha). Ramifica por tipo_campo.
+
+        Raises:
+            EstruturaInvalida: se o valor não casar com nenhuma opção/faixa do parâmetro
+                (não ocorre para respostas já passadas por `validar_respostas`).
+        """
         if parametro.tipo_campo == "enum":
             for opcao in parametro.opcoes:
                 if opcao.valor == valor:
                     return opcao.pontos, opcao.rotulo
-            raise ValueError(f"Valor '{valor}' não é uma opção válida de {parametro.campo}")
+            raise EstruturaInvalida(f"Valor '{valor}' não é uma opção válida de {parametro.campo}")
 
+        faixa = EscorePonderadoStrategy._faixa_do_valor(parametro, valor)
+        if faixa is None:
+            raise EstruturaInvalida(f"Valor {valor} não se encaixa em nenhuma faixa de {parametro.campo}")
+        return faixa.pontos, f"{valor} {parametro.unidade or ''}".strip()
+
+    @staticmethod
+    def _faixa_do_valor(parametro: ParametroEscore, valor: float) -> FaixaPontuacao | None:
+        """Primeira faixa (limites inclusivos) que contém o valor, ou None se nenhuma contém."""
         for faixa in parametro.faixas:
             dentro_do_min = faixa.valor_min is None or valor >= faixa.valor_min
             dentro_do_max = faixa.valor_max is None or valor <= faixa.valor_max
             if dentro_do_min and dentro_do_max:
-                texto = f"{valor} {parametro.unidade or ''}".strip()
-                return faixa.pontos, texto
-        raise ValueError(f"Valor {valor} não se encaixa em nenhuma faixa de {parametro.campo}")
+                return faixa
+        return None
 
-    def _checar_override(self, pontos_por_campo: dict[str, int], regra: RegraOverride | None) -> bool:
-        """True se algum parâmetro isolado atingiu pontos_minimos (NEWS2: 3 pontos)."""
+    @staticmethod
+    def _checar_override(pontos_por_campo: dict[str, int], regra: RegraOverride | None) -> bool:
+        """True se algum parâmetro isolado atingiu `pontos_minimos` (NEWS2: 3 pontos)."""
         if regra is None:
             return False
         return any(pontos >= regra.pontos_minimos for pontos in pontos_por_campo.values())
 
+    @staticmethod
     def _classificar(
-        self,
         total: int,
         override_disparado: bool,
         faixas: list[FaixaInterpretacao],
     ) -> tuple[str, str | None]:
-        """Devolve (categoria, acao_recomendada).
+        """Devolve (categoria, ação recomendada).
 
-        A faixa marcada com aplicada_por_override só vale enquanto
+        A faixa marcada com `aplicada_por_override` só vale enquanto
         total <= escore_max dela (None = sempre). Acima disso, a faixa normal
-        do total já é mais grave e prevalece (o override nunca rebaixa).
+        do total já é mais grave e prevalece: o override nunca rebaixa.
+
+        Raises:
+            EstruturaInvalida: se o total não se encaixar em nenhuma faixa.
         """
         if override_disparado:
             faixa_override = next((f for f in faixas if f.aplicada_por_override), None)
@@ -160,4 +198,4 @@ class EscorePonderadoStrategy(ProtocoloStrategy):
             dentro_do_max = faixa.escore_max is None or total <= faixa.escore_max
             if dentro_do_min and dentro_do_max:
                 return faixa.categoria, faixa.acao_recomendada
-        raise ValueError(f"Escore total {total} não se encaixa em nenhuma faixa de interpretação")
+        raise EstruturaInvalida(f"Escore total {total} não se encaixa em nenhuma faixa de interpretação")
