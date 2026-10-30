@@ -99,10 +99,18 @@ class DadosClinicosController():
     @requer_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="execucao protocolo", operacao="escrita")
     def executar_protocolo(uuid_atendimento, uuid_paciente, uuid_protocolo):
-        """Executa o protocolo sobre o input vigente do atendimento (determinístico)."""
+        """Executa o protocolo sobre o input vigente do atendimento (determinístico).
+        Idempotente: se o protocolo já foi executado neste input, devolve a execução
+        existente com 200 (e não 409); a execução nova responde 201."""
         try:
-            e = _svc_execucao.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
-            return json_success(data=e.to_dict(), message="Protocolo executado.", status=201)
+            e, criada = _svc_execucao.executar(uuid_atendimento, uuid_paciente, uuid_protocolo, _autor())
+            if criada:
+                return json_success(data=e.to_dict(), message="Protocolo executado.", status=201)
+            return json_success(
+                data=e.to_dict(),
+                message="Protocolo já executado neste input; resultado existente.",
+                status=200,
+            )
         except BionException as ex:
             return json_error(ex.message, ex.status_code)
         

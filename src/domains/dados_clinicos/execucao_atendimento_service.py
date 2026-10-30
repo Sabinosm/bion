@@ -7,8 +7,9 @@ vigente (maior id) -> executa.
 
 As respostas vêm de InputProtocolo.input_json, filtradas pelos campos que o
 protocolo declara (chave de outro protocolo no mesmo input_json não derruba a
-execução). Reexecutar o mesmo protocolo no mesmo input = 409 (UNIQUE); o
-médico que ajusta as respostas cria outro input e executa de novo.
+execução). Reexecutar o mesmo protocolo no mesmo input é IDEMPOTENTE: devolve
+a execução que já existe (sem recalcular e sem erro), e o front a exibe como
+resultado; o médico que ajusta as respostas cria outro input e executa de novo.
 
 Ao fim, InputProtocolo.dados_criticos_ausentes_json é preenchido pelo sistema
 com os dados ausentes consolidados de todas as execuções do input. Tudo em
@@ -118,6 +119,13 @@ class ExecucaoAtendimentoService:
         self._emp_prot = EmpresaProtocoloRepository()
 
     def executar(self, uuid_atendimento, uuid_paciente, uuid_protocolo, autor: AutorClinico):
+        """Executa o protocolo sobre o input vigente do atendimento.
+
+        Devolve (execucao, criada). `criada` é False quando o protocolo já havia
+        sido executado neste input: nesse caso devolve a execução existente, sem
+        recalcular. A checagem é feita com o atendimento travado, então duas
+        requisições simultâneas não chegam a violar a UNIQUE.
+        """
         from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
 
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
@@ -145,10 +153,14 @@ class ExecucaoAtendimentoService:
 
         try:
             self._at_repo.travar(at)
+            existente = self._exec_repo.find_por_input_e_protocolo(inp.id, cat.id)
+            if existente is not None:
+                self._input_repo.rollback()  # nada foi escrito: só libera o lock do atendimento
+                return existente, False
             execucao = resolver(self, cat.id, inp.id, respostas, autor.id_usuario, False)
             inp.dados_criticos_ausentes_json = consolidar_ausentes(self._exec_repo.find_por_input(inp.id))
             self._input_repo.save(inp, commit=True)
-            return execucao
+            return execucao, True
         except Exception:
             self._input_repo.rollback()
             raise
@@ -182,7 +194,7 @@ class ExecucaoAtendimentoService:
         """Catálogo que passa nos mesmos gates de uso, para o select do front.
 
         Devolve DICTS (não models): o to_dict() do catálogo + o resumo que a
-        página de catálogo já usa (ProtocoloCatalogoService._montar_resumos):
+        página de catálogo já usa (ProtocoloCatalogoService.montar_resumos):
         liberado_pela_empresa, politica, padrao_institucional (escopo em que é
         o padrão da instituição), favorito (true/false) e default_pessoal
         (escopo em que é o padrão do profissional). Favoritos ficam primeiro.
@@ -196,7 +208,7 @@ class ExecucaoAtendimentoService:
                     for v in self._emp_prot.find_ativos_por_empresa(autor.id_empresa)}
         linhas = [(c, True, vinculos[c.id].politica) for c in candidatos if c.id in vinculos]
 
-        resumos = ProtocoloCatalogoService()._montar_resumos(id_emp, linhas)
+        resumos = ProtocoloCatalogoService().montar_resumos(id_emp, linhas)
         itens = [{**c.to_dict(), **resumo} for (c, _, _), resumo in zip(linhas, resumos)]
         # favoritos primeiro; sort estável preserva a ordem do catálogo dentro de cada grupo
         itens.sort(key=lambda i: 0 if i.get("favorito") else 1)
