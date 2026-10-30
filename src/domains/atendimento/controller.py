@@ -1,13 +1,15 @@
-"""Rotas JSON do ciclo de vida do Atendimento (abertura, finalização e cancelamento).
+"""controller.py
 
-Permissões por NÍVEL MÍNIMO (médico ⊃ enfermeiro; ver sessaoPapeis.py):
-  - triagem ........... enfermeiro ou médico
-  - avaliação médica .. só médico
-  - reavaliação ....... só médico (Consulta em em-observacao)
-Finalizar e cancelar: só o profissional que abriu o atendimento (o service
-devolve 403 para os demais). Finalizar também exige o binário completo.
-Toda rota passa o id_empresa da sessão: Atendimento herda a posse da
-Consulta, e UUID sozinho não prova posse.
+Rotas JSON do ciclo de vida do Atendimento: listagem, detalhe, linha do tempo
+da Consulta, abertura (triagem, avaliação médica e reavaliação), finalização e
+cancelamento.
+
+As permissões seguem o nível mínimo do papel clínico (médico inclui enfermeiro):
+triagem para enfermeiro ou médico, avaliação médica e reavaliação só para
+médico. Finalizar e cancelar são do profissional que abriu o atendimento (o
+service responde 403 para os demais). Toda rota passa a empresa da sessão ao
+service, porque o Atendimento herda a posse da Consulta e o UUID sozinho não
+prova posse.
 """
 
 from flask import Blueprint, request
@@ -19,11 +21,17 @@ from src.core.session import (
 )
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from .service import AtendimentoService
-from .detalhe_atendimento_service import DetalheAtendimentoService   # provisório: ver o arquivo
+from .detalhe_atendimento_service import DetalheAtendimentoService  # provisório: ver o arquivo
 
 bp_atendimento = Blueprint("atendimento", __name__)
 _svc = AtendimentoService()
 _detalhe = DetalheAtendimentoService()
+
+
+def _corpo_json() -> dict:
+    """Corpo JSON da requisição; vazio se ausente ou se não for um objeto."""
+    dados = request.get_json(silent=True)
+    return dados if isinstance(dados, dict) else {}
 
 
 class AtendimentoController():
@@ -35,55 +43,59 @@ class AtendimentoController():
         """Lista os Atendimentos da empresa do usuário logado."""
         itens = _svc.listar(get_id_empresa_sessao())
         return json_success(data=[a.to_dict() for a in itens])
-    
+
     @staticmethod
     @bp_atendimento.get("/<uuid>")
     @requer_papel_clinico("enfermeiro", "medico")
     def detalhe_atendimento(uuid):
-        """Retorna os detalhes de um Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
+        """Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
         try:
             dados = _svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
             return json_success(data=dados)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            # @acesso_auditado não olha o status HTTP: NOOP evita logar o erro como leitura com sucesso
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.get("/<uuid>/detalhe")
     @requer_papel_clinico("enfermeiro", "medico")
     @acesso_auditado(recurso="detalhe completo do atendimento", operacao="leitura")
     def detalhe_completo(uuid):
-        """Resumo completo de como foi (ou é) o atendimento: a mesma fonte do PDF detalhado, em JSON pronto
-        para exibir (ver detalhe_atendimento_service.py). Sem CPF e sem nascimento do paciente. Leitura
-        auditada, com uuid_paciente; erro devolve NOOP para não ser logado como leitura com sucesso."""
+        """Resumo completo de como foi (ou é) o atendimento, em JSON pronto para exibir.
+
+        Mesma fonte do PDF detalhado (ver detalhe_atendimento_service.py), sem CPF e sem
+        nascimento do paciente. Leitura auditada com uuid_paciente; no erro devolve NOOP.
+        """
         try:
             dados, uuid_paciente = _detalhe.obter(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
             return json_success(data=dados), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code, erros=ex.erros), {"operacao": "NOOP"}
 
     @staticmethod
     @bp_atendimento.get("/consulta/<uuid_consulta>")
-    @requer_papel_clinico("enfermeiro","medico")
+    @requer_papel_clinico("enfermeiro", "medico")
     def atendimentos_da_consulta(uuid_consulta):
-        """Linha do tempo da Consulta: os Atendimentos em ordem cronológica, cada um com `profissional`
-        ({uuid, nome_completo, funcao_clinica})."""
+        """Linha do tempo da Consulta: os Atendimentos em ordem cronológica, cada um com
+        `profissional` ({uuid, nome_completo, funcao_clinica})."""
         try:
-            itens, _ = _svc.listar_resumo_por_consulta(uuid_consulta, get_id_empresa_sessao())
+            itens, uuid_paciente = _svc.listar_resumo_por_consulta(uuid_consulta, get_id_empresa_sessao())
             return json_success(data=itens)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")
     @requer_papel_clinico("enfermeiro", "medico")
     def abrir_triagem(uuid_consulta):
         """Abre um Atendimento do tipo triagem para a Consulta informada.
-        409 se o consentimento LGPD estiver pendente ou a Consulta encerrada."""
+        409 se o consentimento LGPD estiver pendente, a Consulta encerrada ou já houver
+        um atendimento em andamento."""
         try:
             a = _svc.abrir_triagem(uuid_consulta, get_id_usuario_sessao(), get_id_empresa_sessao())
             return json_success(data=a.to_dict(), message="Triagem aberta.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-avaliacao-medica")
@@ -94,7 +106,7 @@ class AtendimentoController():
             a = _svc.abrir_avaliacao_medica(uuid_consulta, get_id_usuario_sessao(), get_id_empresa_sessao())
             return json_success(data=a.to_dict(), message="Avaliação médica aberta.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-reavaliacao")
@@ -107,17 +119,16 @@ class AtendimentoController():
             a = _svc.abrir_reavaliacao(uuid_consulta, get_id_usuario_sessao(), get_id_empresa_sessao())
             return json_success(data=a.to_dict(), message="Reavaliação aberta.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.post("/<uuid_atendimento>/finalizar")
     @requer_papel_clinico("enfermeiro", "medico")
     def finalizar_atendimento(uuid_atendimento):
-        """Finaliza um Atendimento em andamento. Só o dono (403); exige o
-        binário completo (409). Avaliação médica e reavaliação: só médico (403 para enfermeiro)."""
-        dados = request.get_json(silent=True)
-        if not isinstance(dados, dict):
-            dados = {}
+        """Finaliza um Atendimento em andamento. Corpo opcional: {"observacoes": "..."}.
+        Só o dono (403); exige binário completo e sem pendência clínica (409).
+        Avaliação médica e reavaliação: só médico (403 para enfermeiro)."""
+        dados = _corpo_json()
         try:
             a = _svc.finalizar(
                 uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao(),
@@ -126,7 +137,7 @@ class AtendimentoController():
             )
             return json_success(data=a.to_dict(), message="Atendimento finalizado.")
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_atendimento.post("/<uuid_atendimento>/cancelar")
@@ -134,9 +145,7 @@ class AtendimentoController():
     def cancelar_atendimento(uuid_atendimento):
         """Cancela um Atendimento em andamento. Só o dono; não exige binário.
         Corpo opcional: {"motivo_cancelamento": "erro-abertura"}."""
-        dados = request.get_json(silent=True)
-        if not isinstance(dados, dict):
-            dados = {}
+        dados = _corpo_json()
         try:
             a = _svc.cancelar(
                 uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao(),
@@ -144,4 +153,4 @@ class AtendimentoController():
             )
             return json_success(data=a.to_dict(), message="Atendimento cancelado.")
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)

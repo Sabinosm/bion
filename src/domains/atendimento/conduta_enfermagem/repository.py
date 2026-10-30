@@ -1,11 +1,13 @@
-"""Repositório de acesso a dados da conduta de enfermagem.
+"""repository.py
 
-INSERT-ONLY: não existe update, e delete levanta NotImplementedError. Uma correção
-é uma nova conduta. TENANT: a conduta não tem id_empresa; a posse vem de
-Atendimento -> Consulta.id_empresa, validada pelo service antes de chamar estes métodos
-(find_all é a exceção: filtra a empresa aqui mesmo).
+Acesso a dados da conduta de enfermagem. O registro é INSERT-ONLY: não existe
+atualização e a remoção levanta NotImplementedError, porque uma correção é uma
+nova conduta.
 
-TRANSAÇÃO: save(commit=False) só faz flush, para o controller comitar junto com o log de auditoria.
+A conduta não tem empresa própria: a posse vem de Atendimento -> Consulta, e o
+service a valida antes de chamar as buscas por atendimento e por consulta (a
+listagem geral é a exceção e filtra a empresa aqui mesmo). Com commit desligado
+a gravação só faz flush, para o controller comitar junto com o log de auditoria.
 """
 
 from typing import Optional, List
@@ -18,9 +20,6 @@ from src.models.clinico.conduta_enfermagem import CondutaEnfermagem
 
 class CondutaEnfermagemRepository(IRepository[CondutaEnfermagem]):
 
-    def find_by_uuid(self, uuid):
-        return super().find_by_uuid(uuid)
-    
     def confirmar(self, commit: bool = True) -> None:
         """Commit, ou só flush se o chamador vai comitar depois."""
         if commit:
@@ -35,6 +34,9 @@ class CondutaEnfermagemRepository(IRepository[CondutaEnfermagem]):
     def find_by_id(self, id: int) -> Optional[CondutaEnfermagem]:
         """Busca pela chave primária, SEM filtro de empresa: só para ids já validados."""
         return db.session.get(CondutaEnfermagem, id)
+
+    def find_by_uuid(self, uuid: str):
+        raise NotImplementedError("CondutaEnfermagem não é consultada por UUID.")
 
     def find_all(self, id_empresa: int) -> List[CondutaEnfermagem]:
         """Lista as condutas da empresa, da mais recente para a mais antiga."""

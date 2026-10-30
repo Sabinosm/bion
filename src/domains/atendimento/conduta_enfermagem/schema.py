@@ -1,8 +1,9 @@
-"""Schema Pydantic do corpo de entrada da conduta de enfermagem.
+"""schema.py
 
-O corpo traz só o que o profissional informa: a descrição e, opcionalmente, o UUID
-do protocolo do catálogo que motivou a conduta. Autor, função, atendimento e data
-vêm da sessão e do path, nunca do corpo (extra="forbid" recusa qualquer outro campo).
+Schema Pydantic do corpo de entrada da conduta de enfermagem. O corpo traz só o
+que o profissional informa: a descrição e, opcionalmente, o UUID do protocolo do
+catálogo que motivou a conduta. Autor, função, atendimento e data vêm da sessão
+e do caminho, nunca do corpo (qualquer outro campo é recusado).
 """
 
 from typing import Optional

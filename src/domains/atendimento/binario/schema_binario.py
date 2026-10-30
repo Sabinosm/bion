@@ -1,18 +1,18 @@
-"""Schemas Pydantic de ENTRADA do binário (Bloco 2).
+"""schema_binario.py
 
-Um schema por seção (usado pela rota granular) + `BinarioIn`, que compõe
-os quatro (rota agregada). As 4 seções são OBRIGATÓRIAS no agregado, cada
-uma com `possui` (obrigatório) e `nao_foi_possivel_coletar` (padrão False).
+Schemas Pydantic de ENTRADA do binário: um schema por seção (usado pela rota
+granular) e um que compõe as quatro (rota agregada). Na rota agregada as quatro
+seções são obrigatórias, cada uma com `possui` (obrigatório) e
+`nao_foi_possivel_coletar` (padrão falso).
 
-Regras (todas viram 422 via DadosInvalidosError no service):
-  - nao_foi_possivel_coletar=true força possui=false; com itens -> erro.
-  - possui=false com itens -> erro.
-  - tipo sanguíneo não admite possui=false (todo paciente tem tipo
-    sanguíneo; "desconhecido" é um valor registrável).
-Os ITENS são dicts validados pelos schemas dos próprios dados clínicos
-(AlergiaCreateSchema etc.) quando o service chama o service de cada dado:
-uma só fonte de validação. O que depende do banco (possui=true sem item
-e sem registro ativo; possui=false com registro ativo) fica no service.
+Regras (todas viram 422 via DadosInvalidosError no service): marcar
+nao_foi_possivel_coletar força possui=false e não aceita itens; possui=false não
+aceita itens; e o tipo sanguíneo não admite possui=false, já que todo paciente
+tem tipo sanguíneo ("desconhecido" é um valor registrável). Os itens são dicts
+validados pelos schemas dos próprios dados clínicos quando o service chama o
+service de cada dado, de modo que existe uma só fonte de validação. O que
+depende do banco (possui=true sem item e sem registro ativo; possui=false com
+registro ativo) fica no service.
 """
 
 from typing import Literal, Optional

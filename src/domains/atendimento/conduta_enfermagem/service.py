@@ -1,16 +1,17 @@
-"""Regras de negócio da conduta de enfermagem.
+"""service.py
 
-Registro opcional em que o profissional detalha o que fez durante a triagem. NÃO
-entra no gate do binário e não bloqueia o finalizar.
+Regras de negócio da conduta de enfermagem: registro opcional em que o
+profissional detalha o que fez durante a triagem. Ele NÃO entra no gate do
+binário e não bloqueia a finalização do atendimento.
 
-REGRAS DE ESCRITA (guard comum do ContextoClinicoService + regras próprias):
-  - o Atendimento é da empresa e do paciente do path (404/409);
-  - só o dono do Atendimento escreve (403); enfermeiro e médico podem;
-  - o Atendimento está em andamento (409), reconferido depois de travar a linha, para
-    não gravar numa triagem finalizada no meio da requisição;
-  - o tipo precisa estar em TIPOS_COM_CONDUTA (hoje só triagem; 409);
-  - INSERT-ONLY: não há edição nem exclusão; correção é uma nova conduta;
-  - a função de quem escreveu (medico/enfermeiro) vem da sessão e fica gravada.
+A escrita passa pela checagem comum de escrita clínica (o Atendimento é da
+empresa e do paciente do caminho, só o dono escreve, enfermeiro e médico podem,
+o paciente não tem óbito) mais regras próprias: o Atendimento precisa estar em
+andamento (conferido de novo depois de travar a linha, para não gravar numa
+triagem finalizada no meio da requisição) e o tipo precisa permitir conduta
+(hoje só a triagem). O registro é insert-only: não há edição nem exclusão, e a
+correção é uma nova conduta. A função de quem escreveu (médico ou enfermeiro)
+vem da sessão e fica gravada na conduta.
 
 O service nunca lê a sessão: o controller monta o AutorClinico.
 """
@@ -60,7 +61,9 @@ class CondutaEnfermagemService:
         if uuid_protocolo:
             protocolo = self.repo.find_protocolo_por_uuid(uuid_protocolo)
             if not protocolo:
-                raise DadosInvalidosError({"uuid_protocolo_catalogo": "protocolo não encontrado."})
+                raise DadosInvalidosError(
+                    "Protocolo não encontrado.", erros={"uuid_protocolo_catalogo": "protocolo não encontrado."}
+                )
             id_protocolo = protocolo.id
 
         try:

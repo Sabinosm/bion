@@ -1,4 +1,19 @@
-"""Repositório de acesso a dados da entidade Atendimento."""
+"""repository.py
+
+Acesso a dados da entidade Atendimento via SQLAlchemy: busca por UUID dentro
+da empresa, listagens por Consulta e por paciente, controle de transação e as
+agregações usadas pelas estatísticas (tempo médio por tipo, contagem por
+status, tempo entre sintoma e busca por atendimento).
+
+O Atendimento não tem empresa própria: a posse vem da Consulta, então as buscas
+pela API e as agregações estatísticas juntam a Consulta e filtram pela empresa
+dela (um dado que não muda), e "não existe" e "é de outra empresa" dão o mesmo
+resultado. Nada é apagado fisicamente: a remoção é lógica, por cancelamento.
+
+A transação segue o padrão dos demais repositórios: salvar, confirmar e
+desfazer; com commit desligado só se faz flush, para o service compor várias
+escritas num único commit.
+"""
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
@@ -12,14 +27,12 @@ from src.models.clinico import Atendimento, Consulta
 from src.models.clinico.coleta_clinica import ColetaClinica
 
 
+def _duracao_segundos():
+    """Expressão SQL da duração do Atendimento em segundos (MySQL: não existe EXTRACT(EPOCH))."""
+    return func.timestampdiff(text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim)
+
+
 class AtendimentoRepository(IRepository[Atendimento]):
-    """Encapsula todo acesso a dados de Atendimento via SQLAlchemy.
-
-    TRANSAÇÃO: save(commit) / confirmar(commit) / rollback(), no mesmo padrão
-    do PacienteRepository. commit=False só faz flush.
-
-    TENANT: Atendimento não tem id_empresa; a posse vem de Consulta.id_empresa.
-    Nada é apagado fisicamente: delete() levanta NotImplementedError."""
 
     # ------------------------------------------------------------ transação
     def confirmar(self, commit: bool = True) -> None:
@@ -34,7 +47,7 @@ class AtendimentoRepository(IRepository[Atendimento]):
 
     def travar(self, atendimento: Atendimento) -> Atendimento:
         """Relê a linha com SELECT ... FOR UPDATE (a trava vale até commit/rollback).
-        Usado na conferência do binário, que lê, altera e grava o JSON."""
+        Usado onde se lê, altera e grava o JSON do binário ou se revalida o status."""
         db.session.refresh(atendimento, with_for_update=True)
         return atendimento
 
@@ -77,10 +90,9 @@ class AtendimentoRepository(IRepository[Atendimento]):
 
     def find_anteriores_do_paciente(self, id_paciente: int, id_atendimento_atual: int,
                                     id_empresa: int, limite: int = 50) -> List[Atendimento]:
-        """Atendimentos FINALIZADOS anteriores do paciente (de qualquer
-        Consulta da empresa), do mais recente para o mais antigo. Só
-        finalizado: o binário dele está completo e confirmado. Usado para
-        derivar o binário do atendimento novo. ASSUME Consulta.id_paciente."""
+        """Atendimentos FINALIZADOS anteriores do paciente (de qualquer Consulta da empresa), do
+        mais recente para o mais antigo. Só finalizado: o binário dele está completo e confirmado.
+        Usado para derivar o binário do atendimento novo. ASSUME Consulta.id_paciente."""
         return (
             Atendimento.query
             .join(Consulta, Atendimento.id_consulta == Consulta.id)
@@ -95,13 +107,12 @@ class AtendimentoRepository(IRepository[Atendimento]):
             .all()
         )
 
-    
     def find_ultimo_por_tipo(self, id_consulta: int, tipo_atendimento: str) -> Optional[Atendimento]:
-        """Retorna o Atendimento mais recente de um tipo específico dentro de uma Consulta."""
+        """Atendimento mais recente de um tipo específico dentro de uma Consulta."""
         return (
             Atendimento.query
             .filter_by(id_consulta=id_consulta, tipo_atendimento=tipo_atendimento)
-            .order_by(Atendimento.data_hora_inicio.desc())
+            .order_by(Atendimento.data_hora_inicio.desc(), Atendimento.id.desc())
             .first()
         )
 
@@ -128,182 +139,111 @@ class AtendimentoRepository(IRepository[Atendimento]):
             "Atendimento não é apagado fisicamente; use cancelar (status='cancelado')."
         )
 
-    # --- A2: Tempo médio de atendimento, por tipo_atendimento ---
-    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:
-        """Duração média de Atendimentos finalizados, agrupado por tipo.
- 
-        Só considera atendimentos com data_hora_fim preenchida (senão a
-        duração não existe ainda). Filtra por empresa via o usuário que
-        realizou o atendimento (realizado_por).
- 
-        Retorna lista de dicts:
-        [{"tipo_atendimento": "triagem", "media_segundos": 512.3, "total": 42}, ...]
- 
-        A conversão para "8min32s" e o cálculo de variação % vs. período
-        anterior ficam na camada de estatística (EstatisticasAtendimento),
-        não aqui -- este método só agrega o dado bruto.
-        """
-        from src.models.usuarios.usuario import Usuario
- 
-        limite = datetime.now(timezone.utc) - timedelta(days=dias)
- 
-        # MySQL: TIMESTAMPDIFF(SECOND, inicio, fim) -- não existe EXTRACT(EPOCH)
-        duracao_segundos = func.timestampdiff(
-            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
-        )
- 
-        linhas = (
+    # ------------------------------------------------------------ estatísticas
+    @staticmethod
+    def _agregar_tempo_medio_por_tipo(id_empresa: int, inicio, fim=None) -> List[dict]:
+        """Duração média, em segundos, dos Atendimentos finalizados por tipo, para os que
+        começaram em [inicio, fim) (sem `fim`, sem limite superior). Empresa pela Consulta."""
+        duracao = _duracao_segundos()
+        consulta = (
             db.session.query(
                 Atendimento.tipo_atendimento.label("tipo_atendimento"),
-                func.avg(duracao_segundos).label("media_segundos"),
+                func.avg(duracao).label("media_segundos"),
                 func.count(Atendimento.id).label("total"),
             )
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(Atendimento.data_hora_inicio >= limite)
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Consulta.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= inicio)
             .filter(Atendimento.data_hora_fim.isnot(None))
-            .group_by(Atendimento.tipo_atendimento)
-            .all()
         )
+        if fim is not None:
+            consulta = consulta.filter(Atendimento.data_hora_inicio < fim)
+
         return [
             {
                 "tipo_atendimento": linha.tipo_atendimento,
                 "media_segundos": float(linha.media_segundos) if linha.media_segundos else 0.0,
                 "total": linha.total,
             }
-            for linha in linhas
+            for linha in consulta.group_by(Atendimento.tipo_atendimento).all()
         ]
-        
-    # --- Auxiliar para A3-equivalente no nível de Atendimento, se precisar ---
-    def contar_atendimentos_por_status(self, id_empresa: int, dias: int = 30) -> dict:
-        """Contagem de Atendimentos por status ('em-andamento', 'finalizado',
-        'cancelado'), nos últimos N dias. Mesmo padrão de
-        ConsultaRepository.contar_consultas_por_status, mas no nível de
-        Atendimento -- útil se algum dia quiserem taxa de conclusão por
-        etapa, não só por consulta inteira.
+
+    def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30) -> List[dict]:
+        """Duração média de Atendimentos finalizados nos últimos `dias`, por tipo.
+
+        Só considera atendimentos com data_hora_fim preenchida. Retorna
+        [{"tipo_atendimento": "triagem", "media_segundos": 512.3, "total": 42}, ...].
+        A conversão para texto e a variação % vs. período anterior ficam na camada de
+        estatística; aqui só se agrega o dado bruto.
         """
-        from src.models.usuarios.usuario import Usuario
- 
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
- 
+        return self._agregar_tempo_medio_por_tipo(id_empresa, limite)
+
+    def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
+        """Mesma agregação de `tempo_medio_por_tipo`, com janela explícita [data_inicio, data_fim)
+        em vez de 'últimos N dias', para comparar dois períodos que NÃO se sobrepõem."""
+        return self._agregar_tempo_medio_por_tipo(id_empresa, data_inicio, data_fim)
+
+    def contar_atendimentos_por_status(self, id_empresa: int, dias: int = 30) -> dict:
+        """Contagem de Atendimentos por status ('em-andamento', 'finalizado', 'cancelado')
+        nos últimos `dias`, no nível de Atendimento (e não de Consulta)."""
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
         linhas = (
             db.session.query(
                 Atendimento.status.label("status"),
                 func.count(Atendimento.id).label("total"),
             )
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Atendimento.data_hora_inicio >= limite)
             .group_by(Atendimento.status)
             .all()
         )
         return {linha.status: linha.total for linha in linhas}
- 
-    # --- E2: tempo médio por tipo, com janela explícita (sem sobreposição) ---
-    def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim) -> List[dict]:
-        """Mesma agregação de tempo_medio_por_tipo, mas com data_inicio/
-        data_fim explícitos em vez de 'últimos N dias corridos' -- usado
-        por E2 para comparar dois períodos que NÃO se sobrepõem (ex:
-        mês passado vs. este mês). tempo_medio_por_tipo continua existindo
-        para A2, que não precisa dessa precisão de janela.
-        """
-        from src.models.usuarios.usuario import Usuario
- 
-        duracao_segundos = func.timestampdiff(
-            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
-        )
- 
-        linhas = (
-            db.session.query(
-                Atendimento.tipo_atendimento.label("tipo_atendimento"),
-                func.avg(duracao_segundos).label("media_segundos"),
-                func.count(Atendimento.id).label("total"),
-            )
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(Atendimento.data_hora_inicio >= data_inicio)
-            .filter(Atendimento.data_hora_inicio < data_fim)
-            .filter(Atendimento.data_hora_fim.isnot(None))
-            .group_by(Atendimento.tipo_atendimento)
-            .all()
-        )
-        return [
-            {
-                "tipo_atendimento": linha.tipo_atendimento,
-                "media_segundos": float(linha.media_segundos) if linha.media_segundos else 0.0,
-                "total": linha.total,
-            }
-            for linha in linhas
-        ]
-        
- # --- C4: Tempo até busca por atendimento (sintoma -> consulta) ---
+
     def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30) -> Optional[float]:
-        """Média de desde_quando_sintomas (em horas) no período --
-        quanto tempo o paciente demora, em média, entre o início dos
-        sintomas e a busca por atendimento.
- 
-        Filtra só valores preenchidos (campo é opcional/nullable no
-        model). None se não houver dados suficientes.
-        """
-        from datetime import datetime, timedelta, timezone
-        from sqlalchemy import func
-        from src.models.usuarios import Usuario
-        from src.models.clinico import Atendimento
- 
-        limite_data = datetime.now(timezone.utc) - timedelta(days=dias)
- 
+        """Média de desde_quando_sintomas (em horas) no período: quanto o paciente demora entre o
+        início dos sintomas e a busca por atendimento. Só valores preenchidos; None se não há dados."""
+        limite = datetime.now(timezone.utc) - timedelta(days=dias)
         media = (
             db.session.query(func.avg(ColetaClinica.desde_quando_sintomas))
             .join(Atendimento, ColetaClinica.id_atendimento == Atendimento.id)
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
-            .filter(Atendimento.data_hora_inicio >= limite_data)
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Consulta.id_empresa == id_empresa)
+            .filter(Atendimento.data_hora_inicio >= limite)
             .filter(ColetaClinica.desde_quando_sintomas.isnot(None))
             .scalar()
         )
         return float(media) if media is not None else None
-    
-    # --- Validação: tempo médio por tipo, segmentado por
-    #     "mesmo profissional fez triagem e avaliação" vs. "transferência
-    #     entre profissionais diferentes" -- sem essa distinção, A2/E2
-    #     misturam dois comportamentos diferentes (médico sozinho tende a
-    #     ser mais rápido na triagem que um enfermeiro dedicado, o que
-    #     enviesa a média quando os dois cenários coexistem na base).
+
     def tempo_medio_por_tipo_segmentado(self, id_empresa: int, dias: int = 30) -> List[dict]:
-        """
-        Mesma agregação de tempo_medio_por_tipo, mas quebrada em dois
-        grupos por Consulta: 'mesmo_profissional' (o realizado_por da
-        triagem == realizado_por da avaliação médica) e 'transferencia'
-        (profissionais diferentes, ou só uma das duas etapas existe
-        ainda). Retorna lista de dicts:
-        [{"tipo_atendimento": ..., "grupo": "mesmo_profissional"|"transferencia",
-          "media_segundos": float, "total": int}, ...]
-        """
-        from src.models.usuarios.usuario import Usuario
-        from src.models.clinico import Consulta
+        """Tempo médio por tipo (triagem e avaliação médica), quebrado em dois grupos por Consulta:
+        'mesmo_profissional' (a triagem e a avaliação médica têm o mesmo realizado_por) e
+        'transferencia' (profissionais diferentes). Sem essa distinção a média mistura dois
+        comportamentos (o médico que faz a triagem sozinho tende a ser mais rápido que um
+        enfermeiro dedicado) e enviesa o resultado.
 
+        Consulta sem avaliação médica ainda não é classificável e fica de fora. Tudo (os grupos e a
+        duração) é restrito às Consultas da empresa, para que dados de empresas diferentes não se misturem.
+        Retorna [{"tipo_atendimento", "grupo", "media_segundos", "total"}, ...].
+        """
         limite = datetime.now(timezone.utc) - timedelta(days=dias)
-        duracao_segundos = func.timestampdiff(
-            text("SECOND"), Atendimento.data_hora_inicio, Atendimento.data_hora_fim
-        )
+        duracao = _duracao_segundos()
 
-        # realizado_por de cada etapa, por consulta
-        triagens = (
-            db.session.query(
-                Atendimento.id_consulta.label("id_consulta"),
-                Atendimento.realizado_por.label("realizado_por"),
+        def _etapa(tipo: str):
+            """realizado_por da etapa `tipo`, por consulta, só das Consultas da empresa."""
+            return (
+                db.session.query(
+                    Atendimento.id_consulta.label("id_consulta"),
+                    Atendimento.realizado_por.label("realizado_por"),
+                )
+                .join(Consulta, Atendimento.id_consulta == Consulta.id)
+                .filter(Consulta.id_empresa == id_empresa, Atendimento.tipo_atendimento == tipo)
+                .subquery()
             )
-            .filter(Atendimento.tipo_atendimento == "triagem")
-            .subquery()
-        )
-        avaliacoes = (
-            db.session.query(
-                Atendimento.id_consulta.label("id_consulta"),
-                Atendimento.realizado_por.label("realizado_por"),
-            )
-            .filter(Atendimento.tipo_atendimento == "avaliacao-medica")
-            .subquery()
-        )
+
+        triagens = _etapa("triagem")
+        avaliacoes = _etapa("avaliacao-medica")
 
         mapa_grupo = (
             db.session.query(
@@ -317,7 +257,7 @@ class AtendimentoRepository(IRepository[Atendimento]):
         grupo_por_consulta = {}
         for linha in mapa_grupo:
             if linha.prof_avaliacao is None:
-                continue  # avaliação ainda não existe -- não classificável ainda
+                continue  # avaliação ainda não existe: não classificável
             grupo_por_consulta[linha.id_consulta] = (
                 "mesmo_profissional" if linha.prof_triagem == linha.prof_avaliacao
                 else "transferencia"
@@ -327,10 +267,10 @@ class AtendimentoRepository(IRepository[Atendimento]):
             db.session.query(
                 Atendimento.id_consulta.label("id_consulta"),
                 Atendimento.tipo_atendimento.label("tipo_atendimento"),
-                duracao_segundos.label("duracao"),
+                duracao.label("duracao"),
             )
-            .join(Usuario, Atendimento.realizado_por == Usuario.id)
-            .filter(Usuario.id_empresa == id_empresa)
+            .join(Consulta, Atendimento.id_consulta == Consulta.id)
+            .filter(Consulta.id_empresa == id_empresa)
             .filter(Atendimento.data_hora_inicio >= limite)
             .filter(Atendimento.data_hora_fim.isnot(None))
             .filter(Atendimento.tipo_atendimento.in_(["triagem", "avaliacao-medica"]))
@@ -342,11 +282,9 @@ class AtendimentoRepository(IRepository[Atendimento]):
             grupo = grupo_por_consulta.get(linha.id_consulta)
             if grupo is None:
                 continue
-            chave = (linha.tipo_atendimento, grupo)
-            if chave not in acumulado:
-                acumulado[chave] = [0.0, 0]
-            acumulado[chave][0] += float(linha.duracao or 0)
-            acumulado[chave][1] += 1
+            soma_total = acumulado.setdefault((linha.tipo_atendimento, grupo), [0.0, 0])
+            soma_total[0] += float(linha.duracao or 0)
+            soma_total[1] += 1
 
         return [
             {

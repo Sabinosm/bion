@@ -1,32 +1,27 @@
-"""Regras do binário (Bloco 2): conferência das 4 seções clínicas num Atendimento.
+"""binario_service.py
 
-SEÇÕES: alergias | medicamentos | tipo_sanguineo | doenca_cronica.
+Regras do binário: a conferência das quatro seções clínicas (alergias,
+medicamentos, tipo sanguíneo e doença crônica) dentro de um Atendimento.
 
-ESTADO: não há tabela. O estado vive na coluna JSON `atendimento.binario`,
-lida/escrita pelo objeto `Binario` (binario_model.py).
+Não há tabela de estado: ele vive na coluna JSON `binario` do Atendimento, lida
+e escrita pelo objeto Binario. Cada seção termina em um de três estados:
+"preenchido" (o paciente tem o dado, com itens no payload ou com registro ativo
+já existente, só confirmado), "nega" (o paciente não possui; com registro ativo
+isso é impossível e dá 409) ou "nao-coletado" (não foi possível coletar).
+Reconferir a mesma seção no mesmo atendimento dá 409.
 
-LÓGICA:
-  - possui=true  -> o paciente tem o dado. Vale com itens no payload OU com
-    registro ativo já existente (pré-preenchido de atendimento anterior, só
-    confirmado). Sem nenhum dos dois -> 422. Estado "preenchido".
-  - possui=false -> "nega". Se há registro ativo -> 409 ("não possui" com
-    dado preenchido é impossível; remova antes por exclusão lógica).
-  - nao_foi_possivel_coletar -> estado "nao-coletado" ("não registrado").
-  - Reconferir a mesma seção no mesmo atendimento -> 409.
+A rota agregada e a granular usam o mesmo caminho por seção, chamando os
+services públicos dos dados com commit desligado: um único commit no fim, ou
+rollback de tudo se qualquer seção falhar. Como a conferência lê, altera e grava
+um JSON, a linha do atendimento é TRAVADA (SELECT ... FOR UPDATE) antes da
+gravação, para duas requisições simultâneas não se sobrescreverem.
 
-TRANSAÇÃO: agregada e granular chamam o mesmo `_aplicar` por seção, que
-usa os services públicos dos dados com commit=False. Um único commit no
-fim, ou rollback de tudo se qualquer seção falhar. Como a conferência é
-ler-alterar-gravar de um JSON, a linha do atendimento é TRAVADA
-(SELECT ... FOR UPDATE) no início da gravação: duas requisições
-simultâneas na mesma seção não se sobrescrevem.
-
-GUARD: toda escrita passa por ContextoClinicoService.exigir_escrita
-(atendimento em andamento do próprio profissional, mesmo paciente, etc.).
-Leitura (`estado`): só tenant.
-
-GATE: exigir_binario_completo vive em binario_gate.py (sem dependência dos
-services de paciente), usado por finalizar / coleta_clinica / input_protocolo.
+Toda escrita passa pela checagem comum de escrita clínica (atendimento em
+andamento do próprio profissional, mesmo paciente, etc.). A leitura exige só o
+tenant. O gate "binário completo" vive em módulo próprio, sem dependência dos
+services de paciente. Além da conferência, o serviço deriva o binário de um
+atendimento novo a partir do paciente e reconcilia o do atendimento com os
+registros ativos quando algum dado entra depois da conferência.
 """
 
 from pydantic import ValidationError
@@ -59,12 +54,17 @@ class BinarioService:
     # ------------------------------------------------------------ helpers
     @staticmethod
     def _validar(schema, dados):
+        """Valida `dados` com o schema Pydantic.
+
+        Raises:
+            DadosInvalidosError: corpo que não é objeto JSON, ou erros do schema por campo.
+        """
         if not isinstance(dados, dict):
             raise DadosInvalidosError("Corpo da requisição inválido: esperado um objeto JSON.")
         try:
             return schema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+            raise DadosInvalidosError("Dados inválidos.", erros=erros_pydantic_por_campo(e))
 
     def _ativos(self, secao: str, uuid_paciente: str, id_empresa: int) -> list:
         """Registros ATIVOS da seção. Seção sem nenhum registro NÃO é erro: []."""
@@ -83,6 +83,7 @@ class BinarioService:
 
     @staticmethod
     def _qtd_informada(secao: str, entrada) -> int:
+        """Quantidade de itens informados na seção (tipo sanguíneo conta 0 ou 1)."""
         if secao == "tipo_sanguineo":
             return 1 if entrada.tipo_sanguineo else 0
         return len(entrada.itens)
@@ -240,6 +241,7 @@ class BinarioService:
         }
 
     def exigir_binario_completo(self, atendimento) -> None:
+        """Atalho para o gate do binário (409 se faltar seção)."""
         exigir_binario_completo(atendimento)
 
     def reconciliar(self, atendimento, id_empresa: int) -> list:
@@ -365,9 +367,10 @@ class BinarioService:
             ativos = self._ativos(secao, uuid_pac, autor.id_empresa)
             if possui:
                 if not ativos and self._qtd_informada(secao, entrada) == 0:
-                    raise DadosInvalidosError({
-                        secao: "possui=true exige ao menos um item ou um registro ativo já existente."
-                    })
+                    raise DadosInvalidosError(
+                        "Dados inválidos.",
+                        erros={secao: "possui=true exige ao menos um item ou um registro ativo já existente."},
+                    )
                 criados, alertas = self._criar_itens(secao, entrada, ativos, uuid_at, uuid_pac, autor)
             elif ativos:
                 raise ConflictoError(

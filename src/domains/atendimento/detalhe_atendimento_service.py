@@ -1,22 +1,21 @@
-"""detalhe_atendimento_service.py -- JSON do detalhe de um Atendimento (página "Detalhes").
+"""detalhe_atendimento_service.py
 
-MESMA FONTE do PDF detalhado: usa `montar_dados_atendimento` (que lê o ORM) e os mesmos rótulos e
-textos do PDF (itens do contexto clínico, sinais resumidos, estado do binário...), então a página e o
-PDF nunca divergem e o front não duplica vocabulário. Só muda o fim: aqui devolve dicts prontos para
-exibir (textos já formatados no fuso da empresa), em vez de desenhar um PDF.
+JSON do detalhe de um Atendimento, para a página "Detalhes". Usa a mesma fonte
+do PDF detalhado (a montagem dos dados do atendimento a partir do ORM) e os
+mesmos rótulos e textos, então a página e o PDF nunca divergem e o front não
+duplica vocabulário. Só muda o fim: em vez de desenhar um PDF, devolve
+dicionários prontos para exibir, com as datas já formatadas no fuso da empresa.
 
-Decisões:
-  - sem CPF e sem data de nascimento do paciente (a página só precisa de nome, idade e sexo);
-  - datas vêm como TEXTO formatado no fuso da empresa (o mesmo do PDF), não ISO;
-  - números do back (Decimal) viram float; qualquer valor livre (respostas do protocolo, hábitos)
-    vira texto. O front usa só textContent;
-  - leitura AUDITADA no controller (@acesso_auditado, com uuid_paciente): é um novo caminho de leitura
-    do prontuário inteiro, ao contrário do PDF, que por decisão não é auditado.
+Decisões: o detalhe não traz CPF nem data de nascimento do paciente (a página só
+precisa de nome, idade e sexo); as datas vão como texto formatado, não ISO; os
+números do back (Decimal) viram float e qualquer valor livre (respostas do
+protocolo, hábitos) vira texto, porque o front usa só textContent; a leitura é
+auditada no controller, ao contrário do PDF, que por decisão não é auditado.
 
-Acesso: o mesmo do PDF (enfermeiro e médico da própria empresa; 404 igual para "não existe" e
-"é de outra empresa"). Não exige ser o dono do atendimento.
+Acesso: o mesmo do PDF (enfermeiro e médico da própria empresa, com 404 igual
+para "não existe" e "é de outra empresa"). Não exige ser o dono do atendimento.
 
-Arquivo PROVISÓRIO ao lado de download_atendimento_service.py (mesma pasta).
+Arquivo PROVISÓRIO, ao lado do serviço de download do atendimento (mesma pasta).
 """
 from __future__ import annotations
 
@@ -30,7 +29,7 @@ from src.domains.atendimento.repository import AtendimentoRepository
 from src.domains.download.download_atendimento_service import (
     CERTEZA, ESTADO_BINARIO, FLAG_FAIXA, MOTIVO_CANCELAMENTO, ORIGEM, SECAO_BINARIO, SITIO, STATUS_ATENDIMENTO,
     STATUS_EXEC, TIPO_PRESCRICAO, URGENCIA, VITAL_ROTULO, DadosAtendimento, montar_dados_atendimento,
-    vitais_resumidos, _itens_contexto,          # _itens_contexto é "privado" lá: vale torná-lo público
+    vitais_resumidos, itens_contexto,
 )
 
 ORIGEM_BINARIO = {"manual": "Confirmado pelo profissional", "automatico": "Derivado do cadastro do paciente"}
@@ -52,6 +51,7 @@ def _num(v: Any) -> Optional[float]:
 
 
 def _fv(v: float) -> str:
+    """Número no formato de exibição (sem zeros à direita, vírgula decimal)."""
     return f"{v:g}".replace(".", ",")
 
 
@@ -74,7 +74,7 @@ def para_json(d: DadosAtendimento) -> Dict[str, Any]:
     } for v in d.sinais]
 
     # --- binário (conferência) com os registros vigentes, no texto do PDF
-    itens = _itens_contexto(d)
+    itens = itens_contexto(d)
     binario = []
     for sec, rotulo in SECAO_BINARIO.items():
         b = d.binario[sec]
@@ -160,9 +160,12 @@ class DetalheAtendimentoService:
         self.repo = AtendimentoRepository()
 
     def obter(self, uuid_atendimento: str, id_empresa: int, id_usuario: int) -> Tuple[Dict[str, Any], Optional[str]]:
-        """(detalhe, uuid_paciente). 404 igual para 'não existe' e 'é de outra empresa'.
-        `e_meu`: o atendimento é do usuário logado (o front só mostra o atalho da prescrição ao dono,
-        sem precisar do uuid do profissional)."""
+        """Devolve (detalhe, uuid_paciente). O detalhe inclui `e_meu`: o atendimento é do usuário
+        logado (o front só mostra o atalho da prescrição ao dono, sem precisar do uuid do profissional).
+
+        Raises:
+            RecursoNaoEncontradoError: 404 igual para 'não existe' e 'é de outra empresa'.
+        """
         a = self.repo.find_by_uuid(uuid_atendimento, id_empresa)
         if not a:
             raise RecursoNaoEncontradoError(f"Atendimento não encontrado: {uuid_atendimento}")

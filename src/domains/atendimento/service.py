@@ -1,36 +1,30 @@
-"""Regras de negócio do ciclo de vida do Atendimento (abertura, finalização e cancelamento).
+"""service.py
 
-LIGAÇÃO COM O BLOCO 1 (Consulta):
-  - Tenant: Atendimento não tem id_empresa próprio; a posse vem da Consulta
-    (Consulta.id_empresa). Toda busca passa por id_empresa da sessão, e
-    "não existe" e "é de outra empresa" dão o mesmo 404.
-  - Consentimento: abrir qualquer Atendimento exige consentimento LGPD
-    válido (ativo ou dispensado por emergência nesta consulta) -- ver
-    ConsultaService.exigir_consentimento.
-  - Consulta encerrada (inclusive por evasão) não aceita novo Atendimento
-    nem finalização de Atendimento.
-  - Transação: criar/finalizar/cancelar o Atendimento e recalcular o status
-    da Consulta é UMA operação atômica (um único commit).
+Regras de negócio do ciclo de vida do Atendimento: abertura de triagem,
+avaliação médica e reavaliação, finalização, cancelamento e as consultas de
+leitura usadas pelas telas e pela estatística.
 
-DONO: um Atendimento tem o mesmo profissional do início ao fim. Só quem o
-abriu o finaliza ou cancela (403).
+O Atendimento é uma etapa dentro de uma Consulta (o episódio de um problema de
+saúde) e não tem empresa própria: a posse vem da Consulta, então toda busca
+filtra pela empresa da sessão e "não existe" e "é de outra empresa" dão o mesmo
+404. Abrir exige consentimento LGPD válido e Consulta não encerrada, e só pode
+haver um Atendimento em andamento por vez; a abertura trava a linha da Consulta
+para que duas aberturas simultâneas não criem dois em andamento. Criar,
+finalizar ou cancelar o Atendimento e recalcular o status da Consulta formam uma
+única transação.
 
-BINÁRIO: finalizar exige o binário completo (as 4 seções conferidas neste
-atendimento, 409) e, na mesma transação, o reconcilia com os registros
-ativos do paciente (BinarioService.reconciliar). Cancelar NÃO exige nem
-reconcilia: abandonar o atendimento não pode depender de preencher nada.
-ABERTURA SERIALIZADA: a abertura trava a linha da Consulta (SELECT ... FOR UPDATE)
-antes de checar "um em andamento por vez", então duas aberturas simultâneas
-não criam dois Atendimentos em andamento. A trava cai no commit ou no rollback.
+Um Atendimento tem o mesmo profissional do início ao fim: só quem o abriu o
+finaliza ou cancela (403). Finalizar exige o binário completo e nenhuma
+pendência clínica (avaliação da IA em andamento ou prescrição em rascunho) e,
+na mesma transação, reconcilia o binário com os registros ativos do paciente;
+cancelar não exige nem reconcilia nada, porque abandonar o atendimento não pode
+depender de preencher dados. Avaliação médica e reavaliação só são finalizadas
+por médico, e a reavaliação só abre com a Consulta no status que indica
+atendimento concluído com a Consulta ainda aberta.
 
-REAVALIAÇÃO: só médico, e só com a Consulta em STATUS_PARA_REAVALIACAO (hoje
-"em-observacao": atendimento concluído, Consulta ainda aberta). Se esse status
-for renomeado, basta mudar a constante. Finalizar reavaliação é só médico,
-como a avaliação médica (TIPOS_SOMENTE_MEDICO).
-
-Na ABERTURA o binário é derivado do paciente (derivar_na_abertura): seção
-consistente é repassada como "automatico"; seção cujo dado mudou desde a
-última conferência fica "requer-revisao" e trava o finalizar até confirmar.
+Na abertura o binário é derivado do paciente: a seção consistente com a última
+conferência é repassada como automática, e a seção cujo dado mudou desde então
+fica a revisar e trava a finalização até ser confirmada.
 """
 
 from datetime import datetime, timezone
@@ -101,8 +95,8 @@ class AtendimentoService:
         return self.repo.find_all(id_empresa)
 
     def listar_por_consulta(self, uuid_consulta: str, id_empresa: int):
-        """Lista os Atendimentos de uma Consulta da empresa. A posse é
-        checada na Consulta; find_por_consulta em si não filtra empresa."""
+        """Lista os Atendimentos de uma Consulta da empresa. A posse é checada na
+        Consulta; `find_por_consulta` em si não filtra empresa."""
         c = self.consulta_svc.buscar_por_uuid(uuid_consulta, id_empresa)
         return self.repo.find_por_consulta(c.id)
 
@@ -167,7 +161,8 @@ class AtendimentoService:
             )
 
     def _criar(self, consulta, tipo_atendimento: str, id_usuario: int):
-        """Cria o Atendimento e sincroniza a Consulta num único commit."""
+        """Cria o Atendimento, deriva o binário a partir do paciente e sincroniza a Consulta
+        num único commit."""
         try:
             atendimento = Atendimento(
                 id_consulta=consulta.id,
@@ -299,7 +294,7 @@ class AtendimentoService:
         exigir_binario_completo(atendimento)
         self._exigir_sem_pendencias_clinicas(atendimento)
         if observacoes is not None and not isinstance(observacoes, str):
-            raise DadosInvalidosError({"observacoes": "deve ser texto."})
+            raise DadosInvalidosError("Observações inválidas.", erros={"observacoes": "deve ser texto."})
 
         try:
             # Reconcilia o binário com os registros ativos (dado inserido depois
@@ -345,7 +340,8 @@ class AtendimentoService:
             )
         if motivo is not None and motivo not in MOTIVOS_CANCELAMENTO:
             raise DadosInvalidosError(
-                {"motivo_cancelamento": "inválido; use um de: " + ", ".join(MOTIVOS_CANCELAMENTO)}
+                "Motivo de cancelamento inválido.",
+                erros={"motivo_cancelamento": "inválido; use um de: " + ", ".join(MOTIVOS_CANCELAMENTO)},
             )
 
         c = self.consulta_repo.find_by_id(atendimento.id_consulta)
@@ -362,30 +358,25 @@ class AtendimentoService:
             raise
 
     # ------------------------------------------------------- estatísticas
-    # --- C4: Tempo até busca por atendimento ---
     def media_horas_ate_atendimento(self, id_empresa: int, dias: int = 30):
+        """Média, em horas, entre o início dos sintomas e a busca por atendimento (None sem dados)."""
         return self.repo.media_horas_ate_atendimento(id_empresa=id_empresa, dias=dias)
 
-    # --- A2: Tempo médio de atendimento, por tipo ---
     def tempo_medio_por_tipo(self, id_empresa: int, dias: int = 30):
-        """Repassa a agregação bruta do repository (segundos, por tipo).
-        Conversão para 'Xmin Ys' e variação % vs. período anterior ficam
-        na camada de estatística."""
+        """Agregação bruta do repository (segundos, por tipo) nos últimos `dias`. A conversão
+        para 'Xmin Ys' e a variação % vs. período anterior ficam na camada de estatística."""
         return self.repo.tempo_medio_por_tipo(id_empresa=id_empresa, dias=dias)
 
-    # --- auxiliar: status no nível de etapa (não usado na Fase 1, mas pronto) ---
     def atendimentos_por_status(self, id_empresa: int, dias: int = 30):
+        """Contagem de Atendimentos por status nos últimos `dias`."""
         return self.repo.contar_atendimentos_por_status(id_empresa=id_empresa, dias=dias)
 
-    # --- E2: tempo médio por tipo, com janela explícita ---
     def tempo_medio_por_tipo_periodo(self, id_empresa: int, data_inicio, data_fim):
+        """Tempo médio por tipo com janela explícita [data_inicio, data_fim)."""
         return self.repo.tempo_medio_por_tipo_periodo(
             id_empresa=id_empresa, data_inicio=data_inicio, data_fim=data_fim
         )
 
-    # --- Validação: tempo médio por tipo, segmentado mesmo-profissional
-    #     vs. transferência entre profissionais (ver repository para o
-    #     motivo -- médico sozinho fazendo triagem+avaliação distorce a
-    #     média combinada de A2/E2 se não for segmentado) ---
     def tempo_medio_por_tipo_segmentado(self, id_empresa: int, dias: int = 30):
+        """Tempo médio por tipo segmentado em 'mesmo_profissional' x 'transferencia' (ver o repository)."""
         return self.repo.tempo_medio_por_tipo_segmentado(id_empresa=id_empresa, dias=dias)
