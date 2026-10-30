@@ -6,6 +6,7 @@ cálculo. O protocolo é identificado pela rota, não pelo corpo.
 """
 from pydantic import BaseModel, Field, ValidationError
 
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.exceptions import DadosInvalidosError
 
 
@@ -18,13 +19,9 @@ def parse_execucao_request(payload) -> SchemaExecucaoRequest:
     """Valida o corpo da requisição de execução.
 
     Raises:
-        DadosInvalidosError: com todos os problemas encontrados no corpo.
+        DadosInvalidosError: com os erros por campo (`erros`), para o front pintar o input certo.
     """
     try:
         return SchemaExecucaoRequest.model_validate(payload or {})
     except ValidationError as ex:
-        detalhes = "; ".join(
-            f"{'.'.join(str(parte) for parte in erro['loc']) or 'corpo'}: {erro['msg']}"
-            for erro in ex.errors()
-        )
-        raise DadosInvalidosError(f"Corpo da requisição inválido: {detalhes}") from ex
+        raise DadosInvalidosError("Corpo da requisição inválido.", erros=erros_pydantic_por_campo(ex)) from ex

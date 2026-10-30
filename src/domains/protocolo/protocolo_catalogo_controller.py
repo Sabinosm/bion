@@ -63,4 +63,4 @@ class ProtocoloController():
             dados = _svc.detalhar(uuid_protocolo, get_id_empresa_sessao())
             return json_success(data=dados)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)

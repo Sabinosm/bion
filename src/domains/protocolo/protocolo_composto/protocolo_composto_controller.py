@@ -41,7 +41,7 @@ class ProtocoloCompostoController():
                 for c in campos
             ])
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp.get("/protocolo-composto/<uuid_protocolo>/composicao")
@@ -53,7 +53,7 @@ class ProtocoloCompostoController():
             catalogo = _catalogo_svc.buscar_por_uuid_e_tipo(uuid_protocolo, TIPO_PROTOCOLO)
             return json_success(data=_svc.obter_composicao(catalogo.id))
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp.post("/protocolo-composto/<uuid_protocolo>/executar")
@@ -69,4 +69,4 @@ class ProtocoloCompostoController():
             )
             return json_success(data=execucao.to_dict(), message="Protocolo executado e registrado.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)

@@ -39,7 +39,7 @@ class News2Controller():
                 for c in campos
             ])
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp.post("/news2/<uuid_protocolo>/executar")
@@ -55,4 +55,4 @@ class News2Controller():
             )
             return json_success(data=execucao.to_dict(), message="Protocolo executado e registrado.", status=201)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
