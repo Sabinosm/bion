@@ -1,22 +1,28 @@
-"""Execução determinística de protocolo sobre o input VIGENTE do atendimento.
+"""execucao_atendimento_service.py
 
-Guardas (nesta ordem): guard de escrita (404/409/403) -> só triagem/avaliação
-médica -> binário completo -> catálogo ativo, escopo de uso compatível e
-liberado pela empresa (EmpresaProtocolo.ativo é o único gate real) -> input
-vigente (maior id) -> executa.
+Execução determinística de protocolo sobre o input VIGENTE do atendimento, e as
+duas leituras que preparam o formulário: os protocolos disponíveis para o
+atendimento e a estrutura de campos de um protocolo.
+
+Guardas da execução, nesta ordem: guard de escrita (404/409/403); só triagem,
+avaliação médica e reavaliação; binário completo; catálogo ativo, escopo de uso
+compatível e liberado pela empresa (EmpresaProtocolo.ativo é o único gate real);
+input vigente (maior id); execução.
 
 As respostas vêm de InputProtocolo.input_json, filtradas pelos campos que o
 protocolo declara (chave de outro protocolo no mesmo input_json não derruba a
-execução). Reexecutar o mesmo protocolo no mesmo input é IDEMPOTENTE: devolve
-a execução que já existe (sem recalcular e sem erro), e o front a exibe como
-resultado; o médico que ajusta as respostas cria outro input e executa de novo.
+execução), e os campos booleanos são traduzidos de texto ("sim", "true", 1...).
+Reexecutar o mesmo protocolo no mesmo input é IDEMPOTENTE: devolve a execução
+que já existe (sem recalcular e sem erro), e o front a exibe como resultado; o
+médico que ajusta as respostas cria outro input e executa de novo.
 
-Ao fim, InputProtocolo.dados_criticos_ausentes_json é preenchido pelo sistema
-com os dados ausentes consolidados de todas as execuções do input. Tudo em
-uma transação.
+Ao fim de uma execução nova, InputProtocolo.dados_criticos_ausentes_json é
+preenchido pelo sistema com os dados ausentes consolidados de todas as execuções
+do input. Tudo em uma transação.
 
-RESOLVEDORES: tipo_protocolo -> callable(id_protocolo_catalogo, id_input,
-respostas, executor, commit). Registre aqui o 'protocolo-composto'.
+Os resolvedores mapeiam o tipo do protocolo para o serviço da família que
+executa e o que carrega os campos; para suportar um tipo novo, basta registrá-lo
+nos dois mapas da classe.
 """
 import unicodedata
 
@@ -27,7 +33,7 @@ from src.domains.atendimento.repository import AtendimentoRepository
 from .repository import InputProtocoloRepository
 from .service import TIPOS_COM_INPUT_PROTOCOLO
 
-ESCOPO_USO_POR_TIPO = {"triagem": "triagem", "avaliacao-medica": "consulta"}
+ESCOPO_USO_POR_TIPO = {"triagem": "triagem", "avaliacao-medica": "consulta", "reavaliacao": "consulta"}
 
 
 def filtrar_respostas(input_json, campos: set) -> dict:
@@ -79,26 +85,26 @@ def consolidar_ausentes(execucoes) -> list:
 
 
 def _resolver_escore(svc, id_cat, id_input, respostas, executor, commit):
-    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service  # ajuste o caminho
+    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service
     return News2Service().executar(id_cat, id_input, respostas, executor, commit=commit)
 
 
 def _resolver_composto(svc, id_cat, id_input, respostas, executor, commit):
-    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService  # ajuste
+    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService
     return ProtocoloCompostoService().executar(id_cat, id_input, respostas, executor, commit=commit)
 
 
-# CAMPOS: tipo_protocolo -> callable(id_protocolo_catalogo) -> list[CampoEsperado].
+# Campos de cada tipo: callable(id_protocolo_catalogo) -> list[CampoEsperado].
 # Reaproveita o MESMO caminho das rotas /news2/<uuid>/campos e
 # /protocolo-composto/<uuid>/campos (config -> carregar_estrutura -> campos_esperados),
 # em vez de passar uma estrutura crua para a strategy.
 def _campos_escore(id_cat):
-    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service  # ajuste o caminho
+    from src.domains.protocolo.news2.protocolo_escore_config_service import News2Service
     return News2Service().obter_campos_para_preenchimento(id_cat)
 
 
 def _campos_composto(id_cat):
-    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService  # ajuste
+    from src.domains.protocolo.protocolo_composto.protocolo_composto_service import ProtocoloCompostoService
     return ProtocoloCompostoService().obter_campos_para_preenchimento(id_cat)
 
 
@@ -108,8 +114,8 @@ class ExecucaoAtendimentoService:
     CAMPOS = {"escore-ponderado": _campos_escore, "protocolo-composto": _campos_composto}
 
     def __init__(self):
-        from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository  # ajuste
-        from src.domains.protocolo.shared.repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository  # ajuste
+        from src.domains.protocolo.shared.repositories.protocolo_catalogo_repository import ProtocoloCatalogoRepository
+        from src.domains.protocolo.shared.repositories.input_protocolo_execucao_repository import InputProtocoloExecucaoRepository
         from src.domains.empresa.empresa_protocolo.empresa_protocolo_repository import EmpresaProtocoloRepository
         self._ctx = ContextoClinicoService()
         self._at_repo = AtendimentoRepository()
@@ -126,7 +132,7 @@ class ExecucaoAtendimentoService:
         recalcular. A checagem é feita com o atendimento travado, então duas
         requisições simultâneas não chegam a violar a UNIQUE.
         """
-        from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory  # ajuste
+        from src.domains.protocolo.shared.strategy.protocolo_factory import ProtocoloFactory
 
         ctx = self._ctx.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         at = ctx.atendimento
@@ -199,7 +205,7 @@ class ExecucaoAtendimentoService:
         o padrão da instituição), favorito (true/false) e default_pessoal
         (escopo em que é o padrão do profissional). Favoritos ficam primeiro.
         """
-        from src.domains.protocolo.shared.services.protocolo_catalogo_service import ProtocoloCatalogoService  # ajuste
+        from src.domains.protocolo.shared.services.protocolo_catalogo_service import ProtocoloCatalogoService
 
         at = self.exigir_atendimento(uuid_atendimento, id_emp)
         escopo = ESCOPO_USO_POR_TIPO.get(at.tipo_atendimento)

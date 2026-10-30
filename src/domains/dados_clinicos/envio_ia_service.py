@@ -1,19 +1,20 @@
-"""Envio do input à IA: monta o snapshot e abre o registro do envio (OutputBion).
+"""envio_ia_service.py
 
-FLUXO (abrir_envio):
-  1. guard de escrita (dono, em andamento, mesmo paciente, sem óbito);
-  2. só triagem / avaliação médica / reavaliação (mesma regra do input de protocolo);
-  3. binário completo (409);
-  4. precisa existir um input de protocolo no atendimento (409): o vigente é
-     o de maior id (insert-only);
-  5. numa única transação: trava o atendimento, reconcilia o binário com os
-     registros ativos (dado inserido depois pela rota granular), monta o
-     InputModel e GRAVA o OutputBion com o snapshot, ainda sem resposta;
-  6. a chamada à IA acontece DEPOIS, fora daqui; a resposta entra por
-     `gravar_resposta`. Envio sem resposta (output_ia_json NULL) = falha ou
-     em andamento, e o que foi enviado fica registrado.
+Envio do input à IA: monta o snapshot e abre o registro do envio (OutputBion).
 
-O QUE É CONGELADO (OutputBion.input_ia_json): InputModel.to_dict(), isto é,
+Abrir o envio segue esta ordem: guard de escrita (dono, em andamento, mesmo
+paciente, sem óbito); só triagem, avaliação médica e reavaliação (mesma regra
+do input de protocolo); binário completo (409); precisa existir um input de
+protocolo no atendimento (409), e o vigente é o de maior id (insert-only). Numa
+única transação o serviço trava o atendimento, reconcilia o binário com os
+registros ativos (dado inserido depois pela rota granular), monta o InputModel e
+GRAVA o OutputBion com o snapshot, ainda sem resposta.
+
+A chamada à IA acontece DEPOIS, fora daqui, e a resposta entra por uma gravação
+separada. Envio sem resposta (output_ia_json NULL) = falha ou em andamento, e o
+que foi enviado fica registrado.
+
+O QUE É CONGELADO (OutputBion.input_ia_json): o InputModel completo, isto é,
 binário (nega ≠ não coletado), dados clínicos ativos, sinais vitais, coleta,
 queixa, protocolos e lacunas, tudo vindo dos blocos. Não se remonta depois:
 alergia muda no lugar, código dos blocos evolui, binário é reconciliado.

@@ -1,4 +1,6 @@
-"""Schemas de entrada do registro de dados clínicos (sinais vitais e coleta clínica).
+"""schema.py
+
+Schemas de entrada do registro de dados clínicos (sinais vitais, coleta clínica e input de protocolo).
 
 Os valores dos enums abaixo espelham os do model SinalVital: se o model
 mudar, mude aqui também. Valor fora do enum vira 422 aqui, em vez de

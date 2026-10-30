@@ -1,25 +1,27 @@
-"""
-Regras de negócio do registro de dados clínicos durante um Atendimento:
-sinais vitais, coleta clínica e input de protocolo.
+"""service.py
 
-GUARD: toda escrita (sinais vitais e coleta clínica) passa por
-ContextoClinicoService.exigir_escrita: atendimento em andamento do PRÓPRIO
-profissional, do mesmo paciente, enfermeiro só em triagem, paciente sem
-óbito.
+Regras de negócio do registro de dados clínicos durante um Atendimento: sinais
+vitais, coleta clínica e input de protocolo.
 
-GATE DO BINÁRIO: a coleta clínica exige o binário completo (409). Os sinais
-vitais ficam livres, sem binário.
+Toda escrita passa pela checagem comum de escrita clínica: atendimento em
+andamento do PRÓPRIO profissional, do mesmo paciente, enfermeiro só em triagem
+e paciente sem óbito. O tenant vem dessa checagem. A coleta clínica e o input de
+protocolo exigem o binário completo (409); os sinais vitais ficam livres, sem
+binário. Os sinais de uma requisição são validados por inteiro antes de gravar
+e entram num único commit (ou nada entra).
 
-TRANSAÇÃO: os sinais vitais de uma requisição são validados por inteiro
-antes de gravar e entram num único commit (ou nada entra).
+O input de protocolo pertence a uma coleta, que precisa ser do atendimento da
+rota (senão 404). Ele guarda só o que é do profissional: as respostas ao
+protocolo, a queixa e o AVPU. É insert-only (reenviar cria outro e o último é o
+vigente), e o contexto clínico do paciente não entra aqui, porque o servidor o
+monta e congela no envio à IA. Só existe em triagem, avaliação médica e
+reavaliação; nos demais tipos (alta, procedimento) dá 409. O conteúdo das
+respostas é livre até existir schema por protocolo, e o input de protocolo é
+parte do domínio Protocolo/IA, fora do escopo FHIR.
 
-INPUT DE PROTOCOLO: mesmo guard e mesmo gate da coleta; a coleta precisa
-pertencer ao atendimento da rota (senão 404). O tenant vem do guard.
-
-TIPOS_COM_INPUT_PROTOCOLO: tipos de atendimento que geram input de protocolo
-(triagem, avaliacao-medica e reavaliacao), os mesmos valores do enum
-InputProtocolo.tipo_input. Em alta e procedimento ele não existe (409). Esta
-lista deve andar junto com TIPOS_COM_PROTOCOLO do pacote input_ia.
+TIPOS_COM_INPUT_PROTOCOLO lista os tipos de atendimento que geram input de
+protocolo, os mesmos valores do enum InputProtocolo.tipo_input. Esta lista deve
+andar junto com TIPOS_COM_PROTOCOLO do pacote input_ia.
 """
 
 from datetime import datetime, timezone
@@ -47,12 +49,17 @@ class DadosClinicosService:
 
     @staticmethod
     def _validar(schema, dados):
+        """Valida `dados` com o schema Pydantic.
+
+        Raises:
+            DadosInvalidosError: corpo que não é objeto JSON, ou erros do schema por campo.
+        """
         if not isinstance(dados, dict):
             raise DadosInvalidosError("Corpo da requisição inválido: esperado um objeto JSON.")
         try:
             return schema(**dados)
         except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+            raise DadosInvalidosError("Dados inválidos.", erros=erros_pydantic_por_campo(e))
 
     # ----------------------------------------------------------- sinais vitais
     def registrar_sinais_vitais(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
@@ -73,9 +80,10 @@ class DadosClinicosService:
         tipos = {s.tipo_parametro for s in entrada.sinais}
         nao_mapeados = sorted(tipos - self.sinal_repo.tipos_loinc_existentes(tipos))
         if nao_mapeados:
-            raise DadosInvalidosError({
-                "sinais": "tipo_parametro não mapeado na tabela LOINC: " + ", ".join(nao_mapeados)
-            })
+            raise DadosInvalidosError(
+                "Dados inválidos.",
+                erros={"sinais": "tipo_parametro não mapeado na tabela LOINC: " + ", ".join(nao_mapeados)},
+            )
 
         try:
             registrados = []
@@ -171,9 +179,10 @@ class DadosClinicosService:
         entrada = self._validar(InputProtocoloIn, dados)
         tipo_atendimento = ctx.atendimento.tipo_atendimento
         if entrada.tipo_input is not None and entrada.tipo_input != tipo_atendimento:
-            raise DadosInvalidosError({
-                "tipo_input": f"deve ser igual ao tipo do atendimento ('{tipo_atendimento}')."
-            })
+            raise DadosInvalidosError(
+                "Dados inválidos.",
+                erros={"tipo_input": f"deve ser igual ao tipo do atendimento ('{tipo_atendimento}')."},
+            )
 
         # Insert-only: reenviar cria outro InputProtocolo (o de maior id vale).
         # dados_criticos_ausentes_json é do sistema (execução), não do cliente.
@@ -189,4 +198,3 @@ class DadosClinicosService:
         except Exception:
             self.input_repo.rollback()
             raise
-        

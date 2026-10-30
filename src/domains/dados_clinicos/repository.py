@@ -1,12 +1,13 @@
-"""
-Repositórios do domínio Dados Clínicos: ColetaClinica, SinalVital e
-InputProtocolo, coletados durante um Atendimento.
+"""repository.py
 
-TRANSAÇÃO: save(entity, commit=True) / confirmar(commit) / rollback(), no
-mesmo padrão dos demais repositórios. commit=False só faz flush, para o
-service compor várias escritas numa transação.
+Acesso a dados dos registros clínicos coletados durante um Atendimento:
+coleta clínica, sinais vitais, input de protocolo e o envio à IA (OutputBion).
 
-Nada é apagado fisicamente: delete() levanta NotImplementedError.
+A transação segue o padrão dos demais repositórios: salvar, confirmar e
+desfazer; com commit desligado só se faz flush, para o service compor várias
+escritas numa única transação. Nada é apagado fisicamente: a remoção levanta
+NotImplementedError. O input de protocolo e o envio à IA são insert-only, e o
+vigente é sempre o último registrado.
 """
 
 from typing import Optional, List, Iterable, Set
