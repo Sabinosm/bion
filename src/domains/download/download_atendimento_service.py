@@ -245,7 +245,7 @@ def _lista(itens: List[str], e: Estilos) -> Paragraph:
     return Paragraph("<br/>".join("• " + esc(i) for i in itens), e.celula)
 
 
-def _itens_contexto(d: DadosAtendimento) -> Dict[str, List[str]]:
+def itens_contexto(d: DadosAtendimento) -> Dict[str, List[str]]:
     c = d.contexto
     alerg = []
     for a in c.alergias:
@@ -364,7 +364,7 @@ def story_atendimento_detalhado(d: DadosAtendimento, e: Estilos, t: Tema, com_ti
         corpo = [P("Nenhum sinal vital registrado neste atendimento.", e.mudo)]
     s += secao("Sinais vitais", corpo, e, t)
 
-    itens = _itens_contexto(d)
+    itens = itens_contexto(d)
     linhas = []
     for sec, rot in SECAO_BINARIO.items():
         b = d.binario[sec]
@@ -472,7 +472,7 @@ def story_atendimento_detalhado(d: DadosAtendimento, e: Estilos, t: Tema, com_ti
 # ============================================================================ RESUMO
 def bloco_historico_saude(d: DadosAtendimento, e: Estilos, t: Tema) -> Table:
     """Alergias, medicamentos, doenças crônicas e tipo sanguíneo em linguagem simples (resumos)."""
-    itens = _itens_contexto(d)
+    itens = itens_contexto(d)
     linhas = []
     for sec, rot, nega in (("alergias", "Alergias", "Nega alergias"),
                            ("medicamentos", "Medicamentos em uso", "Nega uso de medicamentos"),
