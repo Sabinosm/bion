@@ -7,7 +7,6 @@ from src.core.session import (
     get_id_usuario_sessao, get_funcao_clinica_sessao,
 )
 from src.domains.paciente.services import ObservacaoTipoSanguineoService
-from src.domains.auditoria.acaoSensivel import acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 
 bp = Blueprint("tipo_sanguineo", __name__)
@@ -53,7 +52,6 @@ class ObservacaoTipoSanguineoController():
     @staticmethod
     @bp_escrita.post(_ESC)
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="registrar tipo sanguineo", operacao="escrita")
     def registrar_tipo_sanguineo(uuid_atendimento, uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:

@@ -59,9 +59,9 @@ class LgpdController:
         dados = request.get_json(silent=True) or {}
         try:
             c = _svc.registrar(uuid_paciente, dados, get_id_usuario_sessao(), get_id_empresa_sessao())
-            return json_success(data=c.to_dict(), message="Consentimento registrado.", status=201)
+            return json_success(data=c.to_dict(), message="Consentimento registrado.", status=201), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
 
 
     @staticmethod
@@ -98,6 +98,6 @@ class LgpdController:
             c = _svc.dispensar_por_emergencia(
                 uuid_paciente, dados, get_id_usuario_sessao(), get_id_empresa_sessao()
             )
-            return json_success(data=c.to_dict(), message="Consentimento dispensado por emergência.", status=201)
+            return json_success(data=c.to_dict(), message="Consentimento dispensado por emergência.", status=201), {"uuid_paciente": uuid_paciente}
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}

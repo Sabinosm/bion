@@ -8,7 +8,7 @@ Dois blueprints (mesmo padrão da alergia):
   (registrar bp_escrita com url_prefix="/atendimentos").
 
 Auditoria:
-- leitura e escritas comuns -> @acesso_auditado (só registra o acesso).
+- leitura e escritas comuns -> sem log próprio (a tabela já guarda autor/atendimento).
 - remover/restaurar -> @acao_sensivel: step-up + LogAlteracao atômico com a
   alteração. Sob @acao_sensivel a view NÃO pode commitar (por isso
   commit=False no service) e precisa devolver (resposta, detalhes).
@@ -36,7 +36,7 @@ from src.core.session import (
 )
 from src.domains.paciente.services import MedicamentoEmUsoService
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
-from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado 
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 
 bp = Blueprint("medicamentos_em_uso", __name__)
 bp_escrita = Blueprint("medicamentos_em_uso_escrita", __name__)
@@ -78,7 +78,7 @@ class MedicamentosEmUsoController():
         apenas_ativos = request.args.get("ativos", "").lower() in ("1", "true", "sim")
         itens = _svc.listar_medicamentos_em_uso(
             uuid_paciente, get_id_empresa_sessao(), apenas_ativos=apenas_ativos)
-        return json_success(data=[m.to_dict() for m in itens]), {"uuid_paciente": uuid_paciente}
+        return json_success(data=[m.to_dict() for m in itens])
 
 
     @staticmethod
@@ -89,7 +89,7 @@ class MedicamentosEmUsoController():
         """Cruza os medicamentos ATIVOS do paciente com o catálogo de
         interações. Inclui `nao_verificados` e `cobertura`."""
         resultado = _svc.verificar_interacoes_do_paciente(uuid_paciente, get_id_empresa_sessao())
-        return json_success(data=resultado), {"uuid_paciente": uuid_paciente}
+        return json_success(data=resultado)
 
     # ------------------------- ESCRITA -------------------------
 
@@ -97,41 +97,38 @@ class MedicamentosEmUsoController():
     @bp_escrita.post(_BASE_ESCRITA)
     @_responder_erros_bion
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(_RECURSO, operacao="escrita")
     def registrar_medicamento_em_uso(uuid_atendimento, uuid_paciente):
         dados = request.get_json(silent=True) or {}
         m, alertas = _svc.registrar(uuid_atendimento, uuid_paciente, dados, _autor())
         return json_success(
             data={"medicamento": m.to_dict(), "alertas_interacao": alertas},
             message="Medicamento em uso registrado.", status=201,
-        ), {"uuid_paciente": uuid_paciente}
+        )
 
 
     @staticmethod
     @bp_escrita.post(_BASE_ESCRITA + "/<uuid_medicamento>/substituir")
     @_responder_erros_bion
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(_RECURSO, operacao="escrita")
     def substituir_medicamento_em_uso(uuid_atendimento, uuid_paciente, uuid_medicamento):
         """Mudança de dose/frequência: fecha o registro atual e cria o novo."""
         dados = request.get_json(silent=True) or {}
         novo = _svc.substituir(uuid_atendimento, uuid_paciente, uuid_medicamento, dados, _autor())
         return json_success(
             data=novo.to_dict(), message="Medicamento em uso substituído.", status=201,
-        ), {"uuid_paciente": uuid_paciente}
+        )
 
 
     @staticmethod
     @bp_escrita.post(_BASE_ESCRITA + "/<uuid_medicamento>/encerrar")
     @_responder_erros_bion
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(_RECURSO, operacao="escrita")
     def encerrar_medicamento_em_uso(uuid_atendimento, uuid_paciente, uuid_medicamento):
         dados = request.get_json(silent=True) or {}
         m = _svc.encerrar(uuid_atendimento, uuid_paciente, uuid_medicamento, dados, _autor())
         return json_success(
             data=m.to_dict(), message="Medicamento em uso encerrado."
-        ), {"uuid_paciente": uuid_paciente}
+        )
 
     # ------------------- ESCRITA SENSÍVEL (step-up) -------------------
 

@@ -23,7 +23,6 @@ from src.core.session import (
     requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
     get_funcao_clinica_sessao,
 )
-from src.domains.auditoria.acaoSensivel import acesso_auditado
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 from .service import DadosClinicosService
 from .execucao_atendimento_service import ExecucaoAtendimentoService

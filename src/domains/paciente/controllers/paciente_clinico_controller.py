@@ -208,7 +208,6 @@ class PacienteClinicoController():
     @staticmethod
     @bp.post("/<uuid>/tipo-sanguineo")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="registrar tipo sanguineo", operacao="escrita")
     def registrar_tipo_sanguineo(uuid):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):
@@ -226,6 +225,7 @@ class PacienteClinicoController():
     @staticmethod
     @bp.put("/<uuid>/tipo-sanguineo/<uuid_observacao>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(recurso="corrigir tipo sanguineo", operacao="escrita")
     def corrigir_tipo_sanguineo(uuid, uuid_observacao):
         dados = request.get_json(silent=True) or {}
         if not dados.get("tipo_sanguineo"):

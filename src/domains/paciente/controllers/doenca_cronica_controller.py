@@ -13,7 +13,7 @@ Quem pode escrever (dono do atendimento, enfermeiro só em triagem,
 atendimento em andamento, paciente sem óbito) é decidido pelo service
 (ContextoClinicoService); o controller só monta o AutorClinico a partir da
 sessão. `remover_doenca` é `acao_sensivel` (contrato (resposta, detalhes)
-com justificativa); as demais escritas usam `acesso_auditado`.
+com justificativa); as demais escritas não passam pelo log (autor e atendimento já ficam na tabela).
 
 Mudança de status/CID/desde NÃO é PUT: é POST .../<uuid>/revisar, que fecha
 a linha vigente e cria uma nova. O PUT só corrige `observacoes`.
@@ -27,7 +27,7 @@ from src.core.session import (
     requer_login, requer_papel_clinico, get_id_empresa_sessao,
     get_id_usuario_sessao, get_funcao_clinica_sessao,
 )
-from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 from src.domains.paciente.services import DoencaCronicaService
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 
@@ -76,7 +76,6 @@ class DoencaCronicaController():
     @staticmethod
     @bp_escrita.post(_ESC)
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="adicionar doenca cronica", operacao="escrita")
     def adicionar_doenca(uuid_atendimento, uuid_paciente):
         dados = request.get_json(silent=True) or {}
         try:
@@ -88,7 +87,6 @@ class DoencaCronicaController():
     @staticmethod
     @bp_escrita.put(_ESC + "/<uuid_doenca>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="atualizar doenca cronica", operacao="escrita")
     def atualizar_doenca(uuid_atendimento, uuid_paciente, uuid_doenca):
         """Só `observacoes`. Status/CID/desde: use /revisar."""
         dados = request.get_json(silent=True) or {}
@@ -101,7 +99,6 @@ class DoencaCronicaController():
     @staticmethod
     @bp_escrita.post(_ESC + "/<uuid_doenca>/revisar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="revisar doenca cronica", operacao="escrita")
     def revisar_doenca(uuid_atendimento, uuid_paciente, uuid_doenca):
         """Fecha a linha vigente e cria a nova; devolve a NOVA (201)."""
         dados = request.get_json(silent=True) or {}
@@ -136,7 +133,6 @@ class DoencaCronicaController():
     @staticmethod
     @bp_escrita.post(_ESC + "/<uuid_doenca>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="restaurar doenca cronica", operacao="escrita")
     def restaurar_doenca(uuid_atendimento, uuid_paciente, uuid_doenca):
         try:
             d = _svc.restaurar_doenca(uuid_atendimento, uuid_paciente, uuid_doenca, _autor())

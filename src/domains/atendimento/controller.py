@@ -43,10 +43,9 @@ class AtendimentoController():
         """Retorna os detalhes de um Atendimento pelo UUID, com o paciente e a continuidade (pode_continuar)."""
         try:
             dados = _svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=dados), {"uuid_paciente": (dados.get("paciente") or {}).get("uuid")}
+            return json_success(data=dados)
         except BionException as ex:
-            # @acesso_auditado não olha o status HTTP: NOOP evita logar o erro como leitura com sucesso
-            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_atendimento.get("/<uuid>/detalhe")
@@ -69,10 +68,10 @@ class AtendimentoController():
         """Linha do tempo da Consulta: os Atendimentos em ordem cronológica, cada um com `profissional`
         ({uuid, nome_completo, funcao_clinica})."""
         try:
-            itens, uuid_paciente = _svc.listar_resumo_por_consulta(uuid_consulta, get_id_empresa_sessao())
-            return json_success(data=itens), {"uuid_paciente": uuid_paciente}
+            itens, _ = _svc.listar_resumo_por_consulta(uuid_consulta, get_id_empresa_sessao())
+            return json_success(data=itens)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_atendimento.post("/consulta/<uuid_consulta>/abrir-triagem")

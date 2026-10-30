@@ -79,7 +79,7 @@ class ConsultasController():
             )
             return json_success(data=pagina)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _NOOP
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_consulta.get("/<uuid>")
@@ -89,9 +89,9 @@ class ConsultasController():
             dados = _svc.buscar_resumo(
                 uuid, get_id_empresa_sessao(), get_id_usuario_sessao(), get_funcao_clinica_sessao(),
             )
-            return json_success(data=dados), {"uuid_paciente": (dados.get("paciente") or {}).get("uuid")}
+            return json_success(data=dados)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _NOOP
+            return json_error(ex.message, ex.status_code)
         
 
     @staticmethod
@@ -100,9 +100,9 @@ class ConsultasController():
     def consultas_do_paciente_limitado(uuid_paciente):
         try:
             itens = _svc.listar_por_paciente(uuid_paciente, get_id_empresa_sessao(), True)
-            return json_success(data=[c.to_dict() for c in itens]), {"uuid_paciente": uuid_paciente}
+            return json_success(data=[c.to_dict() for c in itens])
         except BionException as ex:
-            return json_error(ex.message, ex.status_code), _NOOP
+            return json_error(ex.message, ex.status_code)
     
     
     @staticmethod

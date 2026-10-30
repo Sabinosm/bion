@@ -1,7 +1,7 @@
 """Rotas JSON da entidade ResultadoPrescricao: diagnóstico, desfecho clínico e ciclo do rascunho.
 
-Sem step-up (a prescrição acontece durante o atendimento). Auditoria por @acesso_auditado
-(ver ../auditoria_helpers.py). Só o médico dono escreve; a regra de "atendimento em andamento",
+Sem step-up (a prescrição acontece durante o atendimento). Só `confirmar` é auditado (@acesso_auditado, ver ../auditoria_helpers.py);
+os demais passos ficam rastreados na própria tabela (formulado_por, origem_sugestao, descartado_*). Só o médico dono escreve; a regra de "atendimento em andamento",
 "um rascunho por atendimento" e "alterou -> deixa de ser da IA" mora no service.
 
   POST   /atendimento/<uuid_atendimento>   cria o rascunho (modo manual)
@@ -19,7 +19,7 @@ from pydantic import ValidationError
 from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
 from src.core.session import (
-    requer_login, requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
+    requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
 )
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 from .resultado_prescricao_service import ResultadoPrescricaoService
@@ -45,12 +45,12 @@ class ResultadoPrescricaoController():
             d = ResultadoPrescricaoIn.model_validate(dados)
             r = _svc_resultado.registrar_resultado(
                 uuid_atendimento, d, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return (json_success(data=r.to_dict(), message="Resultado de prescrição registrado (rascunho).",
-                                 status=201), detalhes(r))
+            return json_success(data=r.to_dict(), message="Resultado de prescrição registrado (rascunho).",
+                                status=201)
         except ValidationError as ex:
-            return erro(json_error(formatar_erros_pydantic(ex), 422))
+            return json_error(formatar_erros_pydantic(ex), 422)
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_resultado_prescricao.get("/atendimento/<uuid_atendimento>")
@@ -61,20 +61,20 @@ class ResultadoPrescricaoController():
         try:
             itens = _svc_resultado.listar_do_atendimento(
                 uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=[r.to_dict() for r in itens]), (detalhes(itens[0]) if itens else {})
+            return json_success(data=[r.to_dict() for r in itens])
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_resultado_prescricao.get("/<uuid_resultado>")
-    @requer_login
+    @requer_papel_clinico("medico", "enfermeiro")
     def detalhe_resultado(uuid_resultado):
         """Retorna os detalhes de um ResultadoPrescricao (com itens) pelo UUID, só da própria empresa."""
         try:
             r = _svc_resultado.buscar_resultado_por_uuid(uuid_resultado, get_id_empresa_sessao())
-            return json_success(data=r.to_dict()), detalhes(r)
+            return json_success(data=r.to_dict())
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_resultado_prescricao.get("/<uuid_resultado>/alertas")
@@ -91,7 +91,6 @@ class ResultadoPrescricaoController():
     @staticmethod
     @bp_resultado_prescricao.patch("/<uuid_resultado>")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="alterar diagnóstico da prescrição", operacao="escrita")
     def atualizar_resultado(uuid_resultado):
         """Corrige o diagnóstico do rascunho (só os campos enviados). Se algo mudou, a prescrição
         passa a ser do médico (origem_sugestao='medico')."""
@@ -100,11 +99,11 @@ class ResultadoPrescricaoController():
             patch = ResultadoPrescricaoPatch.model_validate(dados)
             r = _svc_resultado.atualizar_diagnostico(
                 uuid_resultado, patch, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=r.to_dict(), message="Diagnóstico atualizado."), detalhes(r)
+            return json_success(data=r.to_dict(), message="Diagnóstico atualizado.")
         except ValidationError as ex:
-            return erro(json_error(formatar_erros_pydantic(ex), 422))
+            return json_error(formatar_erros_pydantic(ex), 422)
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return json_error(ex.message, ex.status_code)
 
     @staticmethod
     @bp_resultado_prescricao.post("/<uuid_resultado>/confirmar")
@@ -129,7 +128,6 @@ class ResultadoPrescricaoController():
     @staticmethod
     @bp_resultado_prescricao.post("/<uuid_resultado>/descartar")
     @requer_papel_clinico("medico")
-    @acesso_auditado(recurso="descartar prescrição", operacao="exclusao-logica")
     def descartar_resultado(uuid_resultado):
         """Descarta o rascunho (lógico: nada é apagado). Corpo opcional: {"motivo": "..."}."""
         dados = request.get_json(silent=True) or {}
@@ -137,8 +135,8 @@ class ResultadoPrescricaoController():
             corpo = DescartarPrescricaoIn.model_validate(dados)
             r = _svc_resultado.descartar(
                 uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao(), corpo.motivo)
-            return json_success(data=r.to_dict(), message="Prescrição descartada."), detalhes(r)
+            return json_success(data=r.to_dict(), message="Prescrição descartada.")
         except ValidationError as ex:
-            return erro(json_error(formatar_erros_pydantic(ex), 422))
+            return json_error(formatar_erros_pydantic(ex), 422)
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return json_error(ex.message, ex.status_code)

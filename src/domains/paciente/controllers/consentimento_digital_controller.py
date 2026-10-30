@@ -19,12 +19,12 @@ Dados do usuário logado: get_id_usuario_sessao(), get_id_empresa_sessao().
 O front é responsável por renderizar o PDF, detectar scroll, capturar o canvas
 e enviar tudo como JSON.
 
-Auditoria: as rotas protegidas usam acesso_auditado. As públicas NÃO têm
+Auditoria: nas protegidas, só o comprovante e o PDF assinado usam acesso_auditado (gerar e
+cancelar link ficam na própria sessão de assinatura). As públicas NÃO têm
 usuário logado; a trilha delas é a própria sessão (IP, user-agent, horário)
 e o consentimento criado.
 """
 
-import os
 from io import BytesIO
 
 from flask import Blueprint, request, send_file
@@ -37,26 +37,10 @@ from src.core.session import (
     get_id_empresa_sessao,
 )
 from src.domains.paciente.services import ConsentimentoDigitalService
-from src.domains.auditoria.acaoSensivel import acesso_auditado
+from src.domains.auditoria.acaoSensivel import acesso_auditado, ip_cliente as _ip_cliente
 
 bp = Blueprint("paciente_lgpd_digital", __name__)
 _svc = ConsentimentoDigitalService()
-
-
-def _ip_cliente() -> str:
-    """IP do cliente sem confiar cegamente no X-Forwarded-For.
-
-    TRUSTED_PROXY_HOPS = quantos proxies SEUS ficam na frente do Flask
-    (0 = nenhum: usa o remote_addr; 1 = nginx/ALB: pega o último IP da
-    cadeia, que foi o proxy que anexou). O cliente pode forjar o começo
-    da cadeia, mas não o trecho que o seu proxy anexa."""
-    hops = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
-    xff = request.headers.get("X-Forwarded-For", "")
-    if hops > 0 and xff:
-        partes = [p.strip() for p in xff.split(",") if p.strip()]
-        if len(partes) >= hops:
-            return partes[-hops]
-    return request.remote_addr
 
 
 # ============================================================================
@@ -135,7 +119,6 @@ def registrar_assinatura(token: str):
 
 @bp.post("/<uuid_paciente>/gerar-link-assinatura")
 @requer_papel_clinico("medico", "enfermeiro")
-@acesso_auditado(recurso="gerar link de assinatura de consentimento", operacao="escrita")
 def gerar_link(uuid_paciente: str):
     """
     Body JSON:  { "versao_termo": "lgpd-v1.0-2026" }
@@ -168,7 +151,6 @@ def status_assinatura(token: str):
 
 @bp.post("/assinatura/<token>/cancelar")
 @requer_papel_clinico("medico", "enfermeiro")
-@acesso_auditado(recurso="cancelar link de assinatura de consentimento", operacao="escrita")
 def cancelar_link(token: str):
     try:
         return json_success(data=_svc.cancelar_link(token, get_id_empresa_sessao()), message="Link cancelado.")
@@ -183,12 +165,12 @@ def obter_comprovante(uuid_consentimento: str):
     try:
         return json_success(data=_svc.obter_comprovante(uuid_consentimento, get_id_empresa_sessao()))
     except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+        return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
 
 
 @bp.get("/download-pdf/<uuid_consentimento>")
 @requer_papel_clinico("medico", "enfermeiro")
-@acesso_auditado(recurso="pdf assinado de consentimento", operacao="leitura")
+@acesso_auditado(recurso="pdf assinado de consentimento", operacao="exportacao")
 def download_pdf(uuid_consentimento: str):
     """PDF assinado. Recebe o UUID do consentimento (nunca um caminho): o service
     confere a empresa e REFAZ o PDF em memória a partir do banco (nada fica em disco).
@@ -197,7 +179,7 @@ def download_pdf(uuid_consentimento: str):
     try:
         pdf, confere = _svc.obter_pdf_assinado(uuid_consentimento, get_id_empresa_sessao())
     except BionException as ex:
-        return json_error(ex.message, ex.status_code)
+        return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
     resp = send_file(
         BytesIO(pdf),
         mimetype="application/pdf",

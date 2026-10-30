@@ -1,5 +1,3 @@
-
-
 from flask import Blueprint, request
 
 from src.core.responses import json_success, json_error
@@ -9,7 +7,7 @@ from src.core.session import (
     get_id_usuario_sessao, get_funcao_clinica_sessao,
 )
 from src.domains.paciente.services import AlergiaService, ReacaoAlergiaService
-from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
+from src.domains.auditoria.acaoSensivel import acao_sensivel
 from src.domains.atendimento.contexto_clinico_service import AutorClinico
 
 bp = Blueprint("alergia", __name__)
@@ -56,7 +54,6 @@ class AlergiaController():
     @staticmethod
     @bp_escrita.put(_ESC + "/<uuid_alergia>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="atualizar alergia", operacao="escrita")
     def atualizar_alergia(uuid_atendimento, uuid_paciente, uuid_alergia):
         dados = request.get_json(silent=True) or {}
         try:
@@ -102,7 +99,6 @@ class AlergiaController():
     @staticmethod
     @bp_escrita.post(_ESC + "/<uuid_alergia>/restaurar")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="restaurar alergia", operacao="escrita")
     def restaurar_alergia(uuid_atendimento, uuid_paciente, uuid_alergia):
         try:
             a = _svc.restaurar_alergia(uuid_atendimento, uuid_paciente, uuid_alergia, _autor())
@@ -113,7 +109,6 @@ class AlergiaController():
     @staticmethod
     @bp_escrita.delete(_ESC + "/reacoes/<uuid_reacao>")
     @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="remover reacao", operacao="exclusao-logica")
     def remover_reacao(uuid_atendimento, uuid_paciente, uuid_reacao):
         dados = request.get_json(silent=True) or {}
         try:
