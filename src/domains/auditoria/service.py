@@ -23,14 +23,19 @@ Princípios do módulo:
 - Período: as consultas por data trabalham com janela máxima de 7 dias. Se
   só uma das pontas for informada, a outra é completada para fechar a janela;
   sem nenhuma, vale a janela dos últimos 7 dias.
+- Deduplicação: leitura com sucesso do mesmo usuário, recurso e paciente dentro de
+  JANELA_DEDUP_LEITURA_MIN (20 min) gera uma linha só. Escrita, exportação e negação
+  nunca são deduplicadas.
 - Ação: o campo `acao` é texto livre por enquanto, pois o vocabulário ainda
   está sendo definido a cada uso dos decorators.
 """
 
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 
 from src.core.exceptions import PermissaoNegadaError, DadosInvalidosError
+from src.models import db
 from .repository import (
     LogAcessoRepository, LogAlteracaoRepository, AuditoriaResumoRepository,
     PER_PAGE_PADRAO, CURSOR_LIMIT_PADRAO,
@@ -38,6 +43,9 @@ from .repository import (
 
 # Janela máxima de consulta, alinhada ao limite de 7 dias da tela.
 JANELA_MAXIMA_DIAS = 7
+
+# Janela de deduplicação de leituras (minutos). 0 desliga. Configurável por ambiente.
+JANELA_DEDUP_LEITURA_MIN = int(os.getenv("AUDITORIA_JANELA_DEDUP_MIN", "20"))
 
 
 class AuditoriaService:
@@ -59,8 +67,14 @@ class AuditoriaService:
         `id_usuario` é o id interno, vindo da sessão autenticada.
         `resultado` deve ser um valor válido do Enum de LogAcesso.resultado
         (sucesso, falha-autenticacao, acesso-negado, timeout).
+
+        Leitura com sucesso repetida dentro da janela de deduplicação não grava nada
+        e devolve None.
         """
         from src.models.auditoria.log_acesso import LogAcesso
+        if operacao == "leitura" and resultado == "sucesso" and self._leitura_recente(
+                LogAcesso, id_empresa, id_usuario, recurso, uuid_paciente):
+            return None
         log = LogAcesso(
             id_empresa=id_empresa,
             id_usuario=id_usuario,
@@ -270,6 +284,28 @@ class AuditoriaService:
     # ------------------------------------------------------------------
     # Internos
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _leitura_recente(LogAcesso, id_empresa, id_usuario, recurso, uuid_paciente) -> bool:
+        """True se já existe log de leitura bem-sucedida igual dentro da janela de deduplicação."""
+        if JANELA_DEDUP_LEITURA_MIN <= 0:
+            return False
+        limite = datetime.now(timezone.utc) - timedelta(minutes=JANELA_DEDUP_LEITURA_MIN)
+        existente = (
+            db.session.query(LogAcesso.data_hora)
+            .filter(
+                LogAcesso.id_empresa == id_empresa,
+                LogAcesso.id_usuario == id_usuario,
+                LogAcesso.recurso_acessado == recurso,
+                LogAcesso.operacao == "leitura",
+                LogAcesso.resultado == "sucesso",
+                LogAcesso.uuid_paciente == uuid_paciente,
+                LogAcesso.data_hora >= limite,
+            )
+            .limit(1)
+            .first()
+        )
+        return existente is not None
 
     @staticmethod
     def _resolver_periodo(data_inicio: Optional[datetime],
