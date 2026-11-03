@@ -111,9 +111,9 @@ class AvaliacaoBionService:
         return False
 
     def _config_usuario(self, id_usuario: int) -> dict | None:
-        
+
         try:
-            return self.d.configuracoes.buscar_por_usuario(id_usuario).to_dict()
+            return self.d.configuracoes.buscar_por_usuario(id_usuario=id_usuario).to_dict()
         except RecursoNaoEncontradoError:
             return None          # sem configuracao: idioma padrao
 
