@@ -1,12 +1,8 @@
-"""Validacao da resposta: estrutura (Pydantic) + referencias ao que a IA recebeu.
+"""validacao.py
 
-`interpretar` e o ponto de entrada: recebe a resposta crua da IA e devolve
-ok/erros. Os erros ficam em texto, prontos para devolver a IA numa nova tentativa.
-Nao registra o conteudo da resposta em log (pode conter dado do paciente).
+Validacao da resposta da IA em duas camadas: estrutura (Pydantic) e referencias ao que a IA recebeu (blocos, uuids de medicamentos e exames). Os erros saem em texto, prontos para devolver a IA numa nova tentativa; o conteudo da resposta nao e logado, pois pode conter dado do paciente.
 
-Por que checar os uuids AQUI: registrar_proposta grava tudo numa transacao e
-desfaz tudo se UM uuid nao existir. Um uuid copiado errado pela IA derrubaria a
-proposta inteira; aqui vira um erro corrigivel numa nova tentativa.
+Os uuids sao checados aqui porque a gravacao da proposta e transacional e desfaz tudo se um uuid nao existir: um uuid copiado errado derrubaria a proposta inteira; aqui vira erro corrigivel.
 """
 from __future__ import annotations
 
@@ -66,8 +62,8 @@ def validar_contra_input(output: OutputIA, nomes_blocos: Iterable[str], *,
     """Confere que o output so cita o que a IA recebeu.
 
     - blocos: nomes que existem no input (InputModel.nomes()).
-    - medicamentos_validos / exames_validos: uuids (em minuscula) que foram
-      mostrados a IA nesta chamada. Qualquer colecao com `in` serve (set, objeto
+    - medicamentos_validos / exames_validos: uuids que foram mostrados a IA
+      nesta chamada (no mesmo formato de UuidStr). Qualquer colecao com `in` serve (set, objeto
       com __contains__). None = nao checa.
     """
     nomes = set(nomes_blocos)

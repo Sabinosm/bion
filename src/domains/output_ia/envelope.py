@@ -1,14 +1,8 @@
-"""Parte do output que o SISTEMA preenche (a IA nao): snapshot do envio e
-metadados da resposta. Devolve dicts com nomes de coluna de OutputBion, sem
-depender de SQLAlchemy.
+"""envelope.py
 
-Ciclo de OutputBion (uma linha por envio, criada ANTES da chamada):
-    1. colunas_envio(input_model)  -> cria a linha com status="processando"
-    2. a IA responde (avaliacao_bion) e interpretar(...) valida
-    3. se ok: colunas_resposta(output, versao) + colunas_requisicoes(...) -> status="concluido"
-       se nao: status="falhou" + erro_codigo (output_ia_json fica NULL)
+Parte do output que o SISTEMA preenche (a IA nao): snapshot do envio e metadados da resposta, como dicts com nomes de coluna de OutputBion, sem depender de SQLAlchemy.
 
-A gravacao das linhas de prescricao NAO esta aqui: e do PrescricaoIAService.
+Ciclo de OutputBion (uma linha por envio, criada antes da chamada): o envio nasce com status 'processando' e o snapshot do input; se a resposta for valida, recebe a resposta e as requisicoes e vira 'concluido'; se nao, vira 'falhou' com erro_codigo e output_ia_json fica NULL. A gravacao das linhas de prescricao e do PrescricaoIAService.
 """
 from __future__ import annotations
 

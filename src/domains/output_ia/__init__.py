@@ -1,6 +1,9 @@
-"""Output da IA: a casca que ela preenche (schema = proposta existente + extras),
+"""__init__.py
+
+Output da IA: a casca que ela preenche (schema = proposta existente + extras),
 a validacao da resposta, o que o sistema acrescenta (envelope, requisicoes) e
-o que vai ao front (output_front)."""
+o que vai ao front (output_front).
+"""
 from .envelope import colunas_envio, colunas_resposta
 from .output_front import montar_output_front
 from .requisicoes import RequisicaoIA, colunas_requisicoes

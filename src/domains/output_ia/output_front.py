@@ -1,4 +1,6 @@
-"""output_front: dados formatados para o front exibir.
+"""output_front.py
+
+output_front: dados formatados para o front exibir.
 
 Junta o que a IA disse (OutputIA) com o que o sistema gravou
 (ResultadoPrescricao.to_dict()) e com a qualidade do input (indices).
@@ -13,6 +15,8 @@ from .schema import OutputIA
 def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
                         indices: dict | None = None, lacunas: list[str] | None = None,
                         substituida: bool = False) -> dict:
+    """Dict final para o front. Levanta ValueError se a proposta tem itens e o resultado gravado nao foi informado
+    (exceto quando `substituida`)."""
     p = output.proposta
     if (p.medicamentos or p.exames) and resultado is None and not substituida:
         raise ValueError("proposta com itens exige o resultado gravado (ResultadoPrescricao.to_dict()).")

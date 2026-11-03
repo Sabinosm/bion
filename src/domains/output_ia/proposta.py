@@ -1,11 +1,6 @@
-"""Unico ponto que conhece o schema da proposta que o projeto JA tem.
+"""proposta.py
 
-PropostaPrescricaoIA e o formato exigido da resposta da IA para a conduta:
-resultado (CID + certeza + tipo), medicamentos e exames, todos por uuid do
-catalogo. Este pacote NAO o redefine: embrulha.
-
->>> AJUSTE O IMPORT ABAIXO para o caminho real do seu schema_prescricoes
->>> (ex.: from src.domains.prescricao.schema_prescricoes import PropostaPrescricaoIA).
+Ponto unico que conhece o schema da proposta de prescricao que o projeto ja tem. PropostaPrescricaoIA e o formato exigido da resposta da IA para a conduta (resultado com CID e certeza, medicamentos e exames, todos por uuid do catalogo). Este pacote nao o redefine: apenas o reexporta.
 """
 from src.domains.prescricao.schema_prescricoes import PropostaPrescricaoIA, UuidStr
 

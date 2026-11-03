@@ -1,4 +1,6 @@
-"""Casca do output: o que a IA preenche.
+"""schema.py
+
+Casca do output: o que a IA preenche.
 
 `OutputIA` = a PropostaPrescricaoIA que o projeto ja tem (conduta, por uuid do
 catalogo) + o que a proposta nao cobre: se precisa de mais informacao, as

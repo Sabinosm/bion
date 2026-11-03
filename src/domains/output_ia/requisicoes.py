@@ -1,4 +1,6 @@
-"""Auditoria das requisicoes que a IA fez ao sistema (pool de metodos).
+"""requisicoes.py
+
+Auditoria das requisicoes que a IA fez ao sistema (pool de metodos).
 
 Vai na coluna JSON `requisicoes_ia_json` de OutputBion, uma lista com uma
 entrada por requisicao. Texto longo (ex.: MedlinePlus) NAO entra: so o id e o
