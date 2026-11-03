@@ -10,13 +10,19 @@ próprio registro (origem, descarte). Invariantes:
 
 - só o médico dono do atendimento escreve, e só com o atendimento EM ANDAMENTO
   (descartar um rascunho antigo é a única escrita permitida fora de "em-andamento");
-- no máximo um rascunho por atendimento para o fluxo do médico; a IA só coexiste
+- no máximo um rascunho por atendimento para o fluxo do médico (garantido com o atendimento
+  TRAVADO na criação, para duas requisições simultâneas não criarem dois); a IA só coexiste
   com rascunhos da própria IA (trocados logo depois) e nunca com rascunho do médico;
 - qualquer alteração do médico (diagnóstico, item, adição, remoção) passa a origem
   do resultado para "medico", e a IA deixa de poder trocá-lo.
 
+Toda alteração de um resultado existente (itens, diagnóstico, confirmação) trava a
+linha do resultado até o commit, para duas requisições simultâneas não se
+atropelarem (por exemplo, o mesmo medicamento adicionado duas vezes).
+
 Confirmar exige ao menos um medicamento se a prescrição é farmacológica e, se
-houver alertas de interação, o reconhecimento explícito do médico. A origem do
+houver alertas de interação (entre os itens e com os medicamentos que o paciente já
+usa), o reconhecimento explícito do médico. A origem do
 RESULTADO (quem responde pelo conteúdo agora) não se confunde com a origem de
 cada item.
 """
@@ -83,43 +89,59 @@ class ResultadoPrescricaoService:
         409 (atendimento fora de 'em-andamento'; já há rascunho; ou, no fluxo da IA, há rascunho do médico).
         """
         atendimento = self._atendimento_do_medico(uuid_atendimento, id_empresa, id_usuario)
-        self._exigir_em_andamento(atendimento)
+        # Trava o atendimento antes de olhar status e rascunhos: duas requisições simultâneas não
+        # passam juntas pela checagem de "um rascunho por atendimento". A trava cai no commit.
+        self.atendimento_repo.travar(atendimento)
+        try:
+            self._exigir_em_andamento(atendimento)
 
-        rascunhos = [r for r in atendimento.resultados_prescricao if r.status == "rascunho"]
-        if id_output is None and rascunhos:
-            raise ConflictoError(
-                "Já existe uma prescrição em rascunho neste atendimento: edite-a, confirme-a ou descarte-a "
-                "antes de criar outra."
-            )
-        if id_output is not None and any(r.origem_sugestao != ORIGEM_IA for r in rascunhos):
-            raise ConflictoError(
-                "Há uma prescrição em rascunho do médico neste atendimento: confirme-a ou descarte-a "
-                "antes de receber a proposta da IA."
-            )
+            rascunhos = [r for r in atendimento.resultados_prescricao if r.status == "rascunho"]
+            if id_output is None and rascunhos:
+                raise ConflictoError(
+                    "Já existe uma prescrição em rascunho neste atendimento: edite-a, confirme-a ou descarte-a "
+                    "antes de criar outra."
+                )
+            if id_output is not None and any(r.origem_sugestao != ORIGEM_IA for r in rascunhos):
+                raise ConflictoError(
+                    "Há uma prescrição em rascunho do médico neste atendimento: confirme-a ou descarte-a "
+                    "antes de receber a proposta da IA."
+                )
 
-        r = ResultadoPrescricao(
-            id_atendimento=atendimento.id,
-            id_output=id_output,
-            formulado_por=id_usuario,
-            status="rascunho",
-            origem_sugestao=ORIGEM_IA if id_output is not None else ORIGEM_MEDICO,
-            **dados.model_dump(),
-        )
-        return self.resultado_repo.save(r, commit=commit)
+            r = ResultadoPrescricao(
+                id_atendimento=atendimento.id,
+                id_output=id_output,
+                formulado_por=id_usuario,
+                status="rascunho",
+                origem_sugestao=ORIGEM_IA if id_output is not None else ORIGEM_MEDICO,
+                **dados.model_dump(),
+            )
+            return self.resultado_repo.save(r, commit=commit)
+        except Exception:
+            self.resultado_repo.rollback()
+            raise
 
     def obter_rascunho_editavel(self, uuid_resultado: str, id_empresa: int, id_usuario: int):
         """Resultado da empresa, ainda em rascunho, do próprio formulador e de atendimento em andamento.
-        Usado antes de qualquer alteração (diagnóstico, itens) e na confirmação."""
+        Usado antes de qualquer alteração (diagnóstico, itens) e na confirmação.
+
+        A linha do resultado fica TRAVADA até o commit de quem chama, e o status é conferido depois
+        da trava (dados frescos): assim, duas alterações simultâneas do mesmo resultado se serializam.
+        """
         r = self.resultado_repo.find_by_uuid_da_empresa(uuid_resultado, id_empresa)
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
-        if r.formulado_por != id_usuario:
-            raise PermissaoNegadaError("Apenas o médico responsável pode alterar esta prescrição.")
-        if r.status == "confirmado":
-            raise ConflictoError("Prescrição já confirmada; não pode mais ser alterada.")
-        if r.status == "descartado":
-            raise ConflictoError("Prescrição descartada; não pode mais ser alterada.")
-        self._exigir_em_andamento(r.atendimento)
+        self.resultado_repo.travar(r)
+        try:
+            if r.formulado_por != id_usuario:
+                raise PermissaoNegadaError("Apenas o médico responsável pode alterar esta prescrição.")
+            if r.status == "confirmado":
+                raise ConflictoError("Prescrição já confirmada; não pode mais ser alterada.")
+            if r.status == "descartado":
+                raise ConflictoError("Prescrição descartada; não pode mais ser alterada.")
+            self._exigir_em_andamento(r.atendimento)
+        except Exception:
+            self.resultado_repo.rollback()  # libera a trava
+            raise
         return r
 
     def atualizar_diagnostico(self, uuid_resultado: str, dados: ResultadoPrescricaoPatch,
@@ -156,13 +178,16 @@ class ResultadoPrescricaoService:
                   reconhecer_alertas: bool = False):
         """O médico passa a responder pela prescrição (rascunho -> confirmado).
 
-        Se houver alertas de interação, a confirmação exige reconhecimento explícito
-        (reconhecer_alertas=True). Retorna (resultado, verificacao)."""
+        Se houver alertas de interação (entre os itens ou com os medicamentos que o paciente já
+        usa), a confirmação exige reconhecimento explícito (reconhecer_alertas=True).
+        Retorna (resultado, verificacao)."""
         r = self.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         if r.tipo_prescricao == "farmacologica" and not r.prescricoes:
             raise ConflictoError("Prescrição farmacológica exige ao menos um medicamento.")
 
-        verificacao = self.validacao_svc.verificar_interacoes(self._ids_medicamentos(r))
+        verificacao = self.validacao_svc.verificar_interacoes(
+            self._ids_medicamentos(r), self.validacao_svc.ids_em_uso(r, id_empresa)
+        )
         if verificacao["alertas"] and not reconhecer_alertas:
             raise ConflictoError(
                 f"{len(verificacao['alertas'])} alerta(s) de interação medicamentosa. "
@@ -190,9 +215,12 @@ class ResultadoPrescricaoService:
         return r
 
     def verificar_alertas(self, uuid_resultado: str, id_empresa: int) -> dict:
-        """Interações do conjunto atual de medicamentos do resultado."""
+        """Interações do conjunto atual de medicamentos do resultado, entre si e com os medicamentos
+        que o paciente já usa."""
         r = self.buscar_resultado_por_uuid(uuid_resultado, id_empresa)
-        return self.validacao_svc.verificar_interacoes(self._ids_medicamentos(r))
+        return self.validacao_svc.verificar_interacoes(
+            self._ids_medicamentos(r), self.validacao_svc.ids_em_uso(r, id_empresa)
+        )
 
     @staticmethod
     def _ids_medicamentos(resultado) -> set[int]:

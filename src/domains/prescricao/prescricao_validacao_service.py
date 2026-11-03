@@ -2,8 +2,9 @@
 
 Checagens determinísticas da prescrição contra o catálogo de medicamentos.
 
-Hoje cobre INTERAÇÕES medicamentosas. NÃO bloqueia nada: devolve alertas e a
-cobertura da base, e quem decide é o médico. O catálogo só conhece as interações
+Hoje cobre INTERAÇÕES medicamentosas, entre os itens prescritos e entre estes e os
+medicamentos que o paciente já usa (registros ativos). NÃO bloqueia nada: devolve
+alertas e a cobertura da base, e quem decide é o médico. O catálogo só conhece as interações
 cadastradas (a fonte atual não traz gravidade), então lista vazia nunca deve ser
 apresentada como "sem interação".
 
@@ -12,8 +13,10 @@ fechado sem ligação com o quadro do paciente, e o cruzamento depende de um map
 entre as condições do paciente e esse vocabulário (a definir).
 """
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Set
 
+from src.core.exceptions import RecursoNaoEncontradoError
+from src.domains.paciente.services.medicamento_em_uso_service import MedicamentoEmUsoService
 from src.domains.medicamentos.interacoes.interacoes_medicamento_repository import (
     InteracoesMedicamentosRepository,
 )
@@ -28,6 +31,22 @@ AVISO_LISTA_VAZIA = (
 class PrescricaoValidacaoService:
     def __init__(self):
         self.repo_interacoes = InteracoesMedicamentosRepository()
+        self.medicamento_em_uso_svc = MedicamentoEmUsoService()
+
+    def ids_em_uso(self, resultado, id_empresa: int) -> Set[int]:
+        """Ids de CatalogoMedicamentos dos medicamentos ATIVOS que o paciente do atendimento já usa.
+
+        Conjunto vazio quando o paciente não usa nenhum (a consulta foi feita, só não achou nada);
+        é isso que faz a cobertura declarar o escopo `medicamentos_em_uso`.
+        """
+        uuid_paciente = resultado.atendimento.consulta.paciente.uuid
+        try:
+            em_uso = self.medicamento_em_uso_svc.listar_medicamentos_em_uso(
+                uuid_paciente, id_empresa, apenas_ativos=True
+            )
+        except RecursoNaoEncontradoError:
+            return set()
+        return {m.catalogo_medicamentos.id for m in em_uso if m.catalogo_medicamentos}
 
     def verificar_interacoes(self, ids_prescritos: Iterable[int],
                              ids_em_uso: Optional[Iterable[int]] = None) -> dict:

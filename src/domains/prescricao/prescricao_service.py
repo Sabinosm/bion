@@ -38,7 +38,8 @@ class PrescricaoService:
         deixa de ser 'da IA' (mesma transação).
 
         Retorna (prescricao, verificacao): verificacao = {"alertas", "cobertura"} com as
-        interações do conjunto atual de medicamentos do rascunho.
+        interações do conjunto atual de medicamentos do rascunho, entre si e com os
+        medicamentos que o paciente já usa.
 
         Raises:
             RecursoNaoEncontradoError / PermissaoNegadaError / ConflictoError: do rascunho editável.
@@ -54,7 +55,8 @@ class PrescricaoService:
             self.prescricao_repo.rollback()
             raise
         verificacao = self.validacao_svc.verificar_interacoes(
-            self.prescricao_repo.ids_catalogo_do_resultado(resultado.id)
+            self.prescricao_repo.ids_catalogo_do_resultado(resultado.id),
+            self.validacao_svc.ids_em_uso(resultado, id_empresa),
         )
         return p, verificacao
 

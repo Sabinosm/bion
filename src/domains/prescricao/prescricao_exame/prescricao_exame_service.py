@@ -12,7 +12,7 @@ de exames ainda está por planejar, então a busca assume o mesmo padrão dos
 outros catálogos (coluna `uuid`).
 """
 
-from src.core.exceptions import RecursoNaoEncontradoError
+from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
 from src.models.clinico import PrescricaoExame
 from .prescricao_exame_repository import PrescricaoExameRepository
 from ..resultado_prescricao.resultado_prescricao_service import ResultadoPrescricaoService
@@ -34,6 +34,7 @@ class PrescricaoExameService:
         Raises:
             RecursoNaoEncontradoError / PermissaoNegadaError / ConflictoError: do rascunho editável.
             RecursoNaoEncontradoError: exame fora do catálogo.
+            ConflictoError: exame já consta nesta prescrição.
         """
         resultado = self.resultado_svc.obter_rascunho_editavel(uuid_resultado, id_empresa, id_usuario)
         try:
@@ -100,10 +101,13 @@ class PrescricaoExameService:
 
         Raises:
             RecursoNaoEncontradoError: exame fora do catálogo.
+            ConflictoError: exame já consta nesta prescrição.
         """
         catalogo = self.repo.find_catalogo_por_uuid(item.uuid_exame)
         if not catalogo:
             raise RecursoNaoEncontradoError(f"Exame não encontrado no catálogo: {item.uuid_exame}")
+        if catalogo.id in self.repo.ids_exame_do_resultado(resultado.id):
+            raise ConflictoError("Este exame já consta nesta prescrição.")
 
         pe = PrescricaoExame(
             id_resultado=resultado.id,

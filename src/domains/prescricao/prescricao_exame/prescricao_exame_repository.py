@@ -44,6 +44,15 @@ class PrescricaoExameRepository(IRepository[PrescricaoExame]):
         """Item só é encontrado se pertencer ao resultado informado."""
         return PrescricaoExame.query.filter_by(uuid=uuid, id_resultado=id_resultado).first()
 
+    def ids_exame_do_resultado(self, id_resultado: int) -> set:
+        """Ids do catálogo de exames já prescritos no resultado (base da checagem de repetição)."""
+        linhas = (
+            db.session.query(PrescricaoExame.id_exame)
+            .filter(PrescricaoExame.id_resultado == id_resultado)
+            .all()
+        )
+        return {linha[0] for linha in linhas if linha[0] is not None}
+
     def find_catalogo_por_uuid(self, uuid: str):
         """Exame do catálogo pelo UUID público (o catálogo é global, sem filtro de empresa). Quando
         existir um repositório do catálogo de exames, esta busca passa a viver nele."""

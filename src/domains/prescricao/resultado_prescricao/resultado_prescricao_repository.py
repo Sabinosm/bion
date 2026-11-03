@@ -35,6 +35,12 @@ class ResultadoPrescricaoRepository(IRepository[ResultadoPrescricao]):
     def rollback(self) -> None:
         db.session.rollback()
 
+    def travar(self, resultado: ResultadoPrescricao) -> ResultadoPrescricao:
+        """Relê a linha com SELECT ... FOR UPDATE (a trava vale até commit/rollback). Serializa as
+        alterações do mesmo resultado (itens, diagnóstico, confirmação) e devolve os dados frescos."""
+        db.session.refresh(resultado, with_for_update=True)
+        return resultado
+
     # ---------------------------------------------------------------- leitura
     def find_by_id(self, id: int) -> Optional[ResultadoPrescricao]:
         return db.session.get(ResultadoPrescricao, id)
