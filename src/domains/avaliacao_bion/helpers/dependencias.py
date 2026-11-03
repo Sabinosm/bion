@@ -49,6 +49,6 @@ def padrao(cliente: ClienteIA | None = None) -> Dependencias:
     if cliente is None:
         from src.domains.protocolos_ia.infrastructure.llm.cliente_avaliacao_bion import ClienteIAConfiguravel
         cliente = ClienteIAConfiguravel()
-    return Dependencias(AtendimentoService(), ConsultaService(), cfg_svc, PrescricaoIAService(),
+    return Dependencias(AtendimentoService(), ConsultaService(), cfg_svc(), PrescricaoIAService(),
                         OutputBionRepository(), ResultadoRascunhoRepository(), criar_pool,
                         cliente, InputProtocoloRepository())
