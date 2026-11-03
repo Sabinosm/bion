@@ -1,4 +1,7 @@
-"""Bloco 'queixa': queixa principal e AVPU."""
+"""queixa.py
+
+Bloco 'queixa': queixa principal e AVPU.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco

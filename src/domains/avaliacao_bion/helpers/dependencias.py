@@ -42,13 +42,18 @@ def criar_pool(tarefa: Tarefa) -> Pool:
 def padrao(cliente: ClienteIA | None = None) -> Dependencias:
     from src.domains.atendimento.service import AtendimentoService                 
     from src.domains.consulta.service import ConsultaService
-    from src.domains.configuracao.service import ConfiguracaoService as cfg_svc
+    from src.domains.configuracao.service import ConfiguracaoService
     from src.domains.prescricao.prescricao_ia_service import PrescricaoIAService
     from ..repository import OutputBionRepository, ResultadoRascunhoRepository
     from src.domains.dados_clinicos.repository import InputProtocoloRepository
     if cliente is None:
-        from src.domains.protocolos_ia.infrastructure.llm.cliente_avaliacao_bion import ClienteIAConfiguravel
-        cliente = ClienteIAConfiguravel()
-    return Dependencias(AtendimentoService(), ConsultaService(), cfg_svc(), PrescricaoIAService(),
+        import os
+        if os.environ.get("BION_IA_PROVEDOR"):
+            from .fabrica import cliente_do_ambiente
+            cliente = cliente_do_ambiente()
+        else:
+            from src.domains.protocolos_ia.infrastructure.llm.cliente_avaliacao_bion import ClienteIAConfiguravel
+            cliente = ClienteIAConfiguravel()
+    return Dependencias(AtendimentoService(), ConsultaService(), ConfiguracaoService(), PrescricaoIAService(),
                         OutputBionRepository(), ResultadoRascunhoRepository(), criar_pool,
                         cliente, InputProtocoloRepository())

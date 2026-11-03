@@ -1,4 +1,7 @@
-"""Bloco 'sinais_vitais': ultima medicao valida de cada tipo no atendimento atual."""
+"""sinais_vitais.py
+
+Bloco 'sinais_vitais': ultima medicao valida de cada tipo no atendimento atual.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, Sinal

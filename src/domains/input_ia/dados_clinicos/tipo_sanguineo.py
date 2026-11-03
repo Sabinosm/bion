@@ -1,4 +1,7 @@
-"""Bloco 'tipo_sanguineo': tipo sanguineo mais recente."""
+"""tipo_sanguineo.py
+
+Bloco 'tipo_sanguineo': tipo sanguineo mais recente.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, bloco_lista

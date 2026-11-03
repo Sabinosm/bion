@@ -1,4 +1,7 @@
-"""Config: parametro do input (nao e conteudo clinico)."""
+"""config.py
+
+Config: parametro do input (nao e conteudo clinico).
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,4 +1,6 @@
-"""Indices de qualidade do input: completude e confianca. Vao para
+"""indices.py
+
+Indices de qualidade do input: completude e confianca. Vao para
 OutputBion.indice_completude e OutputBion.indice_confianca (0 a 100).
 
 COMPLETUDE: quanto dos dados esperados esta presente.

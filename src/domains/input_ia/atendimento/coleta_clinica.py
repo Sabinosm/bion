@@ -1,4 +1,7 @@
-"""Bloco 'coleta_clinica': coletas do atendimento atual."""
+"""coleta_clinica.py
+
+Bloco 'coleta_clinica': coletas do atendimento atual.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco

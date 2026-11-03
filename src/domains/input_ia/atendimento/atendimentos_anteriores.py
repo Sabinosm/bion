@@ -1,4 +1,7 @@
-"""Bloco 'atendimentos_anteriores': o historico da mesma consulta."""
+"""atendimentos_anteriores.py
+
+Bloco 'atendimentos_anteriores': o historico da mesma consulta.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, iso, limpar

@@ -1,4 +1,7 @@
-"""InputModel: a caixa grande. So compoe as caixas pequenas (blocos)."""
+"""input_model.py
+
+Modelo do input da IA: compoe os blocos registrados a partir de um atendimento e os entrega como dicionario, texto de prompt, catalogo de metodos e indices de qualidade (completude e confianca). Tambem reconstroi o texto do prompt a partir de um snapshot gravado.
+"""
 from __future__ import annotations
 
 from typing import Callable, Iterable

@@ -1,4 +1,6 @@
-"""Apoio compartilhado do grupo 'protocolar' (nao e um bloco: o '_' impede o registro).
+"""_comum.py
+
+Apoio compartilhado do grupo 'protocolar' (nao e um bloco: o '_' impede o registro).
 
 Projecoes de InputProtocolo / InputProtocoloExecucao / ProtocoloCatalogo.
 

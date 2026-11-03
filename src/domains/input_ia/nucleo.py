@@ -1,4 +1,6 @@
-"""Nucleo compartilhado por todos os blocos: utilitarios, Status e Bloco.
+"""nucleo.py
+
+Nucleo compartilhado por todos os blocos: utilitarios, Status e Bloco.
 
 Nao conhece nenhum dominio (paciente, atendimento, protocolo).
 """
@@ -6,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Iterable
 
@@ -27,11 +29,13 @@ def limpar(v: Any) -> Any:
     return v
 
 
-def iso(d) -> str | None:
+def iso(d: date | datetime | None) -> str | None:
+    """Data/hora em ISO 8601, ou None."""
     return d.isoformat() if d else None
 
 
-def num(v) -> float | None:
+def num(v: Any) -> float | None:
+    """float(v) (aceita Decimal), ou None."""
     return float(v) if v is not None else None
 
 
@@ -45,6 +49,7 @@ def idade(nasc: date | None, ref: date) -> tuple[int | None, int | None]:
 
 
 def linhas(v: Any, ind: int = 0) -> Iterable[str]:
+    """Renderiza dict/lista aninhados como linhas indentadas de texto (formato do prompt)."""
     pad = "  " * ind
     if isinstance(v, dict):
         for k, x in v.items():

@@ -1,4 +1,7 @@
-"""Bloco 'medicamentos': medicamentos em uso."""
+"""medicamentos.py
+
+Bloco 'medicamentos': medicamentos em uso.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, Sinal, bloco_lista, iso, limpar

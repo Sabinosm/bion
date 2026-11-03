@@ -1,4 +1,7 @@
-"""Bloco 'paciente': sexo, idade, peso e altura."""
+"""paciente.py
+
+Bloco 'paciente': sexo, idade, peso e altura.
+"""
 from __future__ import annotations
 
 from datetime import date

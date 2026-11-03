@@ -1,4 +1,7 @@
-"""Bloco 'doenca_cronica': doencas cronicas vigentes."""
+"""doencas.py
+
+Bloco 'doenca_cronica': doencas cronicas vigentes.
+"""
 from __future__ import annotations
 
 from datetime import date

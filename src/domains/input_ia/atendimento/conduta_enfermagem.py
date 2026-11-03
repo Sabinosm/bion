@@ -1,4 +1,7 @@
-"""Bloco 'conduta_enfermagem': condutas registradas no atendimento atual."""
+"""conduta_enfermagem.py
+
+Bloco 'conduta_enfermagem': condutas registradas no atendimento atual.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco

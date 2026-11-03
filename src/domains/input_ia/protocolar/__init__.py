@@ -1,1 +1,4 @@
-"""Grupo: queixa e protocolos (inputs, execucoes e explicacao do catalogo)."""
+"""__init__.py
+
+Grupo: queixa e protocolos (inputs, execucoes e explicacao do catalogo).
+"""

@@ -79,7 +79,8 @@ def avaliar(snapshot: dict, pool: Pool, cliente: ClienteIA, *, max_tentativas: i
 
         if turno.pedidos and pode:
             rodada += 1
-            conversa.append({"papel": "ia", "pedidos": [
+            # bruto: turno original do fornecedor; o Gemini 3+ exige devolve-lo (thought_signature)
+            conversa.append({"papel": "ia", "bruto": turno.bruto, "pedidos": [
                 {"id": p.id, "nome": p.nome, "argumentos": p.argumentos} for p in turno.pedidos]})
             for p in turno.pedidos:
                 conversa.append({"papel": "ferramenta", "pedido_id": p.id, "nome": p.nome,

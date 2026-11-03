@@ -1,4 +1,7 @@
-"""Bloco 'alergias': alergias vigentes e suas reacoes."""
+"""alergias.py
+
+Bloco 'alergias': alergias vigentes e suas reacoes.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, Sinal, bloco_lista, iso, limpar

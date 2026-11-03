@@ -1,4 +1,7 @@
-"""Bloco 'consulta': o episodio inteiro."""
+"""consulta.py
+
+Bloco 'consulta': o episodio inteiro.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, iso, limpar

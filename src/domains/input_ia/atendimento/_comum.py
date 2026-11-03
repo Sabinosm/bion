@@ -1,4 +1,7 @@
-"""Apoio compartilhado do grupo 'atendimento' (nao e um bloco: o '_' impede o registro)."""
+"""_comum.py
+
+Apoio compartilhado do grupo 'atendimento' (nao e um bloco: o '_' impede o registro).
+"""
 from __future__ import annotations
 
 from ..nucleo import iso, limpar, num

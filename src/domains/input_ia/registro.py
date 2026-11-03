@@ -1,12 +1,8 @@
-"""Registro de blocos: cada caixa pequena se registra com @bloco(...) e o
-InputModel monta o input percorrendo o registro.
+"""registro.py
 
-Adicionar um bloco  = criar um arquivo numa pasta de grupo
-                      (dados_clinicos/, atendimento/, protocolar/) com uma
-                      funcao decorada.
-Adicionar um grupo  = criar uma pasta nova com __init__.py.
-Nada mais muda: a descoberta e automatica (arquivos iniciados por "_" sao
-ignorados e servem de apoio compartilhado dentro do grupo).
+Registro e descoberta automatica dos blocos do input. Cada bloco e uma fabrica registrada por decorador; o InputModel monta o input percorrendo o registro.
+
+Adicionar um bloco = criar um arquivo numa pasta de grupo (dados_clinicos/, atendimento/, protocolar/). Adicionar um grupo = criar uma pasta com __init__.py. Arquivos iniciados por '_' sao apoio compartilhado e nao sao registrados.
 """
 from __future__ import annotations
 

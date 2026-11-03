@@ -1,4 +1,7 @@
-"""Bloco 'protocolos_referencia': explicacao estatica de cada protocolo usado."""
+"""protocolos_referencia.py
+
+Bloco 'protocolos_referencia': explicacao estatica de cada protocolo usado.
+"""
 from __future__ import annotations
 
 from ..atendimento._comum import anteriores

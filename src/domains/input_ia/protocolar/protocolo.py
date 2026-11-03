@@ -1,4 +1,7 @@
-"""Bloco 'protocolo': inputs e execucoes dos protocolos do atendimento atual."""
+"""protocolo.py
+
+Bloco 'protocolo': inputs e execucoes dos protocolos do atendimento atual.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, Sinal

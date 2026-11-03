@@ -1,4 +1,7 @@
-"""Bloco 'atendimento': o atendimento em andamento."""
+"""atendimento_atual.py
+
+Bloco 'atendimento': o atendimento em andamento.
+"""
 from __future__ import annotations
 
 from ..nucleo import Bloco, iso, limpar
