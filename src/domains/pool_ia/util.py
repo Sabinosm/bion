@@ -1,8 +1,17 @@
+"""util.py
+
+Apoio compartilhado dos metodos da pool: base dos modelos de argumentos, tipos de argumento e projecoes compactas de medicamento, interacao e exame, que reduzem o que e enviado a IA ao necessario.
+"""
 from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+class ArgsBase(BaseModel):
+    """Base dos argumentos de métodos da pool: campo inventado pela IA é rejeitado."""
+    model_config = ConfigDict(extra="forbid")
+
 
 Termo = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
 Limite = Annotated[int, Field(ge=1, le=20)]

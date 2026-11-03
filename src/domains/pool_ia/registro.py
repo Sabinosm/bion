@@ -1,17 +1,14 @@
-"""Registro de metodos da pool: cada metodo se registra com @metodo(...) num
-arquivo metodos_*.py. Adicionar metodo = escrever uma funcao decorada, em
-arquivo novo ou existente; a descoberta e automatica.
+"""registro.py
 
-CONTRATO de todo metodo:
-  - so LEITURA: chama o repositorio respectivo (via ctx) e nunca grava;
-  - assinatura f(ctx, args) -> Retorno, com `args` validado pelo modelo Args;
-  - nao recebe empresa/paciente/atendimento da IA: isso vem do `ctx`, preenchido pelo sistema.
+Registro e descoberta automatica dos metodos da pool. Cada arquivo metodos_*.py declara seus metodos e entra no registro ao ser importado.
+
+Contrato de todo metodo: so leitura; argumentos validados por modelo Pydantic; empresa, paciente e atendimento vem do contexto, nunca da IA.
 """
 from __future__ import annotations
 
 import importlib
 import pkgutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from pydantic import BaseModel

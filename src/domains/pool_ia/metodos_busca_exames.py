@@ -1,28 +1,27 @@
-"""Metodos de busca de exames no catalogo. So leitura."""
+"""metodos_busca_exames.py
+
+Metodos de leitura do catalogo de exames oferecidos a IA: busca por nome, detalhe e texto educativo. Cada metodo valida seus argumentos e devolve, junto dos dados, os uuids que a IA passa a poder citar na proposta. So leitura.
+"""
 from __future__ import annotations
 
 import hashlib
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from .registro import Retorno, metodo
-from .util import Limite, Termo, compacto_exame
+from .util import ArgsBase, Limite, Termo, compacto_exame
 
 TEXTO_MAX = 3000   # limite de caracteres do texto longo entregue a IA (corte em fronteira de secao)
 
 
-class _Args(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class ArgsExameNome(_Args):
+class ArgsExameNome(ArgsBase):
     termo: Termo
     tipo: Literal["laboratorial", "imagem", "funcional", "outro"] | None = None
     limite: Limite = 10
 
 
-class ArgsExameUuid(_Args):
+class ArgsExameUuid(ArgsBase):
     uuid_exame: str = Field(min_length=36, max_length=36)
 
 

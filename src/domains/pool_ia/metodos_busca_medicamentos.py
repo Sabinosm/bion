@@ -1,22 +1,21 @@
-"""Metodos de busca de medicamentos no catalogo. So leitura."""
+"""metodos_busca_medicamentos.py
+
+Metodos de leitura do catalogo de medicamentos oferecidos a IA: busca por principio ativo, indicacao e classe, detalhe e interacoes com o uso atual do paciente. Devolvem tambem os uuids que a IA passa a poder citar na proposta. So leitura.
+"""
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from .registro import Retorno, metodo
-from .util import Limite, Termo, compacto_interacao, compacto_med
+from .util import ArgsBase, Limite, Termo, compacto_interacao, compacto_med
 
 
-class _Args(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class ArgsTermo(_Args):
+class ArgsTermo(ArgsBase):
     termo: Termo
     limite: Limite = 10
 
 
-class ArgsUuid(_Args):
+class ArgsUuid(ArgsBase):
     uuid_catalogo: str = Field(min_length=36, max_length=36)
 
 

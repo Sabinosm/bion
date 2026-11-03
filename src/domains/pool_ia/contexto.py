@@ -1,5 +1,7 @@
-"""Contexto de uma execucao da pool. Quem monta e o SISTEMA: a IA nunca passa
-empresa, paciente ou atendimento como argumento."""
+"""contexto.py
+
+Contexto imutavel de uma execucao da pool: repositorios de leitura, idioma, empresa, atendimento e medicamentos em uso do paciente. E montado pelo sistema; a IA nunca informa empresa, paciente ou atendimento.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

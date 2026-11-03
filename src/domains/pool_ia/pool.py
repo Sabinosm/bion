@@ -1,15 +1,10 @@
-"""Pool: junta os metodos registrados e executa as requisicoes da IA.
+"""pool.py
 
-A IA so PEDE; quem decide e executa e esta classe. Cada pedido vira uma
-RequisicaoIA (auditoria) e, se atendido, alimenta o ledger de uuids validos
-(o que a IA pode referenciar na proposta final).
-
-Limites: MAX_RODADAS rodadas e MAX_POR_RODADA pedidos por rodada.
+Executor da pool: recebe os pedidos da IA, aplica os limites de rodadas e de pedidos por rodada, valida argumentos, chama o metodo registrado e audita cada pedido. Mantem os uuids de medicamentos e exames que a IA ja viu, usados depois para validar a proposta final. A IA so pede; quem decide e executa e o sistema.
 """
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from pydantic import ValidationError
 
@@ -25,6 +20,8 @@ MAX_POR_RODADA = 5
 
 
 class Pool:
+    """Uma instância por avaliação: guarda as requisições feitas e os uuids que a IA já viu."""
+
     def __init__(self, ctx: ContextoPool, *, max_rodadas: int = MAX_RODADAS,
                  max_por_rodada: int = MAX_POR_RODADA, metodos: dict[str, Metodo] | None = None):
         self.ctx = ctx
