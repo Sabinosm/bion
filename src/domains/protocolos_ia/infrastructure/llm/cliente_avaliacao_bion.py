@@ -1,4 +1,6 @@
-"""Adaptador entre a infraestrutura LLM do módulo e o contrato ClienteIA do bion-main.
+"""cliente_avaliacao_bion.py
+
+Adaptador entre a infraestrutura LLM do módulo e o contrato ClienteIA do bion-main.
 
 O fluxo novo do host controla ferramentas, validação clínica e persistência. Este adaptador
 apenas traduz a conversa neutra para a API Messages da Anthropic e devolve texto ou pedidos
@@ -15,6 +17,7 @@ from typing import Callable, Optional
 import requests
 
 from .config import ConfiguracaoLLM
+from ._http_anthropic import TIMEOUT_CONEXAO_SEGUNDOS, retry_after as _retry_after, tokens_de_uso
 from .exceptions import (
     ConfiguracaoLLMInvalidaError,
     ErroPermanenteProvedor,
@@ -24,25 +27,12 @@ from .exceptions import (
 from .raw_response import RawLLMResponse
 from .resilience import ExecutorResiliente
 
-TIMEOUT_CONEXAO_SEGUNDOS = 5.0
-RETRY_AFTER_MAXIMO = 30.0
-
 
 @dataclass(frozen=True)
 class RequisicaoTurno:
     conversa: list[dict]
     ferramentas: list[dict]
     casca: dict
-
-
-def _retry_after(resposta) -> Optional[float]:
-    headers = getattr(resposta, "headers", {}) or {}
-    bruto = headers.get("retry-after")
-    try:
-        valor = float(bruto)
-    except (TypeError, ValueError):
-        return None
-    return min(max(valor, 0.0), RETRY_AFTER_MAXIMO)
 
 
 def _texto_conteudo(valor) -> str:
@@ -213,13 +203,12 @@ class ProvedorAnthropicTurno:
         if not textos and not chamadas:
             raise RespostaLLMInvalidaError("sem_conteudo_utilizavel")
 
-        uso = dados.get("usage") if isinstance(dados.get("usage"), dict) else {}
-        entrada, saida = uso.get("input_tokens", 0), uso.get("output_tokens", 0)
+        entrada, saida = tokens_de_uso(dados)
         return RawLLMResponse(
             texto="\n".join(textos),
             modelo=self._config.modelo,
-            tokens_entrada=entrada if isinstance(entrada, int) and not isinstance(entrada, bool) else 0,
-            tokens_saida=saida if isinstance(saida, int) and not isinstance(saida, bool) else 0,
+            tokens_entrada=entrada,
+            tokens_saida=saida,
             motivo_parada=dados.get("stop_reason") if isinstance(dados.get("stop_reason"), str) else None,
             blocos_conteudo=blocos,
         )

@@ -1,4 +1,7 @@
-"""Contrato de domínio para obtenção de prompts versionados. A implementação pertence à infraestrutura."""
+"""prompt_source.py
+
+Contrato de domínio para obtenção de prompts versionados. A implementação pertence à infraestrutura.
+"""
 from dataclasses import dataclass
 from typing import Protocol
 

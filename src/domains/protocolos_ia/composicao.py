@@ -1,19 +1,22 @@
-"""Este arquivo monta o LLMAnalysisService com as implementações concretas. É o único ponto que liga as camadas."""
+"""composicao.py
+
+Este arquivo monta o LLMAnalysisService com as implementações concretas. É o único ponto que liga as camadas.
+"""
 from __future__ import annotations
 
 from functools import lru_cache
 
+from .application.ports.llm_provider import LLMProvider
 from .application.services.llm_analysis_service import LLMAnalysisService
 from .infrastructure.audit.llm_audit_service import LlmAuditService
 from .infrastructure.llm.config import ConfiguracaoLLM
 from .infrastructure.llm.cost_calculator import CostCalculator
+from .infrastructure.llm.exceptions import ConfiguracaoLLMInvalidaError
 from .infrastructure.llm.factory import LLMProviderFactory
 from .infrastructure.llm.resilience import ExecutorResiliente
 from .infrastructure.llm.response_parser import ResponseParser
 from .infrastructure.prompts.prompt_service import PromptService
 from .infrastructure.repositories.output_bion_adapter import OutputBionAdapter
-from .application.ports.llm_provider import LLMProvider
-from .infrastructure.llm.exceptions import ConfiguracaoLLMInvalidaError
 
 
 @lru_cache(maxsize=1)

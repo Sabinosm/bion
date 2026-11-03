@@ -1,7 +1,8 @@
-"""Este arquivo converte o snapshot congelado do InputModel do host (OutputBion.input_ia_json) em ContextoClinicoSeguro.
+"""snapshot_adapter.py
 
-Campos estruturados de identificação não devem entrar no contexto clínico; texto livre vindo de queixas ou resultados pode conter identificadores. Aqui o snapshot é lido por whitelist, os estados
-(informado, paciente_nega, nao_informado) são preservados e todo texto livre passa pelo sanitizador.
+Converte o snapshot congelado do InputModel do host (OutputBion.input_ia_json) em ContextoClinicoSeguro.
+
+O snapshot e lido por whitelist, para que campos de identificacao nao entrem no contexto; os estados (informado, paciente_nega, nao_informado) sao preservados; e todo texto livre passa pelo sanitizador, pois queixas e resultados podem conter identificadores.
 """
 from __future__ import annotations
 
@@ -128,8 +129,7 @@ def _resultado_protocolo(resultado: Any) -> Optional[dict]:
     limpo = limpar_estrutura(resultado)
     if len(json.dumps(limpo, ensure_ascii=False)) <= LIMITE_RESULTADO_PROTOCOLO:
         return limpo
-    reduzido = {k: limpo[k] for k in ("classificacao",) if k in limpo}
-    return reduzido or None
+    return {"classificacao": limpo["classificacao"]} if "classificacao" in limpo else None
 
 
 def _protocolos(bloco: Any) -> tuple[ProtocoloExecutadoSeguro, ...]:

@@ -1,4 +1,7 @@
-"""Este arquivo define o resultado do caso de uso e sua projeção para a resposta HTTP, que mantém o formato de OutputBion.to_dict()."""
+"""analysis_result.py
+
+Este arquivo define o resultado do caso de uso e sua projeção para a resposta HTTP, que mantém o formato de OutputBion.to_dict().
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

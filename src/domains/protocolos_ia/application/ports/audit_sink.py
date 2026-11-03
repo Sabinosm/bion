@@ -1,4 +1,7 @@
-"""Este arquivo define o contrato de destino do registro operacional de chamadas à LLM."""
+"""audit_sink.py
+
+Este arquivo define o contrato de destino do registro operacional de chamadas à LLM.
+"""
 from typing import Protocol
 
 from ...domain.schemas.auditoria import RegistroAuditoriaLLM

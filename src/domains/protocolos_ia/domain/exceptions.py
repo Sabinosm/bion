@@ -1,4 +1,7 @@
-"""Exceções de domínio do módulo de IA. Todas herdam das exceções do host para que o handler global as traduza em HTTP."""
+"""exceptions.py
+
+Exceções de domínio do módulo de IA. Todas herdam das exceções do host para que o handler global as traduza em HTTP.
+"""
 from src.core.exceptions import BionException, DadosInvalidosError
 
 CATEGORIA_LLM_INDISPONIVEL = "llm_indisponivel"

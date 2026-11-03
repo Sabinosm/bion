@@ -1,4 +1,7 @@
-"""Este arquivo define o contrato de persistência do envio à IA e do registro da resposta."""
+"""output_repository.py
+
+Este arquivo define o contrato de persistência do envio à IA e do registro da resposta.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -38,5 +41,8 @@ class OutputRepository(Protocol):
     def abrir_envio(self, id_input_protocolo: int, autor: AutorRequisicao) -> EnvioAberto:
         ...
 
-    def gravar_resposta(self, envio: EnvioAberto, output_ia: dict, versao_modelo_ia: str) -> RegistroGravado:
+    def gravar_resposta(
+        self, envio: EnvioAberto, output_ia: dict, versao_modelo_ia: str,
+        indice_completude: Optional[float] = None, indice_confianca: Optional[float] = None,
+    ) -> RegistroGravado:
         ...

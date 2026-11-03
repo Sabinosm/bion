@@ -1,4 +1,7 @@
-"""Este arquivo converte o resultado de um protocolo determinístico (dict ou dataclass do host) em ResultadoTriagemSeguro."""
+"""triage_adapter.py
+
+Este arquivo converte o resultado de um protocolo determinístico (dict ou dataclass do host) em ResultadoTriagemSeguro.
+"""
 from __future__ import annotations
 
 import dataclasses

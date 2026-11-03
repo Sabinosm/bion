@@ -1,4 +1,7 @@
-"""Este arquivo define o contrato das estratégias de análise: validar o contexto e montar a LLMRequest."""
+"""analysis_strategy.py
+
+Este arquivo define o contrato das estratégias de análise: validar o contexto e montar a LLMRequest.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

@@ -1,4 +1,6 @@
-"""Este arquivo constrói o ContextoClinicoSeguro a partir de dados enviados no corpo da requisição (consulta avulsa).
+"""dados_avulsos_adapter.py
+
+Este arquivo constrói o ContextoClinicoSeguro a partir de dados enviados no corpo da requisição (consulta avulsa).
 
 Itens malformados são rejeitados com o nome do campo e a posição. Nenhum item clínico é descartado em silêncio.
 Chaves extras dentro de um item (ids, uuids, flags internas) são ignoradas e nunca saem daqui.

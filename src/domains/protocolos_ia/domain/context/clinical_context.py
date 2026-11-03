@@ -1,4 +1,6 @@
-"""Este arquivo define o ContextoClinicoSeguro: a única forma de dado clínico que pode chegar à LLM.
+"""clinical_context.py
+
+Este arquivo define o ContextoClinicoSeguro: a única forma de dado clínico que pode chegar à LLM.
 
 Cada seção de lista carrega um estado explícito (informado, paciente_nega, nao_informado) para que
 ausência de coleta nunca seja confundida com ausência de condição clínica.
@@ -243,7 +245,7 @@ def faixa_etaria_por_data(nascimento: Optional[date], hoje: Optional[date] = Non
     dias = (hoje - nascimento).days
     if dias < 28:
         return "neonato (0-27 dias)"
-    return _faixa(anos, lactente_ate_2_anos=True)
+    return _faixa(anos)
 
 
 def faixa_etaria_por_idade(anos: Optional[int], meses: Optional[int] = None) -> str:
@@ -252,11 +254,11 @@ def faixa_etaria_por_idade(anos: Optional[int], meses: Optional[int] = None) -> 
         return FAIXA_NAO_INFORMADA
     if anos < 2 and meses is not None and meses < 1:
         return "neonato ou lactente (menos de 1 mês)"
-    return _faixa(anos, lactente_ate_2_anos=True)
+    return _faixa(anos)
 
 
-def _faixa(anos: int, lactente_ate_2_anos: bool) -> str:
-    if anos < 2 and lactente_ate_2_anos:
+def _faixa(anos: int) -> str:
+    if anos < 2:
         return "lactente (28 dias a 23 meses)"
     if anos < 6:
         return "pré-escolar (2-5 anos)"

@@ -1,4 +1,7 @@
-"""Contrato clínico da resposta da LLM. Este é o único formato aceito e persistido pelo módulo."""
+"""responses.py
+
+Contrato clínico da resposta da LLM. Este é o único formato aceito e persistido pelo módulo.
+"""
 from __future__ import annotations
 
 from typing import List, Literal, Optional

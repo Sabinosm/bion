@@ -1,7 +1,6 @@
-"""Este arquivo reúne os casos de uso determinísticos do domínio de IA e a consulta de resultados (OutputBion).
+"""service.py
 
-executar_protocolo roda o motor determinístico do host (Strategy/Factory) sem alterá-lo. Quando recebe
-id_input_protocolo, persiste o resultado pela mesma trilha de envio usada pela IA generativa.
+Casos de uso deterministicos do dominio de IA e consulta de resultados (OutputBion). Executa o motor de protocolos do host (Strategy/Factory) sem altera-lo; quando recebe o id do input de protocolo, persiste o resultado pela mesma trilha de envio usada pela IA generativa. Tambem expoe as metricas agregadas por empresa (confianca, completude, versoes, queixas).
 """
 from __future__ import annotations
 

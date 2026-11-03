@@ -1,4 +1,7 @@
-"""Este arquivo implementa a análise clínica geral: exige apenas algum dado clínico real."""
+"""clinical_analysis.py
+
+Este arquivo implementa a análise clínica geral: exige apenas algum dado clínico real.
+"""
 from ..context.clinical_context import ContextoClinicoSeguro
 from .analysis_strategy import AnalysisStrategy
 

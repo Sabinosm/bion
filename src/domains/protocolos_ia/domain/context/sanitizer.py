@@ -1,4 +1,7 @@
-"""Este arquivo remove identificadores comuns de texto livre e limita o tamanho dos valores que seguem para a LLM."""
+"""sanitizer.py
+
+Este arquivo remove identificadores comuns de texto livre e limita o tamanho dos valores que seguem para a LLM.
+"""
 from __future__ import annotations
 
 import re

@@ -1,4 +1,7 @@
-"""Este arquivo implementa o provedor da API Messages da Anthropic. Traduz falhas HTTP em erros classificados, sem expor corpo, cabeçalhos ou chave."""
+"""anthropic_provider.py
+
+Este arquivo implementa o provedor da API Messages da Anthropic. Traduz falhas HTTP em erros classificados, sem expor corpo, cabeçalhos ou chave.
+"""
 from __future__ import annotations
 
 from typing import Callable, Optional
@@ -8,19 +11,8 @@ import requests
 from ....domain.schemas.requests import LLMRequest
 from ..config import ConfiguracaoLLM
 from ..exceptions import ErroPermanenteProvedor, ErroTransitorioProvedor, RespostaLLMInvalidaError
+from .._http_anthropic import TIMEOUT_CONEXAO_SEGUNDOS, retry_after as _retry_after, tokens_de_uso
 from ..raw_response import RawLLMResponse
-
-TIMEOUT_CONEXAO_SEGUNDOS = 5.0
-RETRY_AFTER_MAXIMO = 30.0
-
-
-def _retry_after(resposta) -> Optional[float]:
-    bruto = resposta.headers.get("retry-after") if getattr(resposta, "headers", None) else None
-    try:
-        valor = float(bruto)
-    except (TypeError, ValueError):
-        return None
-    return min(max(valor, 0.0), RETRY_AFTER_MAXIMO)
 
 
 class AnthropicProvider:
@@ -83,12 +75,11 @@ class AnthropicProvider:
         if not textos:
             raise RespostaLLMInvalidaError("sem_bloco_de_texto")
 
-        uso = dados.get("usage") if isinstance(dados.get("usage"), dict) else {}
-        entrada, saida = uso.get("input_tokens", 0), uso.get("output_tokens", 0)
+        entrada, saida = tokens_de_uso(dados)
         return RawLLMResponse(
             texto="".join(textos),
             modelo=cfg.modelo,
-            tokens_entrada=entrada if isinstance(entrada, int) and not isinstance(entrada, bool) else 0,
-            tokens_saida=saida if isinstance(saida, int) and not isinstance(saida, bool) else 0,
+            tokens_entrada=entrada,
+            tokens_saida=saida,
             motivo_parada=dados.get("stop_reason") if isinstance(dados.get("stop_reason"), str) else None,
         )

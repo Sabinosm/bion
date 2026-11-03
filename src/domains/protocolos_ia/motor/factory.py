@@ -1,4 +1,7 @@
-"""Factory que escolhe o motor de protocolo correto pela sigla do catálogo."""
+"""factory.py
+
+Factory que escolhe o motor de protocolo correto pela sigla do catálogo.
+"""
 
 from .mts import MtsProtocolo
 from .news2 import News2Protocolo

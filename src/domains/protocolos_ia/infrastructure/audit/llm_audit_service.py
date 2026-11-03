@@ -1,4 +1,7 @@
-"""Este arquivo grava o registro operacional de cada chamada à LLM no log estruturado. Contém só metadados técnicos, nunca dados clínicos."""
+"""llm_audit_service.py
+
+Este arquivo grava o registro operacional de cada chamada à LLM no log estruturado. Contém só metadados técnicos, nunca dados clínicos.
+"""
 from __future__ import annotations
 
 import logging

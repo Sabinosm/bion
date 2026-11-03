@@ -1,4 +1,6 @@
-"""Este arquivo concentra o acesso a dados de OutputBion usado pelas rotas de IA e pelas estatísticas.
+"""repository.py
+
+Este arquivo concentra o acesso a dados de OutputBion usado pelas rotas de IA e pelas estatísticas.
 
 Posse: o OutputBion não tem id_empresa. A empresa vem de OutputBion -> Atendimento -> Consulta.id_empresa.
 Recurso inexistente e recurso de outra empresa produzem o mesmo resultado (None).

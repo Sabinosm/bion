@@ -1,4 +1,7 @@
-"""Este arquivo lê e valida a configuração do módulo de IA a partir de variáveis de ambiente."""
+"""config.py
+
+Este arquivo lê e valida a configuração do módulo de IA a partir de variáveis de ambiente.
+"""
 from __future__ import annotations
 
 import os

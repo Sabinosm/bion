@@ -1,4 +1,7 @@
-"""Protocolo NEWS2 (National Early Warning Score 2, RCP 2017)."""
+"""news2.py
+
+Protocolo NEWS2 (National Early Warning Score 2, RCP 2017).
+"""
 
 from .base import (
     IProtocoloTriagem, IProtocoloConsulta,
@@ -69,10 +72,8 @@ class News2Protocolo(IProtocoloTriagem, IProtocoloConsulta):
         """Exige ao menos um sinal vital informado."""
         return len(i.sinais_vitais) > 0
 
-    def get_nome(self):
-        """Retorna o nome de exibição do protocolo."""
+    def get_nome(self) -> str:
         return "NEWS2"
 
-    def get_versao(self):
-        """Retorna a versão/edição do protocolo implementada."""
+    def get_versao(self) -> str:
         return self.VERSAO

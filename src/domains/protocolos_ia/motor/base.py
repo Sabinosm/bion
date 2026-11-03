@@ -1,4 +1,7 @@
-"""Contratos do motor de protocolos determinísticos (padrão Strategy + Factory)."""
+"""base.py
+
+Contratos do motor de protocolos determinísticos (padrão Strategy + Factory).
+"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

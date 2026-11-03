@@ -1,4 +1,6 @@
-"""Este arquivo implementa um circuit breaker simples e thread-safe, sem dependências externas.
+"""circuit_breaker.py
+
+Este arquivo implementa um circuit breaker simples e thread-safe, sem dependências externas.
 
 O estado guardado é apenas operacional (contadores e horários). Nenhum dado clínico passa por aqui.
 """

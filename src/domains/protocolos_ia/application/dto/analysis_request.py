@@ -1,4 +1,6 @@
-"""Este arquivo define a fronteira de entrada do módulo: o corpo HTTP de /analisar-llm é validado e normalizado aqui.
+"""analysis_request.py
+
+Este arquivo define a fronteira de entrada do módulo: o corpo HTTP de /analisar-llm é validado e normalizado aqui.
 
 Compatibilidade: aceita medicamentos_em_uso como sinônimo de medicamentos (valores divergentes são rejeitados),
 sexo_biologico opcional (ausente vira nao_informado) e id_input_protocolo opcional.

@@ -1,4 +1,7 @@
-"""Este arquivo implementa um provedor simulado e determinístico para desenvolvimento e testes. Não faz chamadas de rede e marca toda resposta como simulada."""
+"""mock_provider.py
+
+Este arquivo implementa um provedor simulado e determinístico para desenvolvimento e testes. Não faz chamadas de rede e marca toda resposta como simulada.
+"""
 from __future__ import annotations
 
 import json

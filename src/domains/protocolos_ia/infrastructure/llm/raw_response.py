@@ -1,4 +1,7 @@
-"""Este arquivo define a resposta bruta devolvida por um provedor, antes de qualquer validação clínica."""
+"""raw_response.py
+
+Este arquivo define a resposta bruta devolvida por um provedor, antes de qualquer validação clínica.
+"""
 from dataclasses import dataclass
 from typing import Optional, Tuple
 

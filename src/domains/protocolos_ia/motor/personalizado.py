@@ -1,4 +1,7 @@
-"""Protocolo Personalizado (regras configuráveis por instituição/módulo)."""
+"""personalizado.py
+
+Protocolo Personalizado (regras configuráveis por instituição/módulo).
+"""
 
 from .base import IProtocoloConsulta, InputConsulta, ResultadoConsulta
 
@@ -18,10 +21,8 @@ class ProtocoloPersonalizado(IProtocoloConsulta):
         """Protocolo personalizado não exige dados mínimos fixos."""
         return True
 
-    def get_nome(self):
-        """Retorna o nome de exibição do protocolo."""
+    def get_nome(self) -> str:
         return "ProtocoloPersonalizado"
 
-    def get_versao(self):
-        """Retorna a versão/edição do protocolo implementada."""
+    def get_versao(self) -> str:
         return self.VERSAO

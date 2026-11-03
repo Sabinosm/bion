@@ -1,4 +1,6 @@
-"""Rotas JSON do domínio de IA: execução de protocolos, análise por LLM e consulta de resultados (OutputBion).
+"""controller.py
+
+Rotas JSON do domínio de IA: execução de protocolos, análise por LLM e consulta de resultados (OutputBion).
 
 Este arquivo recebe a requisição HTTP, extrai o autor da sessão, delega ao serviço e traduz o resultado ou a exceção em JSON.
 """
@@ -40,7 +42,7 @@ def _autor() -> AutorRequisicao:
     )
 
 
-class IaController():
+class IaController:
 
     @staticmethod
     @bp_ia.post("/analisar")

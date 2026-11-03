@@ -1,10 +1,12 @@
-"""Este arquivo aplica retry com backoff e circuit breaker a uma chamada de provedor. É a única camada de resiliência do módulo."""
+"""resilience.py
+
+Este arquivo aplica retry com backoff e circuit breaker a uma chamada de provedor. É a única camada de resiliência do módulo.
+"""
 from __future__ import annotations
 
 import time
-from typing import Callable
+from typing import Any, Callable
 
-from ...domain.schemas.requests import LLMRequest
 from .circuit_breaker import REGISTRO_GLOBAL, RegistroDeBreakers
 from .exceptions import (
     CircuitBreakerAbertoError,
@@ -41,7 +43,8 @@ class ExecutorResiliente:
         self._dormir = dormir
         self._registro = registro
 
-    def __call__(self, provider, request: LLMRequest) -> RawLLMResponse:
+    def __call__(self, provider, request: Any) -> RawLLMResponse:
+        """`request` e opaco aqui: LLMRequest (analise) ou RequisicaoTurno (avaliacao); so o provedor o interpreta."""
         breaker = self._registro.obter(f"{provider.nome_provedor}:{provider.nome_modelo}", self._falhas, self._reset)
         if not breaker.permitir():
             raise CircuitBreakerAbertoError()

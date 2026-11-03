@@ -1,4 +1,7 @@
-"""Este arquivo define as falhas classificadas da infraestrutura de LLM. Mensagens nunca incluem dados clínicos, corpo de resposta ou chave de API."""
+"""exceptions.py
+
+Este arquivo define as falhas classificadas da infraestrutura de LLM. Mensagens nunca incluem dados clínicos, corpo de resposta ou chave de API.
+"""
 from typing import Optional
 
 from ...domain.exceptions import (

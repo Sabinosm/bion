@@ -1,4 +1,7 @@
-"""Este arquivo implementa as hipóteses diferenciais: exige queixa principal ou sinais vitais informados."""
+"""differential_hypotheses.py
+
+Este arquivo implementa as hipóteses diferenciais: exige queixa principal ou sinais vitais informados.
+"""
 from src.core.exceptions import DadosInvalidosError
 
 from ..context.clinical_context import ContextoClinicoSeguro

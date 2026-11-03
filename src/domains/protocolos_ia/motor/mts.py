@@ -1,4 +1,7 @@
-"""Protocolo de Triagem Manchester (MTS - 3ª edição)."""
+"""mts.py
+
+Protocolo de Triagem Manchester (MTS - 3ª edição).
+"""
 
 from .base import IProtocoloTriagem, InputTriagem, ResultadoTriagem
 
@@ -33,10 +36,8 @@ class MtsProtocolo(IProtocoloTriagem):
         """Exige queixa principal, seja no atributo direto ou dentro de input_json."""
         return bool(i.queixa_principal or i.input_json.get("queixa_principal"))
 
-    def get_nome(self):
-        """Retorna o nome de exibição do protocolo."""
+    def get_nome(self) -> str:
         return "MTS"
 
-    def get_versao(self):
-        """Retorna a versão/edição do protocolo implementada."""
+    def get_versao(self) -> str:
         return self.VERSAO

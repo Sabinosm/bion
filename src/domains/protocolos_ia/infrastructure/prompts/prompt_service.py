@@ -1,4 +1,6 @@
-"""Este arquivo carrega prompts versionados de templates/<tipo>/<versao>.md e os separa em regras do sistema e mensagem de dados.
+"""prompt_service.py
+
+Este arquivo carrega prompts versionados de templates/<tipo>/<versao>.md e os separa em regras do sistema e mensagem de dados.
 
 Formato do arquivo: a marca <!-- SISTEMA --> abre as regras e a marca <!-- DADOS --> abre a mensagem
 do usuário, que contém uma única vez o marcador {contexto_json}.

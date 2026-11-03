@@ -1,4 +1,6 @@
-"""Este arquivo orquestra a análise por LLM: contexto seguro, estratégia, chamada resiliente, validação, persistência e auditoria.
+"""llm_analysis_service.py
+
+Este arquivo orquestra a análise por LLM: contexto seguro, estratégia, chamada resiliente, validação, persistência e auditoria.
 
 Regras: falha do lado da IA vira fallback explícito e nunca é persistida como análise válida; erro de dados
 de entrada (422) e de autorização (403/404) sobem sem alteração; só uma resposta validada é gravada.

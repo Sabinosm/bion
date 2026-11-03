@@ -1,4 +1,7 @@
-"""Este arquivo cria o provedor de LLM correto a partir da configuração. É o único lugar que conhece as implementações concretas."""
+"""factory.py
+
+Este arquivo cria o provedor de LLM correto a partir da configuração. É o único lugar que conhece as implementações concretas.
+"""
 from __future__ import annotations
 
 from typing import Optional

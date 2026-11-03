@@ -1,7 +1,6 @@
-"""Este arquivo implementa OutputRepository sobre o EnvioIaService do host, para que a IA use a mesma trilha de persistência do restante do sistema.
+"""output_bion_adapter.py
 
-abrir_envio resolve o Atendimento pelo InputProtocolo dentro da empresa do autor e delega ao host o guard,
-o snapshot do InputModel e a criação do OutputBion. gravar_resposta completa o mesmo registro.
+Implementa o contrato de persistencia da analise por LLM sobre o servico de envio do host, para que a IA use a mesma trilha de persistencia do restante do sistema. Resolve o atendimento do input de protocolo dentro da empresa do autor, delega ao host o guard, o snapshot e a criacao do OutputBion, e completa o mesmo registro quando a resposta chega.
 """
 from __future__ import annotations
 

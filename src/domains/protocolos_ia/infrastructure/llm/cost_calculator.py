@@ -1,4 +1,7 @@
-"""Este arquivo estima o custo em USD de uma chamada a partir dos tokens. O valor é uma estimativa para observabilidade."""
+"""cost_calculator.py
+
+Este arquivo estima o custo em USD de uma chamada a partir dos tokens. O valor é uma estimativa para observabilidade.
+"""
 from __future__ import annotations
 
 # Preços em USD por milhão de tokens (entrada, saída). Revisar quando a tabela do provedor mudar.

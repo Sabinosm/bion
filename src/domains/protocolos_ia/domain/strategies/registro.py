@@ -1,4 +1,7 @@
-"""Este arquivo mantém o registro explícito das estratégias disponíveis, sem registro por efeito colateral de import."""
+"""registro.py
+
+Este arquivo mantém o registro explícito das estratégias disponíveis, sem registro por efeito colateral de import.
+"""
 from __future__ import annotations
 
 from ..exceptions import TipoAnaliseInvalidoError

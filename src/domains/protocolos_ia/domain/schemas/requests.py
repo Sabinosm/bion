@@ -1,4 +1,7 @@
-"""Contrato entre a estratégia de análise e a infraestrutura de LLM."""
+"""requests.py
+
+Contrato entre a estratégia de análise e a infraestrutura de LLM.
+"""
 from pydantic import BaseModel, ConfigDict, Field
 
 

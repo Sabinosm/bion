@@ -1,4 +1,7 @@
-"""Este arquivo implementa a explicação de triagem: só faz sentido quando há resultado de protocolo determinístico."""
+"""triage_explanation.py
+
+Este arquivo implementa a explicação de triagem: só faz sentido quando há resultado de protocolo determinístico.
+"""
 from src.core.exceptions import DadosInvalidosError
 
 from ..context.clinical_context import ContextoClinicoSeguro

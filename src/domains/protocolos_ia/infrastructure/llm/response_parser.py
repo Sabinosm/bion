@@ -1,4 +1,7 @@
-"""Este arquivo converte o texto bruto da LLM em RespostaLLM validada. Falhas nunca carregam o conteúdo recebido."""
+"""response_parser.py
+
+Este arquivo converte o texto bruto da LLM em RespostaLLM validada. Falhas nunca carregam o conteúdo recebido.
+"""
 from __future__ import annotations
 
 import json

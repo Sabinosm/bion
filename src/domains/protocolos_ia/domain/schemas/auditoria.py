@@ -1,4 +1,7 @@
-"""Registro operacional de uma chamada à LLM. Contém somente metadados técnicos."""
+"""auditoria.py
+
+Registro operacional de uma chamada à LLM. Contém somente metadados técnicos.
+"""
 from __future__ import annotations
 
 from typing import Literal, Optional
