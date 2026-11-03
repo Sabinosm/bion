@@ -1,4 +1,6 @@
-"""Checagens determinísticas da prescrição contra o catálogo de medicamentos.
+"""prescricao_validacao_service.py
+
+Checagens determinísticas da prescrição contra o catálogo de medicamentos.
 
 Hoje cobre INTERAÇÕES medicamentosas. NÃO bloqueia nada: devolve alertas e a
 cobertura da base, e quem decide é o médico. O catálogo só conhece as interações

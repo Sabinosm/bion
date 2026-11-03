@@ -1,8 +1,13 @@
-"""Rotas JSON da entidade ResultadoPrescricao: diagnóstico, desfecho clínico e ciclo do rascunho.
+"""resultado_prescricao_controller.py
 
-Sem step-up (a prescrição acontece durante o atendimento). Só `confirmar` é auditado (@acesso_auditado, ver ../auditoria_helpers.py);
-os demais passos ficam rastreados na própria tabela (formulado_por, origem_sugestao, descartado_*). Só o médico dono escreve; a regra de "atendimento em andamento",
-"um rascunho por atendimento" e "alterou -> deixa de ser da IA" mora no service.
+Rotas JSON do ResultadoPrescricao: diagnóstico (CID-10), desfecho clínico e ciclo
+de vida do rascunho (criar, listar, detalhar, ver alertas, corrigir, confirmar e
+descartar).
+
+Sem step-up (a prescrição acontece durante o atendimento). A auditoria é por
+acesso auditado, e toda resposta de erro auditada devolve a meta NOOP. Só o
+médico dono escreve; as regras de "atendimento em andamento", "um rascunho por
+atendimento" e "alterou, deixa de ser da IA" moram no service.
 
   POST   /atendimento/<uuid_atendimento>   cria o rascunho (modo manual)
   GET    /atendimento/<uuid_atendimento>   lista os resultados do atendimento (rascunho/confirmado/descartado)
@@ -13,68 +18,69 @@ os demais passos ficam rastreados na própria tabela (formulado_por, origem_suge
   POST   /<uuid_resultado>/descartar       rascunho -> descartado (lógico; motivo opcional)
 """
 
-from flask import Blueprint, request
+from flask import Blueprint
 from pydantic import ValidationError
 
-from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
-from src.core.session import (
-    requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao,
-)
+from src.core.responses import json_success, json_error
+from src.core.session import requer_papel_clinico, get_id_empresa_sessao, get_id_usuario_sessao
 from src.domains.auditoria.acaoSensivel import acesso_auditado
-from .resultado_prescricao_service import ResultadoPrescricaoService
-from src.domains.auditoria.auditoria_helpers_service import detalhes, erro
+from src.domains.auditoria.auditoria_helpers_service import detalhes
+from ..prescricao_controller_helpers import corpo_json, erro_bion, erro_validacao
 from ..schema_prescricoes import (
     ResultadoPrescricaoIn, ResultadoPrescricaoPatch, ConfirmacaoPrescricaoIn, DescartarPrescricaoIn,
-    formatar_erros_pydantic,
 )
+from .resultado_prescricao_service import ResultadoPrescricaoService
 
 bp_resultado_prescricao = Blueprint("resultado_prescricao", __name__)
 _svc_resultado = ResultadoPrescricaoService()
+
 
 class ResultadoPrescricaoController():
 
     @staticmethod
     @bp_resultado_prescricao.post("/atendimento/<uuid_atendimento>")
     @requer_papel_clinico("medico")
+    @acesso_auditado(recurso="criar prescrição", operacao="escrita")
     def registrar_resultado(uuid_atendimento):
         """Registra (em rascunho) o diagnóstico (CID-10) e desfecho de um Atendimento em andamento.
         409 se já houver rascunho no atendimento."""
-        dados = request.get_json(silent=True) or {}
         try:
-            d = ResultadoPrescricaoIn.model_validate(dados)
+            d = ResultadoPrescricaoIn.model_validate(corpo_json())
             r = _svc_resultado.registrar_resultado(
                 uuid_atendimento, d, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=r.to_dict(), message="Resultado de prescrição registrado (rascunho).",
-                                status=201)
+            return (json_success(data=r.to_dict(), message="Resultado de prescrição registrado (rascunho).",
+                                 status=201), detalhes(r))
         except ValidationError as ex:
-            return json_error(formatar_erros_pydantic(ex), 422)
+            return erro_validacao(ex)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return erro_bion(ex)
 
     @staticmethod
     @bp_resultado_prescricao.get("/atendimento/<uuid_atendimento>")
     @requer_papel_clinico("medico")
+    @acesso_auditado(recurso="listar prescrições do atendimento", operacao="leitura")
     def listar_do_atendimento(uuid_atendimento):
         """Resultados do atendimento, do mais antigo ao mais novo, com os itens. Só o médico dono.
         É por aqui que a tela reencontra o rascunho depois de recarregar a página."""
         try:
             itens = _svc_resultado.listar_do_atendimento(
                 uuid_atendimento, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=[r.to_dict() for r in itens])
+            return json_success(data=[r.to_dict() for r in itens]), (detalhes(itens[0]) if itens else {})
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return erro_bion(ex)
 
     @staticmethod
     @bp_resultado_prescricao.get("/<uuid_resultado>")
     @requer_papel_clinico("medico", "enfermeiro")
+    @acesso_auditado(recurso="visualizar prescrição", operacao="leitura")
     def detalhe_resultado(uuid_resultado):
-        """Retorna os detalhes de um ResultadoPrescricao (com itens) pelo UUID, só da própria empresa."""
+        """Detalhes de um ResultadoPrescricao (com itens) pelo UUID, só da própria empresa."""
         try:
             r = _svc_resultado.buscar_resultado_por_uuid(uuid_resultado, get_id_empresa_sessao())
-            return json_success(data=r.to_dict())
+            return json_success(data=r.to_dict()), detalhes(r)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return erro_bion(ex)
 
     @staticmethod
     @bp_resultado_prescricao.get("/<uuid_resultado>/alertas")
@@ -86,24 +92,24 @@ class ResultadoPrescricaoController():
             verificacao = _svc_resultado.verificar_alertas(uuid_resultado, get_id_empresa_sessao())
             return json_success(data=verificacao)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_resultado_prescricao.patch("/<uuid_resultado>")
     @requer_papel_clinico("medico")
+    @acesso_auditado(recurso="alterar diagnóstico da prescrição", operacao="escrita")
     def atualizar_resultado(uuid_resultado):
         """Corrige o diagnóstico do rascunho (só os campos enviados). Se algo mudou, a prescrição
         passa a ser do médico (origem_sugestao='medico')."""
-        dados = request.get_json(silent=True) or {}
         try:
-            patch = ResultadoPrescricaoPatch.model_validate(dados)
+            patch = ResultadoPrescricaoPatch.model_validate(corpo_json())
             r = _svc_resultado.atualizar_diagnostico(
                 uuid_resultado, patch, get_id_empresa_sessao(), get_id_usuario_sessao())
-            return json_success(data=r.to_dict(), message="Diagnóstico atualizado.")
+            return json_success(data=r.to_dict(), message="Diagnóstico atualizado."), detalhes(r)
         except ValidationError as ex:
-            return json_error(formatar_erros_pydantic(ex), 422)
+            return erro_validacao(ex)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return erro_bion(ex)
 
     @staticmethod
     @bp_resultado_prescricao.post("/<uuid_resultado>/confirmar")
@@ -112,31 +118,30 @@ class ResultadoPrescricaoController():
     def confirmar_resultado(uuid_resultado):
         """O médico responsável confirma a prescrição (rascunho -> confirmado).
         Com alertas de interação, exige {"reconhecer_alertas": true}."""
-        dados = request.get_json(silent=True) or {}
         try:
-            conf = ConfirmacaoPrescricaoIn.model_validate(dados)
+            conf = ConfirmacaoPrescricaoIn.model_validate(corpo_json())
             r, verificacao = _svc_resultado.confirmar(
                 uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao(), conf.reconhecer_alertas
             )
             return (json_success(data={"resultado": r.to_dict(), **verificacao}, message="Prescrição confirmada."),
                     detalhes(r))
         except ValidationError as ex:
-            return erro(json_error(formatar_erros_pydantic(ex), 422))
+            return erro_validacao(ex)
         except BionException as ex:
-            return erro(json_error(ex.message, ex.status_code))
+            return erro_bion(ex)
 
     @staticmethod
     @bp_resultado_prescricao.post("/<uuid_resultado>/descartar")
     @requer_papel_clinico("medico")
+    @acesso_auditado(recurso="descartar prescrição", operacao="exclusao-logica")
     def descartar_resultado(uuid_resultado):
         """Descarta o rascunho (lógico: nada é apagado). Corpo opcional: {"motivo": "..."}."""
-        dados = request.get_json(silent=True) or {}
         try:
-            corpo = DescartarPrescricaoIn.model_validate(dados)
+            corpo = DescartarPrescricaoIn.model_validate(corpo_json())
             r = _svc_resultado.descartar(
                 uuid_resultado, get_id_empresa_sessao(), get_id_usuario_sessao(), corpo.motivo)
-            return json_success(data=r.to_dict(), message="Prescrição descartada.")
+            return json_success(data=r.to_dict(), message="Prescrição descartada."), detalhes(r)
         except ValidationError as ex:
-            return json_error(formatar_erros_pydantic(ex), 422)
+            return erro_validacao(ex)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return erro_bion(ex)

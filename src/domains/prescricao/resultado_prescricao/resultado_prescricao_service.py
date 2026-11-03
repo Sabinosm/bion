@@ -1,7 +1,31 @@
+"""resultado_prescricao_service.py
+
+Regras do ResultadoPrescricao (diagnóstico CID-10 e categoria da prescrição) e
+do ciclo de vida do rascunho: registrar, corrigir, confirmar e descartar, além
+das leituras e dos alertas de interação do conjunto de medicamentos.
+
+Sem step-up: a prescrição acontece durante o atendimento e o médico não deve ser
+interrompido; a rastreabilidade vem do log de acesso (quem, quando, o quê) e do
+próprio registro (origem, descarte). Invariantes:
+
+- só o médico dono do atendimento escreve, e só com o atendimento EM ANDAMENTO
+  (descartar um rascunho antigo é a única escrita permitida fora de "em-andamento");
+- no máximo um rascunho por atendimento para o fluxo do médico; a IA só coexiste
+  com rascunhos da própria IA (trocados logo depois) e nunca com rascunho do médico;
+- qualquer alteração do médico (diagnóstico, item, adição, remoção) passa a origem
+  do resultado para "medico", e a IA deixa de poder trocá-lo.
+
+Confirmar exige ao menos um medicamento se a prescrição é farmacológica e, se
+houver alertas de interação, o reconhecimento explícito do médico. A origem do
+RESULTADO (quem responde pelo conteúdo agora) não se confunde com a origem de
+cada item.
+"""
+
 from datetime import datetime, timezone
 
 from src.core.exceptions import RecursoNaoEncontradoError, PermissaoNegadaError, ConflictoError
 from src.domains.atendimento.repository import AtendimentoRepository
+from src.models.clinico import ResultadoPrescricao
 from .resultado_prescricao_repository import ResultadoPrescricaoRepository
 from ..schema_prescricoes import ResultadoPrescricaoIn, ResultadoPrescricaoPatch
 from ..prescricao_validacao_service import PrescricaoValidacaoService
@@ -12,18 +36,7 @@ ORIGEM_MEDICO = "medico"
 
 
 class ResultadoPrescricaoService:
-    """Regras do ResultadoPrescricao (diagnóstico + categoria). Sem step-up: a prescrição acontece
-    durante o atendimento e o médico não deve ser interrompido; a rastreabilidade vem do log de
-    acesso (quem, quando, o quê) e do próprio registro (origem, descarte).
-
-    Invariantes:
-      - só o médico dono do atendimento escreve, e só com o atendimento EM ANDAMENTO
-        (descartar um rascunho antigo é a única escrita permitida fora de 'em-andamento');
-      - no máximo um rascunho por atendimento para o fluxo do médico; a IA só coexiste com
-        rascunhos da própria IA (trocados logo depois) e nunca com rascunho do médico;
-      - qualquer alteração do médico (diagnóstico, item, adição, remoção) passa a origem do
-        resultado para 'medico' e a IA deixa de poder trocá-lo.
-    """
+    """Casos de uso do ResultadoPrescricao (invariantes no docstring do módulo)."""
 
     def __init__(self):
         self.resultado_repo = ResultadoPrescricaoRepository()
@@ -44,6 +57,7 @@ class ResultadoPrescricaoService:
 
     @staticmethod
     def _exigir_em_andamento(atendimento) -> None:
+        """Raises: ConflictoError se o atendimento não está em andamento."""
         if atendimento.status != "em-andamento":
             raise ConflictoError(
                 f"Atendimento {atendimento.status}: a prescrição só pode ser alterada com o atendimento em andamento."
@@ -68,8 +82,6 @@ class ResultadoPrescricaoService:
         Raises: 404 (atendimento inexistente/de outra empresa), 403 (não é o dono),
         409 (atendimento fora de 'em-andamento'; já há rascunho; ou, no fluxo da IA, há rascunho do médico).
         """
-        from src.models.clinico import ResultadoPrescricao
-
         atendimento = self._atendimento_do_medico(uuid_atendimento, id_empresa, id_usuario)
         self._exigir_em_andamento(atendimento)
 
@@ -171,6 +183,7 @@ class ResultadoPrescricaoService:
         return self.resultado_repo.find_do_atendimento(atendimento.id)
 
     def buscar_resultado_por_uuid(self, uuid_resultado: str, id_empresa: int):
+        """Resultado da empresa pelo UUID. Raises: RecursoNaoEncontradoError (404 uniforme)."""
         r = self.resultado_repo.find_by_uuid_da_empresa(uuid_resultado, id_empresa)
         if not r:
             raise RecursoNaoEncontradoError(f"Resultado de prescrição não encontrado: {uuid_resultado}")
@@ -183,22 +196,26 @@ class ResultadoPrescricaoService:
 
     @staticmethod
     def _ids_medicamentos(resultado) -> set[int]:
+        """Ids de catálogo dos medicamentos do resultado."""
         return {p.id_catalogo for p in resultado.prescricoes if p.id_catalogo}
 
-    # --- C1: Doenças mais comuns por região ---
+    # ------------------------------------------------------------------
+    # Estatísticas
+    # ------------------------------------------------------------------
     def top_cid_por_regiao(self, id_empresa: int, dias: int = 14, limite: int = 10):
+        """Doenças (CID-10) mais diagnosticadas por região do paciente (ver o repository)."""
         return self.resultado_repo.top_cid_por_regiao(id_empresa=id_empresa, dias=dias, limite=limite)
 
-    # --- C3 (bônus): base para incidência por 100 mil ---
     def total_casos_por_regiao(self, id_empresa: int, dias: int = 14):
+        """Total de casos por região, base para a incidência por 100 mil habitantes."""
         return self.resultado_repo.total_casos_por_regiao(id_empresa=id_empresa, dias=dias)
 
-    # --- C2: Evolução temporal de um CID específico ---
     def evolucao_cid(self, id_empresa: int, codigo_cid10: str, dias: int = 30):
+        """Série diária de casos de um CID nos últimos `dias`."""
         return self.resultado_repo.evolucao_cid(id_empresa=id_empresa, codigo_cid10=codigo_cid10, dias=dias)
 
-    # --- C2 (comparação): evolução de 1 CID, com janela explícita ---
     def evolucao_cid_periodo(self, id_empresa: int, codigo_cid10: str, data_inicio, data_fim):
+        """Série diária de casos de um CID com janela explícita [data_inicio, data_fim)."""
         return self.resultado_repo.evolucao_cid_periodo(
             id_empresa=id_empresa, codigo_cid10=codigo_cid10, data_inicio=data_inicio, data_fim=data_fim
         )

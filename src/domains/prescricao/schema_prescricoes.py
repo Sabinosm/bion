@@ -1,4 +1,6 @@
-"""Schemas Pydantic (v2) da prescrição.
+"""schema_prescricoes.py
+
+Schemas Pydantic (v2) da prescrição.
 
 Médico (rotas HTTP) e IA (resposta do modelo) validam com as MESMAS classes.
 
@@ -166,7 +168,8 @@ class PropostaPrescricaoIA(_Base):
 
 
 def formatar_erros_pydantic(ex: ValidationError) -> str:
-    """Texto curto para json_error. Troque pelo helper compartilhado do projeto, se preferir."""
+    """Texto curto ("campo: mensagem; ...") para o `message` do json_error. O detalhe por campo
+    (`erros`) vem do helper compartilhado do projeto, erros_pydantic_por_campo."""
     partes = []
     for e in ex.errors():
         campo = ".".join(str(p) for p in e["loc"]) or "body"
