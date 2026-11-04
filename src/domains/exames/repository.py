@@ -33,6 +33,20 @@ class CatalogoExamesRepository(IRepository[CatalogoExames]):
             .limit(20).all()
         )
 
+    def buscar_ativos(self, termo: str, tipo: Optional[str], limite: int) -> List[CatalogoExames]:
+        """Usado pela pool da IA (contrato RepoExames). Só exames com ativo=True (NULL não passa).
+        Mesma relevância da listagem: nome exato, depois nome que começa com o termo, depois o restante."""
+        q = CatalogoExames.query.filter(self._filtro_busca(termo), CatalogoExames.ativo.is_(True))
+        if tipo:
+            q = q.filter(CatalogoExames.tipo == tipo)
+        t = normalizar_texto(termo)
+        prioridade = db.case(
+            (CatalogoExames.nome_normalizado == t, 0),
+            (CatalogoExames.nome_normalizado.like(f"{escapar_like(t)}%", escape="\\"), 1),
+            else_=2,
+        )
+        return q.order_by(prioridade, CatalogoExames.nome_exame).limit(limite).all()
+
     def listar_paginado(self, termo: Optional[str], tipo: Optional[str], pagina: int, por_pagina: int,
                     material: Optional[str] = None, exige_jejum: Optional[bool] = None):
         """Só exames ativos. Com termo: nome exato primeiro, depois nome que começa com o termo,
@@ -83,6 +97,3 @@ class CatalogoExamesRepository(IRepository[CatalogoExames]):
 
     def find_all(self) -> List[CatalogoExames]:
         return CatalogoExames.query.all()
-
-
-

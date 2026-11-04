@@ -19,21 +19,32 @@ class CatalogoExamesConteudoRepository:
 
     def contexto_para_ia(self, id_catalogo_exame: int, idioma: str = "en", max_chars: int = 4000) -> Optional[dict]:
         """Texto compacto sobre o exame (o que é, para que serve, por que pedir, preparo, resultados),
-        cortado em fronteira de seção. None se não há página de exame guardada.
+        cortado em fronteira de seção. None se não há página de exame guardada ou se nenhuma seção
+        cabe em max_chars. Sem página no idioma pedido, tenta "en" (o campo "idioma" do retorno
+        diz qual foi usado).
 
         É conteúdo voltado ao paciente e de base americana: a IA deve tratá-lo como contexto geral,
         não como protocolo brasileiro."""
-        pagina = next((c for c in self.find_por_exame(id_catalogo_exame, idioma) if c.tipo == "exame"), None)
-        if not pagina:
-            return None
+        for i in ([idioma] if idioma == "en" else [idioma, "en"]):
+            pagina = next((c for c in self.find_por_exame(id_catalogo_exame, i) if c.tipo == "exame"), None)
+            if not pagina:
+                continue
+            contexto = self._montar_contexto(pagina, max_chars)
+            if contexto:
+                return contexto
+        return None
+
+    @staticmethod
+    def _montar_contexto(pagina: CatalogoExamesConteudo, max_chars: int) -> Optional[dict]:
         por_chave = {}
         for s in pagina.secoes_json or []:
             if s.get("chave") and s["chave"] not in por_chave:
                 por_chave[s["chave"]] = s
-        partes = [f"{pagina.titulo}"]
+        partes = [pagina.titulo] if pagina.titulo else []
         if pagina.outros_nomes_json:
             partes.append("Other names: " + ", ".join(pagina.outros_nomes_json))
         tamanho = sum(len(p) for p in partes)
+        incluiu_secao = False
         for chave in CHAVES_PARA_IA:
             s = por_chave.get(chave)
             if not s:
@@ -43,10 +54,13 @@ class CatalogoExamesConteudoRepository:
                 break
             partes.append(bloco)
             tamanho += len(bloco)
+            incluiu_secao = True
+        if not incluiu_secao:
+            return None
         return {
             "texto": "\n\n".join(partes),
             "fonte": FONTE_LEGIVEL,
             "url": pagina.url,
             "idioma": pagina.idioma,
             "buscado_em": pagina.buscado_em.isoformat() if pagina.buscado_em else None,
-        }
+        }   

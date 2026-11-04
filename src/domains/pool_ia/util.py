@@ -26,11 +26,13 @@ def compacto_med(m) -> dict:
 
 
 def compacto_interacao(i) -> dict:
-    """Projecao de InteracoesMedicamentos (uuid, gravidade e os dois medicamentos)."""
+    """Projecao de InteracoesMedicamentos: os dois medicamentos, a gravidade e o que fazer
+    (acao, recomendacao) e por que (mecanismo_efeito)."""
     a, b = i.medicamento_a, i.medicamento_b
     d = {"medicamento_a": {"uuid_catalogo": a.uuid, "principio_ativo": a.principio_ativo},
          "medicamento_b": {"uuid_catalogo": b.uuid, "principio_ativo": b.principio_ativo},
-         "gravidade": i.gravidade, "descricao": getattr(i, "descricao", None)}
+         "gravidade": i.gravidade, "acao": i.acao,
+         "recomendacao": i.recomendacao, "mecanismo_efeito": i.mecanismo_efeito}
     return {k: v for k, v in d.items() if v is not None}
 
 

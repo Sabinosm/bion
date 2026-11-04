@@ -6,6 +6,7 @@ from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos, Cat
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
 from src.models.catalogos.indicacao_terapeutica import IndicacaoTerapeutica
 from sqlalchemy import cast
+from sqlalchemy.orm import aliased, contains_eager, selectinload
 from src.core.consultas import escapar_like
 from src.models.catalogos.contraindicacao import Contraindicacao
 
@@ -71,8 +72,6 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
 
     def find_all(self) -> List[CatalogoMedicamentos]:
         return CatalogoMedicamentos.query.all()
-    
-    from src.domains.medicamentos.normalizacao import normalizar_nome  # no topo do arquivo
 
     def find_por_nome_normalizado(self, principio_ativo: str) -> Optional[CatalogoMedicamentos]:
         """Busca pelo nome normalizado (sem acento, minúsculo, sem
@@ -145,3 +144,67 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
 
     def find_by_uuids(self, uuids):
         return CatalogoMedicamentos.query.filter(CatalogoMedicamentos.uuid.in_(uuids)).all()
+
+    # ------------------------------------------------------------------
+    # Métodos da pool da IA (contrato RepoMedicamentos em pool_ia/repositorios.py).
+    # Só leitura, com limite de resultados.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _carregar_para_pool():
+        """compacto_med (to_dict) lê indicações e contraindicações de cada item; carrega em lote
+        para não gerar uma consulta extra por medicamento."""
+        return (selectinload(CatalogoMedicamentos.indicacoes_terapeuticas),
+                selectinload(CatalogoMedicamentos.contraindicacoes))
+
+    def buscar_por_principio(self, termo: str, limite: int) -> List[CatalogoMedicamentos]:
+        """Princípio ativo (normalizado), sinônimo ou nome comercial. Nome exato primeiro,
+        depois nome que começa com o termo, depois o restante."""
+        t = normalizar_nome(termo.strip())
+        prioridade = db.case(
+            (CatalogoMedicamentos.principio_ativo_normalizado == t, 0),
+            (CatalogoMedicamentos.principio_ativo_normalizado.like(f"{escapar_like(t)}%", escape="\\"), 1),
+            else_=2,
+        )
+        return (CatalogoMedicamentos.query
+                .filter(self._filtro_busca(termo))
+                .options(*self._carregar_para_pool())
+                .order_by(prioridade, CatalogoMedicamentos.principio_ativo)
+                .limit(limite).all())
+
+    def buscar_por_classe(self, termo: str, limite: int) -> List[CatalogoMedicamentos]:
+        padrao = f"%{escapar_like(termo.strip())}%"
+        return (CatalogoMedicamentos.query
+                .filter(CatalogoMedicamentos.classe_farmaceutica.ilike(padrao, escape="\\"))
+                .options(*self._carregar_para_pool())
+                .order_by(CatalogoMedicamentos.principio_ativo)
+                .limit(limite).all())
+
+    def buscar_por_indicacao(self, termo: str, limite: int) -> List[CatalogoMedicamentos]:
+        """Casa o nome da indicação ou seus sinônimos de busca (sinonimos_busca_json)."""
+        p_raw = f"%{escapar_like(termo.strip().lower())}%"
+        filtro = db.or_(
+            IndicacaoTerapeutica.nome.ilike(p_raw, escape="\\"),
+            db.func.lower(cast(IndicacaoTerapeutica.sinonimos_busca_json, db.Text)).like(p_raw, escape="\\"),
+        )
+        return (CatalogoMedicamentos.query
+                .filter(CatalogoMedicamentos.indicacoes_terapeuticas.any(filtro))
+                .options(*self._carregar_para_pool())
+                .order_by(CatalogoMedicamentos.principio_ativo)
+                .limit(limite).all())
+
+    def interacoes_entre(self, uuid: str, outros_uuids: List[str]) -> List[InteracoesMedicamentos]:
+        """Interações entre um medicamento (uuid) e uma lista de outros (uuids). O par é gravado com o
+        menor id em id_medicamento_a, então o candidato pode estar em qualquer lado."""
+        if not outros_uuids:
+            return []
+        A, B = aliased(CatalogoMedicamentos), aliased(CatalogoMedicamentos)
+        return (InteracoesMedicamentos.query
+                .join(A, InteracoesMedicamentos.id_medicamento_a == A.id)
+                .join(B, InteracoesMedicamentos.id_medicamento_b == B.id)
+                .filter(db.or_(
+                    db.and_(A.uuid == uuid, B.uuid.in_(outros_uuids)),
+                    db.and_(B.uuid == uuid, A.uuid.in_(outros_uuids)),
+                ))
+                .options(contains_eager(InteracoesMedicamentos.medicamento_a, alias=A),
+                         contains_eager(InteracoesMedicamentos.medicamento_b, alias=B))
+                .all())
