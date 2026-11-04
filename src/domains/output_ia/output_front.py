@@ -12,6 +12,26 @@ from __future__ import annotations
 from .schema import OutputIA
 
 
+# Texto exibivel de cada sinal de baixa confianca (codigos em input_ia.nucleo.Sinal).
+_DESCRICAO_MOTIVO = {
+    "binario_diverge": "O que foi marcado e o que foi registrado se contradizem",
+    "conferencia_pendente": "Há registros, mas a informação não foi conferida neste atendimento",
+    "alergia_nao_confirmada": "Alergia registrada sem confirmação",
+    "medicamento_sem_catalogo": "Medicamento fora do catálogo: interações não verificadas",
+    "sinal_vital_fora_do_limite": "Sinal vital fora da faixa esperada",
+    "protocolo_incompleto": "Protocolo executado com dados incompletos",
+    "dado_critico_ausente": "Dado crítico do protocolo ausente",
+}
+
+
+def _motivo_legivel(m: dict) -> dict:
+    """Acrescenta `descricao` (texto pronto para a tela) ao motivo, sem remover os campos originais."""
+    texto = _DESCRICAO_MOTIVO.get(m.get("codigo"), str(m.get("codigo") or "motivo não identificado"))
+    n = m.get("ocorrencias") or 1
+    sufixo = f" ({n} ocorrências)" if n > 1 else ""
+    return {**m, "descricao": f"{m.get('bloco', '')}: {texto}{sufixo}".lstrip(": ")}
+
+
 def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
                         indices: dict | None = None, lacunas: list[str] | None = None,
                         substituida: bool = False) -> dict:
@@ -53,6 +73,6 @@ def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
             "explicacao": output.detalhamento_explicacao,
             "conduta": conduta,
             "qualidade": {"completude": ind.get("completude"), "confianca": ind.get("confianca"),
-                          "motivos": ind.get("motivos_confianca", [])},
+                          "motivos": [_motivo_legivel(m) for m in ind.get("motivos_confianca", [])]},
             "lacunas": list(lacunas or []),
             "blocos_considerados": list(output.blocos_considerados)}
