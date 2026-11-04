@@ -14,7 +14,7 @@ from .schema import OutputIA
 
 # Texto exibivel de cada sinal de baixa confianca (codigos em input_ia.nucleo.Sinal).
 _DESCRICAO_MOTIVO = {
-    "binario_diverge": "O que foi marcado e o que foi registrado se contradizem",
+    "dados_clinicos_divergem": "O que foi marcado e o que foi registrado se contradizem",
     "conferencia_pendente": "Há registros, mas a informação não foi conferida neste atendimento",
     "alergia_nao_confirmada": "Alergia registrada sem confirmação",
     "medicamento_sem_catalogo": "Medicamento fora do catálogo: interações não verificadas",
