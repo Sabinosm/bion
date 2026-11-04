@@ -14,7 +14,7 @@ from .schema import OutputIA
 
 # Texto exibivel de cada sinal de baixa confianca (codigos em input_ia.nucleo.Sinal).
 _DESCRICAO_MOTIVO = {
-    "dados_clinicos_divergem": "O que foi marcado e o que foi registrado se contradizem",
+    "binario_diverge": "O que foi marcado e o que foi registrado se contradizem",
     "conferencia_pendente": "Há registros, mas a informação não foi conferida neste atendimento",
     "alergia_nao_confirmada": "Alergia registrada sem confirmação",
     "medicamento_sem_catalogo": "Medicamento fora do catálogo: interações não verificadas",
@@ -66,12 +66,20 @@ def montar_output_front(output: OutputIA, resultado: dict | None = None, *,
                    "tipo_prescricao": resultado.get("tipo_prescricao"),
                    "medicamentos": meds, "exames": exs}
 
+    # Proposta so com diagnostico/encaminhamento (sem itens): nao gera rascunho, mas o medico deve ve-la.
+    diagnostico_proposto = None
+    if conduta is None and not substituida and p.resultado is not None:
+        r = p.resultado.model_dump(mode="json")
+        diagnostico_proposto = {"cid10": r.get("codigo_cid10_principal"), "descricao": r.get("descricao_cid10_principal"),
+                                "certeza": r.get("certeza_diagnostica"), "tipo_prescricao": r.get("tipo_prescricao")}
+
     ind = indices or {}
     return {"conduta_substituida": bool(substituida and resultado is None),
             "precisa_mais_informacao": output.precisa_mais_informacao,
             "perguntas": [q.model_dump(mode="json") for q in output.perguntas_pendentes],
             "explicacao": output.detalhamento_explicacao,
             "conduta": conduta,
+            "diagnostico_proposto": diagnostico_proposto,
             "qualidade": {"completude": ind.get("completude"), "confianca": ind.get("confianca"),
                           "motivos": [_motivo_legivel(m) for m in ind.get("motivos_confianca", [])]},
             "lacunas": list(lacunas or []),
