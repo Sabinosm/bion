@@ -78,7 +78,6 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auth.webauthn_2fa import bp_webauthn_2fa
     from src.domains.auth.status import bp_status
     from src.domains.auth.totp_2fa import bp_totp_2fa
-    from src.fhir import bp_fhir
     
     app.register_blueprint(auth_bp, url_prefix="/v1/api/auth")       
     app.register_blueprint(bp_status, url_prefix="/v1/api/auth")                                       # /v1/api/authc
@@ -122,7 +121,6 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(bp_med_em_uso, url_prefix="/v1/api/dadosClinicos/MedicamentosUso")
     app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(consentimento_digital_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
-    app.register_blueprint(bp_fhir,url_prefix="/v1/api/fhir")
     app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")
     app.register_blueprint(bp_ia, url_prefix="/v1/api/bion")
     
