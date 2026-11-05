@@ -127,6 +127,8 @@ def _dados_protocolos(input_vigente) -> List[dict]:
             "classificacao": res.get("classificacao"),
             "trilha": res.get("trilha_explicativa") or [],
             "dados_ausentes": res.get("dados_ausentes") or ex.dados_ausentes_json or [],
+            "metadata": res.get("metadata") if isinstance(res.get("metadata"), dict) else {},
+            "explicacao": attr(prot, "explicacao_json") if isinstance(attr(prot, "explicacao_json"), dict) else None,
         })
     return saida
 

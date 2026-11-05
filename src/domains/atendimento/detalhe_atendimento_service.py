@@ -55,6 +55,39 @@ def _fv(v: float) -> str:
     return f"{v:g}".replace(".", ",")
 
 
+def _meta_execucao(ex: Dict[str, Any]) -> Dict[str, Any]:
+    """O que o resultado de uma execução de protocolo SIGNIFICA, para a tela de resumo.
+
+    - `explicacao`: texto fixo do protocolo (o que é / quando usar / como interpretar), do catálogo;
+    - `acao_recomendada`, `escore_total`, `override_disparado`, `escore_parcial`: família escore (NEWS2);
+    - `modulos` e `alertas`: família composta (um resultado por módulo; alertas = módulos-flag positivos).
+    Tudo em texto/número/lista simples (o front só usa textContent). Chaves ausentes viram None/[]/False."""
+    meta = ex.get("metadata") if isinstance(ex.get("metadata"), dict) else {}
+    expl = ex.get("explicacao") if isinstance(ex.get("explicacao"), dict) else None
+    agregacao = meta.get("agregacao") if isinstance(meta.get("agregacao"), dict) else {}
+
+    modulos = []
+    for m in meta.get("modulos") or []:
+        if not isinstance(m, dict):
+            continue
+        saida = m.get("classificacao") if m.get("classificacao") is not None else m.get("valor")
+        modulos.append({"sigla": _txt(m.get("sigla_modulo")), "status": _txt(m.get("status")),
+                        "saida": _txt(saida), "motivo": _txt(m.get("motivo")),
+                        "ausentes": [str(x) for x in (m.get("ausentes") or [])]})
+    alertas = [{"modulo": _txt(a.get("modulo")), "classificacao": _txt(a.get("classificacao")),
+                "motivo": _txt(a.get("motivo"))}
+               for a in (meta.get("alertas") or []) if isinstance(a, dict)]
+    return {
+        "explicacao": ({k: _txt(expl.get(k)) for k in ("o_que_e", "quando_usar", "como_interpretar")}
+                       if expl else None),
+        "acao_recomendada": _txt(meta.get("acao_recomendada")),
+        "escore_total": _num(meta.get("escore_total")),
+        "override_disparado": bool(meta.get("override_disparado")),
+        "resultado_parcial": bool(meta.get("escore_parcial") or agregacao.get("parcial")),
+        "modulos": modulos, "alertas": alertas,
+    }
+
+
 def para_json(d: DadosAtendimento) -> Dict[str, Any]:
     """DadosAtendimento -> dict JSON-seguro, pronto para exibir. Função pura (testável sem banco)."""
     tz = d.tz
@@ -99,6 +132,7 @@ def para_json(d: DadosAtendimento) -> Dict[str, Any]:
                             "resultado": _txt(tp.get("peso_ou_resultado"))}
                            for tp in sorted(ex["trilha"], key=lambda x: x.get("ordem", 0)) if isinstance(tp, dict)],
                 "dados_ausentes": [str(x) for x in ex["dados_ausentes"]],
+                **_meta_execucao(ex),
             } for ex in d.protocolos],
         }
 
