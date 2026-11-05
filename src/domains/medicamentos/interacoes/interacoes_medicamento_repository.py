@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 from src.models import db
 from src.core.interfaces import IRepository
 from src.models.catalogos.interacoes_medicamentos import InteracoesMedicamentos
+# AJUSTE o caminho se o model estiver em outro modulo
+from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 
 class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
 
@@ -106,5 +108,53 @@ class InteracoesMedicamentosRepository(IRepository[InteracoesMedicamentos]):
                     selectinload(InteracoesMedicamentos.medicamento_b))
             .filter(InteracoesMedicamentos.id_medicamento_a.in_(ids),
                     InteracoesMedicamentos.id_medicamento_b.in_(ids))
+            .all()
+        )
+
+    def find_cruzadas(self, ids_prescritos, ids_em_uso) -> List[InteracoesMedicamentos]:
+        """Interações em que pelo menos um lado é item prescrito e o outro é
+        prescrito ou já em uso pelo paciente. Não inclui em_uso x em_uso:
+        isso não é efeito da prescrição atual."""
+        prescritos = set(ids_prescritos or ())
+        if not prescritos:
+            return []
+        em_uso = set(ids_em_uso or ())
+        A, B = InteracoesMedicamentos.id_medicamento_a, InteracoesMedicamentos.id_medicamento_b
+        condicoes = [A.in_(prescritos) & B.in_(prescritos)]
+        if em_uso:
+            condicoes += [A.in_(prescritos) & B.in_(em_uso),
+                          A.in_(em_uso) & B.in_(prescritos)]
+        return (
+            InteracoesMedicamentos.query
+            .options(selectinload(InteracoesMedicamentos.medicamento_a),
+                     selectinload(InteracoesMedicamentos.medicamento_b))
+            .filter(or_(*condicoes))
+            .all()
+        )
+
+    def find_por_uuids(self, uuid: str, outros_uuids) -> List[InteracoesMedicamentos]:
+        """Interações entre o medicamento `uuid` e qualquer um de `outros_uuids`
+        (uuids públicos de CatalogoMedicamentos). Lista vazia se não houver
+        'outros' ou se o uuid base não existir no catálogo."""
+        outros_uuids = set(outros_uuids or ()) - {uuid}
+        if not outros_uuids:
+            return []
+        linhas = (db.session.query(CatalogoMedicamentos.uuid, CatalogoMedicamentos.id)
+                  .filter(CatalogoMedicamentos.uuid.in_({uuid, *outros_uuids}))
+                  .all())
+        ids = {u: i for u, i in linhas}
+        if uuid not in ids:
+            return []
+        id_base = ids[uuid]
+        id_outros = [i for u, i in ids.items() if u != uuid]
+        if not id_outros:
+            return []
+        A, B = InteracoesMedicamentos.id_medicamento_a, InteracoesMedicamentos.id_medicamento_b
+        return (
+            InteracoesMedicamentos.query
+            .options(selectinload(InteracoesMedicamentos.medicamento_a),
+                     selectinload(InteracoesMedicamentos.medicamento_b))
+            .filter(or_((A == id_base) & B.in_(id_outros),
+                        (B == id_base) & A.in_(id_outros)))
             .all()
         )

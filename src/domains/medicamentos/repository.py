@@ -9,6 +9,9 @@ from sqlalchemy import cast
 from sqlalchemy.orm import aliased, contains_eager, selectinload
 from src.core.consultas import escapar_like
 from src.models.catalogos.contraindicacao import Contraindicacao
+from src.domains.medicamentos.interacoes.interacoes_medicamento_repository import (
+    InteracoesMedicamentosRepository,
+)
 
 
 
@@ -208,3 +211,6 @@ class CatalogoMedicamentosRepository(IRepository[CatalogoMedicamentos]):
                 .options(contains_eager(InteracoesMedicamentos.medicamento_a, alias=A),
                          contains_eager(InteracoesMedicamentos.medicamento_b, alias=B))
                 .all())
+
+    def interacoes_entre(self, uuid, outros_uuids):
+        return InteracoesMedicamentosRepository().find_por_uuids(uuid, outros_uuids)
