@@ -1,23 +1,3 @@
-"""
-Dominio Paciente.
-
-ALTERADO:
-1. tipo_sanguineo REMOVIDO como coluna direta -- vira @property que lê
-   da observação mais recente em ObservacaoTipoSanguineo. to_dict()
-   continua expondo o mesmo valor, sem mudança perceptível pro front
-   (decisão confirmada com o usuário).
-2. anonimizar() CORRIGIDO: antes só gerava identificacao_anonima, mas
-   não desligava PacientePessoal -- esta_anonimizado() nunca ficava
-   True de fato. Agora remove a relação de verdade.
-3. Campos falecido/data_obito adicionados (status='obito' ganha
-   representação própria, equivalente a Patient.deceasedBoolean/
-   deceasedDateTime do FHIR).
-4. esta_falecido() adicionado (falecido OU status='obito'); to_dict()
-   passa a expor falecido/data_obito; removida a primeira definição
-   duplicada de esta_anonimizado() (a de baixo, que considera
-   nao_identificado, é a que valia).
-"""
-
 from datetime import datetime, timezone
 import uuid as _uuid
 
@@ -29,62 +9,39 @@ class Paciente(db.Model):
     __tablename__ = "paciente"
 
     id = db.Column("id_paciente", BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_paciente", db.String(36), unique=True, nullable=False,
-                      default=lambda: str(_uuid.uuid4()))
+    uuid = db.Column("uuid_paciente", db.String(36), unique=True, nullable=False, default=lambda: str(_uuid.uuid4()))
     identificacao_anonima = db.Column(db.String(64))
     bairro = db.Column(db.String(100))
     sexo_biologico = db.Column(db.Enum("M", "F", "I"), nullable=False)
-
-    # NOVO: posse do paciente. Explícito e imutável após a criação --
-    # não inferido via cadastrado_por -> usuario.id_empresa (frágil:
-    # usuário pode trocar de empresa ou ser removido depois).
     id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
-    # tipo_sanguineo REMOVIDO como coluna -- ver property abaixo
     data_nascimento = db.Column(db.Date)
     id_regiao_geografica = db.Column(db.BigInteger, db.ForeignKey("regiao_geografica.id_regiao_geografica"))
     data_primeiro_atendimento = db.Column(db.Date, nullable=False)
-    status = db.Column(db.Enum("ativo", "inativo", "obito"),
-                        nullable=False, default="ativo")
-
-    # NOVO: espelha Patient.deceasedBoolean/deceasedDateTime do FHIR
+    status = db.Column(db.Enum("ativo", "inativo", "obito"), nullable=False, default="ativo")
     falecido = db.Column(db.Boolean, nullable=False, default=False)
     data_obito = db.Column(db.Date, nullable=True)
     nao_identificado = db.Column(db.Boolean, nullable=False, default=False)
-    
     peso = db.Column(db.Float, nullable=True)
     altura = db.Column(db.Integer, nullable=True)
-    
-    criado_em = db.Column(db.DateTime(timezone=True),
-                           default=lambda: datetime.now(timezone.utc), nullable=False)
-    
+    criado_em = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     cadastrado_por = db.Column(db.BigInteger, db.ForeignKey("usuarios.id_usuario"))
-
     empresa = db.relationship("Empresa", back_populates="pacientes")
     usuario_cadastro = db.relationship("Usuario", foreign_keys=[cadastrado_por])
     regiao_geografica = db.relationship("RegiaoGeografica", back_populates="pacientes")
-    pessoal = db.relationship("PacienteDadosPessoais", back_populates="paciente",
-                               uselist=False, cascade="all, delete-orphan")
+    pessoal = db.relationship("PacienteDadosPessoais", back_populates="paciente", uselist=False, cascade="all, delete-orphan")
     observacoes_tipo_sanguineo = db.relationship(
         "ObservacaoTipoSanguineo", back_populates="paciente",
         cascade="save-update, merge", passive_deletes="all",
         order_by="desc(ObservacaoTipoSanguineo.data_registro), desc(ObservacaoTipoSanguineo.id)",
     )
-    
-    alergias = db.relationship("Alergia", back_populates="paciente",
-                                cascade="save-update, merge", passive_deletes="all")
-    doencas = db.relationship("DoencaCronica", back_populates="paciente",
-                               cascade="all, delete-orphan")
-    medicamentos_em_uso = db.relationship("MedicamentoEmUso", back_populates="paciente",
-                                           cascade="all, delete-orphan")
-    consentimentos = db.relationship("Consentimento", back_populates="paciente",
-                                      cascade="all, delete-orphan")
+    alergias = db.relationship("Alergia", back_populates="paciente", cascade="save-update, merge", passive_deletes="all")
+    doencas = db.relationship("DoencaCronica", back_populates="paciente", cascade="all, delete-orphan")
+    medicamentos_em_uso = db.relationship("MedicamentoEmUso", back_populates="paciente", cascade="all, delete-orphan")
+    consentimentos = db.relationship("Consentimento", back_populates="paciente", cascade="all, delete-orphan")
     consultas = db.relationship("Consulta", back_populates="paciente")
 
     @property
     def tipo_sanguineo(self):
-        """Leitura de compatibilidade: `paciente.tipo_sanguineo` continua
-        funcionando como antes (string simples), buscando internamente
-        a observação mais recente em vez de uma coluna direta."""
         obs = self.observacoes_tipo_sanguineo[0] if self.observacoes_tipo_sanguineo else None
         return obs.tipo_sanguineo if obs else None
 
@@ -96,21 +53,12 @@ class Paciente(db.Model):
         self.observacoes_tipo_sanguineo.insert(0, nova)
 
     def esta_falecido(self) -> bool:
-        """True se o óbito está registrado em QUALQUER dos dois campos.
-        Usar este método nos guards, nunca só `status` ou só `falecido`:
-        marcar_obito/reverter_obito mantêm os dois sincronizados, mas
-        dados antigos podem ter só um deles."""
         return bool(self.falecido) or self.status == "obito"
 
     def anonimizar(self, cpf_plaintext: str):
-        """CORRIGIDO: antes só gerava identificacao_anonima, sem de fato
-        remover PacienteDadosPessoais -- esta_anonimizado() nunca detectava
-        a anonimização corretamente. Agora remove a relação de verdade,
-        deixando o SQLAlchemy cuidar do DELETE via cascade já configurado.
-        """
         from src.core.security import hmac_sha256
         self.identificacao_anonima = hmac_sha256(cpf_plaintext)
-        self.pessoal = None  # aciona o cascade="all, delete-orphan" já existente
+        self.pessoal = None 
 
     def to_dict(self, incluir_pessoal=False):
         d = {
@@ -118,7 +66,7 @@ class Paciente(db.Model):
             "sexo_biologico": self.sexo_biologico,
             "peso": self.peso,
             "altura": self.altura,
-            "tipo_sanguineo": self.tipo_sanguineo,  # via property, comportamento idêntico a antes
+            "tipo_sanguineo": self.tipo_sanguineo,
             "data_nascimento": self.data_nascimento.isoformat() if self.data_nascimento else None,
             "status": self.status,
             "data_primeiro_atendimento": self.data_primeiro_atendimento.isoformat()
@@ -126,9 +74,6 @@ class Paciente(db.Model):
             "nao_identificado": self.nao_identificado,
             "falecido": self.falecido,
             "data_obito": self.data_obito.isoformat() if self.data_obito else None,
-            # NOVO: quem cadastrou -- nome_completo de Usuario não é
-            # cifrado (confirmado), então pode ir direto sem passar
-            # pelo service para descriptografar.
             "cadastrado_por": self.usuario_cadastro.nome_completo if self.usuario_cadastro else None,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
@@ -137,15 +82,6 @@ class Paciente(db.Model):
         return d
 
     def to_dict_few(self, nome_completo: str = None, cpf_inicio: str = None):
-        """NOVO: versão enxuta para listagens -- só o suficiente para
-        identificar o paciente numa lista, sem expor PII completo.
-
-        `nome_completo` e `cpf_inicio` vêm de fora já descriptografados:
-        o model nunca chama aes_decrypt sozinho -- isso é responsabilidade
-        do service, que centraliza todo acesso a PII cifrado. Sem esses
-        argumentos (paciente anonimizado, por exemplo), ambos saem None
-        em vez de vazar o valor cifrado ou quebrar.
-        """
         return {
             "uuid": self.uuid,
             "nome_completo": nome_completo,
@@ -163,17 +99,9 @@ class Paciente(db.Model):
         return f"<Paciente {self.uuid}>"
 
     def esta_anonimizado(self):
-        # sem pessoal E não é emergência pendente de identificação
         return self.pessoal is None and not self.nao_identificado
     
     def pode_receber_atendimento(self) -> bool:
-        """Só óbito bloqueia. 'inativo' PODE receber atendimento
-        (volta a ativo ao ser atendido, se for a regra do sistema).
-
-        Checa os três sinais de óbito, porque o schema não garante que
-        status='obito', falecido e data_obito andem juntos: qualquer um
-        marcado já basta para bloquear.
-        """
         if self.status == "obito":
             return False
         if getattr(self, "falecido", False):
