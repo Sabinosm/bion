@@ -1,8 +1,3 @@
-"""
-LoincSinalVital — tabela de referência com códigos LOINC/UCUM oficiais,
-confirmados diretamente na spec: https://www.hl7.org/fhir/observation-vitalsigns.html
-"""
-
 from src.models import db
 
 

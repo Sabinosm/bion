@@ -1,12 +1,3 @@
-"""
-Dominio Clinico (nucleo do ciclo de vida do atendimento/visita).
-
-Consulta, Atendimento e SinalVital ja estavam completos no projeto
-original. ColetaClinica, ResultadoPrescricao, InputProtocolo,
-InputProtocoloExecucao, Prescricao e PrescricaoExame eram stubs ou nem
-existiam como classe -- completados aqui com os campos do schema.
-"""
-
 from datetime import datetime, timezone
 import uuid as _uuid
 
@@ -18,28 +9,20 @@ class InputProtocolo(db.Model):
     __tablename__ = "input_protocolo"
 
     id = db.Column("id_input", BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_input", db.String(36), unique=True, nullable=False,
-                      default=lambda: str(_uuid.uuid4()))
+    uuid = db.Column(
+        "uuid_input", db.String(36), unique=True, nullable=False, default=lambda: str(_uuid.uuid4())
+    )
     id_coleta_clinica = db.Column(db.BigInteger, db.ForeignKey("coleta_clinica.id_coleta"))
-    # "consulta" renomeado para "avaliacao-medica": alinha com
-    # Atendimento.tipo_atendimento e evita ambiguidade com Consulta
-    # (a entidade "episódio inteiro"), que não é o que este campo indica.
     tipo_input = db.Column(db.Enum("triagem", "avaliacao-medica", "reavaliacao"))
-    # RESPOSTAS DO PROFISSIONAL AO PROTOCOLO escolhido (campos do fluxograma/
-    # módulo). NÃO guarda a queixa (coluna própria abaixo) nem o contexto
-    # clínico do paciente (binário, alergias, sinais vitais...): esse é montado
-    # pelo InputModel e congelado em OutputBion.input_ia_json.
     input_json = db.Column(db.JSON)
     queixa_principal = db.Column(db.Text)
     valor_avpu = db.Column(db.String(20))
-    # Preenchido pelo sistema (execução determinística), nunca pelo cliente.
     dados_criticos_ausentes_json = db.Column(db.JSON)
-    # Insert-only: reenviar cria outro registro; o vigente é o de maior id no
-    # atendimento. Autoria e momento vêm do próprio Atendimento.
 
     coleta_clinica = db.relationship("ColetaClinica", back_populates="inputs_protocolo")
-    execucoes = db.relationship("InputProtocoloExecucao", back_populates="input_protocolo",
-                                 cascade="all, delete-orphan")
+    execucoes = db.relationship(
+        "InputProtocoloExecucao", back_populates="input_protocolo", cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {
