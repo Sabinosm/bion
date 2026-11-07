@@ -17,5 +17,5 @@ __all__ = [
     "Paciente",
     "PacienteDadosPessoais",
     "ObservacaoTipoSanguineo",
-    "ConsentimentoSessaoAssinatura"
+    "ConsentimentoSessaoAssinatura",
 ]
