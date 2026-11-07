@@ -280,3 +280,22 @@ class UsuarioRepository(IRepository[Usuario]):
             return usuario, avatar_antigo
         
         return usuario, None
+    
+    def find_ids_profissionais(self, id_empresa: int, limit: int = 100) -> List[int]:
+        """IDs de usuários ativos da empresa com papel ativo de médico ou
+        enfermeiro, em ordem de id (os `limit` primeiros)."""
+        linhas = (
+            db.session.query(Usuario.id)
+            .join(PapelProfissional, PapelProfissional.id_usuario == Usuario.id)
+            .filter(
+                Usuario.id_empresa == id_empresa,
+                Usuario.status == "ativo",
+                PapelProfissional.ativo == True,
+                PapelProfissional.tipo_papel.in_(("medico", "enfermeiro")),
+            )
+            .distinct()
+            .order_by(Usuario.id)
+            .limit(limit)
+            .all()
+        )
+        return [linha[0] for linha in linhas]
