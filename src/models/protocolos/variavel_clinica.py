@@ -1,16 +1,3 @@
-"""
-Dominio de Protocolos / IA (motor de triagem e suporte a decisao).
-
-Novo (migration 2026-09-28): dicionario compartilhado de variaveis
-clinicas. Modulos consomem variaveis daqui via ModuloVersaoCampo.
-
-Convencoes:
-  - codigo: estavel e legivel (minusculas, digitos e underscore).
-  - categorico exige opcoes_json; numerico/booleano nao tem opcoes.
-  - valor_min/valor_max (plausibilidade) so para numerico.
-Todo conteudo entra por SEED.
-"""
-
 from datetime import datetime, timezone
 
 from src.models import db
@@ -19,6 +6,23 @@ from src.models.types import BigIntPK
 
 class VariavelClinica(db.Model):
     __tablename__ = "variavel_clinica"
+
+    __table_args__ = (
+        db.CheckConstraint("codigo REGEXP '^[a-z][a-z0-9_]*$'", name="ck_variavel_codigo_formato"),
+        db.CheckConstraint(
+            "(tipo_dado = 'categorico' AND opcoes_json IS NOT NULL) "
+            "OR (tipo_dado <> 'categorico' AND opcoes_json IS NULL)",
+            name="ck_variavel_opcoes_coerentes",
+        ),
+        db.CheckConstraint(
+            "tipo_dado = 'numerico' OR (valor_min IS NULL AND valor_max IS NULL)",
+            name="ck_variavel_limites_numerico",
+        ),
+        db.CheckConstraint(
+            "valor_min IS NULL OR valor_max IS NULL OR valor_min < valor_max",
+            name="ck_variavel_limites_ordem",
+        ),
+    )
 
     id = db.Column("id_variavel", BigIntPK, primary_key=True, autoincrement=True)
     codigo = db.Column(db.String(100), unique=True, nullable=False)
@@ -29,22 +33,8 @@ class VariavelClinica(db.Model):
     valor_min = db.Column(db.Numeric(14, 4))
     valor_max = db.Column(db.Numeric(14, 4))
     codigo_loinc = db.Column(db.String(50))
-    criado_em = db.Column(db.DateTime(timezone=True),
-                           default=lambda: datetime.now(timezone.utc), nullable=False)
-
-    __table_args__ = (
-        db.CheckConstraint("codigo REGEXP '^[a-z][a-z0-9_]*$'",
-                            name="ck_variavel_codigo_formato"),
-        db.CheckConstraint(
-            "(tipo_dado = 'categorico' AND opcoes_json IS NOT NULL) "
-            "OR (tipo_dado <> 'categorico' AND opcoes_json IS NULL)",
-            name="ck_variavel_opcoes_coerentes"),
-        db.CheckConstraint(
-            "tipo_dado = 'numerico' OR (valor_min IS NULL AND valor_max IS NULL)",
-            name="ck_variavel_limites_numerico"),
-        db.CheckConstraint(
-            "valor_min IS NULL OR valor_max IS NULL OR valor_min < valor_max",
-            name="ck_variavel_limites_ordem"),
+    criado_em = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     usos_em_modulos = db.relationship("ModuloVersaoCampo", back_populates="variavel")

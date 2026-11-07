@@ -1,20 +1,3 @@
-"""
-Dominio de Protocolos / IA (motor de triagem e suporte a decisao).
-
-Atualizado para refletir as migrations de 2026-09-24:
-  - MIGRATION 1: removida a FK fk_protocolo_catalogo_execucao (quebra do
-    ciclo catalogo <-> execucao). ProtocoloCatalogo NAO referencia mais
-    InputProtocoloExecucao; a navegacao correta e sempre
-    execucao -> catalogo.
-  - MIGRATION 2026-09-28: removidos flag_personalizado (redundante com
-    tipo_protocolo = 'protocolo-composto', que a Factory le) e a relationship
-    protocolos_personalizados (tabela dropada; composicao agora vive em
-    ProtocoloVersao -> ProtocoloComposicao).
-  - Novos relacionamentos: versoes (ProtocoloVersao), empresas (via
-    EmpresaProtocolo), condutas (CondutaEnfermagem) e escore_config
-    (ProtocoloEscoreConfig, 1:1).
-"""
-
 from datetime import datetime, timezone
 import uuid as _uuid
 import decimal
@@ -27,43 +10,54 @@ class ProtocoloCatalogo(db.Model):
     __tablename__ = "protocolo_catalogo"
 
     id = db.Column("id_protocolo_catalogo", BigIntPK, primary_key=True, autoincrement=True)
-    uuid = db.Column("uuid_protocolo_catalogo", db.String(36), unique=True, nullable=False,
-                      default=lambda: str(_uuid.uuid4()))
+    uuid = db.Column(
+        "uuid_protocolo_catalogo",
+        db.String(36),
+        unique=True,
+        nullable=False,
+        default=lambda: str(_uuid.uuid4()),
+    )
     nome_protocolo = db.Column(db.String(255), nullable=False)
-    sigla = db.Column(db.String(50), unique=True, nullable=False)  # usado por ProtocoloFactory
+    sigla = db.Column(db.String(50), unique=True, nullable=False)
     tipo_resultado = db.Column(
-        db.Enum("score-numerico", "categoria-cor", "nivel-risco", "binario"),
-        nullable=False)
+        db.Enum("score-numerico", "categoria-cor", "nivel-risco", "binario"), nullable=False
+    )
     tipo_protocolo = db.Column(db.String(100))
-    explicacao_json=db.Column(db.JSON, comment="explicacao do protocolo, para exibir no app",nullable=False)
+    explicacao_json = db.Column(
+        db.JSON, comment="explicacao do protocolo, para exibir no app", nullable=False
+    )
     escopo_populacao = db.Column(
         db.Enum("adulto", "pediatrico", "obstetrico", "neonatal", "universal"),
-        nullable=False, default="universal")
+        nullable=False,
+        default="universal",
+    )
     escopo_uso = db.Column(db.Enum("triagem", "consulta", "ambos"), default="ambos")
     versao_vigente = db.Column(db.String(50), nullable=False)
     data_vigencia = db.Column(db.Date, nullable=False)
     data_vigencia_fim = db.Column(db.Date)
-    status = db.Column(db.Enum("ativo", "descontinuado", "em-revisao"),
-                        nullable=False, default="ativo")
+    status = db.Column(
+        db.Enum("ativo", "descontinuado", "em-revisao"), nullable=False, default="ativo"
+    )
     referencia_bibliografica = db.Column(db.Text)
     orgao_emissor = db.Column(db.String(255))
-    criado_em = db.Column(db.DateTime(timezone=True),
-                           default=lambda: datetime.now(timezone.utc), nullable=False)
+    criado_em = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
     protocolos_mts = db.relationship("ProtocoloMts", back_populates="protocolo_catalogo")
-
-    # NOTA: relationship "execucoes" removida (MIGRATION 1). O catalogo e
-    # referencia, nao registro -- quem navega ate a execucao e o proprio
-    # InputProtocoloExecucao (protocolo_catalogo = relationship(...)),
-    # nunca o contrario.
-
-    versoes = db.relationship("ProtocoloVersao", back_populates="protocolo_catalogo",
-                               cascade="all, delete-orphan")
-    empresas = db.relationship("EmpresaProtocolo", back_populates="protocolo_catalogo",
-                                cascade="all, delete-orphan")
+    versoes = db.relationship(
+        "ProtocoloVersao", back_populates="protocolo_catalogo", cascade="all, delete-orphan"
+    )
+    empresas = db.relationship(
+        "EmpresaProtocolo", back_populates="protocolo_catalogo", cascade="all, delete-orphan"
+    )
     condutas = db.relationship("CondutaEnfermagem", back_populates="protocolo_catalogo")
-    escore_config = db.relationship("ProtocoloEscoreConfig", back_populates="protocolo_catalogo",
-                                     uselist=False, cascade="all, delete-orphan")
+    escore_config = db.relationship(
+        "ProtocoloEscoreConfig",
+        back_populates="protocolo_catalogo",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self):
         return {
