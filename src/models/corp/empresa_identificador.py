@@ -1,11 +1,3 @@
-"""
-EmpresaIdentificador — espelha Organization.identifier[] do FHIR.
-
-Extrai o CNPJ (antes coluna solta em Empresa) para uma tabela própria,
-já preparada para acomodar CNES (registro de estabelecimento de saúde
-no DataSUS) no futuro, sem precisar de outra migração.
-"""
-
 from datetime import datetime, timezone
 
 from src.models import db
@@ -19,8 +11,9 @@ class EmpresaIdentificador(db.Model):
     id_empresa = db.Column(db.BigInteger, db.ForeignKey("empresas.id_empresa"), nullable=False)
     tipo_identificador = db.Column(db.Enum("cnpj", "cnes"), nullable=False)
     valor = db.Column(db.String(50), nullable=False)
-    criado_em = db.Column(db.DateTime(timezone=True),
-                           default=lambda: datetime.now(timezone.utc), nullable=False)
+    criado_em = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
     empresa = db.relationship("Empresa", back_populates="identificadores")
 

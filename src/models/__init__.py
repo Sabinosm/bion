@@ -5,10 +5,8 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 
-# Auditoria
 from src.models.auditoria import LogAcesso, LogAlteracao, StepUpToken, StepUpReautenticacao
 
-# Catálogo
 from src.models.catalogos import (
     CatalogoExames,
     CatalogoMedicamentos,
@@ -16,13 +14,12 @@ from src.models.catalogos import (
     Contraindicacao,
     LogSincronizacaoCatalogo,
     IndicacaoTerapeutica,
-    LoincPainelItem, 
-    LoincTermo, 
+    LoincPainelItem,
+    LoincTermo,
     LoincTermoTraducao,
     CatalogoExamesConteudo,
 )
 
-# Clínico
 from src.models.clinico import (
     Atendimento,
     ColetaClinica,
@@ -38,10 +35,14 @@ from src.models.clinico import (
     Binario,
 )
 
-# Corporativo
-from src.models.corp import Empresa, RegiaoGeografica, EmpresaIdentificador, TipoJurisdicao, EmpresaProtocolo
+from src.models.corp import (
+    Empresa,
+    RegiaoGeografica,
+    EmpresaIdentificador,
+    TipoJurisdicao,
+    EmpresaProtocolo,
+)
 
-# Paciente
 from src.models.pacientes import (
     Alergia,
     ReacaoAlergia,
@@ -51,10 +52,8 @@ from src.models.pacientes import (
     MedicamentoEmUso,
     Paciente,
     PacienteDadosPessoais,
-    
 )
 
-# Protocolo
 from src.models.protocolos import (
     CatalogoFluxogramasMts,
     CatalogoModulos,
@@ -70,7 +69,6 @@ from src.models.protocolos import (
     VariavelClinica,
 )
 
-# Usuário
 from src.models.usuarios import (
     Configuracao,
     ConfiguracaoProtocolo,
@@ -80,22 +78,13 @@ from src.models.usuarios import (
     PapelProfissional,
 )
 
-# ==============================================================================
-# EXPOSIÇÃO DA API DO MÓDULO
-# ==============================================================================
-
 __all__ = [
-    # Globais
     "db",
     "migrate",
-    
-    # Auditoria
     "LogAcesso",
     "LogAlteracao",
     "StepUpToken",
     "StepUpReautenticacao",
-    
-    # Catálogo
     "CatalogoExames",
     "CatalogoMedicamentos",
     "InteracoesMedicamentos",
@@ -106,8 +95,6 @@ __all__ = [
     "LoincTermo",
     "LoincTermoTraducao",
     "CatalogoExamesConteudo",
-    
-    # Clínico
     "Atendimento",
     "ColetaClinica",
     "Consulta",
@@ -120,15 +107,11 @@ __all__ = [
     "PrescricaoExame",
     "CondutaEnfermagem",
     "Binario",
-    
-    # Corporativo
     "Empresa",
     "RegiaoGeografica",
     "EmpresaIdentificador",
     "TipoJurisdicao",
     "EmpresaProtocolo",
-    
-    # Paciente
     "Alergia",
     "Consentimento",
     "DoencaCronica",
@@ -137,8 +120,6 @@ __all__ = [
     "PacienteDadosPessoais",
     "ObservacaoTipoSanguineo",
     "ReacaoAlergia",
-    
-    # Protocolo
     "CatalogoFluxogramasMts",
     "CatalogoModulos",
     "ModuloVersao",
@@ -151,8 +132,6 @@ __all__ = [
     "ProtocoloMts",
     "ProtocoloVersao",
     "VariavelClinica",
-    
-    # Usuário
     "Configuracao",
     "ConfiguracaoProtocolo",
     "CredencialWebAuthn",

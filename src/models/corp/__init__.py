@@ -9,5 +9,5 @@ __all__ = [
     "EmpresaIdentificador",
     "EmpresaProtocolo",
     "TipoJurisdicao",
-    "RegiaoGeografica"
+    "RegiaoGeografica",
 ]

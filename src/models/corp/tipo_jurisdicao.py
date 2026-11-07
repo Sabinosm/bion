@@ -1,10 +1,3 @@
-"""
-TipoJurisdicao — tabela de referência que substitui o antigo enum
-tipo_regiao. Formaliza o conceito de jurisdição do FHIR/br-core
-(Location.physicalType=jurisdiction), e facilita adicionar um novo
-tipo no futuro sem precisar de ALTER TABLE (enum exige; tabela não).
-"""
-
 from src.models import db
 
 
