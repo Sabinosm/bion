@@ -15,18 +15,19 @@ Uso (código):
 
 Como funciona:
   1. Lê seed_pacientes.csv (uma linha por paciente).
-  2. Cada linha roda dentro de um SAVEPOINT: se uma linha falha, só ela é
-     desfeita e o erro é registrado; as demais continuam sendo validadas.
-     Assim você recebe TODOS os erros de uma vez, não só o primeiro.
-  3. Se houve qualquer erro (ou --dry-run) -> rollback total. Senão -> um
-     único commit no final (tudo atômico, ou nada).
+  2. Cada linha passa por PacienteCriarSchema (a MESMA validação do cadastro
+     real: CPF com dígito verificador, telefone BR, CEP normalizado, datas não
+     futuras...) e a PacienteDadosPessoais é montada por
+     CadastroMixin._montar_pessoal (a MESMA cifra do runtime). Assim o seed não
+     diverge do que o sistema aceita e grava.
+  3. Cada linha roda dentro de um SAVEPOINT: se uma falha, só ela é desfeita e
+     o erro é registrado; as demais continuam sendo validadas.
+  4. Se houve qualquer erro (ou --dry-run) -> rollback total. Senão -> um único
+     commit no final (tudo atômico, ou nada).
 
-Mapeamento conforme os models:
-  - Paciente: bairro, id_regiao_geografica, data_primeiro_atendimento
-    (NOT NULL), cadastrado_por, sexo_biologico, status, peso, altura...
-  - PacienteDadosPessoais: cpf (cifrado), cpf_hash, rg, telefone, email,
-    logradouro, numero_residencia, cep, contato_emergencia_*.
-  - uuid: gerado pelo default do model (não é passado aqui).
+Extras do seed que o schema de cadastro não aceita (são campos clínicos, vêm
+direto do CSV): status, falecido, data_obito. A região geográfica é uma
+aproximação por faixa de CEP, validada contra a tabela regiao_geografica.
 """
 
 import argparse
@@ -37,43 +38,43 @@ import re
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Optional
+
+from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.models import db
 from src.models.pacientes import (
-    Paciente, PacienteDadosPessoais, Alergia, ReacaoAlergia,
+    Paciente, Alergia, ReacaoAlergia,
     DoencaCronica, MedicamentoEmUso, ObservacaoTipoSanguineo,
 )
+from src.core.security import hmac_sha256
+from src.domains.paciente.schemas.schema_paciente import (
+    PacienteCriarSchema, erros_pydantic_por_campo,
+)
+# ajuste os caminhos para os reais do seu projeto:
+from src.domains.paciente.services.paciente_service.cadastro import CadastroMixin
 from src.domains.paciente.repositories.paciente_repository import PacienteRepository
 from src.domains.paciente.repositories.alergia_repository import AlergiaRepository
 from src.domains.paciente.repositories.reacao_alergia_repository import ReacaoAlergiaRepository
 from src.domains.paciente.repositories.doenca_cronica_repository import DoencaCronicaRepository
 from src.domains.paciente.repositories.medicamento_em_uso_repository import MedicamentoEmUsoRepository
 from src.domains.paciente.repositories.obs_tipo_sanguineo_repository import ObservacaoTipoSanguineoRepository
-# ajuste o caminho para o real do seu projeto:
 from src.domains.usuario.repository import UsuarioRepository
-
-# CPF/RG são cifrados (AES-256-GCM) e o CPF tem hash HMAC -- o seed precisa
-# usar os MESMOS helpers do runtime, senão find_por_cpf_hash nunca acha
-# esses pacientes. Ajuste os nomes se divergirem dos reais.
-from src.core.security import aes_encrypt, hmac_sha256
 
 CSV_PADRAO = Path(__file__).with_name("seed_pacientes.csv")
 
-# Campos de PacienteDadosPessoais gravados CIFRADOS (aes_encrypt), pois o
-# runtime lê com aes_decrypt. Confirmado: nome_completo (o erro "Incorrect
-# padding" em listar_resumo veio de gravá-lo em texto puro). Para conferir os
-# demais, procure no projeto: grep -rn "aes_decrypt(" src/
-# Remova daqui qualquer campo que o runtime leia em texto puro.
-CAMPOS_CIFRADOS = {
-    "nome_completo", "cpf", "rg", "telefone", "email", "logradouro",
-    "numero_residencia", "cep",
-    "contato_emergencia_nome", "contato_emergencia_telefone",
-}
-
-SEXOS = {"M", "F", "I"}
 STATUS = {"ativo", "inativo", "obito"}
+
+# chave do relatório -> (coluna do CSV, model). Usado para conferir se os
+# dados clínicos realmente chegaram ao banco.
+ENTIDADES_CLINICAS = {
+    "alergias": ("alergias", Alergia),
+    "doencas": ("doencas_cronicas", DoencaCronica),
+    "medicamentos": ("medicamentos_em_uso", MedicamentoEmUso),
+    "tipo_sanguineo": ("tipo_sanguineo", ObservacaoTipoSanguineo),
+}
 COLUNAS_OBRIGATORIAS = {
     "sexo_biologico", "data_nascimento", "peso", "altura",
     "data_primeiro_atendimento", "status", "falecido", "data_obito",
@@ -87,7 +88,7 @@ COLUNAS_OBRIGATORIAS = {
 # Conversores
 # ----------------------------------------------------------------------------
 def _d(v: str):
-    return v or None
+    return (v or "").strip() or None
 
 
 def _dt(v: str):
@@ -106,6 +107,12 @@ def _bool(v: str):
     return (v or "").strip().lower() in ("1", "true", "t", "sim")
 
 
+def _msg_erro(e: Exception) -> str:
+    """Mensagem curta: para erros do SQLAlchemy usa só a do driver (que traz
+    o nome da coluna), sem o SQL e os parâmetros gigantes."""
+    return f"{type(e).__name__}: {getattr(e, 'orig', None) or e}"
+
+
 def _regioes_existentes() -> set:
     """IDs reais da tabela regiao_geografica (FK de Paciente)."""
     try:
@@ -121,7 +128,7 @@ def _regioes_existentes() -> set:
 _REGIAO_POR_PREFIXO = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 5, 6: 4, 7: 3, 8: 5, 9: 2}
 
 
-def _regiao_por_cep(cep: str, regioes_validas: set):
+def _regiao_por_cep(cep: Optional[str], regioes_validas: set):
     digitos = "".join(c for c in (cep or "") if c.isdigit())
     if not digitos:
         return None
@@ -130,60 +137,71 @@ def _regiao_por_cep(cep: str, regioes_validas: set):
 
 
 # ----------------------------------------------------------------------------
-# MAPEAMENTO CSV -> MODEL
-# CAMPOS[campo_csv] = (nome_no_model, conversor)
+# CSV -> schema de cadastro -> models
 # ----------------------------------------------------------------------------
-CAMPOS_PACIENTE = {
-    "sexo_biologico": ("sexo_biologico", str),
-    "data_nascimento": ("data_nascimento", _dt),
-    "peso": ("peso", _f),
-    "altura": ("altura", _i),
-    "data_primeiro_atendimento": ("data_primeiro_atendimento", _dt),
-    "status": ("status", str),
-    "falecido": ("falecido", _bool),
-    "data_obito": ("data_obito", _dt),
-    "bairro": ("bairro", _d),  # bairro mora em Paciente, não em DadosPessoais
-}
-
-CAMPOS_PESSOAL = {
-    "nome_completo": ("nome_completo", str),
-    "telefone": ("telefone", _d),
-    "email": ("email", _d),
-    "logradouro": ("logradouro", _d),
-    "numero_residencia": ("numero_residencia", _d),
-    "cep": ("cep", _d),
-}
-
-
-def _montar_paciente(row: dict, id_empresa: int, id_usuario, regioes: set) -> Paciente:
-    kwargs = {model: conv(row[csv_]) for csv_, (model, conv) in CAMPOS_PACIENTE.items()}
-    kwargs["id_empresa"] = id_empresa
-    kwargs["cadastrado_por"] = id_usuario
-    kwargs["id_regiao_geografica"] = _regiao_por_cep(row["cep"], regioes)
-    # data_primeiro_atendimento é NOT NULL no model; o CSV deixa ~15% vazio.
-    if kwargs["data_primeiro_atendimento"] is None:
-        kwargs["data_primeiro_atendimento"] = date.today()
-    return Paciente(**kwargs)
-
-
-def _montar_pessoal(row: dict, paciente: Paciente, id_empresa: int) -> PacienteDadosPessoais:
-    kwargs = {model: conv(row[csv_]) for csv_, (model, conv) in CAMPOS_PESSOAL.items()}
+def _payload_schema(row: dict) -> dict:
+    """Linha do CSV no formato do corpo de cadastro (PacienteCriarSchema).
+    Vazio vira None (o schema trata None como 'não informado')."""
+    payload = {
+        "sexo_biologico": row["sexo_biologico"],
+        "data_nascimento": _d(row["data_nascimento"]),
+        "nome_completo": row["nome_completo"],
+        "cpf": row["cpf"],
+        "peso": _f(row["peso"]),
+        "altura": _i(row["altura"]),
+        "data_primeiro_atendimento": _d(row["data_primeiro_atendimento"]),
+        "telefone": _d(row["telefone"]),
+        "email": _d(row["email"]),
+        "logradouro": _d(row["logradouro"]),
+        "cep": _d(row["cep"]),
+        "numero_residencia": _d(row["numero_residencia"]),
+        "rg": _d(row["rg"]),
+        "bairro": _d(row["bairro"]),
+    }
     if row["contato_emergencia"]:
         nome, tel = row["contato_emergencia"].split("|")
-        kwargs["contato_emergencia_nome"] = nome
-        kwargs["contato_emergencia_telefone"] = tel
-    kwargs["id_empresa"] = id_empresa
+        payload["contato_emergencia_nome"] = _d(nome)
+        payload["contato_emergencia_telefone"] = _d(tel)
+    return payload
 
-    cpf = row["cpf"]
-    kwargs["cpf"] = cpf
-    kwargs["rg"] = row["rg"] or None
-    kwargs["cpf_hash"] = hmac_sha256(cpf)  # hash sempre sobre o CPF em claro
 
-    # Cifra tudo que o runtime lê com aes_decrypt (valores vazios ficam NULL).
-    for campo in CAMPOS_CIFRADOS:
-        if kwargs.get(campo):
-            kwargs[campo] = aes_encrypt(kwargs[campo])
-    return PacienteDadosPessoais(paciente=paciente, **kwargs)
+def _validar_linha(row: dict):
+    """Valida a linha. Devolve (entrada, problemas): `entrada` é o
+    PacienteCriarSchema validado, ou None se houver problemas."""
+    problemas = []
+    if row.get("status") not in STATUS:
+        problemas.append(f"status inválido: {row.get('status')!r} (esperado ativo/inativo/obito)")
+    if row.get("status") == "obito" and not (_bool(row.get("falecido")) and row.get("data_obito")):
+        problemas.append("status=obito exige falecido=1 e data_obito preenchida")
+
+    entrada = None
+    try:
+        entrada = PacienteCriarSchema(**_payload_schema(row))
+    except ValidationError as e:
+        problemas.append(f"schema: {erros_pydantic_por_campo(e)}")
+    except Exception as e:
+        problemas.append(f"linha mal formatada: {_msg_erro(e)}")
+    return (entrada if not problemas else None), problemas
+
+
+def _montar_paciente(entrada: PacienteCriarSchema, row: dict, id_empresa: int,
+                     id_usuario, regioes: set) -> Paciente:
+    return Paciente(
+        sexo_biologico=entrada.sexo_biologico,
+        bairro=entrada.bairro,
+        data_nascimento=entrada.data_nascimento,
+        id_regiao_geografica=_regiao_por_cep(entrada.cep, regioes),
+        # NOT NULL no model; o CSV deixa ~15% vazio.
+        data_primeiro_atendimento=entrada.data_primeiro_atendimento or date.today(),
+        peso=entrada.peso,
+        altura=entrada.altura,
+        # clínicos: não passam pelo schema de cadastro
+        status=row["status"],
+        falecido=_bool(row["falecido"]),
+        data_obito=_dt(row["data_obito"]),
+        cadastrado_por=id_usuario,
+        id_empresa=id_empresa,
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -219,10 +237,12 @@ def _parse_alergias(composto: str) -> dict:
     return grupos
 
 
-def _semear_alergias(row, paciente):
+def _semear_alergias(row, paciente, id_usuario) -> int:
+    n = 0
     for substancia, reacoes in _parse_alergias(row["alergias"]).items():
         alergia = Alergia(
             id_paciente=paciente.id, substancia=substancia, flag_confirmado=True,
+            criado_por=id_usuario,
         )
         AlergiaRepository().save(alergia, commit=False)  # flush -> alergia.id
         for manifestacao, gravidade, descricao, data_oc in reacoes:
@@ -231,33 +251,45 @@ def _semear_alergias(row, paciente):
                 descricao=descricao or None,
                 data_ocorrencia=date.fromisoformat(data_oc),
             ), commit=False)
+        n += 1
+    return n
 
 
-def _semear_doencas(row, paciente):
+def _semear_doencas(row, paciente, id_usuario) -> int:
+    n = 0
     for cid, descricao, desde, status, obs in _items(row["doencas_cronicas"]):
         DoencaCronicaRepository().save(DoencaCronica(
             id_paciente=paciente.id, codigo_cid10=cid, descricao_cid10=descricao,
             desde=date.fromisoformat(desde), status=status,
-            observacoes=obs or None,
+            observacoes=obs or None, criado_por=id_usuario,
         ), commit=False)
+        n += 1
+    return n
 
 
-def _semear_medicamentos(row, paciente):
+def _semear_medicamentos(row, paciente, id_usuario) -> int:
+    n = 0
     for descricao, dose, frequencia, desde in _items(row["medicamentos_em_uso"]):
         MedicamentoEmUsoRepository().save(MedicamentoEmUso(
             id_paciente=paciente.id, descricao=descricao,
             dose=dose or None, frequencia=frequencia or None,
             desde=date.fromisoformat(desde), status_uso="ativo",
+            criado_por=id_usuario,
             id_atendimento_origem=None,  # seed não tem atendimento; ajustar se NOT NULL
         ), commit=False)
+        n += 1
+    return n
 
 
-def _semear_tipo_sanguineo(row, paciente):
+def _semear_tipo_sanguineo(row, paciente, id_usuario) -> int:
     if row["tipo_sanguineo"]:
         ObservacaoTipoSanguineoRepository().save(ObservacaoTipoSanguineo(
             id_paciente=paciente.id, tipo_sanguineo=row["tipo_sanguineo"],
             data_registro=date.today(), id_atendimento_origem=None,  # ajustar se NOT NULL
+            registrado_por=id_usuario,
         ), commit=False)
+        return 1
+    return 0
 
 
 # ----------------------------------------------------------------------------
@@ -281,24 +313,6 @@ def random_user_ids(id_empresa: int, tamanho: int = 100) -> list:
         random.shuffle(rodada)
         pool.extend(rodada)
     return pool[:tamanho]
-
-
-# ----------------------------------------------------------------------------
-# Validação amigável (antes de tocar no banco)
-# ----------------------------------------------------------------------------
-def _validar_linha(row: dict) -> list:
-    problemas = []
-    if row.get("sexo_biologico") not in SEXOS:
-        problemas.append(f"sexo_biologico inválido: {row.get('sexo_biologico')!r} (esperado M/F/I)")
-    if row.get("status") not in STATUS:
-        problemas.append(f"status inválido: {row.get('status')!r} (esperado ativo/inativo/obito)")
-    if not (row.get("nome_completo") or "").strip():
-        problemas.append("nome_completo vazio (NOT NULL)")
-    if not (row.get("cpf") or "").strip():
-        problemas.append("cpf vazio (cpf_hash é NOT NULL)")
-    if row.get("status") == "obito" and not (_bool(row.get("falecido")) and row.get("data_obito")):
-        problemas.append("status=obito exige falecido=1 e data_obito preenchida")
-    return problemas
 
 
 # ----------------------------------------------------------------------------
@@ -327,7 +341,7 @@ def seed_pacientes(empresa: int, csv_path=None, ate: int = None,
 
 def _executar(empresa, csv_path, ate, dry_run, id_usuario) -> dict:
     resultado = {"ok": False, "dry_run": dry_run, "total": 0, "inseridos": 0,
-                 "commitado": False, "erros": []}
+                 "commitado": False, "erros": [], "avisos": [], "clinicos": {}}
     erros = resultado["erros"]
 
     # --- leitura do CSV ---
@@ -345,7 +359,7 @@ def _executar(empresa, csv_path, ate, dry_run, id_usuario) -> dict:
         erros.append({"linha": 0, "paciente": "-", "erro": f"CSV não encontrado: {caminho}"})
         return resultado
     except Exception as e:
-        erros.append({"linha": 0, "paciente": "-", "erro": f"falha lendo CSV: {type(e).__name__}: {e}"})
+        erros.append({"linha": 0, "paciente": "-", "erro": f"falha lendo CSV: {_msg_erro(e)}"})
         return resultado
 
     if ate:
@@ -361,33 +375,76 @@ def _executar(empresa, csv_path, ate, dry_run, id_usuario) -> dict:
     else:
         pool_usuarios = random_user_ids(empresa, tamanho=len(rows))
 
+    # Quantas linhas do CSV TÊM cada dado clínico (para distinguir "CSV vazio"
+    # de "não foi gravado").
+    clinicos = {
+        k: {"csv_linhas": sum(1 for r in rows if (r.get(col) or "").strip()),
+            "criados": 0, "no_banco": None}
+        for k, (col, _) in ENTIDADES_CLINICAS.items()
+    }
+    resultado["clinicos"] = clinicos
+    ids_criados = []
+
     # --- processa linha a linha, cada uma em um SAVEPOINT ---
     for idx, row in enumerate(rows):
         linha = idx + 2
         nome = (row.get("nome_completo") or "?").strip()
 
-        problemas = _validar_linha(row)
+        entrada, problemas = _validar_linha(row)
         if problemas:
             erros.append({"linha": linha, "paciente": nome, "erro": "; ".join(problemas)})
             continue
 
         savepoint = db.session.begin_nested()
         try:
-            paciente = _montar_paciente(row, empresa, pool_usuarios[idx], regioes)
-            repo_pac.save(paciente, commit=False)  # flush -> paciente.id
-            repo_pac.save(_montar_pessoal(row, paciente, empresa), commit=False)
+            # mesma checagem do cadastro real (UNIQUE composta empresa+cpf_hash)
+            if repo_pac.find_por_cpf_hash(hmac_sha256(entrada.cpf), empresa):
+                raise ValueError("já existe paciente com este CPF nesta empresa")
 
-            _semear_alergias(row, paciente)
-            _semear_doencas(row, paciente)
-            _semear_medicamentos(row, paciente)
-            _semear_tipo_sanguineo(row, paciente)
+            id_prof = pool_usuarios[idx]  # mesmo profissional em cadastrado_por e nos dados clínicos
+            paciente = _montar_paciente(entrada, row, empresa, id_prof, regioes)
+            repo_pac.save(paciente, commit=False)  # flush -> paciente.id
+
+            # mesma montagem/cifra do runtime (CadastroMixin._montar_pessoal)
+            pessoal = CadastroMixin._montar_pessoal(paciente.id, empresa, entrada)
+            paciente.pessoal = pessoal
+            repo_pac.save(pessoal, commit=False)
+
+            criados = {
+                "alergias": _semear_alergias(row, paciente, id_prof),
+                "doencas": _semear_doencas(row, paciente, id_prof),
+                "medicamentos": _semear_medicamentos(row, paciente, id_prof),
+                "tipo_sanguineo": _semear_tipo_sanguineo(row, paciente, id_prof),
+            }
 
             savepoint.commit()
             resultado["inseridos"] += 1
+            ids_criados.append(paciente.id)
+            for k, n in criados.items():
+                clinicos[k]["criados"] += n
         except Exception as e:
             savepoint.rollback()
-            erros.append({"linha": linha, "paciente": nome,
-                          "erro": f"{type(e).__name__}: {e}"})
+            erros.append({"linha": linha, "paciente": nome, "erro": _msg_erro(e)})
+
+    # --- verificação: o que o seed criou realmente está na sessão/banco? ---
+    # (a consulta força o flush dos pendentes; roda antes do rollback/commit)
+    if ids_criados:
+        for k, (_, modelo) in ENTIDADES_CLINICAS.items():
+            try:
+                with db.session.begin_nested():
+                    clinicos[k]["no_banco"] = (
+                        db.session.query(modelo)
+                        .filter(modelo.id_paciente.in_(ids_criados)).count()
+                    )
+            except Exception as e:
+                resultado["avisos"].append(f"não consegui contar {k} no banco: {_msg_erro(e)}")
+    for k, c in clinicos.items():
+        if c["csv_linhas"] and not c["criados"]:
+            resultado["avisos"].append(
+                f"{k}: o CSV tem {c['csv_linhas']} linha(s) preenchida(s), mas nada foi criado")
+        elif c["no_banco"] is not None and c["no_banco"] != c["criados"]:
+            resultado["avisos"].append(
+                f"{k}: seed criou {c['criados']}, mas o banco tem {c['no_banco']}")
 
     # --- fechamento: tudo ou nada ---
     if erros or dry_run:
@@ -399,13 +456,19 @@ def _executar(empresa, csv_path, ate, dry_run, id_usuario) -> dict:
         except Exception as e:
             db.session.rollback()
             erros.append({"linha": 0, "paciente": "-",
-                          "erro": f"falha no commit final: {type(e).__name__}: {e}"})
+                          "erro": f"falha no commit final: {_msg_erro(e)}"})
 
     resultado["ok"] = not erros
     return resultado
 
 
 def _imprimir_relatorio(r: dict, empresa: int):
+    if r.get("clinicos"):
+        print("Dados clínicos (linhas no CSV | criados pelo seed | contados no banco):")
+        for k, c in r["clinicos"].items():
+            print(f"  {k:<15} {c['csv_linhas']:>4} | {c['criados']:>4} | {c['no_banco']}")
+    for aviso in r.get("avisos", []):
+        print(f"AVISO: {aviso}")
     if r["ok"]:
         if r["dry_run"]:
             print(f"[dry-run] {r['inseridos']}/{r['total']} pacientes válidos (nada commitado).")
