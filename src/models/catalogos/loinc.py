@@ -1,12 +1,3 @@
-"""
-Dominio Catalogo (exames) -- referencia LOINC.
-
-Tabelas SOMENTE-LEITURA para a aplicacao: sao carregadas dos arquivos da
-distribuicao do LOINC (Loinc.csv, linguistic variant pt-BR, PanelsAndForms.csv)
-pelo CarregarLoincService. O catalogo que o medico usa e o CatalogoExames
-(curado); ele aponta para um LoincTermo por codigo_loinc.
-"""
-
 from src.models import db
 
 
@@ -44,8 +35,6 @@ class LoincTermo(db.Model):
 
 
 class LoincTermoTraducao(db.Model):
-    """Partes do nome traduzidas (linguistic variant). NAO e nome de exibicao:
-    no pt-BR o LONG_COMMON_NAME vem vazio e as partes misturam siglas em ingles."""
     __tablename__ = "loinc_termo_traducao"
 
     loinc_num = db.Column(db.String(10), db.ForeignKey("loinc_termo.loinc_num"), primary_key=True)
@@ -63,11 +52,12 @@ class LoincTermoTraducao(db.Model):
 
 
 class LoincPainelItem(db.Model):
-    """Resultados que compoem um painel laboratorial (ex.: itens do hemograma)."""
     __tablename__ = "loinc_painel_item"
     __table_args__ = (db.Index("ix_loinc_painel_item_painel", "painel_loinc", "sequencia"),)
 
-    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
+    id = db.Column(
+        db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True
+    )
     painel_loinc = db.Column(db.String(10), db.ForeignKey("loinc_termo.loinc_num"), nullable=False)
     filho_loinc = db.Column(db.String(10), db.ForeignKey("loinc_termo.loinc_num"), nullable=False)
     sequencia = db.Column(db.Integer)
