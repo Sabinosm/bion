@@ -9,7 +9,7 @@ versões em uso são apenas informativas. A correlação é um coeficiente de
 -1 a 1, sem nível, e só descreve associação, não causalidade.
 """
 
-from src.domains.avaliacao_bion.service import OutputBionService
+from src.domains.avaliacao_bion.llm_ia.fluxo.service import OutputBionService
 from src.domains.estatisticas.interpretacao_helper import (
     interpretacao_percentual, interpretacao_sem_nivel, calcular_comparacao, valor_periodo_anterior,
 )

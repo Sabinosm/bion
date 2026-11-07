@@ -241,8 +241,8 @@ class AtendimentoService:
         Cancelar continua livre (abandonar não depende de nada); o rascunho que sobrar pode ser
         descartado depois (POST /prescricoes/<uuid>/descartar)."""
         # import local: avaliacao_bion depende deste módulo (ciclo de import)
-        from src.domains.avaliacao_bion.service import TTL_PROCESSANDO
-        from src.domains.avaliacao_bion.helpers.status import PROCESSANDO
+        from src.domains.avaliacao_bion.llm_ia.fluxo.service import TTL_PROCESSANDO
+        from src.domains.avaliacao_bion.llm_ia.fluxo.status import PROCESSANDO
 
         limite = datetime.now(timezone.utc) - TTL_PROCESSANDO
         for o in atendimento.outputs_bion:

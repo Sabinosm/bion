@@ -10,7 +10,7 @@ direção geral e não como estatística médica precisa.
 import re
 from collections import Counter
 
-from src.domains.avaliacao_bion.service import OutputBionService
+from src.domains.avaliacao_bion.llm_ia.fluxo.service import OutputBionService
 
 _output_bion_svc = OutputBionService()
 

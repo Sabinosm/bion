@@ -39,7 +39,7 @@ class ClienteGemini(ClienteIABase):
     provedor = "gemini"
 
     def __init__(self, modelo: str | None = None, api_key: str | None = None, *, sdk: Any = None,
-                 temperatura: float = 0.2, timeout_s: int = 90, ferramentas_com_esquema: bool = False):
+                 temperatura: float = 0.2, timeout_s: int = 60, ferramentas_com_esquema: bool = False):
         if not modelo:
             raise ConfigIAInvalida("Gemini: informe o modelo (BION_IA_MODELO).")
         self.modelo = modelo

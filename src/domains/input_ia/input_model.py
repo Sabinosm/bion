@@ -1,6 +1,6 @@
 """input_model.py
 
-Modelo do input da IA: compoe os blocos registrados a partir de um atendimento e os entrega como dicionario, texto de prompt, catalogo de metodos e indices de qualidade (completude e confianca). Tambem reconstroi o texto do prompt a partir de um snapshot gravado.
+Modelo do input da IA: compoe os blocos registrados a partir de um atendimento e os entrega como dicionario, texto de prompt, catalogo de metodos e indices de qualidade (completude e confianca).
 """
 from __future__ import annotations
 
@@ -94,20 +94,6 @@ class InputModel:
         return {"idioma_resposta": self.idioma,
                 "faltando": self.campos_faltando(),
                 "contexto": self.contexto_total()}
-
-    @staticmethod
-    def prompt_de_snapshot(snapshot: dict) -> str:
-        """Mesmo texto de to_prompt(), a partir do snapshot gravado em
-        OutputBion.input_ia_json. Permite montar a conversa em outro processo,
-        sem refazer o input (o que a IA ve e exatamente o que foi congelado)."""
-        partes = [f"idioma_resposta: {snapshot.get('idioma_resposta')}"]
-        falt = snapshot.get("faltando") or []
-        if falt:
-            partes.append("## lacunas\n" + "\n".join(f"- {x}" for x in falt))
-        for nome, dados in (snapshot.get("contexto") or {}).items():
-            partes.append("\n".join([f"## {nome}", *linhas(dados)]))
-        return "\n\n".join(partes)
-
     def to_prompt(self, nomes: Iterable[str] | None = None) -> str:
         blocos = self._selecionar(nomes)
         partes = [f"idioma_resposta: {self.idioma}"]

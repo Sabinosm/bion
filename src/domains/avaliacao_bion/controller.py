@@ -17,8 +17,8 @@ from src.core.session import (
 )
 from src.domains.auditoria.acaoSensivel import acesso_auditado
 
-from .helpers import dependencias
-from .service import AvaliacaoBionService
+from .llm_ia.fluxo import dependencias
+from .llm_ia.fluxo.service import AvaliacaoBionService
 
 bp_bion = Blueprint("avaliacao_bion", __name__)
 
