@@ -61,10 +61,16 @@ from src.core.security import aes_encrypt, hmac_sha256
 
 CSV_PADRAO = Path(__file__).with_name("seed_pacientes.csv")
 
-# Campos de PacienteDadosPessoais gravados cifrados. Os tamanhos das colunas
-# (telefone/cep/email = 200-500) sugerem que o runtime pode cifrar mais
-# campos; se for o caso, basta adicionar o nome aqui.
-CAMPOS_CIFRADOS = {"cpf", "rg"}
+# Campos de PacienteDadosPessoais gravados CIFRADOS (aes_encrypt), pois o
+# runtime lê com aes_decrypt. Confirmado: nome_completo (o erro "Incorrect
+# padding" em listar_resumo veio de gravá-lo em texto puro). Para conferir os
+# demais, procure no projeto: grep -rn "aes_decrypt(" src/
+# Remova daqui qualquer campo que o runtime leia em texto puro.
+CAMPOS_CIFRADOS = {
+    "nome_completo", "cpf", "rg", "telefone", "email", "logradouro",
+    "numero_residencia", "cep",
+    "contato_emergencia_nome", "contato_emergencia_telefone",
+}
 
 SEXOS = {"M", "F", "I"}
 STATUS = {"ativo", "inativo", "obito"}
@@ -169,10 +175,14 @@ def _montar_pessoal(row: dict, paciente: Paciente, id_empresa: int) -> PacienteD
     kwargs["id_empresa"] = id_empresa
 
     cpf = row["cpf"]
-    rg = row["rg"] or None
-    kwargs["cpf"] = aes_encrypt(cpf) if "cpf" in CAMPOS_CIFRADOS else cpf
+    kwargs["cpf"] = cpf
+    kwargs["rg"] = row["rg"] or None
     kwargs["cpf_hash"] = hmac_sha256(cpf)  # hash sempre sobre o CPF em claro
-    kwargs["rg"] = aes_encrypt(rg) if (rg and "rg" in CAMPOS_CIFRADOS) else rg
+
+    # Cifra tudo que o runtime lê com aes_decrypt (valores vazios ficam NULL).
+    for campo in CAMPOS_CIFRADOS:
+        if kwargs.get(campo):
+            kwargs[campo] = aes_encrypt(kwargs[campo])
     return PacienteDadosPessoais(paciente=paciente, **kwargs)
 
 
