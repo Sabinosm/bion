@@ -1,0 +1,101 @@
+nome_completo,cpf,email,user_login,telefone,tipo_papel,is_admin,status,numero_crm,uf_crm,rqe,numero_coren,uf_coren,especialidade
+Laura Rocha Nogueira,59826204595,laura.rocha.nogueira@exemplo.dev,laura.rocha.nogueira,(31) 99938-1590,medico,0,ativo,1001,PA,24663,,,Pediatria
+Alexandre Souza Nogueira,86518506709,alexandre.souza.nogueira@exemplo.dev,alexandre.souza.nogueira,(21) 91672-6688,medico,1,ativo,1004,SP,99687,,,Oftalmologia
+Rodrigo Monteiro Cardoso,49368998019,rodrigo.monteiro.cardoso@exemplo.dev,rodrigo.monteiro.cardoso,(62) 97022-2882,enfermeiro,0,ativo,,,82384,200002,ES,Saúde Coletiva
+Heloísa Silva Barbosa,98069901616,heloisa.silva.barbosa@exemplo.dev,heloisa.silva.barbosa,(31) 98657-3091,medico,1,ativo,1003,MT,62994,,,Radiologia
+Matheus Rocha Araújo,04945198357,matheus.rocha.araujo@exemplo.dev,matheus.rocha.araujo,(71) 96793-7929,enfermeiro,0,pendente,,,82384,200005,RO,Saúde Coletiva
+Mariana Melo Martins,32214188843,mariana.melo.martins@exemplo.dev,mariana.melo.martins,(62) 98967-4145,enfermeiro,1,ativo,,,82384,200001,CE,Cardiologia
+Eduardo Vasconcelos Lima,42388496985,eduardo.vasconcelos.lima@exemplo.dev,eduardo.vasconcelos.lima,(71) 98517-3340,medico,0,ativo,1001,RR,95909,,,Neurologia
+Otávio Carvalho Melo,17964053701,otavio.carvalho.melo@exemplo.dev,otavio.carvalho.melo,(71) 93531-7797,enfermeiro,0,ativo,,,82384,200003,RO,Nefrologia
+Simone Lima Barbosa,66270289564,simone.lima.barbosa@exemplo.dev,simone.lima.barbosa,(11) 96213-8749,enfermeiro,0,ativo,,,82384,200001,ES,Urgência e Emergência
+Camila Gomes Carvalho,43815614902,camila.gomes.carvalho@exemplo.dev,camila.gomes.carvalho,(81) 98242-7785,enfermeiro,0,ativo,,,82384,200006,RO,Urgência e Emergência
+Juliana Moreira Cavalcanti,86449251999,juliana.moreira.cavalcanti@exemplo.dev,juliana.moreira.cavalcanti,(21) 96401-2548,enfermeiro,1,ativo,,,82384,200002,RS,Neonatologia
+Manuela Souza Carvalho,13709859328,manuela.souza.carvalho@exemplo.dev,manuela.souza.carvalho,(91) 97242-7086,enfermeiro,0,ativo,,,82384,200001,MS,Pediatria
+Juliana Melo Costa,09232719371,juliana.melo.costa@exemplo.dev,juliana.melo.costa,(11) 95051-4266,medico,1,ativo,1002,RS,95426,,,Cardiologia
+Maria Cavalcanti Ferreira,89255466550,maria.cavalcanti.ferreira@exemplo.dev,maria.cavalcanti.ferreira,(81) 98199-9586,enfermeiro,1,ativo,,,82384,200002,AL,Cardiologia
+Beatriz Dias Cavalcanti,36576615655,beatriz.dias.cavalcanti@exemplo.dev,beatriz.dias.cavalcanti,(41) 98046-8398,enfermeiro,0,inativo,,,82384,200001,RS,Nefrologia
+Felipe Dias Carvalho,56464170821,felipe.dias.carvalho@exemplo.dev,felipe.dias.carvalho,(41) 98449-6355,medico,1,ativo,1002,CE,59689,,,Dermatologia
+Patricia Monteiro Vasconcelos,46564823665,patricia.monteiro.vasconcelos@exemplo.dev,patricia.monteiro.vasconcelos,(21) 95920-9308,medico,1,ativo,1002,MT,96951,,,Infectologia
+Ana Cardoso Teixeira,38851606099,ana.cardoso.teixeira@exemplo.dev,ana.cardoso.teixeira,(31) 97229-9725,enfermeiro,0,ativo,,,82384,200001,PA,Oncologia
+Marcos Dias Rodrigues,02053950234,marcos.dias.rodrigues@exemplo.dev,marcos.dias.rodrigues,(51) 93858-2801,enfermeiro,0,ativo,,,82384,200001,BA,Nefrologia
+Vanessa Carvalho Andrade,12411824424,vanessa.carvalho.andrade@exemplo.dev,vanessa.carvalho.andrade,(85) 91128-5905,medico,0,ativo,1003,PI,,,,Oftalmologia
+Otávio Oliveira Melo,22047277922,otavio.oliveira.melo@exemplo.dev,otavio.oliveira.melo,(62) 92623-6493,enfermeiro,1,ativo,,,82384,200003,ES,UTI Adulto
+Cristina Alves Barbosa,94406409017,cristina.alves.barbosa@exemplo.dev,cristina.alves.barbosa,(41) 97248-6881,enfermeiro,0,ativo,,,82384,200001,PR,Saúde Coletiva
+Sérgio Dias Costa,99650752714,sergio.dias.costa@exemplo.dev,sergio.dias.costa,(81) 94995-8613,medico,1,ativo,1002,TO,,,,Ortopedia
+Theo Andrade Correia,39421047095,theo.andrade.correia@exemplo.dev,theo.andrade.correia,(91) 96772-4588,enfermeiro,0,ativo,,,82384,200001,MA,Cardiologia
+Alexandre Lima Azevedo,43534624742,alexandre.lima.azevedo@exemplo.dev,alexandre.lima.azevedo,(91) 99565-6183,medico,0,ativo,1001,AL,64948,,,Anestesiologia
+Vanessa Teixeira Dias,34714345508,vanessa.teixeira.dias@exemplo.dev,vanessa.teixeira.dias,(51) 99540-8939,medico,1,ativo,1002,PR,42406,,,Infectologia
+Juliana Lima Cardoso,12191361900,juliana.lima.cardoso@exemplo.dev,juliana.lima.cardoso,(31) 91931-9320,medico,0,ativo,1001,PE,,,,Endocrinologia
+Davi Moreira Martins,23685160427,davi.moreira.martins@exemplo.dev,davi.moreira.martins,(21) 98673-2233,enfermeiro,0,ativo,,,82384,200001,SC,Neonatologia
+Fernanda Monteiro Araújo,22927065390,fernanda.monteiro.araujo@exemplo.dev,fernanda.monteiro.araujo,(31) 97172-3527,enfermeiro,1,pendente,,,82384,200001,SP,Psiquiatria
+Enzo Rodrigues Teixeira,11656670100,enzo.rodrigues.teixeira@exemplo.dev,enzo.rodrigues.teixeira,(81) 97669-4119,medico,0,ativo,1001,RJ,41850,,,Urologia
+Clara Silva Azevedo,18518888883,clara.silva.azevedo@exemplo.dev,clara.silva.azevedo,(91) 97825-4068,enfermeiro,1,ativo,,,82384,200004,MS,Cardiologia
+Lucas Barbosa Teixeira,87262473131,lucas.barbosa.teixeira@exemplo.dev,lucas.barbosa.teixeira,(41) 94139-4116,medico,0,ativo,1001,MT,,,,Pediatria
+Juliana Alves Pereira,48247710994,juliana.alves.pereira@exemplo.dev,juliana.alves.pereira,(81) 91845-4335,medico,1,ativo,1002,MS,75338,,,Anestesiologia
+Heloísa Pereira Monteiro,03432445199,heloisa.pereira.monteiro@exemplo.dev,heloisa.pereira.monteiro,(41) 97475-1897,enfermeiro,0,ativo,,,82384,200002,MA,UTI Adulto
+Laura Moreira Dias,26773602688,laura.moreira.dias@exemplo.dev,laura.moreira.dias,(11) 92528-4872,medico,0,ativo,1002,PI,95477,,,Endocrinologia
+Vitor Melo Costa,26916697857,vitor.melo.costa@exemplo.dev,vitor.melo.costa,(11) 92796-3504,medico,0,ativo,1001,BA,21915,,,Urologia
+Larissa Dias Dias,26217459620,larissa.dias.dias@exemplo.dev,larissa.dias.dias,(85) 98486-1251,enfermeiro,0,ativo,,,82384,200001,PB,Saúde Coletiva
+Vanessa Gomes Carvalho,75060685322,vanessa.gomes.carvalho@exemplo.dev,vanessa.gomes.carvalho,(71) 92502-4637,enfermeiro,1,ativo,,,82384,200001,PE,Oncologia
+Paula Monteiro Gomes,11615280910,paula.monteiro.gomes@exemplo.dev,paula.monteiro.gomes,(81) 92099-2494,enfermeiro,0,ativo,,,82384,200003,MS,Oncologia
+Sophia Carvalho Santos,89579868719,sophia.carvalho.santos@exemplo.dev,sophia.carvalho.santos,(31) 98612-9702,medico,1,ativo,1004,PI,25906,,,Neurologia
+Maria Pereira Ribeiro,07581814181,maria.pereira.ribeiro@exemplo.dev,maria.pereira.ribeiro,(91) 93267-5096,enfermeiro,1,ativo,,,82384,200002,CE,Cardiologia
+Maria Vasconcelos Souza,52880957010,maria.vasconcelos.souza@exemplo.dev,maria.vasconcelos.souza,(91) 94258-3504,medico,0,ativo,1001,RS,93748,,,Endocrinologia
+Pedro Melo Rocha,21704303001,pedro.melo.rocha@exemplo.dev,pedro.melo.rocha,(81) 98840-3986,enfermeiro,1,ativo,,,82384,200003,MT,Oncologia
+Pedro Correia Melo,32260256350,pedro.correia.melo@exemplo.dev,pedro.correia.melo,(62) 97658-3532,medico,0,pendente,1002,DF,97416,,,Pediatria
+Ana Correia Oliveira,98614341008,ana.correia.oliveira@exemplo.dev,ana.correia.oliveira,(41) 93449-9991,enfermeiro,1,ativo,,,82384,200001,AC,Pediatria
+Mariana Barbosa Dias,05153195201,mariana.barbosa.dias@exemplo.dev,mariana.barbosa.dias,(71) 97116-5155,enfermeiro,1,ativo,,,82384,200002,PR,UTI Adulto
+Simone Ribeiro Cavalcanti,79808932479,simone.ribeiro.cavalcanti@exemplo.dev,simone.ribeiro.cavalcanti,(81) 92029-2816,enfermeiro,1,inativo,,,82384,200001,SE,Psiquiatria
+Sophia Cavalcanti Carvalho,56551256767,sophia.cavalcanti.carvalho@exemplo.dev,sophia.cavalcanti.carvalho,(81) 92494-8700,medico,1,ativo,1002,GO,86720,,,Psiquiatria
+Mônica Rocha Dias,14627048246,monica.rocha.dias@exemplo.dev,monica.rocha.dias,(85) 95371-6573,medico,0,pendente,1001,AC,25014,,,Anestesiologia
+Alice Vasconcelos Oliveira,41605297550,alice.vasconcelos.oliveira@exemplo.dev,alice.vasconcelos.oliveira,(71) 97626-7843,enfermeiro,1,ativo,,,82384,200002,MT,Psiquiatria
+Rosana Monteiro Teixeira,43699577708,rosana.monteiro.teixeira@exemplo.dev,rosana.monteiro.teixeira,(85) 91006-5978,medico,1,ativo,1001,CE,49446,,,Psiquiatria
+Mônica Carvalho Gomes,21759464791,monica.carvalho.gomes@exemplo.dev,monica.carvalho.gomes,(81) 95712-9955,enfermeiro,0,ativo,,,82384,200002,RO,UTI Adulto
+Carla Oliveira Santos,17464887786,carla.oliveira.santos@exemplo.dev,carla.oliveira.santos,(91) 95728-8195,medico,1,ativo,1003,CE,,,,Oftalmologia
+Ricardo Santos Rodrigues,77589178365,ricardo.santos.rodrigues@exemplo.dev,ricardo.santos.rodrigues,(85) 92862-2041,enfermeiro,0,pendente,,,82384,200002,SC,Urgência e Emergência
+Enzo Oliveira Rodrigues,65876036617,enzo.oliveira.rodrigues@exemplo.dev,enzo.oliveira.rodrigues,(41) 92052-7797,medico,1,ativo,1002,BA,30028,,,Radiologia
+Carla Vasconcelos Melo,86528168598,carla.vasconcelos.melo@exemplo.dev,carla.vasconcelos.melo,(31) 92388-6072,enfermeiro,1,ativo,,,82384,200004,MA,Urgência e Emergência
+Elaine Martins Gomes,33749894116,elaine.martins.gomes@exemplo.dev,elaine.martins.gomes,(21) 99779-4033,medico,1,pendente,1001,ES,35242,,,Dermatologia
+Mariana Dias Correia,68893734648,mariana.dias.correia@exemplo.dev,mariana.dias.correia,(62) 95892-7389,medico,1,pendente,1002,SP,72518,,,Cardiologia
+Marcos Dias Oliveira,01429401940,marcos.dias.oliveira@exemplo.dev,marcos.dias.oliveira,(71) 99785-6425,medico,0,ativo,1001,SP,94080,,,Endocrinologia
+Elaine Ferreira Moreira,75433036553,elaine.ferreira.moreira@exemplo.dev,elaine.ferreira.moreira,(81) 94644-4269,medico,0,ativo,1002,RR,15075,,,Infectologia
+Júlia Moreira Teixeira,97820715103,julia.moreira.teixeira@exemplo.dev,julia.moreira.teixeira,(91) 94084-6267,enfermeiro,1,ativo,,,82384,200001,AL,Estomaterapia
+Arthur Melo Teixeira,40608835650,arthur.melo.teixeira@exemplo.dev,arthur.melo.teixeira,(21) 97311-4114,medico,1,ativo,1002,SE,89457,,,Endocrinologia
+Ricardo Pereira Dias,65787133102,ricardo.pereira.dias@exemplo.dev,ricardo.pereira.dias,(85) 94295-6107,medico,0,ativo,1001,RN,37760,,,Geriatria
+Paula Vasconcelos Freitas,38425135427,paula.vasconcelos.freitas@exemplo.dev,paula.vasconcelos.freitas,(21) 92200-9808,medico,0,ativo,1001,AP,91416,,,Oftalmologia
+Camila Costa Souza,67749649905,camila.costa.souza@exemplo.dev,camila.costa.souza,(91) 94697-9561,medico,1,ativo,1005,PI,,,,Oftalmologia
+Heitor Moreira Silva,78856855780,heitor.moreira.silva@exemplo.dev,heitor.moreira.silva,(41) 96016-7046,medico,1,ativo,1002,AP,63005,,,Radiologia
+Eduardo Barbosa Ribeiro,59910229099,eduardo.barbosa.ribeiro@exemplo.dev,eduardo.barbosa.ribeiro,(31) 97062-6105,enfermeiro,0,ativo,,,82384,200003,PB,Neonatologia
+Bruno Ribeiro Dias,16453521881,bruno.ribeiro.dias@exemplo.dev,bruno.ribeiro.dias,(71) 97560-9584,enfermeiro,1,ativo,,,82384,200001,AM,Cardiologia
+Sérgio Azevedo Rodrigues,69847896135,sergio.azevedo.rodrigues@exemplo.dev,sergio.azevedo.rodrigues,(51) 99984-6327,enfermeiro,0,ativo,,,82384,200002,AP,Oncologia
+Camila Dias Araújo,80913431672,camila.dias.araujo@exemplo.dev,camila.dias.araujo,(71) 96188-8994,enfermeiro,0,ativo,,,82384,200001,RO,Nefrologia
+Ana Barbosa Gomes,34309805000,ana.barbosa.gomes@exemplo.dev,ana.barbosa.gomes,(71) 98973-3536,medico,0,ativo,1001,SE,,,,Ortopedia
+Igor Pereira Oliveira,54119986705,igor.pereira.oliveira@exemplo.dev,igor.pereira.oliveira,(81) 91616-1932,enfermeiro,1,inativo,,,82384,200003,MA,Estomaterapia
+Mariana Santos Moreira,83933529085,mariana.santos.moreira@exemplo.dev,mariana.santos.moreira,(31) 94362-2124,enfermeiro,0,ativo,,,82384,200001,MT,Cardiologia
+Laura Azevedo Martins,47359774659,laura.azevedo.martins@exemplo.dev,laura.azevedo.martins,(41) 99749-4918,enfermeiro,1,ativo,,,82384,200002,SP,Estomaterapia
+Elaine Silva Ferreira,22961201802,elaine.silva.ferreira@exemplo.dev,elaine.silva.ferreira,(62) 96751-1100,enfermeiro,0,pendente,,,82384,200001,GO,Pediatria
+Patricia Cavalcanti Andrade,00471138207,patricia.cavalcanti.andrade@exemplo.dev,patricia.cavalcanti.andrade,(71) 92911-3290,enfermeiro,0,ativo,,,82384,200002,PB,Pediatria
+Eduardo Pereira Cardoso,89513433242,eduardo.pereira.cardoso@exemplo.dev,eduardo.pereira.cardoso,(31) 92389-5649,medico,1,inativo,1003,SE,,,,Urologia
+Valentina Martins Santos,49361832450,valentina.martins.santos@exemplo.dev,valentina.martins.santos,(81) 92166-4824,medico,1,ativo,1002,ES,47056,,,Radiologia
+Simone Nogueira Ferreira,71274846781,simone.nogueira.ferreira@exemplo.dev,simone.nogueira.ferreira,(21) 94681-2858,medico,1,ativo,1001,MA,82384,,,Psiquiatria
+Alexandre Pereira Ribeiro,96937923783,alexandre.pereira.ribeiro@exemplo.dev,alexandre.pereira.ribeiro,(31) 93868-2293,enfermeiro,0,ativo,,,82384,200002,RJ,Oncologia
+Cristina Andrade Lima,75588675339,cristina.andrade.lima@exemplo.dev,cristina.andrade.lima,(31) 98316-9824,enfermeiro,0,ativo,,,82384,200001,RJ,Estomaterapia
+Larissa Freitas Cavalcanti,00504556215,larissa.freitas.cavalcanti@exemplo.dev,larissa.freitas.cavalcanti,(81) 93725-5906,enfermeiro,0,ativo,,,82384,200001,RR,Saúde Coletiva
+Silvia Monteiro Barbosa,45168087655,silvia.monteiro.barbosa@exemplo.dev,silvia.monteiro.barbosa,(81) 92442-6153,medico,1,ativo,1003,TO,,,,Cardiologia
+Renata Nogueira Araújo,16400524290,renata.nogueira.araujo@exemplo.dev,renata.nogueira.araujo,(81) 95114-1832,medico,0,ativo,1001,DF,44600,,,Endocrinologia
+Thiago Ribeiro Melo,84987769450,thiago.ribeiro.melo@exemplo.dev,thiago.ribeiro.melo,(31) 98135-3885,medico,1,ativo,1003,RS,,,,Neurologia
+Lucas Azevedo Teixeira,23281206794,lucas.azevedo.teixeira@exemplo.dev,lucas.azevedo.teixeira,(41) 95335-2330,medico,1,ativo,1001,AM,,,,Ginecologia
+Theo Carvalho Freitas,27177449086,theo.carvalho.freitas@exemplo.dev,theo.carvalho.freitas,(81) 96295-6179,enfermeiro,1,pendente,,,82384,200003,RJ,Psiquiatria
+Fernando Silva Lima,10518347320,fernando.silva.lima@exemplo.dev,fernando.silva.lima,(21) 91964-4750,medico,0,ativo,1001,PI,38864,,,Cardiologia
+Camila Azevedo Santos,39904902739,camila.azevedo.santos@exemplo.dev,camila.azevedo.santos,(51) 91423-2496,medico,1,ativo,1002,PA,,,,Oftalmologia
+Eduardo Melo Moreira,31367837782,eduardo.melo.moreira@exemplo.dev,eduardo.melo.moreira,(51) 91166-9464,medico,1,inativo,1001,GO,88139,,,Radiologia
+João Santos Costa,76320163259,joao.santos.costa@exemplo.dev,joao.santos.costa,(71) 94185-7291,medico,1,ativo,1001,PR,19545,,,Neurologia
+Beatriz Pereira Pereira,12432921216,beatriz.pereira.pereira@exemplo.dev,beatriz.pereira.pereira,(62) 93419-4871,enfermeiro,1,ativo,,,82384,200001,DF,Neonatologia
+Beatriz Vasconcelos Melo,17182278251,beatriz.vasconcelos.melo@exemplo.dev,beatriz.vasconcelos.melo,(11) 94946-2290,medico,0,ativo,1001,TO,,,,Ginecologia
+Bernardo Nogueira Gomes,19049663141,bernardo.nogueira.gomes@exemplo.dev,bernardo.nogueira.gomes,(21) 93683-6096,medico,1,ativo,1003,SP,89415,,,Oftalmologia
+Márcia Teixeira Rodrigues,32858842400,marcia.teixeira.rodrigues@exemplo.dev,marcia.teixeira.rodrigues,(62) 97807-3877,enfermeiro,0,ativo,,,82384,200001,AP,Pediatria
+Pedro Teixeira Moreira,07661771144,pedro.teixeira.moreira@exemplo.dev,pedro.teixeira.moreira,(51) 98504-1510,enfermeiro,0,ativo,,,82384,200004,RO,Nefrologia
+Valentina Costa Carvalho,21465840419,valentina.costa.carvalho@exemplo.dev,valentina.costa.carvalho,(71) 94122-9327,enfermeiro,0,inativo,,,82384,200001,PI,Oncologia
+Laura Costa Dias,06431713982,laura.costa.dias@exemplo.dev,laura.costa.dias,(62) 99920-6876,enfermeiro,0,ativo,,,82384,200002,MS,Saúde Coletiva
+Tatiane Martins Costa,00842710949,tatiane.martins.costa@exemplo.dev,tatiane.martins.costa,(85) 93073-5494,medico,1,ativo,1001,MS,11854,,,Radiologia
+Silvia Cardoso Cardoso,67190229469,silvia.cardoso.cardoso@exemplo.dev,silvia.cardoso.cardoso,(81) 92869-2070,medico,1,ativo,1001,PB,16734,,,Ortopedia

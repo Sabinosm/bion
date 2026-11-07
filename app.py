@@ -7,19 +7,18 @@ from seeds.protocolo_composicao.persistir import seed_composicao
 from seeds.exames.executar import executar
 from seeds.seed_loinc_vital import seed
 from seeds.pacientes.seed_pacientes import seed_pacientes
+from seeds.profissionais.seed_profissionais import seed_profissionais
 
 app = create_app(os.getenv("FLASK_ENV", "development"))
 
 if __name__ == "__main__":
-       with app.app_context(): 
+       #with app.app_context(): 
               #seed_news2()
               #seed_composicao()
               #executar(incluir_pt=True, limite=100)
               #print(seed())
-              resultado = seed_pacientes(empresa=60018, dry_run=True, app=app)
-              if not resultado["ok"]:
-                     for e in resultado["erros"]:
-                            print(e["linha"], e["paciente"], e["erro"])
+              #seed_pacientes()
+              #seed_profissionais()
                             
        app.run(host="0.0.0.0", port=5000, debug=True)
        
