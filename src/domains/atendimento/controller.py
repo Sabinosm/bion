@@ -53,7 +53,6 @@ class AtendimentoController():
             dados = _svc.buscar_resumo(uuid, get_id_empresa_sessao(), get_id_usuario_sessao())
             return json_success(data=dados)
         except BionException as ex:
-            # @acesso_auditado não olha o status HTTP: NOOP evita logar o erro como leitura com sucesso
             return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod

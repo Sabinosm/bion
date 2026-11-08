@@ -46,9 +46,6 @@ def _meta_insert(conduta, uuid_atendimento):
     return {"id_registro": conduta.id, "uuid_registro": uuid_atendimento, "operacao": "escrita"}
 
 
-def _meta_noop(uuid_atendimento):
-    """Meta de auditoria quando nada foi gravado (validação ou regra de negócio recusou)."""
-    return {"id_registro": None, "uuid_registro": uuid_atendimento, "operacao": "NOOP"}
 
 
 class CondutaEnfermagemController():

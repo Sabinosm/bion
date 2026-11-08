@@ -60,9 +60,7 @@ def _corpo_json() -> dict:
     return request.get_json(silent=True) or {}
 
 
-def _erro(ex: BionException):
-    """Resposta de erro com meta NOOP (ver o docstring do módulo)."""
-    return json_error(ex.message, ex.status_code, erros=ex.erros), {"operacao": "NOOP"}
+
 
 
 class DadosClinicosController():
@@ -81,7 +79,7 @@ class DadosClinicosController():
                 message="Sinais vitais registrados.", status=201,
             )
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/coleta-clinica")
@@ -94,7 +92,7 @@ class DadosClinicosController():
             )
             return json_success(data=c.to_dict(), message="Coleta clínica registrada.", status=201)
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/coleta-clinica/<uuid_coleta>/input-protocolo")
@@ -107,7 +105,7 @@ class DadosClinicosController():
             )
             return json_success(data=ip.to_dict(), message="Input de protocolo registrado.", status=201)
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_dados_clinicos.post(_ESC + "/protocolos/<uuid_protocolo>/executar")
@@ -126,7 +124,7 @@ class DadosClinicosController():
                 status=200,
             )
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_dados_clinicos.get(_ESC + "/protocolos-disponiveis")
@@ -138,7 +136,7 @@ class DadosClinicosController():
             lista = _svc_execucao.listar_disponiveis(uuid_atendimento, _autor(), get_id_empresa_sessao())
             return json_success(data=lista)  # o service já devolve dicts
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
 
     @staticmethod
     @bp_dados_clinicos.get(_ESC + "/protocolos/<uuid_protocolo>/estrutura")
@@ -149,4 +147,4 @@ class DadosClinicosController():
             return json_success(data=_svc_execucao.estrutura_utilizavel(
                 uuid_atendimento, uuid_protocolo, _autor()))
         except BionException as ex:
-            return _erro(ex)
+            return json_error(ex.message, ex.status_code, erros=ex.erros)
