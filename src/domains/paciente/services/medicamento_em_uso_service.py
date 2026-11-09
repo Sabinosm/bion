@@ -1,10 +1,31 @@
+"""medicamento_em_uso_service.py
+
+Regras de negócio dos medicamentos em uso do paciente: registrar, substituir,
+encerrar, remover e restaurar, além da leitura, da verificação de interações e da
+estatística de uso contínuo.
+
+A leitura exige login e o tenant (empresa). Toda escrita passa pela checagem comum
+de escrita clínica (atendimento em andamento do PRÓPRIO profissional, do mesmo
+paciente, etc.). Não há atualização no lugar: mudar dose ou frequência é
+substituir (fecha o antigo e cria o novo, numa transação só). Só registro ativo
+muda: removido ou já encerrado vale 409. O mesmo medicamento do catálogo não pode
+estar ativo duas vezes para o paciente, e datas de encerramento ou mudança não
+podem ser anteriores ao início do uso. Quando a data de mudança ou de encerramento não
+vem, o padrão é hoje no fuso da empresa. Remover é soft delete com motivo.
+
+Todo método de escrita aceita `commit` (padrão True). Com commit=False o service só
+dá flush: é o que o controller usa sob a ação sensível, onde o decorator comita a
+alteração e o log numa transação única.
+
+A verificação de interações é informativa e não bloqueia nada: cruza só os
+medicamentos ATIVOS com vínculo no catálogo, e lista vazia não prova ausência de
+interação (a base cobre só o que está cadastrado).
+"""
 from datetime import date
 
-from pydantic import ValidationError
-
 from src.core.exceptions import RecursoNaoEncontradoError, DadosInvalidosError, ConflictoError
-from src.core.erros_pydantic import erros_pydantic_por_campo
 from ..repositories import PacienteRepository, MedicamentoEmUsoRepository
+from src.domains.empresa.repository import EmpresaRepository
 from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 from src.domains.medicamentos.interacoes.interacoes_medicamento_repository import InteracoesMedicamentosRepository
 from src.domains.paciente.schemas.schema_medicamento_em_uso import (
@@ -12,45 +33,22 @@ from src.domains.paciente.schemas.schema_medicamento_em_uso import (
     MedicamentoEmUsoSubstituirSchema, MedicamentoEmUsoRemoverSchema,
 )
 from src.domains.atendimento.contexto_clinico_service import ContextoClinicoService, AutorClinico
-
-
-def _validar(schema_cls, dados: dict):
-    try:
-        return schema_cls(**dados)
-    except ValidationError as e:
-        raise DadosInvalidosError(erros_pydantic_por_campo(e))
+from .comum import validar_schema, paciente_ou_404, hoje_na_empresa
 
 
 class MedicamentoEmUsoService:
-    """Medicamentos em uso do paciente.
-
-    LEITURA: só login + tenant (empresa do usuário).
-    ESCRITA: toda operação passa por ContextoClinicoService.exigir_escrita
-    (atendimento em-andamento do PRÓPRIO profissional, do mesmo paciente,
-    etc). Não há atualização no lugar: mudar dose/frequência = substituir
-    (fecha o antigo + cria o novo, numa transação só).
-
-    Todo método de escrita aceita `commit` (padrão True). Com commit=False
-    o service só dá flush: é o que o controller usa sob @acao_sensivel, onde
-    o decorator commita alteração + log numa transação única.
-    """
 
     def __init__(self):
         self.repo = MedicamentoEmUsoRepository()
         self.paciente_repo = PacienteRepository()
         self.catalogo_repo = CatalogoMedicamentosRepository()
+        self.empresa_repo = EmpresaRepository()
         self.interacoes_repo = InteracoesMedicamentosRepository()
         self.contexto = ContextoClinicoService()
 
     # ---------- helpers ----------
-
-    def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
-        p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
-        if not p:
-            raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
-        return p
-
     def _do_paciente_ou_404(self, uuid_medicamento: str, paciente, incluir_deletados: bool = False):
+        """Registro do paciente pelo UUID. Raises: RecursoNaoEncontradoError (inexistente ou de outro paciente)."""
         buscar = (self.repo.find_by_uuid_incluindo_deletados if incluir_deletados
                   else self.repo.find_by_uuid)
         m = buscar(uuid_medicamento)
@@ -59,7 +57,11 @@ class MedicamentoEmUsoService:
         return m
 
     def _ativo_do_paciente(self, uuid_medicamento: str, paciente):
-        """Registro ativo do paciente; removido ou já encerrado = 409."""
+        """Registro ativo do paciente.
+
+        Raises:
+            ConflictoError: registro removido ou já encerrado.
+        """
         m = self._do_paciente_ou_404(uuid_medicamento, paciente, incluir_deletados=True)
         if m.deletado:
             raise ConflictoError(
@@ -74,6 +76,7 @@ class MedicamentoEmUsoService:
 
     @staticmethod
     def _exigir_data_apos_desde(data: date, medicamento) -> None:
+        """Raises: DadosInvalidosError se a data é anterior ao início do uso."""
         if medicamento.desde and data < medicamento.desde:
             raise DadosInvalidosError(
                 f"Data {data.isoformat()} anterior ao início do uso ({medicamento.desde.isoformat()})."
@@ -81,27 +84,27 @@ class MedicamentoEmUsoService:
 
     @staticmethod
     def _novo(**campos):
-        # import local: mesmo padrão do service anterior (evita ciclo de models)
+        """Instancia o MedicamentoEmUso (import local: evita ciclo de models). Não persiste."""
         from src.models.pacientes import MedicamentoEmUso
         return MedicamentoEmUso(**campos)
 
     # ---------- leitura ----------
-
     def listar_medicamentos_em_uso(self, uuid_paciente: str, id_empresa: int,
                                    apenas_ativos: bool = False):
-        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        """Medicamentos não removidos do paciente (ativos primeiro)."""
+        p = paciente_ou_404(self.paciente_repo, uuid_paciente, id_empresa)
         return self.repo.find_por_paciente(p.id, apenas_ativos=apenas_ativos)
 
     def verificar_interacoes_do_paciente(self, uuid_paciente: str, id_empresa: int) -> dict:
-        """Cruza os medicamentos ATIVOS do paciente com o catálogo de
-        interações. Ver _montar_alertas para o formato."""
-        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        """Cruza os medicamentos ATIVOS do paciente com o catálogo de interações (formato em
+        _montar_alertas)."""
+        p = paciente_ou_404(self.paciente_repo, uuid_paciente, id_empresa)
         return self._montar_alertas(self.repo.find_por_paciente(p.id, apenas_ativos=True))
 
     def _montar_alertas(self, ativos) -> dict:
-        """Informativo, não bloqueia nada. Lista vazia NÃO prova ausência
-        de interação: a base cobre só o que está cadastrado, e itens sem
-        vínculo com o catálogo (nao_verificados) nem entram na checagem."""
+        """Informativo, não bloqueia nada. Lista vazia NÃO prova ausência de interação: a base cobre
+        só o que está cadastrado, e itens sem vínculo com o catálogo (nao_verificados) nem entram
+        na checagem."""
         ids = [m.id_catalogo for m in ativos if m.id_catalogo is not None]
         pares = self.interacoes_repo.find_entre_medicamentos(ids)
         total = self.interacoes_repo.contar()
@@ -133,20 +136,25 @@ class MedicamentoEmUsoService:
         }
 
     # ---------- escrita (sempre dentro de um Atendimento) ----------
-
     def registrar(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,
                   autor: AutorClinico, commit: bool = True):
-        """Registra um medicamento ATIVO. Retorna (medicamento, alertas)
-        com os alertas de interação já considerando o novo item."""
+        """Registra um medicamento ATIVO. Retorna (medicamento, alertas) com os alertas de
+        interação já considerando o novo item.
+
+        Raises:
+            DadosInvalidosError: corpo inválido, uuid_catalogo inexistente, ou sem descrição.
+            ConflictoError: o medicamento do catálogo já está ativo para o paciente.
+        """
         ctx = self.contexto.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
-        entrada = _validar(MedicamentoEmUsoCreateSchema, dados)
+        entrada = validar_schema(MedicamentoEmUsoCreateSchema, dados)
 
         catalogo = None
         if entrada.uuid_catalogo:
             catalogo = self.catalogo_repo.find_by_uuid(entrada.uuid_catalogo)
             if not catalogo:
                 raise DadosInvalidosError(
-                    f"uuid_catalogo inválido: {entrada.uuid_catalogo} não existe no catálogo."
+                    f"uuid_catalogo inválido: {entrada.uuid_catalogo} não existe no catálogo.",
+                    campo="uuid_catalogo",
                 )
             if self.repo.existe_ativo_do_catalogo(ctx.paciente.id, catalogo.id):
                 raise ConflictoError(
@@ -156,7 +164,10 @@ class MedicamentoEmUsoService:
 
         descricao = entrada.descricao or (catalogo.principio_ativo if catalogo else None)
         if not descricao:
-            raise DadosInvalidosError({"descricao": "obrigatória (o catálogo não tem princípio ativo)"})
+            raise DadosInvalidosError(
+                "Descrição obrigatória.",
+                erros={"descricao": "obrigatória (o catálogo não tem princípio ativo)"},
+            )
 
         m = self._novo(
             id_paciente=ctx.paciente.id,
@@ -176,14 +187,18 @@ class MedicamentoEmUsoService:
     def substituir(self, uuid_atendimento: str, uuid_paciente: str,
                    uuid_medicamento: str, dados: dict, autor: AutorClinico,
                    commit: bool = True):
-        """Mudança de dose/frequência/descrição: cria o registro novo e
-        fecha o antigo ('concluido', ate=data_mudanca, id_substituida_por),
-        atomicamente. Retorna o registro novo."""
+        """Mudança de dose, frequência ou descrição: cria o registro novo e fecha o antigo
+        ('concluido', ate=data_mudanca, id_substituida_por), atomicamente. Retorna o registro novo.
+
+        Raises:
+            ConflictoError: registro removido ou já encerrado.
+            DadosInvalidosError: data anterior ao início do uso, ou nenhuma alteração.
+        """
         ctx = self.contexto.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         antigo = self._ativo_do_paciente(uuid_medicamento, ctx.paciente)
-        entrada = _validar(MedicamentoEmUsoSubstituirSchema, dados)
+        entrada = validar_schema(MedicamentoEmUsoSubstituirSchema, dados)
 
-        mudanca = entrada.data_mudanca or date.today()
+        mudanca = entrada.data_mudanca or hoje_na_empresa(self.empresa_repo, autor.id_empresa)
         self._exigir_data_apos_desde(mudanca, antigo)
 
         novos = entrada.campos_informados()
@@ -209,12 +224,17 @@ class MedicamentoEmUsoService:
     def encerrar(self, uuid_atendimento: str, uuid_paciente: str,
                  uuid_medicamento: str, dados: dict, autor: AutorClinico,
                  commit: bool = True):
-        """Fecha o tratamento como 'interrompido' ou 'concluido'."""
+        """Fecha o tratamento como 'interrompido' ou 'concluido'.
+
+        Raises:
+            ConflictoError: registro removido ou já encerrado.
+            DadosInvalidosError: data de encerramento anterior ao início do uso.
+        """
         ctx = self.contexto.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         m = self._ativo_do_paciente(uuid_medicamento, ctx.paciente)
-        entrada = _validar(MedicamentoEmUsoEncerrarSchema, dados)
+        entrada = validar_schema(MedicamentoEmUsoEncerrarSchema, dados)
 
-        ate = entrada.ate or date.today()
+        ate = entrada.ate or hoje_na_empresa(self.empresa_repo, autor.id_empresa)
         self._exigir_data_apos_desde(ate, m)
         return self.repo.fechar(m, entrada.status_uso, ate, autor.id_usuario,
                                 ctx.atendimento.id, commit=commit)
@@ -222,21 +242,24 @@ class MedicamentoEmUsoService:
     def remover(self, uuid_atendimento: str, uuid_paciente: str,
                 uuid_medicamento: str, dados: dict, autor: AutorClinico,
                 commit: bool = True):
-        """Soft delete com motivo, autor e atendimento. Retorna o registro
-        removido (o controller precisa dele para a auditoria). find_by_uuid já
-        filtra deletado, então remover de novo cai em 404 (não vaza se
-        já foi removido ou nunca existiu)."""
+        """Soft delete com motivo, autor e atendimento. Retorna o registro removido (o controller
+        precisa dele para a auditoria). A busca já filtra deletado, então remover de novo cai em
+        404 (não vaza se já foi removido ou nunca existiu)."""
         ctx = self.contexto.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         m = self._do_paciente_ou_404(uuid_medicamento, ctx.paciente)
-        entrada = _validar(MedicamentoEmUsoRemoverSchema, dados)
+        entrada = validar_schema(MedicamentoEmUsoRemoverSchema, dados)
         self.repo.soft_delete(m, entrada.motivo_delete, entrada.observacoes_delete,
                               autor.id_usuario, ctx.atendimento.id, commit=commit)
         return m
 
     def restaurar(self, uuid_atendimento: str, uuid_paciente: str,
                   uuid_medicamento: str, autor: AutorClinico, commit: bool = True):
-        """Reverte um soft delete (409 se não estiver removido, ou se
-        restaurar criaria um segundo registro ativo do mesmo medicamento)."""
+        """Reverte um soft delete.
+
+        Raises:
+            ConflictoError: não está removido, ou restaurar criaria um segundo registro ativo do
+                mesmo medicamento.
+        """
         ctx = self.contexto.exigir_escrita(uuid_atendimento, uuid_paciente, autor)
         m = self._do_paciente_ou_404(uuid_medicamento, ctx.paciente, incluir_deletados=True)
         if not m.deletado:
@@ -250,6 +273,7 @@ class MedicamentoEmUsoService:
             )
         return self.repo.restaurar(m, commit=commit)
 
-    # --- F2: Pacientes em uso contínuo de medicação (%) ---
+    # ---------- estatísticas ----------
     def percentual_pacientes_em_uso_continuo(self, id_empresa: int):
+        """% de pacientes da empresa com ao menos um medicamento ativo (ver o repository)."""
         return self.repo.percentual_pacientes_em_uso_continuo(id_empresa=id_empresa)

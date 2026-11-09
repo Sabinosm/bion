@@ -1,4 +1,5 @@
-"""
+"""schema_paciente.py
+
 Schema Pydantic de ENTRADA para Paciente: atualização (pessoal e
 clínico) e criação.
 
@@ -25,12 +26,6 @@ contato_emergencia_nome rejeitam string vazia/só-espaços. Datas
 (data_obito, data_nascimento, data_primeiro_atendimento) não aceitam
 valor futuro. cpf é validado com dígito verificador (validar_cpf).
 
-erros_pydantic_por_campo e _strip_ou_none aparecem duplicadas abaixo
-(uma vez para o bloco de atualização, outra para o de criação) de
-propósito: um import cruzado entre os dois blocos criaria acoplamento
-desnecessário para funções de poucas linhas. Se crescerem, viram um
-util compartilhado em src.core.
-
 id_regiao_geografica NÃO existe como campo em PacienteCriarSchema:
 região é DERIVADA do cep (via CepService.regiao_por_cep) no service,
 nunca aceita como valor cru do cliente -- ver PacienteService.cadastrar().
@@ -48,8 +43,7 @@ model (status="ativo", falecido=False).
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationError, field_validator
-from src.core.erros_pydantic import erros_pydantic_por_campo
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from src.core.validacoes import validar_e_devolver_cep, validar_telefone_br, validar_cpf
 
 CAMPOS_LIMPAVEIS = {
@@ -57,9 +51,9 @@ CAMPOS_LIMPAVEIS = {
     "contato_emergencia_nome", "contato_emergencia_telefone",
 }
 
-# dentro de PacienteAtualizarPessoalSchema:
 
 def _strip_ou_none(v: Optional[str]) -> Optional[str]:
+    """Apara espaços; texto vazio ou só espaços vira None."""
     if v is None:
         return None
     v = v.strip()
@@ -81,7 +75,7 @@ class PacienteAtualizarPessoalSchema(BaseModel):
     rg: Optional[str] = Field(default=None, max_length=100)
     numero_residencia: Optional[str] = Field(default=None, max_length=50)
     contato_emergencia_nome: Optional[str] = Field(default=None, max_length=255)
-    
+
     @field_validator("nome_completo", "logradouro")
     @classmethod
     def _nao_pode_ser_so_espacos(cls, v):
@@ -114,16 +108,18 @@ class PacienteAtualizarPessoalSchema(BaseModel):
         return cep_normalizado
 
     def campos_informados(self) -> dict:
+        """Campos enviados. `null` só vale nos opcionais de CAMPOS_LIMPAVEIS (limpa o campo); nos
+        demais, `null` é ignorado."""
         dados = self.model_dump(exclude_unset=True)
         return {
             k: v for k, v in dados.items()
             if v is not None or k in CAMPOS_LIMPAVEIS
         }
-    
 
 
 class PacienteAtualizarClinicoSchema(BaseModel):
-    """PATCH do eixo clínico: só `status`, e só entre "ativo" e "inativo".
+    """PATCH do eixo clínico: só `status` é aplicado, e só entre "ativo" e "inativo" (peso e altura
+    são aceitos no corpo, mas o service não os grava).
 
     Óbito (status="obito", falecido, data_obito) NÃO é aceito aqui: tem
     operações próprias (PacienteService.marcar_obito / reverter_obito),
@@ -132,11 +128,14 @@ class PacienteAtualizarClinicoSchema(BaseModel):
     campo ignorado em silêncio.
     """
     model_config = ConfigDict(extra="forbid")
+    # peso e altura são aceitos no corpo (compatibilidade com o front), mas o service NÃO os grava:
+    # o cadastro e a atualização de Paciente não persistem esses dois campos.
     peso: Optional[float] = Field(default=None, gt=0, lt=1000)
     altura: Optional[int] = Field(default=None, gt=0, lt=300)
     status: Optional[Literal["ativo", "inativo"]] = None
 
     def campos_informados(self) -> dict:
+        """Campos enviados com valor (None é ignorado)."""
         return self.model_dump(exclude_none=True)
 
 
@@ -155,6 +154,8 @@ class PacienteCriarSchema(BaseModel):
     data_nascimento: date
     nome_completo: str = Field(min_length=1, max_length=500)
     cpf: str
+    # peso e altura são aceitos no corpo (compatibilidade com o front), mas o service NÃO os grava:
+    # o cadastro e a atualização de Paciente não persistem esses dois campos.
     peso: Optional[float] = Field(default=None, gt=0, lt=1000)
     altura: Optional[int] = Field(default=None, gt=0, lt=300)
 
