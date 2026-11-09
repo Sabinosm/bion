@@ -50,8 +50,9 @@ def avaliar(snapshot: dict, pool: Pool, cliente: ClienteIA, *, max_tentativas: i
     aud = AuditoriaDaAvaliacao(cliente, uuid_output, auditoria)
     contexto = ContextoSeguro.de_snapshot(snapshot)
     nomes = contexto.nomes
-    conversa = conversa_inicial(contexto.para_prompt())
-    ferramentas, esquema = pool.catalogo(), casca()
+    esquema = casca()
+    conversa = conversa_inicial(contexto.para_prompt(), esquema)
+    ferramentas = pool.catalogo()
     rodada = tentativas = 0
     versao = None
 
