@@ -1,4 +1,5 @@
-"""
+"""schema_doenca_cronica.py
+
 Schema Pydantic de ENTRADA para doença crônica.
 
 Os Literal de `status` e `motivo_delete` são cópia manual dos db.Enum do
@@ -8,7 +9,7 @@ codigo_cid10 valida o FORMATO CID-10 (letra + 2 dígitos + opcional
 ".dígito(s)"). descricao_cid10/observacoes rejeitam vazio/só-espaços.
 desde não pode ser data futura.
 
-BLOCO 2 -- quatro schemas de entrada:
+Quatro schemas de entrada:
   - Create:    nova doença (nasce vigente).
   - Atualizar: SÓ `observacoes` (texto livre, sem significado clínico
                que exija histórico). Qualquer outro campo é recusado com
@@ -24,8 +25,7 @@ import re
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
-from src.core.erros_pydantic import erros_pydantic_por_campo
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Formato CID-10: uma letra + dois dígitos + opcionalmente ".x" ou ".xx".
 _REGEX_CID10 = re.compile(r"^[A-Z]\d{2}(\.\d{1,2})?$")

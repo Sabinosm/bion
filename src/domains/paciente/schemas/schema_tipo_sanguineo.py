@@ -1,4 +1,5 @@
-"""
+"""schema_tipo_sanguineo.py
+
 Schema Pydantic de ENTRADA para observação de tipo sanguíneo.
 
 O Literal é cópia manual do db.Enum de ObservacaoTipoSanguineo -- não
@@ -10,8 +11,7 @@ são todos aceitos e normalizados para "A+".
 """
 
 from typing import Literal
-from src.core.erros_pydantic import erros_pydantic_por_campo
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, field_validator
 
 _TIPOS_VALIDOS = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "DESCONHECIDO"}
 # "desconhecido" é o único valor do Enum que não é sigla de tipo

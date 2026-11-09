@@ -1,5 +1,6 @@
-"""
-Schemas Pydantic de ENTRADA para medicamento em uso (Bloco 2).
+"""schema_medicamento_em_uso.py
+
+Schemas Pydantic de ENTRADA para medicamento em uso.
 
 Operações (sem atualização no lugar -- ver model):
 - Create: registra um medicamento ATIVO. Identifica o catálogo por

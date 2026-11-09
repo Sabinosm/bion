@@ -50,9 +50,8 @@ from src.models.pacientes import (
     DoencaCronica, MedicamentoEmUso, ObservacaoTipoSanguineo,
 )
 from src.core.security import hmac_sha256
-from src.domains.paciente.schemas.schema_paciente import (
-    PacienteCriarSchema, erros_pydantic_por_campo,
-)
+from src.domains.paciente.schemas.schema_paciente import (PacienteCriarSchema)
+from src.core.erros_pydantic import erros_pydantic_por_campo
 # ajuste os caminhos para os reais do seu projeto:
 from src.domains.paciente.services.paciente_service.cadastro import CadastroMixin
 from src.domains.paciente.repositories.paciente_repository import PacienteRepository

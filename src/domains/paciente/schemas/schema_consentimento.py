@@ -1,4 +1,5 @@
-"""
+"""schema_consentimento.py
+
 Schema Pydantic de ENTRADA para consentimento LGPD.
 
 O Literal de `canal_coleta` é cópia manual do db.Enum de Consentimento
@@ -25,8 +26,7 @@ Códigos desconhecidos ou outro formato são rejeitados.
 import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
-from src.core.erros_pydantic import erros_pydantic_por_campo
+from pydantic import BaseModel, Field, field_validator
 from src.domains.paciente.schemas.schema_consentimento_digital import _validar_escopos
 
 _REGEX_SHA256_HEX = re.compile(r"^[0-9a-fA-F]{64}$")

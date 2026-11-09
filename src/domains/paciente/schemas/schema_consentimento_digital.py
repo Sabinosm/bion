@@ -1,6 +1,6 @@
-"""
+"""schema_consentimento_digital.py
+
 Schemas Pydantic (v2) para o fluxo de assinatura digital LGPD.
-Colocar em src/domains/paciente/schemas/ (junto de schema_consentimento.py).
 
 Responsabilidade dos schemas: FORMATO (tipos, tamanhos, hex, PNG base64).
 Regras que dependem de estado ficam no service: hash == o da sessão,

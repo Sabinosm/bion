@@ -1,7 +1,8 @@
-"""
+"""schema_alergia.py
+
 Schema Pydantic de ENTRADA para alergia e reação alérgica.
 
-Cobre os dois juntos porque adicionar_alergia() cria a alergia E a
+Cobre os dois juntos porque a criação da alergia já cria a
 primeira reação na mesma chamada (ver Alergia.registrar_reacao).
 
 Os Literal abaixo são cópia manual dos db.Enum de Alergia/ReacaoAlergia
@@ -18,8 +19,7 @@ clinicamente inconsistentes (ex: anafilaxia marcada como gravidade
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from src.core.erros_pydantic import erros_pydantic_por_campo
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _MANIFESTACOES = Literal["cutanea", "respiratoria", "anafilaxia",
                           "gastrointestinal", "cardiovascular", "sistemica"]
