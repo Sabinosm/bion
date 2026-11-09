@@ -77,7 +77,12 @@ class DoencaCronicaService:
     def listar_doencas(self, uuid_paciente: str, id_empresa: int):
         """Doenças vigentes (pré-preenchimento dos atendimentos seguintes)."""
         p = paciente_ou_404(self._paciente_repo, uuid_paciente, id_empresa)
-        return self.repo.find_por_paciente(p.id)
+        return self.listar_doencas_do_paciente(p)
+
+    def listar_doencas_do_paciente(self, paciente):
+        """Doenças vigentes de um paciente JÁ carregado (evita refazer a busca por UUID quando
+        quem chama, como o prontuário, já tem o paciente)."""
+        return self.repo.find_por_paciente(paciente.id)
 
     def listar_historico(self, uuid_paciente: str, id_empresa: int):
         """Vigentes + encerradas por revisão (linha do tempo), sem removidas."""

@@ -47,7 +47,12 @@ class AlergiaService:
     def listar_alergias(self, uuid_paciente: str, id_empresa: int):
         """Alergias não removidas do paciente da empresa."""
         p = paciente_ou_404(self._paciente_repo, uuid_paciente, id_empresa)
-        return self.repo.find_por_paciente(p.id)
+        return self.listar_alergias_do_paciente(p)
+
+    def listar_alergias_do_paciente(self, paciente):
+        """Alergias não removidas de um paciente JÁ carregado (quem compõe o prontuário busca o
+        paciente uma vez só e o passa adiante, em vez de refazer a busca por UUID)."""
+        return self.repo.find_por_paciente(paciente.id)
 
     # ------------------------------------------------------------ escrita
     def adicionar_alergia(self, uuid_atendimento: str, uuid_paciente: str, dados: dict,

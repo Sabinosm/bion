@@ -56,6 +56,11 @@ class ConsentimentoService:
         p = paciente_ou_404(self.paciente_repo, uuid_paciente, id_empresa)
         return self.repo.find_por_paciente(p.id)
 
+    def possui_consentimento_ativo(self, id_paciente: int) -> bool:
+        """True se o paciente tem consentimento ativo (para quem só precisa do booleano, como o
+        prontuário)."""
+        return self.repo.find_ativo_por_paciente(id_paciente) is not None
+
     # ------------------------------------------------------------------
     # PONTO ÚNICO de criação de consentimento ativo
     # ------------------------------------------------------------------

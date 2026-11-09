@@ -155,7 +155,7 @@ Pacientes cadastrados **hoje**, no fuso da empresa (o `criado_em` é UTC, então
 
 ## Prontuário clínico completo
 
-Usado **só** na tela de detalhe, nunca em listagem (cada domínio é uma consulta própria). Acrescenta ao paciente:
+Usado **só** na tela de detalhe, nunca em listagem (cada domínio é uma consulta própria). O paciente é carregado **uma vez** e passado aos services clínicos, que têm métodos para paciente já carregado, em vez de cada um refazer a busca por UUID; as interações são calculadas sobre a lista de medicamentos já lida. Acrescenta ao paciente:
 
 | Campo | Conteúdo |
 |---|---|

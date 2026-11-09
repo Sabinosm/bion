@@ -93,7 +93,17 @@ class MedicamentoEmUsoService:
                                    apenas_ativos: bool = False):
         """Medicamentos não removidos do paciente (ativos primeiro)."""
         p = paciente_ou_404(self.paciente_repo, uuid_paciente, id_empresa)
-        return self.repo.find_por_paciente(p.id, apenas_ativos=apenas_ativos)
+        return self.listar_medicamentos_em_uso_do_paciente(p, apenas_ativos=apenas_ativos)
+
+    def listar_medicamentos_em_uso_do_paciente(self, paciente, apenas_ativos: bool = False):
+        """Medicamentos não removidos de um paciente JÁ carregado (ativos primeiro)."""
+        return self.repo.find_por_paciente(paciente.id, apenas_ativos=apenas_ativos)
+
+    def interacoes_dos_medicamentos(self, medicamentos) -> dict:
+        """Interações entre os medicamentos ATIVOS de uma lista já carregada (a de
+        listar_medicamentos_em_uso_do_paciente), sem nova consulta de medicamentos. O recorte é o
+        mesmo da consulta de ativos: não removido e status_uso 'ativo'. Formato em _montar_alertas."""
+        return self._montar_alertas([m for m in medicamentos if m.status_uso == "ativo"])
 
     def verificar_interacoes_do_paciente(self, uuid_paciente: str, id_empresa: int) -> dict:
         """Cruza os medicamentos ATIVOS do paciente com o catálogo de interações (formato em

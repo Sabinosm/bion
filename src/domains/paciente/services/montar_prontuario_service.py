@@ -11,6 +11,9 @@ ativos. No topo vai o resumo clínico (tipo sanguíneo, contagens e alertas de
 alergia grave, doença ativa e medicamento em uso), calculado na hora a partir das
 mesmas listas, para leitura rápida em emergência e sem divergir dos dados.
 
+O paciente é carregado UMA vez e passado aos services clínicos (que têm métodos para paciente já
+carregado), em vez de cada um refazer a busca por UUID.
+
 Decisões: o consentimento fica FORA do agregado (é titularidade/LGPD, não dado
 clínico) e entra só como o booleano `consentimento_ativo`; o tipo sanguíneo é só o
 VIGENTE (o histórico tem endpoint próprio); o histórico de revisões das doenças
@@ -87,12 +90,12 @@ def montar_prontuario_completo(uuid: str, id_empresa: int):
     paciente = PacienteService().buscar_por_uuid(uuid, id_empresa)
 
     medicamento_svc = MedicamentoEmUsoService()
-    alergias = AlergiaService().listar_alergias(uuid, id_empresa)
-    doencas = DoencaCronicaService().listar_doencas(uuid, id_empresa)
-    medicamentos = medicamento_svc.listar_medicamentos_em_uso(uuid, id_empresa)
-    interacoes = medicamento_svc.verificar_interacoes_do_paciente(uuid, id_empresa)
-    tipo_obs = ObservacaoTipoSanguineoService().tipo_vigente(uuid, id_empresa)  # None se nunca registrado
-    consentimento_ativo = ConsentimentoService().repo.find_ativo_por_paciente(paciente.id) is not None
+    alergias = AlergiaService().listar_alergias_do_paciente(paciente)
+    doencas = DoencaCronicaService().listar_doencas_do_paciente(paciente)
+    medicamentos = medicamento_svc.listar_medicamentos_em_uso_do_paciente(paciente)
+    interacoes = medicamento_svc.interacoes_dos_medicamentos(medicamentos)
+    tipo_obs = ObservacaoTipoSanguineoService().tipo_vigente_do_paciente(paciente)  # None se nunca registrado
+    consentimento_ativo = ConsentimentoService().possui_consentimento_ativo(paciente.id)
 
     # Alergia grave primeiro, não por ordem de cadastro: uma alergia grave cadastrada há anos não
     # deve aparecer depois de uma leve cadastrada ontem.

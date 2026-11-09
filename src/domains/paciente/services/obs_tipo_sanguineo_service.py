@@ -30,7 +30,11 @@ class ObservacaoTipoSanguineoService:
     def tipo_vigente(self, uuid_paciente: str, id_empresa: int):
         """Observação mais recente, ou None se nunca foi registrado."""
         p = paciente_ou_404(self._paciente_repo, uuid_paciente, id_empresa)
-        return self.repo.find_mais_recente_por_paciente(p.id)
+        return self.tipo_vigente_do_paciente(p)
+
+    def tipo_vigente_do_paciente(self, paciente):
+        """Observação mais recente de um paciente JÁ carregado, ou None se nunca foi registrado."""
+        return self.repo.find_mais_recente_por_paciente(paciente.id)
 
     def historico(self, uuid_paciente: str, id_empresa: int):
         """Todas as observações do paciente, da mais recente para a mais antiga."""
