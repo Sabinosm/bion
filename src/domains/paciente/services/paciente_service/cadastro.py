@@ -1,69 +1,60 @@
-"""Cadastro de Paciente: cadastrar, cadastrar_nao_identificado e identificar.
+"""cadastro.py
 
-Depende de `self.repo` e de LeituraMixin.buscar_por_uuid.
+Cadastro de Paciente: cadastro completo, cadastro de emergência (paciente não
+identificado) e a identificação posterior desse paciente.
+
+O cadastro completo grava Paciente e PacienteDadosPessoais numa ÚNICA transação,
+com a PII cifrada e o CPF em hash para busca exata. A região geográfica é sempre
+derivada do CEP, nunca aceita do corpo; o bairro informado tem prioridade sobre o
+resolvido pelo CEP. Tipo sanguíneo não entra no cadastro: é dado clínico,
+registrado dentro de um Atendimento. O CPF é único por empresa (a mesma pessoa
+pode existir em empresas diferentes). Depende de `self.repo` e de
+LeituraMixin.buscar_por_uuid.
 """
 from datetime import datetime, timezone
 
-from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from src.core.exceptions import DadosInvalidosError, ConflictoError
 from src.core.security import aes_encrypt, hmac_sha256
-from src.domains.paciente.schemas.schema_paciente import (
-    erros_pydantic_por_campo, PacienteCriarSchema,
-)
-from src.domains.regiao.cep_service import CepService
+from src.domains.paciente.schemas.schema_paciente import PacienteCriarSchema
 
-from .helpers import _violou_cpf_unico
+from ..comum import validar_schema
+from .helpers import _regiao_e_bairro_do_cep, _violou_cpf_unico
+
+_MSG_CPF_DUPLICADO = "Já existe um paciente cadastrado com este CPF nesta empresa."
 
 
 class CadastroMixin:
     """Cadastro: cadastrar, cadastrar_nao_identificado e identificar."""
 
     def _validar_criar(self, dados: dict, id_empresa: int) -> PacienteCriarSchema:
-        """Valida o corpo de cadastro (Pydantic) e garante que o CPF ainda
-        não existe NESTA empresa. Escopado por empresa: o mesmo CPF pode
-        já existir como paciente de OUTRA empresa -- isso é normal (mesma
-        pessoa atendida em clínicas diferentes) e não bloqueia o cadastro."""
-        try:
-            entrada = PacienteCriarSchema(**dados)
-        except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+        """Valida o corpo de cadastro e garante que o CPF ainda não existe NESTA empresa. O mesmo
+        CPF em OUTRA empresa é normal (mesma pessoa atendida em clínicas diferentes) e não bloqueia.
 
+        Raises:
+            DadosInvalidosError: corpo inválido (erros por campo).
+            ConflictoError: CPF já cadastrado na empresa.
+        """
+        entrada = validar_schema(PacienteCriarSchema, dados)
         if self.repo.find_por_cpf_hash(hmac_sha256(entrada.cpf), id_empresa):
-            raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.")
+            raise ConflictoError(_MSG_CPF_DUPLICADO)
         return entrada
 
-    def _regiao_e_bairro(self, entrada: PacienteCriarSchema):
-        """id_regiao_geografica: sempre derivado do cep, nunca aceito cru
-        do payload. bairro: o do payload tem prioridade; só cai no
-        resolvido via CEP se vier ausente. Sem cep, ambos ficam como
-        vieram (região None). Se o cep vier mas a região não resolver, o
-        cadastro inteiro falha. As duas chamadas ao CepService batem no
-        mesmo cache em memória por CEP, então não repetem a requisição
-        HTTP à BrasilAPI/ViaCEP."""
-        id_regiao_geografica = None
-        bairro = entrada.bairro
-        if entrada.cep:
-            cep_service = CepService()
-            regiao = cep_service.regiao_por_cep(entrada.cep)
-            if regiao is None:
-                raise DadosInvalidosError(
-                    "Não foi possível resolver a região geográfica a partir do CEP informado."
-                )
-            id_regiao_geografica = regiao.id_regiao_geografica
-            if bairro is None:
-                bairro = cep_service.buscar_bairro_por_cep(entrada.cep)
-        return id_regiao_geografica, bairro
+    @staticmethod
+    def _regiao_e_bairro(entrada: PacienteCriarSchema):
+        """Devolve (id_regiao_geografica, bairro) do corpo de cadastro (ver _regiao_e_bairro_do_cep).
+
+        Raises:
+            DadosInvalidosError: CEP informado cuja região não foi resolvida.
+        """
+        return _regiao_e_bairro_do_cep(entrada.cep, entrada.bairro)
 
     @staticmethod
     def _montar_pessoal(id_paciente: int, id_empresa: int, e: PacienteCriarSchema):
-        """Monta PacienteDadosPessoais com PII cifrada (AES) + cpf_hash
-        (HMAC) para busca exata. Só instancia; não persiste.
-
-        id_empresa: SEMPRE o de Paciente (paciente.id_empresa / empresa da
-        sessão), nunca do payload -- é o que sustenta a UNIQUE composta
-        (id_empresa, cpf_hash) no banco."""
+        """Monta PacienteDadosPessoais com a PII cifrada (AES) e o cpf_hash (HMAC) para busca
+        exata. Só instancia; não persiste. `id_empresa` é SEMPRE o do Paciente (nunca do corpo): é
+        ele que sustenta a UNIQUE composta (id_empresa, cpf_hash) no banco."""
         from src.models.pacientes import PacienteDadosPessoais
         return PacienteDadosPessoais(
             id_paciente=id_paciente,
@@ -85,16 +76,17 @@ class CadastroMixin:
         )
 
     def cadastrar(self, dados: dict, id_usuario_cadastro: int, id_empresa: int, commit: bool = True):
-        """Cadastra Paciente + PacienteDadosPessoais numa ÚNICA transação --
-        antes eram dois commits separados, e uma falha no segundo deixava
-        um Paciente órfão, sem dados pessoais. Tipo sanguíneo NÃO entra
-        aqui: é dado clínico, registrado dentro de um Atendimento.
+        """Cadastra Paciente + PacienteDadosPessoais numa ÚNICA transação (uma falha no segundo
+        não deixa Paciente órfão, sem dados pessoais).
 
-        Validação de formato em PacienteCriarSchema. Região derivada do
-        cep e bairro com prioridade para o payload: ver _regiao_e_bairro.
+        commit=False deixa tudo pendente (flush) para o chamador (ex.: ConsultaService.abrir, que
+        cria a Consulta na mesma transação).
 
-        commit=False: deixa tudo pendente (flush) para o chamador (ex:
-        ConsultaService.abrir, que cria a Consulta na mesma transação)."""
+        Raises:
+            DadosInvalidosError: corpo inválido ou CEP sem região.
+            ConflictoError: CPF já cadastrado na empresa (inclusive em corrida entre duas
+                requisições, barrada pela UNIQUE composta).
+        """
         from src.models.pacientes import Paciente
 
         entrada = self._validar_criar(dados, id_empresa)
@@ -118,14 +110,13 @@ class CadastroMixin:
             self.repo.save(pessoal, commit=commit)  # único commit do cadastro
             return paciente
         except IntegrityError as e:
-            # Corrida entre duas requisições com o mesmo CPF: a checagem de
-            # _validar_criar passou nas duas, a UNIQUE composta barrou a 2ª.
-            # Com commit=False a sessão fica inutilizável até o rollback, e
-            # quem controla a transação (ex: ConsultaService.abrir) é quem o faz.
+            # Corrida de duas requisições com o mesmo CPF: a checagem prévia passou nas duas e a
+            # UNIQUE composta barrou a 2ª. Com commit=False a sessão fica inutilizável até o
+            # rollback, que é de quem controla a transação (ex.: ConsultaService.abrir).
             if commit:
                 self.repo.rollback()
             if _violou_cpf_unico(e):
-                raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+                raise ConflictoError(_MSG_CPF_DUPLICADO) from e
             raise
         except Exception:
             if commit:
@@ -134,11 +125,14 @@ class CadastroMixin:
 
     def cadastrar_nao_identificado(self, sexo_biologico: str, id_usuario: int, id_empresa: int,
                                    commit: bool = True):
-        """Emergência (SAMU, inconsciente): Paciente mínimo, SEM
-        PacienteDadosPessoais, marcado nao_identificado=True. Não é o
-        mesmo que anonimizado (LGPD): aquele já teve dados pessoais e os
-        perdeu; este ainda não os teve. Quando a pessoa for identificada,
-        use `identificar` -- completa este mesmo registro, sem duplicar."""
+        """Emergência (SAMU, inconsciente): Paciente mínimo, SEM PacienteDadosPessoais, marcado
+        nao_identificado=True. Não é o mesmo que anonimizado (LGPD): aquele já teve dados pessoais
+        e os perdeu; este ainda não os teve. Quando a pessoa for identificada, use `identificar`,
+        que completa este mesmo registro sem duplicar.
+
+        Raises:
+            DadosInvalidosError: sexo_biologico fora de M, F ou I.
+        """
         from src.models.pacientes import Paciente
 
         if sexo_biologico not in ("M", "F", "I"):
@@ -159,17 +153,21 @@ class CadastroMixin:
             raise
 
     def identificar(self, uuid: str, dados: dict, id_usuario: int, id_empresa: int, commit: bool = True):
-        """Completa um paciente de emergência com os dados de cadastro
-        (mesmo corpo de `cadastrar`). Evita criar um 2º Paciente quando a
-        pessoa é identificada depois -- o histórico de consulta,
-        consentimento e atendimento já gravado fica no mesmo registro.
+        """Completa um paciente de emergência com os dados de cadastro (mesmo corpo de `cadastrar`).
+        Evita um 2º Paciente quando a pessoa é identificada depois: o histórico de consulta,
+        consentimento e atendimento já gravado fica no mesmo registro. A data do primeiro
+        atendimento NÃO é sobrescrita (vale o dia em que a pessoa de fato chegou).
 
-        data_primeiro_atendimento NÃO é sobrescrita: vale o dia em que a
-        pessoa de fato chegou, não o que veio no corpo."""
+        Identificar é fluxo clínico de quem está sendo atendido, então paciente falecido é
+        recusado aqui (já atualizar_pessoal e anonimizar não têm esse guard de propósito: corrigir
+        cadastro de falecido é legítimo).
+
+        Raises:
+            RecursoNaoEncontradoError: paciente inexistente na empresa.
+            ConflictoError: paciente falecido, já identificado, ou CPF já cadastrado na empresa.
+            DadosInvalidosError: corpo inválido ou CEP sem região.
+        """
         paciente = self.buscar_por_uuid(uuid, id_empresa)
-        # Guard de óbito: identificar é fluxo operacional/clínico de quem
-        # está sendo atendido. (atualizar_pessoal e anonimizar ficam SEM
-        # este guard de propósito: corrigir cadastro de falecido é legítimo.)
         if paciente.esta_falecido():
             raise ConflictoError(
                 "Paciente com óbito registrado não pode ser identificado por este fluxo."
@@ -195,10 +193,9 @@ class CadastroMixin:
             if commit:
                 self.repo.rollback()
             if _violou_cpf_unico(e):
-                raise ConflictoError("Já existe um paciente cadastrado com este CPF nesta empresa.") from e
+                raise ConflictoError(_MSG_CPF_DUPLICADO) from e
             raise
         except Exception:
             if commit:
                 self.repo.rollback()
             raise
-        

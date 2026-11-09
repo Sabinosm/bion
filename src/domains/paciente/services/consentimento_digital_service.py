@@ -1,9 +1,28 @@
-"""
-Serviço de assinatura digital LGPD — fluxo QR code presencial.
+"""consentimento_digital_service.py
 
-Este service só ORQUESTRA a sessão (token, validação, arquivos). A criação do
-Consentimento é delegada ao ConsentimentoService.ativar_novo, para que a regra
-"um consentimento ativo por paciente" seja única.
+Assinatura digital do consentimento LGPD no fluxo presencial por QR code: o
+profissional gera um link (token) de curta duração, o paciente abre o link no
+próprio celular, lê o termo e assina, e o sistema registra o consentimento com a
+prova da assinatura.
+
+Este service só ORQUESTRA a sessão (token, validação, geração de PDF em memória).
+A criação do Consentimento é delegada ao ponto único de criação do
+ConsentimentoService, para que a regra "um consentimento ativo por paciente" seja a
+mesma em todos os fluxos. O texto e o PDF do termo são MONTADOS no servidor (template
+da versão + dados da empresa da sessão): o cliente só escolhe a versão e nunca envia
+caminho, texto ou unidade. Gerar um link novo expira os pendentes do paciente (um
+link pendente por paciente) e o link vale poucos minutos.
+
+As rotas públicas (o token é a autenticação) só atendem sessão pendente, e todo
+caso inválido do download da cópia responde 404 igual, para o token não revelar em
+que estado está. Registrar a assinatura trava a linha da sessão (um segundo POST
+simultâneo espera e enxerga "usado") e grava, num único commit, a revogação do
+consentimento anterior, o novo consentimento e a sessão como usada. O PDF assinado
+não é guardado em disco: é refeito em memória a partir do texto aceito, da assinatura
+PNG, da auditoria e da data, e o hash refeito é comparado com o hash gravado (pode
+divergir se a biblioteca de PDF ou o layout mudarem, ou se o paciente foi anonimizado).
+O paciente baixa a própria cópia por tempo limitado após assinar
+(CONSENT_JANELA_COPIA_MIN, padrão 15 min).
 """
 
 from datetime import datetime, timezone, timedelta
@@ -14,8 +33,6 @@ import hmac
 import logging
 import os
 import re
-
-from pydantic import ValidationError
 
 from src.core.exceptions import (
     RecursoNaoEncontradoError,
@@ -28,7 +45,6 @@ from src.domains.paciente.repositories import (
     ConsentimentoRepository,
     ConsentimentoSessaoAssinaturaRepository,
 )
-from src.domains.paciente.schemas.schema_consentimento import erros_pydantic_por_campo
 from src.domains.paciente.schemas.schema_consentimento_digital import (
     GerarLinkAssinaturaSchema,
     AssinaturaDigitalSchema,
@@ -40,21 +56,27 @@ from src.domains.paciente.schemas.schema_consentimento_digital import (
 from .consentimento_service import ConsentimentoService
 from ..termos.termo_renderer import gerar_termo, gerar_pdf_bytes, versao_vigente
 from ..termos.consentimento_pdf import montar_pdf_assinado, formatar_cpf, sha256_bytes
-from src.domains.empresa.repository import EmpresaRepository 
+from src.domains.empresa.repository import EmpresaRepository
 from src.core.security import aes_decrypt
+from .comum import validar_schema, paciente_ou_404
 
 logger = logging.getLogger(__name__)
+
+# Prefixo das rotas públicas e do download do médico (o controller registra o blueprint nele).
+_PREFIXO_LGPD = "/v1/api/pacientes/lgpd"
 
 
 def _janela_copia_minutos() -> int:
     """Quanto tempo, depois de assinar, o paciente pode baixar a própria cópia com o token."""
     return int(os.getenv("CONSENT_JANELA_COPIA_MIN", "15"))
+
+
 _formatar_cpf = formatar_cpf
 
 
 def _mascarar_cpf(cpf) -> str:
-    """***.456.789-** -- a rota publica (token) mostra o suficiente para o
-    titular reconhecer o proprio CPF, sem expor o numero completo."""
+    """***.456.789-**: a rota pública (token) mostra o suficiente para o titular reconhecer o
+    próprio CPF, sem expor o número completo."""
     d = re.sub(r"\D", "", cpf or "")
     return f"***.{d[3:6]}.{d[6:9]}-**" if len(d) == 11 else "-"
 
@@ -73,23 +95,20 @@ class ConsentimentoDigitalService:
         self.consentimento_svc = ConsentimentoService()
 
     # ------------------------------------------------------------------ helpers
-    def _paciente_ou_404(self, uuid_paciente: str, id_empresa: int):
-        p = self.paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
-        if not p:
-            raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
-        return p
-
     @staticmethod
     def _identificacao(paciente) -> tuple:
-        """(nome, cpf) em texto claro. Paciente NAO tem .nome/.cpf: a PII
-        fica cifrada em paciente.pessoal. Sem dados pessoais (emergencia
-        nao identificada, ou anonimizado) nao ha quem assine o termo --
-        nesses casos o caminho e a dispensa por emergencia."""
+        """(nome, cpf) em texto claro. Paciente não tem .nome/.cpf: a PII fica cifrada em
+        paciente.pessoal. Sem dados pessoais (emergência não identificada, ou anonimizado) não há
+        quem assine o termo; nesses casos o caminho é a dispensa por emergência.
+
+        Raises:
+            DadosInvalidosError: paciente sem dados pessoais.
+        """
         pessoal = paciente.pessoal
         if not pessoal:
             raise DadosInvalidosError(
-                "Paciente sem dados pessoais (nao identificado ou anonimizado): "
-                "identifique-o antes de coletar o termo, ou registre a dispensa por emergencia."
+                "Paciente sem dados pessoais (não identificado ou anonimizado): "
+                "identifique-o antes de coletar o termo, ou registre a dispensa por emergência."
             )
         return aes_decrypt(pessoal.nome_completo), aes_decrypt(pessoal.cpf)
 
@@ -102,6 +121,13 @@ class ConsentimentoDigitalService:
         return datetime.now(timezone.utc) > exp
 
     def _checar_sessao_utilizavel(self, sessao, msg_usado: str, msg_expirado: str):
+        """Só sessão pendente e dentro do prazo é utilizável. Sessão vencida é marcada como
+        expirada (e gravada) ao ser tocada.
+
+        Raises:
+            ConflictoError: sessão já usada.
+            DadosInvalidosError: sessão expirada.
+        """
         if sessao.status == "usado":
             raise ConflictoError(msg_usado)
         if sessao.status == "expirado" or self._expirado(sessao):
@@ -119,16 +145,18 @@ class ConsentimentoDigitalService:
         versao_termo: str = None,
         ip_medico: str = None,
     ) -> dict:
-        """Texto e PDF do termo são MONTADOS aqui (template da versão + dados da
-        empresa da sessão). O cliente só escolhe a versão: não envia caminho,
-        texto nem unidade (id_unidade == id_empresa da sessão)."""
-        try:
-            entrada = GerarLinkAssinaturaSchema(versao_termo=versao_termo)
-        except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+        """Texto e PDF do termo são MONTADOS aqui (template da versão + dados da empresa da
+        sessão). O cliente só escolhe a versão: não envia caminho, texto nem unidade
+        (id_unidade == id_empresa da sessão).
+
+        Raises:
+            DadosInvalidosError: versão inválida, ou paciente sem dados pessoais.
+            RecursoNaoEncontradoError: paciente ou empresa inexistente.
+        """
+        entrada = validar_schema(GerarLinkAssinaturaSchema, {"versao_termo": versao_termo})
         versao = entrada.versao_termo or versao_vigente()
 
-        p = self._paciente_ou_404(uuid_paciente, id_empresa)
+        p = paciente_ou_404(self.paciente_repo, uuid_paciente, id_empresa)
         nome, cpf = self._identificacao(p)   # falha cedo, antes de expirar links anteriores
         empresa = self.empresa_repo.find_by_id(id_empresa)
         if not empresa:
@@ -146,7 +174,7 @@ class ConsentimentoDigitalService:
             id_medico_gerador=id_medico,
             hash_pdf_original=hash_pdf,
             texto_termo_snapshot=texto_termo,
-            versao_termo=versao, 
+            versao_termo=versao,
             criado_em=agora,
             expira_em=agora + timedelta(minutes=self.TEMPO_EXPIRACAO_MINUTOS),
             ip_geracao=ip_medico,
@@ -155,7 +183,7 @@ class ConsentimentoDigitalService:
 
         return {
             "token": sessao.token,
-            "url_assinatura": f"/v1/api/pacientes/lgpd/assinar/{sessao.token}",
+            "url_assinatura": f"{_PREFIXO_LGPD}/assinar/{sessao.token}",
             "expira_em": sessao.expira_em.isoformat(),
             "paciente_nome": nome,
             "paciente_cpf": _formatar_cpf(cpf),
@@ -163,6 +191,12 @@ class ConsentimentoDigitalService:
 
     # ------------------------------------------------- rota pública (GET)
     def obter_dados_sessao(self, token: str) -> dict:
+        """Dados da sessão para a página de assinatura do paciente (CPF mascarado). Só sessão pendente.
+
+        Raises:
+            RecursoNaoEncontradoError: token inexistente.
+            ConflictoError / DadosInvalidosError: link já usado ou expirado.
+        """
         sessao = self.sessao_repo.find_by_token(token)
         if not sessao:
             raise RecursoNaoEncontradoError("Link de assinatura inválido.")
@@ -182,7 +216,7 @@ class ConsentimentoDigitalService:
             "versao_termo": sessao.versao_termo,
             "texto_termo": sessao.texto_termo_snapshot,
             "hash_pdf_original": sessao.hash_pdf_original,
-            "termo_pdf_url": f"/v1/api/pacientes/lgpd/assinar/{sessao.token}/termo.pdf",
+            "termo_pdf_url": f"{_PREFIXO_LGPD}/assinar/{sessao.token}/termo.pdf",
             "expira_em": sessao.expira_em.isoformat(),
             "unidade_id": sessao.id_unidade,
         }
@@ -225,12 +259,13 @@ class ConsentimentoDigitalService:
 
     # ------------------------------------------------ rota pública (POST)
     def _validar_payload(self, dados: dict, hash_esperado: str):
-        """Formato via AssinaturaDigitalSchema; aqui só o que depende de estado
-        (hash == o da sessão) e a decodificação segura do PNG."""
-        try:
-            entrada = AssinaturaDigitalSchema(**dados)
-        except ValidationError as e:
-            raise DadosInvalidosError(erros_pydantic_por_campo(e))
+        """Formato via AssinaturaDigitalSchema; aqui só o que depende de estado (hash == o da
+        sessão) e a decodificação segura do PNG.
+
+        Raises:
+            DadosInvalidosError: corpo inválido, hash que não confere ou assinatura que não é PNG.
+        """
+        entrada = validar_schema(AssinaturaDigitalSchema, dados)
 
         if not hmac.compare_digest(entrada.hash_pdf_original, hash_esperado):
             raise DadosInvalidosError(
@@ -254,8 +289,16 @@ class ConsentimentoDigitalService:
         ip_paciente: str = None,
         user_agent_servidor: str = None,
     ) -> dict:
-        # Trava a linha da sessão: um segundo POST simultâneo espera aqui e
-        # depois enxerga status='usado'.
+        """Registra a assinatura do paciente (rota pública): valida, monta o PDF assinado em
+        memória e grava, num único commit, a revogação do consentimento anterior, o novo
+        consentimento e a sessão como usada.
+
+        Raises:
+            RecursoNaoEncontradoError: token inválido.
+            ConflictoError / DadosInvalidosError: sessão já usada, expirada ou payload inválido.
+        """
+        # Trava a linha da sessão: um segundo POST simultâneo espera aqui e depois enxerga
+        # status='usado'.
         sessao = self.sessao_repo.find_by_token(token, for_update=True)
         if not sessao:
             raise RecursoNaoEncontradoError("Token inválido.")
@@ -337,7 +380,7 @@ class ConsentimentoDigitalService:
             "hash_pdf_final": hash_pdf_final,
             "data_consentimento": consentimento.data_consentimento.isoformat(),
             # cópia para o PRÓPRIO paciente (pública, só pelo token, por tempo limitado)
-            "download_url": f"/v1/api/pacientes/lgpd/assinar/{token}/comprovante.pdf",
+            "download_url": f"{_PREFIXO_LGPD}/assinar/{token}/comprovante.pdf",
             "copia_valida_ate": (agora + timedelta(minutes=_janela_copia_minutos())).isoformat(),
         }
 
@@ -345,19 +388,14 @@ class ConsentimentoDigitalService:
     def _consentimento_da_empresa_ou_404(self, uuid_consentimento: str, id_empresa: int):
         """404 igual para 'não existe' e 'é de outra empresa' (não vaza existência)."""
         c = self.consentimento_repo.find_by_uuid(uuid_consentimento)
-        if not c:
-            raise RecursoNaoEncontradoError("Comprovante não encontrado.")
-        p = self.paciente_repo.find_by_uuid(c.paciente.uuid, id_empresa)
-        if not p or p.id != c.id_paciente:
+        if not c or c.paciente.id_empresa != id_empresa:
             raise RecursoNaoEncontradoError("Comprovante não encontrado.")
         return c
 
     def _sessao_da_empresa_ou_404(self, token: str, id_empresa: int, for_update: bool = False):
+        """Sessão da empresa pelo token. 404 igual para 'não existe' e 'é de outra empresa'."""
         sessao = self.sessao_repo.find_by_token(token, for_update=for_update)
-        if not sessao:
-            raise RecursoNaoEncontradoError("Link de assinatura não encontrado.")
-        p = self.paciente_repo.find_by_uuid(sessao.paciente.uuid, id_empresa)
-        if not p or p.id != sessao.id_paciente:
+        if not sessao or sessao.paciente.id_empresa != id_empresa:
             raise RecursoNaoEncontradoError("Link de assinatura não encontrado.")
         return sessao
 
@@ -374,6 +412,11 @@ class ConsentimentoDigitalService:
         return dados
 
     def cancelar_link(self, token: str, id_empresa: int) -> dict:
+        """Cancela (expira) um link pendente da empresa.
+
+        Raises:
+            ConflictoError: o link já foi utilizado.
+        """
         sessao = self._sessao_da_empresa_ou_404(token, id_empresa, for_update=True)
         if sessao.status == "usado":
             raise ConflictoError("Este link já foi utilizado e não pode ser cancelado.")
@@ -382,6 +425,7 @@ class ConsentimentoDigitalService:
         return {"status": "expirado"}
 
     def obter_comprovante(self, uuid_consentimento: str, id_empresa: int) -> dict:
+        """Dados públicos do comprovante (sem IP, user-agent nem caminhos internos)."""
         c = self._consentimento_da_empresa_ou_404(uuid_consentimento, id_empresa)
         escopo = c.escopo_consentimento_json or {}
         return {
@@ -392,7 +436,7 @@ class ConsentimentoDigitalService:
             "status": c.status,
             "hash_documento": c.hash_documento,
             "escopo": escopo.get("escopo", []),   # sem IP/UA/paths internos
-            "pdf_url": f"/v1/api/pacientes/lgpd/download-pdf/{c.uuid}" if c.assinatura_png else None,
+            "pdf_url": f"{_PREFIXO_LGPD}/download-pdf/{c.uuid}" if c.assinatura_png else None,
         }
 
     def _refazer_pdf(self, c) -> tuple:

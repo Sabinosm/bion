@@ -1,32 +1,40 @@
-"""Leitura de Paciente: busca por uuid/CPF, listagem, resumo paginado, contagens,
-PII descriptografada e prontuário completo (tudo só-leitura).
+"""leitura.py
 
-Depende de `self.repo` (definido em PacienteService.__init__).
+Leitura de Paciente (só-leitura): busca por UUID, ID e CPF, listagem, resumo
+paginado, contagens, dados pessoais descriptografados e prontuário completo.
+
+Descriptografar nome e CPF é acesso a PII, então fica centralizado aqui, no
+service, e nunca no controller. Depende de `self.repo`, definido no
+PacienteService.
 """
 from src.core.exceptions import RecursoNaoEncontradoError, ConflictoError
 from src.core.security import aes_decrypt, hmac_sha256
 
+from ...repositories.paciente_repository import POR_PAGINA_RESUMO
 from .helpers import _normalizar
 
 
 class LeituraMixin:
     """Leitura: busca, listagem, resumo, contagens, PII e prontuário."""
 
-    POR_PAGINA_RESUMO = 8  # mesmo valor que o controller usa (pagina * 8)
+    POR_PAGINA_RESUMO = POR_PAGINA_RESUMO  # o controller calcula o offset com o mesmo valor
 
-    def buscar_por_id(self, id:int):
+    def buscar_por_id(self, id: int):
+        """Paciente pelo ID interno. Raises: RecursoNaoEncontradoError."""
         p = self.repo.find_by_id(id)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {id}")
         return p
-    
+
     def buscar_por_uuid(self, uuid: str, id_empresa: int):
+        """Paciente da empresa pelo UUID. Raises: RecursoNaoEncontradoError (404 uniforme)."""
         p = self.repo.find_by_uuid(uuid, id_empresa)
         if not p:
             raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid}")
         return p
 
     def listar(self, id_empresa: int):
+        """Todos os pacientes da empresa."""
         return self.repo.find_all(id_empresa)
 
     def _resumo_de(self, p) -> dict:
@@ -39,12 +47,11 @@ class LeituraMixin:
 
     def listar_resumo(self, id_empresa: int, offset: int = 0, status: str = None,
                       sexo_biologico: str = None, q: str = None):
-        """Listagem paginada já no formato enxuto (to_dict_few).
-        Fica aqui e não no controller porque descriptografar nome/CPF
-        é acesso a PII -- centralizado no service.
+        """Listagem paginada no formato enxuto (to_dict_few).
 
-        `q` (opcional): CPF completo (11 dígitos, busca exata pelo hash)
-        ou parte do nome (sem distinção de acento/maiúscula)."""
+        `q` (opcional): CPF completo (11 dígitos, busca exata pelo hash) ou parte do nome (sem
+        distinção de acento ou maiúscula).
+        """
         if q and q.strip():
             return self._buscar_resumo(id_empresa, q.strip(), offset, status, sexo_biologico)
 
@@ -55,6 +62,8 @@ class LeituraMixin:
         return [self._resumo_de(p) for p in pacientes]
 
     def _buscar_resumo(self, id_empresa: int, q: str, offset: int, status, sexo_biologico):
+        """Busca por CPF (hash, exata) ou por nome (em memória: o nome é cifrado e não dá para
+        filtrar no banco). CPF parcial não é pesquisável, porque só existe o hash do CPF inteiro."""
         digitos = "".join(ch for ch in q if ch.isdigit())
         so_numerico = not any(ch.isalpha() for ch in q)
 
@@ -62,7 +71,7 @@ class LeituraMixin:
             p = self.repo.find_por_cpf_hash(hmac_sha256(digitos), id_empresa)
             candidatos = [p] if p else []
         elif so_numerico:
-            return []  # CPF parcial não é pesquisável (só existe o hash do CPF inteiro)
+            return []
         else:
             alvo = _normalizar(q)
             candidatos = [
@@ -79,36 +88,41 @@ class LeituraMixin:
         return [self._resumo_de(p) for p in pagina]
 
     def buscar_valido(self, uuid: str, id_empresa: int):
-        """Paciente da empresa que PODE receber atendimento: 404 se não
-        existe (mesmo 404 de "outra empresa"), 409 com o motivo se existe
-        mas não é válido. Para abrir consulta."""
+        """Paciente da empresa que PODE receber atendimento: 404 se não existe (mesmo 404 de
+        'outra empresa'), 409 com o motivo se existe mas não é válido. Para abrir consulta."""
         return self.exigir_valido(self.buscar_por_uuid(uuid, id_empresa))
 
     @staticmethod
     def exigir_valido(paciente):
-        """Guard para quem já carregou o paciente (ex: Atendimento, que o
-        obtém por atendimento -> consulta -> paciente). Critério único em
-        Paciente.pode_receber_atendimento(); aqui só se escolhe a mensagem.
-        Não vale para leitura de prontuário: histórico de falecido é
-        consultável."""
+        """Guard para quem já carregou o paciente (ex.: Atendimento, que o obtém por atendimento ->
+        consulta -> paciente). O critério único é Paciente.pode_receber_atendimento(); aqui só se
+        escolhe a mensagem. Não vale para leitura de prontuário: histórico de falecido é consultável.
+
+        Raises:
+            ConflictoError: paciente com óbito registrado.
+        """
         if paciente.pode_receber_atendimento():
             return paciente
         raise ConflictoError("Paciente com óbito registrado não pode receber atendimento.")
 
     def buscar_por_cpf(self, cpf_plaintext: str, id_empresa: int):
+        """Paciente da empresa pelo CPF em texto claro (busca pelo hash). Raises: RecursoNaoEncontradoError."""
         p = self.repo.find_por_cpf_hash(hmac_sha256(cpf_plaintext), id_empresa)
         if not p:
             raise RecursoNaoEncontradoError("Paciente não encontrado para este CPF.")
         return p
 
     def count_pacientes_hoje(self, id_empresa):
+        """Pacientes cadastrados hoje, no fuso da empresa."""
         return self.repo.count_pacientes_hoje(id_empresa=id_empresa)
 
     def count_pacientes(self, id_empresa):
+        """Total de pacientes da empresa."""
         return self.repo.count_pacientes(id_empresa=id_empresa)
 
     def dados_pessoais_descriptografados(self, paciente):
-        """Usado pelo controller quando o usuário tem permissão de ver PII."""
+        """Dados pessoais em texto claro (None se o paciente não tem, por não identificado ou
+        anonimizado). Para o controller, quando o usuário pode ver PII."""
         if not paciente.pessoal:
             return None
         p = paciente.pessoal
@@ -126,28 +140,8 @@ class LeituraMixin:
         }
 
     def montar_prontuario_completo(self, uuid: str, id_empresa: int):
-        """Agrega o paciente + todos os domínios clínicos num único dict
-        -- usado SÓ na tela de detalhe (nunca em listagem; cada domínio
-        aqui é uma query própria, custo alto demais para repetir por
-        paciente numa lista).
-
-        CORRIGIDO: o parâmetro `commit` foi removido. Esta operação é só
-        leitura, e o service o repassava a montar_prontuario_completo(),
-        que não aceita esse argumento -- TypeError em toda chamada.
-
-        Decisões confirmadas:
-        - Consentimento fica FORA do agregado -- é sobre titularidade/
-          LGPD, não é dado clínico. Só entra como um booleano
-          (consentimento_ativo), não a lista de termos/histórico --
-          quem quiser o histórico completo usa a rota própria do
-          LgpdController.
-        - Tipo sanguíneo: só o valor atual (via Paciente.tipo_sanguineo,
-          já incluído em to_dict()). Histórico completo de observações
-          fica de fora, exposto em endpoint separado.
-        - resumo_clinico: bloco no topo do dict com contagens e alertas
-          de alergia grave, doença crônica ativa e medicamento em uso
-          contínuo -- pensado para leitura rápida (emergência), sem
-          precisar percorrer os arrays completos logo abaixo.
-        """
+        """Paciente + todos os domínios clínicos num único dict, só para a tela de detalhe (nunca
+        em listagem: cada domínio é uma query própria). A composição está em
+        montar_prontuario_service.py. Só leitura."""
         from ..montar_prontuario_service import montar_prontuario_completo
         return montar_prontuario_completo(uuid, id_empresa)

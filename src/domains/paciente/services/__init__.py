@@ -1,3 +1,7 @@
+"""__init__.py
+
+Reexporta os services do domínio Paciente.
+"""
 from .alergia_service import AlergiaService
 from .consentimento_service import ConsentimentoService
 from .doenca_cronica_service import DoencaCronicaService

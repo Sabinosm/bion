@@ -1,7 +1,15 @@
-"""PacienteService: junta os mixins por responsabilidade numa única classe.
+"""service.py
 
-A classe pública continua sendo `PacienteService`; quem importa de
-`...services.paciente_service` não percebe a divisão.
+Monta o PacienteService juntando, numa única classe, os mixins por
+responsabilidade (leitura, cadastro e atualização). Quem importa o service não
+percebe a divisão.
+
+Este service NÃO toca em db.session: todo commit, flush e rollback é delegado ao
+PacienteRepository. Os métodos de escrita aceitam `commit`: com True (padrão) a
+operação confirma sozinha e desfaz sozinha em caso de erro; com False fica
+pendente (flush) para o chamador comitar junto com outras escritas (abrir
+consulta com paciente e consentimento, ou uma ação sensível com a alteração e o
+log). Com commit=False o rollback é de quem controla a transação.
 """
 from ...repositories import (
     PacienteRepository,
@@ -18,18 +26,7 @@ class PacienteService(
     CadastroMixin,
     AtualizacaoMixin,
 ):
-    """Regras de negócio de Paciente.
-
-    TRANSAÇÃO: este service NÃO toca em db.session. Todo commit, flush e
-    rollback é delegado a PacienteRepository (ver `confirmar`, `save`,
-    `rollback`). Os métodos de escrita aceitam `commit`:
-      - commit=True  (padrão): a operação confirma sozinha.
-      - commit=False: fica pendente (flush) para o chamador comitar junto
-        com outras escritas -- ConsultaService.abrir (paciente + consulta
-        + consentimento) e acao_sensivel (alteração + log) dependem disso.
-    Com commit=False o rollback em caso de erro é responsabilidade de quem
-    controla a transação; com commit=True o service desfaz sozinho.
-    """
+    """Regras de negócio de Paciente (ver o docstring do módulo)."""
 
     def __init__(self):
         self.repo = PacienteRepository()

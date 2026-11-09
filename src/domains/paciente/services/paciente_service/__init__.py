@@ -1,6 +1,6 @@
-"""Pacote paciente_service.
+"""__init__.py
 
-Mantém o import antigo funcionando:
+Pacote do PacienteService. Mantém funcionando o import antigo:
     from src.domains.paciente.services.paciente_service import PacienteService
 """
 from .service import PacienteService
