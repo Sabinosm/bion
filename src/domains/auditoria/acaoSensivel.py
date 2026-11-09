@@ -13,7 +13,6 @@ detalhes que alimenta o log, e o commit é responsabilidade do decorator, nunca
 da view.
 """
 
-import os
 from functools import wraps
 
 from flask import request
@@ -32,29 +31,24 @@ _OPERACAO_NOOP = "NOOP"
 
 
 def ip_cliente():
-    """IP do cliente sem confiar cegamente no X-Forwarded-For.
+    """Retorna o IP de origem, considerando proxy reverso (X-Forwarded-For).
 
-    TRUSTED_PROXY_HOPS = quantos proxies SEUS ficam na frente do Flask
-    (0 = nenhum: usa o remote_addr; 1 = nginx/ALB: pega o último IP da
-    cadeia, que foi o proxy que anexou). O cliente pode forjar o começo
-    da cadeia, mas não o trecho que o seu proxy anexa.
-
-    É o critério único de IP do sistema: os logs de auditoria e o
-    consentimento digital usam esta mesma função. Alternativa equivalente:
-    werkzeug ProxyFix com x_for=<hops> e usar só request.remote_addr.
+    O header pode conter a cadeia inteira de proxies ("cliente, proxy1, ...");
+    o primeiro item é o cliente original. Atenção: esse valor só é confiável se
+    o proxy de borda sobrescrever o header. Em produção, prefira configurar o
+    werkzeug ProxyFix com o número de proxies confiáveis e usar apenas
+    request.remote_addr.
     """
-    hops = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
-    xff = request.headers.get("X-Forwarded-For", "")
-    if hops > 0 and xff:
-        partes = [p.strip() for p in xff.split(",") if p.strip()]
-        if len(partes) >= hops:
-            return partes[-hops]
+    encaminhado = request.headers.get("X-Forwarded-For")
+    if encaminhado:
+        primeiro = encaminhado.split(",")[0].strip()
+        if primeiro:
+            return primeiro
     return request.remote_addr
 
 
-def _ip_origem():
-    """IP de origem gravado nos logs (ver ip_cliente)."""
-    return ip_cliente()
+# Nome antigo, mantido para o uso interno deste módulo.
+_ip_origem = ip_cliente
 
 
 def _extrair_resposta_e_detalhes(resultado):
