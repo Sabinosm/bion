@@ -1,8 +1,8 @@
-"""
-Monta o termo de consentimento LGPD na hora: template versionado + dados da empresa.
+"""termo_renderer.py
 
-Colocar em src/domains/paciente/services/termo_renderer.py
-Templates em src/domains/paciente/termos/termo_<versao>.txt (ou CONSENT_TERMO_TEMPLATES).
+Monta o termo de consentimento LGPD na hora: template versionado + dados da empresa. Os
+templates ficam nesta pasta, em termo_<versao>.txt (ou na pasta indicada por
+CONSENT_TERMO_TEMPLATES).
 
 Regras:
 - Template publicado NÃO se edita: mudou o texto -> nova versão (termo_lgpd-v1.1-2026.txt).
@@ -39,48 +39,54 @@ def _limpar(v) -> str:
 
 
 def _formatar_cnpj(cnpj) -> str:
+    """CNPJ no formato 00.000.000/0000-00 (se não tiver 14 dígitos, devolve o texto limpo)."""
     d = re.sub(r"\D", "", cnpj or "")
     return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}" if len(d) == 14 else _limpar(cnpj)
 
 
 def _logradouro(e) -> str:
-    """resolve pelo CEP da empresa (BrasilAPI/ViaCEP via CepService)."""
-
+    """Rua da empresa, resolvida pelo CEP (BrasilAPI/ViaCEP via CepService)."""
     try:
-        from src.domains.regiao.cep_service import CepService 
+        from src.domains.regiao.cep_service import CepService
         return _limpar(CepService().buscar_logradouro_por_cep(e.cep))
     except Exception:
         return ""   # API fora do ar: cai no erro "Faltando: logradouro" em vez de gerar termo incompleto
 
 
-def _endereco(e) -> str:
+def _endereco(e, logradouro: str) -> str:
     """Rua/número/bairro/CEP vêm da Empresa; cidade e UF vêm da RegiaoGeografica.
     nome_regiao só é cidade se a região for um município (tipo_regiao == 'municipio');
     se a empresa estiver ligada a uma região maior (estado, macro), usa só a UF.
-    Rua: ver _logradouro (coluna da empresa ou, se vazia, o CEP)."""
+    A rua (`logradouro`) vem de _logradouro, resolvida uma vez por quem chama."""
     reg = e.regiao_geografica
     cidade = reg.nome_regiao if reg and reg.tipo_regiao == "municipio" else None
     uf = reg.uf if reg else None
     cidade_uf = "/".join(x for x in (_limpar(cidade), _limpar(uf)) if x)
     partes = [
-        _logradouro(e), e.numero, e.complemento, e.bairro,
+        logradouro, e.numero, e.complemento, e.bairro,
         cidade_uf, f"CEP {e.cep}" if e.cep else None,
     ]
     return ", ".join(p for p in (_limpar(x) for x in partes) if p)
 
 
 def dados_da_empresa(empresa) -> dict:
+    """Variáveis do template a partir da empresa.
+
+    Raises:
+        DadosInvalidosError: cadastro da empresa incompleto (lista o que falta).
+    """
+    logradouro = _logradouro(empresa)
     d = {
         "razao_social": _limpar(empresa.razao_social or empresa.nome_fantasia),
         "cnpj": _formatar_cnpj(empresa.cnpj),
-        "endereco": _endereco(empresa),
+        "endereco": _endereco(empresa, logradouro),
         # TODO: colunas novas em Empresa (ver notas): dpo_nome, dpo_email
         "dpo_nome": _limpar(getattr(empresa, "dpo_nome", None)),
         "dpo_email": _limpar(getattr(empresa, "dpo_email", None)),
         "operador_nome": _limpar(os.getenv("OPERADOR_NOME", "Bion")),
     }
     faltando = [k for k in ("razao_social", "cnpj", "endereco", "dpo_nome", "dpo_email") if not d[k]]
-    if not _logradouro(empresa):
+    if not logradouro:
         faltando.append("logradouro")   # sem rua, "100, Centro" não identifica a sede no termo
     if faltando:
         raise DadosInvalidosError(
@@ -91,6 +97,12 @@ def dados_da_empresa(empresa) -> dict:
 
 # ---------------------------------------------------------------- render
 def renderizar_texto(versao: str, empresa, escopos: dict) -> str:
+    """Texto do termo: template da versão preenchido com os dados da empresa e os escopos.
+
+    Raises:
+        DadosInvalidosError: versão inválida, empresa incompleta ou variável desconhecida no template.
+        RecursoNaoEncontradoError: versão sem template.
+    """
     if not _REGEX_VERSAO.match(versao or ""):
         raise DadosInvalidosError("Versão do termo inválida.")
     env = Environment(

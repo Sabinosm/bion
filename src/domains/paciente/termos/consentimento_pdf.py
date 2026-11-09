@@ -1,7 +1,6 @@
-"""
-Monta o PDF ASSINADO do consentimento inteiramente em memória.
+"""consentimento_pdf.py
 
-Colocar em src/domains/paciente/services/consentimento_pdf.py
+Monta o PDF ASSINADO do consentimento inteiramente em memória.
 
 Nada aqui toca em disco. A função é PURA e DETERMINÍSTICA: mesmos dados de
 entrada => mesmos bytes (reportlab com invariant=1, sem datas "agora" dentro
