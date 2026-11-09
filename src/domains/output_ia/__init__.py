@@ -7,7 +7,7 @@ o que vai ao front (output_front).
 from .envelope import colunas_envio, colunas_resposta
 from .output_front import montar_output_front
 from .requisicoes import RequisicaoIA, colunas_requisicoes
-from .schema import JustificativaMedicamento, OutputIA, PerguntaPendente, casca
+from .schema import JustificativaMedicamento, OutputIA, PerguntaPendente, casca, AvaliacaoNotaIn
 from .validacao import (BLOCOS_OBRIGATORIOS_PARA_MEDICAMENTO, Interpretacao, interpretar,
                         validar_contra_input)
 

@@ -16,10 +16,13 @@ Decisoes:
 - extra="forbid": chave inventada pela IA e rejeitada.
 - Todos os campos do envelope sao obrigatorios: a IA escreve [] em vez de esquecer.
 - Texto livre so onde precisa, no idioma da Config.
+
+Tambem define o que o medico envia ao avaliar a resposta da IA (nota em meias estrelas e
+motivo em lista fechada), que o back grava em OutputBion.
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -104,3 +107,47 @@ class OutputIA(_Casca):
 def casca() -> dict:
     """JSON Schema do output, para entregar a IA como formato de resposta."""
     return OutputIA.model_json_schema()
+
+
+DescricaoAvaliacao = Literal[
+    "faltou_analisar_campos",
+    "analise_incorreta_medicamento_exame",
+    "recomendacao_sem_base_clinica",
+    "analisou_bem_campos",
+    "recomendacao_coerente",
+    "analise_coerente_medicamento_exame",
+    "nao_usei_ia",
+]
+DESCRICAO_NAO_USOU_IA = "nao_usei_ia"
+NOTA_MIN, NOTA_MAX = 0.5, 5.0
+
+
+class AvaliacaoNotaIn(_Casca):
+    """Avaliacao do medico sobre a resposta da IA. Nota de 0,5 a 5 em passos de 0,5.
+    'nao_usei_ia' descarta a nota enviada (fica None); nos demais motivos a nota e obrigatoria."""
+    avaliacao_nota: float | None = Field(default=None, description="0,5 a 5, em passos de 0,5.")
+    avaliacao_nota_descricao: DescricaoAvaliacao | None = Field(default=None)
+
+    @field_validator("avaliacao_nota", mode="before")
+    @classmethod
+    def _nota_numerica(cls, v):
+        if isinstance(v, bool):
+            raise ValueError("avaliacao_nota deve ser numerica.")
+        return v
+
+    @field_validator("avaliacao_nota")
+    @classmethod
+    def _nota_em_meias_estrelas(cls, v):
+        if v is None:
+            return v
+        if not (NOTA_MIN <= v <= NOTA_MAX) or (v * 2) != int(v * 2):
+            raise ValueError("avaliacao_nota deve estar entre 0,5 e 5, em passos de 0,5.")
+        return v
+
+    @model_validator(mode="after")
+    def _coerencia_nota(self):
+        if self.avaliacao_nota_descricao == DESCRICAO_NAO_USOU_IA:
+            self.avaliacao_nota = None
+        elif self.avaliacao_nota is None:
+            raise ValueError("avaliacao_nota e obrigatoria, exceto quando a descricao e 'nao_usei_ia'.")
+        return self

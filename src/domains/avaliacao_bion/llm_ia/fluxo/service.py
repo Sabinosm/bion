@@ -4,7 +4,8 @@
                                enfileira e devolve na hora.
   processar() (no worker)      roda o laco com a IA, grava a resposta, cria o rascunho e
                                troca os rascunhos antigos da IA.
-  consultar() (na requisicao)  status e, se concluido, o output_front.
+  consultar() (na requisicao)  status e, se concluido, o output_front e a avaliacao do medico.
+  avaliar_nota() (na requisicao)  grava a nota (0,5 a 5) e o motivo que o medico deu a resposta da IA.
 
 Pre-requisito: o atendimento precisa ter um input de protocolo registrado (o vigente e o
 de maior id); sem ele, iniciar() devolve 409 e nada e enfileirado.
@@ -22,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from src.core.exceptions import ConflictoError, PermissaoNegadaError, RecursoNaoEncontradoError
 
 from src.domains.input_ia import Config, InputModel
-from src.domains.output_ia import (OutputIA, colunas_envio, colunas_resposta, montar_output_front)
+from src.domains.output_ia import (AvaliacaoNotaIn, OutputIA, colunas_envio, colunas_resposta, montar_output_front)
 from .repository import OutputBionRepository
 from ..avaliador import avaliar
 from .dependencias import Dependencias
@@ -221,7 +222,18 @@ class AvaliacaoBionService:
             output, resultado.to_dict() if resultado else None,
             indices=snap.get("indices_input"), lacunas=snap.get("faltando"),
             substituida=resultado is None and not output.proposta.sem_recomendacao)
-        return {**base, **front}
+        return {**base, **front, "avaliacao_nota": out.avaliacao_nota,
+                "avaliacao_nota_descricao": out.avaliacao_nota_descricao}
+
+    def avaliar_nota(self, uuid_output: str, id_empresa: int, id_usuario: int, avaliacao: AvaliacaoNotaIn) -> dict:
+        """Grava a avaliacao do medico sobre a resposta da IA. So para avaliacao concluida (409 nas demais);
+        pode ser reenviada e substitui a anterior. 'nao_usei_ia' grava o motivo e deixa a nota vazia."""
+        out = self._output_do_dono(uuid_output, id_empresa, id_usuario)
+        if out.status != CONCLUIDO:
+            raise ConflictoError("Só é possível avaliar uma resposta da IA já concluída.")
+        self.d.outputs.gravar_avaliacao_nota(out, avaliacao.avaliacao_nota, avaliacao.avaliacao_nota_descricao)
+        return {"uuid_output": out.uuid, "avaliacao_nota": out.avaliacao_nota,
+                "avaliacao_nota_descricao": out.avaliacao_nota_descricao}
 
 
 class OutputBionService:

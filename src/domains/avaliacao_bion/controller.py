@@ -6,16 +6,22 @@
                                                        -> estado da avaliacao mais recente (ou data null)
   GET  /avaliacao-bion/<uuid_output>                   -> status e, se concluido, o output_front (leitura AUDITADA)
 
+  PUT  /avaliacao-bion/<uuid_output>/avaliacao-nota    -> grava a nota (0,5 a 5) e o motivo dados pelo medico
+
 Fluxo do front: POST -> consulta /status ate concluir -> um unico GET completo (1 linha de auditoria).
 """
-from flask import Blueprint
+from flask import Blueprint, request
+from pydantic import ValidationError
 
 from src.core.responses import json_success, json_error
+from src.core.erros_pydantic import erros_pydantic_por_campo
 from src.core.exceptions import BionException
 from src.core.session import (
     requer_papel_clinico, get_funcao_clinica_sessao, get_id_usuario_sessao, get_id_empresa_sessao,
 )
 from src.domains.auditoria.acaoSensivel import acesso_auditado
+
+from src.domains.output_ia import AvaliacaoNotaIn
 
 from .llm_ia.fluxo import dependencias
 from .llm_ia.fluxo.service import AvaliacaoBionService
@@ -94,3 +100,22 @@ class AvaliacaoBionController:
                                                          get_id_usuario_sessao())), {}
         except BionException as ex:
             return json_error(ex.message, ex.status_code), {"operacao": "NOOP"}
+    @staticmethod
+    @bp_bion.put("/avaliacao-bion/<uuid_output>/avaliacao-nota")
+    @requer_papel_clinico("medico")
+    def avaliar_nota(uuid_output):
+        """Registra a avaliacao do medico sobre a resposta da IA: {avaliacao_nota, avaliacao_nota_descricao}.
+        422 se o corpo for invalido; 409 se a avaliacao nao estiver concluida; 403/404 como nas demais."""
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            dados = {}
+        try:
+            corpo = AvaliacaoNotaIn.model_validate(dados)
+        except ValidationError as ex:
+            return json_error("Dados inválidos.", 422, erros=erros_pydantic_por_campo(ex))
+        try:
+            return json_success(data=servico().avaliar_nota(uuid_output, get_id_empresa_sessao(),
+                                                            get_id_usuario_sessao(), corpo),
+                                message="Avaliação registrada.")
+        except BionException as ex:
+            return json_error(ex.message, ex.status_code)

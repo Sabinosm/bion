@@ -76,6 +76,11 @@ class OutputBionRepository:
         o.concluido_em = _agora()
         db.session.commit()
 
+    def gravar_avaliacao_nota(self, o: OutputBion, nota: float | None, descricao: str | None) -> None:
+        """Grava a avaliacao do medico sobre a resposta (sobrescreve a anterior, se houver)."""
+        o.avaliacao_nota = nota
+        o.avaliacao_nota_descricao = descricao
+        db.session.commit()
 
     def _query_filtrada_empresa(self, id_empresa: int, dias: int):
         """Base de query reaproveitada por B1, B2, B4 e E3.
