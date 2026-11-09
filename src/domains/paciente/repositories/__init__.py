@@ -1,3 +1,7 @@
+"""__init__.py
+
+Reexporta os repositories do domínio Paciente.
+"""
 from .alergia_repository import AlergiaRepository
 from .consentimento_repository import ConsentimentoRepository
 from .doenca_cronica_repository import DoencaCronicaRepository

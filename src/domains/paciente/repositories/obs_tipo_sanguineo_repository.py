@@ -1,3 +1,12 @@
+"""obs_tipo_sanguineo_repository.py
+
+Acesso a dados de ObservacaoTipoSanguineo. O tipo sanguíneo é INSERT-ONLY: não há
+atualização, soft delete nem delete, e corrigir um valor é registrar uma nova
+observação. A vigente é sempre a mais recente (data_registro desc, com o id
+desempatando). A empresa da distribuição vem de Paciente.id_empresa.
+commit=True confirma; commit=False só faz flush, para compor operações atômicas
+(rota agregada do binário).
+"""
 from typing import Optional, List
 
 from sqlalchemy import func
@@ -8,9 +17,6 @@ from src.models.pacientes import Paciente, ObservacaoTipoSanguineo
 
 
 class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
-    """Tipo sanguíneo é INSERT-ONLY: não há update, soft delete nem delete.
-    Corrigir um valor é registrar uma nova observação; o vigente é sempre a
-    mais recente (data_registro desc, id desc -- o id desempata)."""
 
     def find_by_id(self, id: int) -> Optional[ObservacaoTipoSanguineo]:
         return db.session.get(ObservacaoTipoSanguineo, id)
@@ -29,6 +35,7 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         )
 
     def find_mais_recente_por_paciente(self, id_paciente: int) -> Optional[ObservacaoTipoSanguineo]:
+        """A observação vigente (None se nunca foi registrada)."""
         return (
             ObservacaoTipoSanguineo.query
             .filter_by(id_paciente=id_paciente)
@@ -38,21 +45,20 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         )
 
     # ----------------------------------------------------------- escrita
-    # commit=True: commit (rota granular). commit=False: só flush, para
-    # compor operação atômica (rota agregada do binário).
-    def _persistir(self, commit: bool) -> None:
+    def confirmar(self, commit: bool = True) -> None:
+        """commit=True: commita; commit=False: só flush (a transação segue aberta)."""
         if commit:
             db.session.commit()
         else:
             db.session.flush()
 
-    def save(self, entity: ObservacaoTipoSanguineo, commit: bool = True) -> ObservacaoTipoSanguineo:
-        db.session.add(entity)
-        self._persistir(commit)
-        return entity
-
     def rollback(self) -> None:
         db.session.rollback()
+
+    def save(self, entity: ObservacaoTipoSanguineo, commit: bool = True) -> ObservacaoTipoSanguineo:
+        db.session.add(entity)
+        self.confirmar(commit)
+        return entity
 
     def delete(self, id: int) -> bool:
         raise NotImplementedError(
@@ -62,13 +68,12 @@ class ObservacaoTipoSanguineoRepository(IRepository[ObservacaoTipoSanguineo]):
         raise NotImplementedError(
             "Observação de tipo sanguíneo é insert-only; registre uma nova observação.")
 
-    # --- F3: Distribuição de tipo sanguíneo na base ---
+    # ------------------------------------------------------------ estatísticas
     def distribuicao_tipo_sanguineo(self, id_empresa: int) -> dict:
         """Distribuição por tipo, só com a observação VIGENTE de cada paciente.
 
-        Vigente = maior id por paciente (insert-only: o id cresce com o
-        tempo). Usar MAX(data_registro) empatava em inserções no mesmo
-        instante e contava o paciente duas vezes.
+        Vigente = maior id por paciente (insert-only: o id cresce com o tempo). Usar
+        MAX(data_registro) empatava em inserções no mesmo instante e contava o paciente duas vezes.
 
         Retorna: {"O+": 120, "A+": 95, ...}
         """

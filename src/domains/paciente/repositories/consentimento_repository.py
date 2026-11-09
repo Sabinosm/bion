@@ -1,3 +1,13 @@
+"""consentimento_repository.py
+
+Acesso a dados de Consentimento LGPD: busca por UUID, listagem e consentimento
+ativo do paciente. O consentimento é prova LGPD (quem consentiu, quando, com qual
+termo e hash), então não se apaga: para desfazer, revoga-se (status 'revogado').
+
+commit/flush/rollback vivem AQUI, nunca nos services. save(commit=False) só faz
+flush, para o service compor várias escritas (revogar o ativo anterior + criar o
+novo + fechar a sessão de assinatura) num único commit.
+"""
 from typing import Optional, List
 
 from src.models import db
@@ -6,21 +16,14 @@ from src.models.pacientes import Consentimento
 
 
 class ConsentimentoRepository(IRepository[Consentimento]):
-    """Acesso a dados de Consentimento LGPD.
-
-    TRANSAÇÃO: commit/flush/rollback vivem AQUI, nunca nos services.
-    save(commit=False) só faz flush, para o service compor várias
-    escritas (revogar o ativo anterior + criar o novo + fechar a sessão
-    de assinatura) num único commit.
-    """
 
     # ------------------------------------------------------------ transação
     def confirmar(self, commit: bool = True) -> None:
-        """Commit, ou só flush se o chamador vai comitar depois."""
+        """Commit, ou só flush se o chamador vai comitar depois (mantém a atomicidade do log)."""
         if commit:
             db.session.commit()
         else:
-            db.session.flush()  # flush sem commit, pra manter atomicidade do log
+            db.session.flush()
 
     def rollback(self) -> None:
         db.session.rollback()
@@ -36,7 +39,7 @@ class ConsentimentoRepository(IRepository[Consentimento]):
         return Consentimento.query.filter_by(id_paciente=id_paciente).all()
 
     def find_ativo_por_paciente(self, id_paciente: int) -> Optional[Consentimento]:
-        # order_by: se por legado houver mais de um ativo, pega o mais recente
+        """O consentimento ativo do paciente. Se por legado houver mais de um, o mais recente."""
         return (
             Consentimento.query
             .filter_by(id_paciente=id_paciente, status="ativo")
@@ -44,8 +47,9 @@ class ConsentimentoRepository(IRepository[Consentimento]):
             .first()
         )
 
-    # NOVO: todos os ativos (normalmente 0 ou 1; mais de 1 = dado legado sujo)
     def find_ativos_por_paciente(self, id_paciente: int, for_update: bool = False) -> List[Consentimento]:
+        """Todos os ativos (normalmente 0 ou 1; mais de 1 = dado legado sujo). for_update trava as
+        linhas até o fim da transação."""
         q = Consentimento.query.filter_by(id_paciente=id_paciente, status="ativo")
         if for_update:
             q = q.with_for_update()
@@ -58,9 +62,8 @@ class ConsentimentoRepository(IRepository[Consentimento]):
         return entity
 
     def delete(self, id: int) -> bool:
-        """Consentimento é prova LGPD (quem consentiu, quando, com qual
-        termo e hash): não se apaga. Para desfazer use revogar (status
-        'revogado'). O método existe só para cumprir IRepository."""
+        """Consentimento é prova LGPD e não se apaga; para desfazer use revogar (status 'revogado').
+        O método existe só para cumprir o IRepository."""
         raise NotImplementedError(
             "Consentimento não pode ser removido; revogue-o (ConsentimentoService.revogar)."
         )
