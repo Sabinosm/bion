@@ -124,7 +124,7 @@ NOTA_MIN, NOTA_MAX = 0.5, 5.0
 
 class AvaliacaoNotaIn(_Casca):
     """Avaliacao do medico sobre a resposta da IA. Nota de 0,5 a 5 em passos de 0,5.
-    'nao_usei_ia' descarta a nota enviada (fica None); nos demais motivos a nota e obrigatoria."""
+    Nota e motivo sao opcionais, mas ao menos um vem preenchido. 'nao_usei_ia' descarta a nota enviada."""
     avaliacao_nota: float | None = Field(default=None, description="0,5 a 5, em passos de 0,5.")
     avaliacao_nota_descricao: DescricaoAvaliacao | None = Field(default=None)
 
@@ -148,6 +148,6 @@ class AvaliacaoNotaIn(_Casca):
     def _coerencia_nota(self):
         if self.avaliacao_nota_descricao == DESCRICAO_NAO_USOU_IA:
             self.avaliacao_nota = None
-        elif self.avaliacao_nota is None:
-            raise ValueError("avaliacao_nota e obrigatoria, exceto quando a descricao e 'nao_usei_ia'.")
+        elif self.avaliacao_nota is None and self.avaliacao_nota_descricao is None:
+            raise ValueError("Informe avaliacao_nota, avaliacao_nota_descricao ou ambas.")
         return self
