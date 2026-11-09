@@ -1,198 +1,141 @@
-"""
-Rotas JSON de dados clínicos do paciente (Paciente + alergias +
-doenças crônicas + medicamentos em uso + tipo sanguíneo). Registrado
-sob /v1/api/pacientes/clinico.
+"""paciente_clinico_controller.py
 
-ALTERADO: GET /<uuid> agora devolve o prontuário clínico COMPLETO --
-agrega Paciente.to_dict() + alergias + doenças crônicas + medicamentos
-em uso + um booleano consentimento_ativo (ver PacienteService.
-montar_prontuario_completo). Decisão confirmada: essa agregação só
-acontece aqui, nunca em listagem (lista()/lista_resumo() do controller
-pessoal continuam leves, sem N+1 queries por paciente).
+Rotas JSON de dados clínicos do paciente: prontuário completo, status clínico (ativo ou
+inativo), óbito (registrar e reverter) e a listagem enxuta com busca. Registrado sob
+/v1/api/pacientes/clinico. A contrapartida é paciente_pessoal_controller.py, sob
+/v1/api/pacientes/pessoal. O tipo sanguíneo tem controller próprio (insert-only), em
+obs_tipo_sanguineo_controller.py.
 
-Consentimento fica fora do agregado como objeto completo -- é sobre
-titularidade/LGPD, não dado clínico -- só entra o booleano; o
-histórico de termos vive em LgpdController. Tipo sanguíneo no agregado
-é só o valor atual (via Paciente.tipo_sanguineo); o histórico de
-observações continua em endpoint próprio (tipo-sanguineo/*).
+O detalhe devolve o prontuário clínico COMPLETO: Paciente.to_dict() mais alergias, doenças
+crônicas, medicamentos em uso, interações, o tipo sanguíneo vigente, o resumo clínico e um
+booleano `consentimento_ativo`. Essa agregação só acontece aqui, nunca em listagem (a lista e o
+resumo continuam leves, sem N+1 por paciente). O consentimento fica fora do agregado como
+objeto (é titularidade/LGPD, não dado clínico); o histórico de termos vive no LgpdController.
 
-Contrapartida: paciente_pessoal_controller.py, sob
-/v1/api/pacientes/pessoal.
+Toda rota passa a empresa da sessão ao service, pelo mesmo motivo do controller pessoal: sem
+isso, um usuário logado conseguiria ver ou editar paciente de outra empresa (isolamento de
+tenant, IDOR).
 
-Duas rotas para tipo_sanguineo refletem a separação decidida
-(registrar = novo exame/histórico; corrigir = editar um registro
-específico por engano de digitação) -- semântica própria, não um
-campo dentro de um PUT genérico.
+Permissões (eixo clínico): ler e escrever ficam, por padrão, com médico e enfermeiro, porque é
+trabalho clínico. O admin tem permissão técnica para alterar o status e registrar o óbito, pensada
+para apoio pontual pedido pelo médico responsável; essa gravação específica é uma exceção ao
+fluxo esperado e fica registrada em auditoria. O controller passa `auditar_excecao_por` ao
+service, que grava a alteração e a linha de auditoria na MESMA transação.
 
-Toda rota passa id_empresa (da sessão do usuário logado) pro service,
-pelo mesmo motivo do controller pessoal: sem isso, um usuário logado
-conseguiria ver ou editar paciente de outra empresa (isolamento de
-tenant / IDOR).
-
-Permissões deste arquivo (eixo clínico): ler e escrever ficam por
-padrão com médico/enfermeiro -- é trabalho clínico. Admin tem
-permissão técnica para PUT /<uuid> (status) e POST /<uuid>/obito,
-pensado pro caso de apoio pontual pedido pelo médico responsável, mas
-essa gravação específica fica registrada em auditoria por ser exceção
-ao fluxo esperado, não rotina -- ver o parâmetro auditar_excecao_por
-de PacienteService. Tipo sanguíneo (histórico de exame) fica só com
-médico/enfermeiro, sem essa exceção para admin.
-
-ATUALIZADO: `detalhe()` trocou de `acao_sensivel` para `acesso_auditado`
--- decisão confirmada. `acao_sensivel` é para escrita/exclusão (exige
-step-up); numa leitura pura, isso só gerava fricção sem propósito (não
-há alteração pra persistir atomicamente com o log). Agora só registra
-LogAcesso (operacao="leitura"), sem exigir reconfirmação de identidade
-nem o contrato (resposta, detalhes) com id_registro/uuid_registro --
-volta a ser um retorno simples de json_success, como o resto do
-arquivo.
-
-ATUALIZADO: `remover_tipo_sanguineo` agora cumpre o contrato de
-`acao_sensivel` -- devolve (resposta, detalhes).
-
-ATUALIZADO: óbito ganhou rotas próprias -- POST /<uuid>/obito
-(marcar_obito) e POST /<uuid>/obito/reverter (reverter_obito, que é
-`acao_sensivel` e exige justificativa). PUT /<uuid> (atualizar_clinico)
-agora só altera status entre ativo/inativo; falecido, data_obito e
-status="obito" são rejeitados com 422. Assim status, falecido e
-data_obito nunca ficam dessincronizados.
-
-ATUALIZADO: a auditoria de escrita excepcional de admin (PUT /<uuid> e
-POST /<uuid>/obito) deixou de ser uma segunda chamada com commit
-próprio. O controller passa `auditar_excecao_por` ao service, que grava
-a alteração e a linha de auditoria na MESMA transação.
+Óbito: o PUT só alterna o status entre ativo e inativo (falecido, data_obito e status="obito" são
+rejeitados com 422). Registrar e reverter o óbito têm rotas próprias, para status, falecido e
+data_obito nunca ficarem dessincronizados; reverter é ação sensível (step-up, justificativa
+obrigatória e log atômico). As rotas auditadas devolvem a meta NOOP nos erros.
 """
 
-from flask import Blueprint, request, session
+from flask import Blueprint, request
 
-from src.core.responses import json_success, json_error
 from src.core.exceptions import BionException
+from src.core.responses import json_success, json_error
 from src.core.session import (
     requer_papel_clinico, requer_admin_ou_papel_clinico,
     get_id_usuario_sessao, get_id_empresa_sessao,
 )
-from src.domains.paciente.services import PacienteService, ObservacaoTipoSanguineoService
 from src.domains.auditoria.acaoSensivel import acao_sensivel, acesso_auditado
+from src.domains.paciente.services import PacienteService
+from .comum import corpo_json, pode_ver_clinico, resposta_erro, resposta_erro_noop
 
 bp = Blueprint("paciente_clinico", __name__)
 _svc = PacienteService()
-_svc_tipo_sanguineo = ObservacaoTipoSanguineoService()
-
-
-def _pode_ver_clinico() -> bool:
-    return session.get("funcao_clinica") in ("medico", "enfermeiro")
 
 
 def _id_admin_excecao():
-    """id do usuário quando quem grava NÃO é médico/enfermeiro (ou seja,
-    admin em escrita excepcional); None caso contrário. O service grava
-    escrita + auditoria na mesma transação com esse valor."""
-    return None if _pode_ver_clinico() else get_id_usuario_sessao()
+    """id do usuário quando quem grava NÃO é médico nem enfermeiro (ou seja, admin em escrita
+    excepcional); None caso contrário. O service grava escrita e auditoria na mesma transação com
+    esse valor."""
+    return None if pode_ver_clinico() else get_id_usuario_sessao()
 
 
 def _serializar_clinico(paciente):
-    """Só o dado clínico do paciente -- ao contrário do controller
-    pessoal, esta rota nunca inclui PII (nome, cpf, telefone...)."""
+    """Só o dado clínico do paciente: ao contrário do controller pessoal, esta rota nunca inclui
+    PII (nome, cpf, telefone...)."""
     return paciente.to_dict()
+
 
 class PacienteClinicoController():
 
-    # ALTERADO: detalhe() agora devolve o prontuário completo
-    # (paciente + alergias + doenças crônicas + medicamentos em uso +
-    # consentimento_ativo como booleano) -- só aqui, nunca em listagem
-    #
-    # ATUALIZADO: usa acesso_auditado, não acao_sensivel -- leitura não
-    # exige step-up; só fica registrado como LogAcesso.
+    @staticmethod
+    @bp.get("/resumo")
+    @requer_papel_clinico("enfermeiro", "medico")
+    def lista_resumo():
+        """Listagem enxuta e paginada, com busca opcional `q` (CPF completo ou parte do nome) e
+        filtros `status` e `sexo_biologico`."""
+        pagina = max(request.args.get("pagina", default=0, type=int), 0)
+        resultado = _svc.listar_resumo(
+            get_id_empresa_sessao(),
+            offset=pagina * _svc.POR_PAGINA_RESUMO,
+            status=request.args.get("status", type=str),
+            sexo_biologico=request.args.get("sexo_biologico", type=str),
+            q=request.args.get("q", type=str),
+        )
+        return json_success(data=resultado)
+
     @staticmethod
     @bp.get("/<uuid>")
     @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="visualizar prontuario", operacao="leitura")
     def detalhe(uuid):
+        """Prontuário clínico completo (leitura pura: só log de acesso, sem step-up)."""
         try:
             prontuario = _svc.montar_prontuario_completo(uuid, get_id_empresa_sessao())
             return json_success(data=prontuario)
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return resposta_erro_noop(ex)
 
-
-    # Separado de atualizar_pessoal -- só status (ativo/inativo); óbito tem rotas próprias abaixo.
-    # Admin tem permissão técnica (caso o médico responsável peça apoio
-    # pontual), mas essa gravação específica é registrada em auditoria
-    # por ser exceção, não fluxo normal.
     @staticmethod
     @bp.put("/<uuid>")
     @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     def atualizar_clinico(uuid):
-        dados = request.get_json(silent=True) or {}
+        """Só `status`, entre ativo e inativo. Admin como exceção, com auditoria."""
         try:
             p = _svc.atualizar_clinico(
-                uuid, dados, get_id_empresa_sessao(),
+                uuid, corpo_json(), get_id_empresa_sessao(),
                 auditar_excecao_por=_id_admin_excecao(),
             )
             return json_success(data=_serializar_clinico(p), message="Dados clínicos atualizados.")
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return resposta_erro(ex)
 
-
-    @staticmethod
-    @bp.get("/resumo")
-    @requer_papel_clinico("enfermeiro","medico")
-    def lista_resumo():
-        status = request.args.get("status", type=str)
-        sexo_biologico = request.args.get("sexo_biologico", type=str)
-        q = request.args.get("q", type=str)
-        pagina = request.args.get("pagina", default=0, type=int)
-
-        resultado = _svc.listar_resumo(
-            get_id_empresa_sessao(),
-            offset=int(pagina * 8),
-            status=status,
-            sexo_biologico=sexo_biologico,
-            q=q,
-        )
-        return json_success(data=resultado)
-    
-    
-    # Registra o óbito: status="obito", falecido=True e data_obito sempre
-    # juntos (ver PacienteService.marcar_obito). Mesma regra de papel de
-    # atualizar_clinico: admin só como exceção, e essa gravação fica
-    # registrada em auditoria.
     @staticmethod
     @bp.post("/<uuid>/obito")
     @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acesso_auditado(recurso="marcar obito", operacao="escrita")
     def marcar_obito(uuid):
-        dados = request.get_json(silent=True) or {}
+        """Registra o óbito: status="obito", falecido=True e data_obito sempre juntos. Mesma regra
+        de papel de atualizar_clinico (admin só como exceção, com auditoria)."""
         try:
             p = _svc.marcar_obito(
-                uuid, dados.get("data_obito"), get_id_empresa_sessao(),
+                uuid, corpo_json().get("data_obito"), get_id_empresa_sessao(),
                 auditar_excecao_por=_id_admin_excecao(),
             )
             return json_success(data=_serializar_clinico(p), message="Óbito registrado.")
         except BionException as ex:
-            return json_error(ex.message, ex.status_code)
+            return resposta_erro_noop(ex)
 
-
-    # Desfaz um óbito marcado por engano. Ação sensível: step-up +
-    # justificativa obrigatória + log atômico com a alteração.
-    # Corpo: {"justificativa": "...", "status_destino": "ativo"|"inativo"}
     @staticmethod
     @bp.post("/<uuid>/obito/reverter")
     @requer_admin_ou_papel_clinico("medico", "enfermeiro")
     @acao_sensivel(acao="reverter_obito", tabela="paciente")
     def reverter_obito(uuid):
-        dados = request.get_json(silent=True) or {}
+        """Desfaz um óbito marcado por engano. Ação sensível: step-up, justificativa obrigatória e
+        log atômico com a alteração.
+        Corpo: {"justificativa": "...", "status_destino": "ativo"|"inativo"}"""
+        dados = corpo_json()
         justificativa = dados.get("justificativa")
         if not justificativa:
-            resposta = json_error("justificativa é obrigatória.", 422)
+            resposta = json_error("justificativa é obrigatória.", 422, erros={"justificativa": "obrigatória."})
             return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
         try:
             p = _svc.reverter_obito(
                 uuid, get_id_empresa_sessao(),
                 dados.get("status_destino", "ativo"), commit=False,
             )
-            resposta = json_success(data=_serializar_clinico(p), message="Óbito revertido.")
-            return resposta, {
+            return json_success(data=_serializar_clinico(p), message="Óbito revertido."), {
                 "id_registro": p.id,
                 "uuid_registro": p.uuid,
                 "operacao": "UPDATE",
@@ -200,65 +143,4 @@ class PacienteClinicoController():
                 "justificativa": justificativa,
             }
         except BionException as ex:
-            resposta = json_error(ex.message, ex.status_code)
-            return resposta, {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
-
-
-    # Registra novo exame/resultado de tipo sanguíneo (preserva histórico)
-    @staticmethod
-    @bp.post("/<uuid>/tipo-sanguineo")
-    @requer_papel_clinico("medico", "enfermeiro")
-    def registrar_tipo_sanguineo(uuid):
-        dados = request.get_json(silent=True) or {}
-        if not dados.get("tipo_sanguineo"):
-            return json_error("tipo_sanguineo é obrigatório.", 422)
-        try:
-            p = _svc_tipo_sanguineo.registrar_tipo_sanguineo(
-                uuid, dados["tipo_sanguineo"], get_id_usuario_sessao(), get_id_empresa_sessao()
-            )
-            return json_success(data=_serializar_clinico(p), message="Tipo sanguíneo registrado.", status=201)
-        except BionException as ex:
-            return json_error(ex.message, ex.status_code)
-
-
-    # Corrige uma observação específica (erro de digitação, não novo exame)
-    @staticmethod
-    @bp.put("/<uuid>/tipo-sanguineo/<uuid_observacao>")
-    @requer_papel_clinico("medico", "enfermeiro")
-    @acesso_auditado(recurso="corrigir tipo sanguineo", operacao="escrita")
-    def corrigir_tipo_sanguineo(uuid, uuid_observacao):
-        dados = request.get_json(silent=True) or {}
-        if not dados.get("tipo_sanguineo"):
-            return json_error("tipo_sanguineo é obrigatório.", 422)
-        try:
-            obs = _svc_tipo_sanguineo.corrigir_tipo_sanguineo(
-                uuid, uuid_observacao, dados["tipo_sanguineo"], get_id_empresa_sessao()
-            )
-            return json_success(data=obs.to_dict(), message="Tipo sanguíneo corrigido.")
-        except BionException as ex:
-            return json_error(ex.message, ex.status_code)
-
-
-    # Remove um registro criado por engano (ex: paciente errado, duplicata).
-    # É clínico (histórico de exame), não gestão cadastral -- sem
-    # exceção para admin aqui.
-    @staticmethod
-    @bp.delete("/<uuid>/tipo-sanguineo/<uuid_observacao>")
-    @requer_papel_clinico("medico", "enfermeiro")
-    @acao_sensivel(acao="remover_tipo_sanguineo", tabela="observacao_tipo_sanguineo")
-    def remover_tipo_sanguineo(uuid, uuid_observacao):
-        # NOTA: remover_tipo_sanguineo devolve o retorno de
-        # repo.delete_by_uuid(...), não a instância -- usamos
-        # uuid_observacao (já validado dentro do service) como
-        # uuid_registro, mesmo padrão de remover_alergia acima.
-        try:
-            _svc_tipo_sanguineo.remover_tipo_sanguineo(uuid, uuid_observacao, get_id_empresa_sessao(), commit=False)
-            resposta = json_success(message="Observação de tipo sanguíneo removida.")
-            return resposta, {
-                "id_registro": uuid_observacao,
-                "uuid_registro": uuid_observacao,
-                "operacao": "DELETE",
-            }
-        except BionException as ex:
-            resposta = json_error(ex.message, ex.status_code)
-            return resposta, {"id_registro": None, "uuid_registro": uuid_observacao, "operacao": "NOOP"}
+            return resposta_erro(ex), {"id_registro": None, "uuid_registro": uuid, "operacao": "NOOP"}
