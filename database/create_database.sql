@@ -1179,13 +1179,16 @@ CREATE TABLE `output_bion` (
   `status` enum('processando','concluido','falhou') NOT NULL DEFAULT 'processando',
   `erro_codigo` varchar(40) DEFAULT NULL,
   `concluido_em` datetime DEFAULT NULL,
+  `avaliacao_nota` float DEFAULT NULL,
+  `avaliacao_nota_descricao` enum('faltou_analisar_campos','analise_incorreta_medicamento_exame','recomendacao_sem_base_clinica','analisou_bem_campos','recomendacao_coerente','analise_coerente_medicamento_exame','nao_usei_ia') DEFAULT NULL,
   PRIMARY KEY (`id_output`),
   UNIQUE KEY `uuid_output` (`uuid_output`),
   KEY `ix_output_bion_atendimento_criado` (`id_atendimento`,`criado_em`),
   KEY `ix_output_bion_atendimento_status` (`id_atendimento`,`status`),
   CONSTRAINT `fk_output_bion_atendimento` FOREIGN KEY (`id_atendimento`) REFERENCES `atendimento` (`id_atendimento`),
   CONSTRAINT `ck_output_bion_indice_completude` CHECK (`indice_completude` is null or `indice_completude` >= 0 and `indice_completude` <= 100),
-  CONSTRAINT `ck_output_bion_indice_confianca` CHECK (`indice_confianca` is null or `indice_confianca` >= 0 and `indice_confianca` <= 100)
+  CONSTRAINT `ck_output_bion_indice_confianca` CHECK (`indice_confianca` is null or `indice_confianca` >= 0 and `indice_confianca` <= 100),
+  CONSTRAINT `ck_output_bion_avaliacao_nota` CHECK (`avaliacao_nota` is null or `avaliacao_nota` >= 0.5 and `avaliacao_nota` <= 5)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -1222,9 +1225,6 @@ CREATE TABLE `resultado_prescricao` (
   CONSTRAINT `resultado_prescricao_ibfk_2` FOREIGN KEY (`formulado_por`) REFERENCES `usuarios` (`id_usuario`),
   CONSTRAINT `resultado_prescricao_ibfk_3` FOREIGN KEY (`id_output`) REFERENCES `output_bion` (`id_output`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
-
 
 
 -- bion_testes.sinal_vital definition
