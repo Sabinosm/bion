@@ -1,0 +1,6461 @@
+{
+  "versao_formato": 1,
+  "gerado_com": {
+    "seed": 2026,
+    "hoje": "2026-11-10",
+    "csv": "seed_pacientes.csv",
+    "avisos": []
+  },
+  "protocolos": {
+    "news2": {
+      "uuid": "41ab91ff-6d62-44cf-96d3-3f4806ca51f5",
+      "nome": "NEWS2"
+    },
+    "geriatrica": {
+      "uuid": "d31cf487-e665-42aa-b78e-a39b3f0e8140",
+      "nome": "Avaliação Geriátrica Básica"
+    },
+    "saude_mental": {
+      "uuid": "12f508b6-08f9-46e4-8751-df5c86a07f6d",
+      "nome": "Triagem de Saúde Mental"
+    },
+    "cardiometabolico": {
+      "uuid": "f3e206b3-af60-4d90-9b22-57ba5210b434",
+      "nome": "Rastreio de Risco Cardiovascular e Metabólico"
+    }
+  },
+  "resumo": {
+    "acompanhamento_cronico": 5,
+    "alergia_nao_registrada": 4,
+    "basico": 58,
+    "conflito_alergia": 5,
+    "interacao_medicamentosa": 4,
+    "protocolo": 12,
+    "queixa_vaga": 2
+  },
+  "pacientes": [
+    {
+      "cpf": "43320037994",
+      "nome": "André Nunes Teixeira",
+      "linha_csv": 2,
+      "categoria": "protocolo",
+      "cenario": "geriatrico_sem_fator",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Avaliação geral de rotina, sem queixas.",
+        "desde_quando_horas": null,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 118,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 70,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 118,
+          "pa_diastolica": 76,
+          "numero_medicamentos": 0,
+          "queda_ultimo_ano": false,
+          "marcha_alterada": false,
+          "imc": 46.2
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+        ],
+        "duracao_min": 27,
+        "duracao_triagem_min": 11
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+            "nome": "Avaliação Geriátrica Básica",
+            "classificacoes_contidas": [
+              "obesidade_grau_3",
+              "otima",
+              "sem_alerta",
+              "sem_fator_de_risco_identificado"
+            ]
+          }
+        }
+      },
+      "ordem": 1,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 6
+      }
+    },
+    {
+      "cpf": "87277434897",
+      "nome": "Arthur Monteiro Ramos",
+      "linha_csv": 3,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Hidroclorotiazida",
+              "dose": "25mg",
+              "frequencia": "1x ao dia",
+              "desde": "2023-12-11"
+            },
+            {
+              "descricao": "Alopurinol",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2024-05-19"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 23
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 2,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "53100330927",
+      "nome": "Leonardo Rocha Dantas Nunes",
+      "linha_csv": 5,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "sistemica",
+              "gravidade": "leve",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "grave",
+                  "descricao": "Urticária generalizada",
+                  "data_ocorrencia": "2021-06-10"
+                },
+                {
+                  "manifestacao": "cardiovascular",
+                  "gravidade": "leve",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2022-12-22"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 18
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 3,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "14919058675",
+      "nome": "Rafael Lima Correia",
+      "linha_csv": 6,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Camarão",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "moderada",
+              "descricao_reacao": null,
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 40
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 4,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "54549480807",
+      "nome": "Daniel Rodrigues Fonseca",
+      "linha_csv": 7,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "F33.1",
+              "descricao_cid10": "Transtorno depressivo recorrente",
+              "desde": "2025-12-18",
+              "status": "ativa",
+              "observacoes": "Em acompanhamento ambulatorial"
+            },
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2022-07-13",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 20
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 5,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": "evasao",
+        "dias_atras": 19
+      }
+    },
+    {
+      "cpf": "37498941325",
+      "nome": "Fernando Dias Ramos",
+      "linha_csv": 8,
+      "categoria": "acompanhamento_cronico",
+      "cenario": "acompanhamento_l40",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "L40.9",
+              "descricao_cid10": "Psoríase, não especificada",
+              "desde": "2014-08-04",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Placas descamativas nos cotovelos com coceira.",
+        "desde_quando_horas": 480,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 123,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 81,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 74,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 14,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 14,
+        "duracao_triagem_min": 5
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "acompanhamento",
+        "cid": "L40"
+      },
+      "ordem": 6,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 6
+      }
+    },
+    {
+      "cpf": "77496499056",
+      "nome": "Felipe Moreira Ribeiro",
+      "linha_csv": 9,
+      "categoria": "protocolo",
+      "cenario": "geriatrico_polifarmacia",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Losartana",
+              "dose": "50mg",
+              "frequencia": "1x ao dia",
+              "desde": "2021-03-15"
+            },
+            {
+              "descricao": "Omeprazol",
+              "dose": "20mg",
+              "frequencia": "1x ao dia, em jejum",
+              "desde": "2022-04-15"
+            },
+            {
+              "descricao": "Sinvastatina",
+              "dose": "20mg",
+              "frequencia": "1x à noite",
+              "desde": "2023-05-15"
+            },
+            {
+              "descricao": "Amlodipina",
+              "dose": "5mg",
+              "frequencia": "1x ao dia",
+              "desde": "2024-06-15"
+            },
+            {
+              "descricao": "Levotiroxina",
+              "dose": "75mcg",
+              "frequencia": "1x ao dia, em jejum",
+              "desde": "2021-07-15"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M54.5",
+              "descricao_cid10": "Dor lombar baixa",
+              "desde": "2013-01-04",
+              "status": "em-remissao",
+              "observacoes": "Diagnóstico recente"
+            },
+            {
+              "codigo_cid10": "F33.1",
+              "descricao_cid10": "Transtorno depressivo recorrente",
+              "desde": "2021-07-19",
+              "status": "em-remissao",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Anda devagar e inseguro, usa vários remédios e sente tontura.",
+        "desde_quando_horas": 720,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 148,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 92,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 80,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 148,
+          "pa_diastolica": 92,
+          "numero_medicamentos": 5,
+          "queda_ultimo_ano": false,
+          "marcha_alterada": true,
+          "imc": 40.6
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+        ],
+        "duracao_min": 36,
+        "duracao_triagem_min": 6
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+            "nome": "Avaliação Geriátrica Básica",
+            "classificacoes_contidas": [
+              "alerta_polifarmacia",
+              "hipertensao_estagio_1",
+              "obesidade_grau_3",
+              "risco_aumentado_de_queda"
+            ]
+          }
+        }
+      },
+      "ordem": 7,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 19
+      }
+    },
+    {
+      "cpf": "10249947161",
+      "nome": "Paulo Alves Carvalho Barbosa",
+      "linha_csv": 10,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Amlodipina",
+              "dose": "5mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-02-20"
+            },
+            {
+              "descricao": "Sinvastatina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (noite)",
+              "desde": "2025-12-22"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "F33.1",
+              "descricao_cid10": "Transtorno depressivo recorrente",
+              "desde": "2024-01-13",
+              "status": "em-remissao",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 27
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 8,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "25674680728",
+      "nome": "Marcos Almeida Moraes Nunes",
+      "linha_csv": 11,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2026-03-09"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 11
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 9,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": "internacao",
+        "dias_atras": 17
+      }
+    },
+    {
+      "cpf": "13171274809",
+      "nome": "Pedro Barbosa Machado",
+      "linha_csv": 12,
+      "categoria": "queixa_vaga",
+      "cenario": "queixa_vaga_crianca",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E04.1",
+              "descricao_cid10": "Bócio nodular não tóxico",
+              "desde": "2026-04-20",
+              "status": "em-remissao",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de barriga e indisposição há 2 dias.",
+        "desde_quando_horas": 48,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 97,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 62,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 90,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 14,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 30,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "queixa_vaga"
+      },
+      "ordem": 10,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 8
+      }
+    },
+    {
+      "cpf": "66270289564",
+      "nome": "Alexandre Ramos Correia",
+      "linha_csv": 13,
+      "categoria": "conflito_alergia",
+      "cenario": "conflito_sulfametoxazol",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Sulfametoxazol",
+              "flag_confirmado": true,
+              "tipo_reacao": "anafilaxia",
+              "gravidade": "moderada",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "grave",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2024-10-09"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Ardência ao urinar, urgência e dor em baixo ventre há 2 dias.",
+        "desde_quando_horas": 48,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 123,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 83,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 15,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 37.3,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 36,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "hipotese": "infecção urinária",
+        "evitar": [
+          "sulfametoxazol",
+          "sulfametoxazol-trimetoprima"
+        ],
+        "alergia": "Sulfametoxazol"
+      },
+      "ordem": 11,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 4
+      }
+    },
+    {
+      "cpf": "43161172469",
+      "nome": "Arthur Cavalcanti Alves",
+      "linha_csv": 14,
+      "categoria": "interacao_medicamentosa",
+      "cenario": "interacao_fluoxetina",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2026-05-22"
+            },
+            {
+              "descricao": "Fluoxetina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia",
+              "desde": "2025-06-16"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor forte na coluna há uma semana; pede um remédio mais forte.",
+        "desde_quando_horas": 168,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 127,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 79,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 14,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 20,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "interacao",
+        "em_uso": "Fluoxetina",
+        "risco": "tramadol: síndrome serotoninérgica"
+      },
+      "ordem": 12,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": "alta",
+        "dias_atras": 4
+      }
+    },
+    {
+      "cpf": "74367136981",
+      "nome": "Gabriel Oliveira Machado",
+      "linha_csv": 15,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "respiratoria",
+              "gravidade": "moderada",
+              "descricao_reacao": null,
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "leve",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2026-10-04"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Alopurinol",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2025-05-15"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 34
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 13,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "70952145650",
+      "nome": "Gustavo Reis Santos Moraes",
+      "linha_csv": 16,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Ovo",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "leve",
+              "descricao_reacao": "Edema de lábios",
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2025-01-15"
+            },
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2022-05-08"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 33
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 14,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 26
+      }
+    },
+    {
+      "cpf": "85931746129",
+      "nome": "Bruno Lima Tavares",
+      "linha_csv": 17,
+      "categoria": "acompanhamento_cronico",
+      "cenario": "acompanhamento_g40",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "F33.1",
+              "descricao_cid10": "Transtorno depressivo recorrente",
+              "desde": "2018-04-11",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            },
+            {
+              "codigo_cid10": "G40.9",
+              "descricao_cid10": "Epilepsia, não especificada",
+              "desde": "2016-01-13",
+              "status": "ativa",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Retorno de rotina, sem crises no último mês.",
+        "desde_quando_horas": null,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 119,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 77,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 78,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 17,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 20,
+        "duracao_triagem_min": 4
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "acompanhamento",
+        "cid": "G40"
+      },
+      "ordem": 15,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 18
+      }
+    },
+    {
+      "cpf": "58506431760",
+      "nome": "Rafael Oliveira Almeida",
+      "linha_csv": 18,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Losartana",
+              "dose": "50mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-12-05"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 31
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 16,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "02402681136",
+      "nome": "Pedro Carvalho Santos Souza",
+      "linha_csv": 19,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "leve",
+              "descricao_reacao": "Urticária generalizada",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "moderada",
+                  "descricao": "Broncoespasmo",
+                  "data_ocorrencia": "2020-11-25"
+                },
+                {
+                  "manifestacao": "cardiovascular",
+                  "gravidade": "moderada",
+                  "descricao": "Prurido intenso",
+                  "data_ocorrencia": "2023-11-04"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Fluoxetina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia",
+              "desde": "2024-12-15"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 36
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 17,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "69847896135",
+      "nome": "Vinícius Moreira Fonseca",
+      "linha_csv": 20,
+      "categoria": "queixa_vaga",
+      "cenario": "queixa_vaga_adulto",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Cansaço e mal-estar geral há alguns dias, sem saber explicar.",
+        "desde_quando_horas": 96,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 123,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 76,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 17,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 10,
+        "duracao_triagem_min": 7
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "queixa_vaga"
+      },
+      "ordem": 18,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 3
+      }
+    },
+    {
+      "cpf": "83273158549",
+      "nome": "Leonardo Pereira Carvalho Araújo",
+      "linha_csv": 21,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 25
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 19,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "76797643872",
+      "nome": "Lucas Rocha Araújo",
+      "linha_csv": 22,
+      "categoria": "acompanhamento_cronico",
+      "cenario": "acompanhamento_m54",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2026-04-25"
+            },
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2025-03-31"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2013-11-17",
+              "status": "em-remissao",
+              "observacoes": null
+            },
+            {
+              "codigo_cid10": "M54.5",
+              "descricao_cid10": "Dor lombar baixa",
+              "desde": "2025-06-06",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor lombar persistente, piora quando fica muito tempo sentado.",
+        "desde_quando_horas": 336,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 122,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 75,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 73,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 13,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 11,
+        "duracao_triagem_min": 7
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "acompanhamento",
+        "cid": "M54"
+      },
+      "ordem": 20,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 28
+      }
+    },
+    {
+      "cpf": "66416052997",
+      "nome": "Lucas Araújo Pereira",
+      "linha_csv": 23,
+      "categoria": "protocolo",
+      "cenario": "saude_mental_minima",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Quer uma avaliação preventiva de saúde mental, sem queixas importantes.",
+        "desde_quando_horas": null,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 121,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 77,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 18,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.6,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "idade": 42,
+          "sexo_biologico": "masculino",
+          "phq9_item1": "0",
+          "phq9_item2": "1",
+          "phq9_item3": "0",
+          "phq9_item4": "1",
+          "phq9_item5": "0",
+          "phq9_item6": "0",
+          "phq9_item7": "0",
+          "phq9_item8": "0",
+          "phq9_item9": "0",
+          "gad7_item1": "1",
+          "gad7_item2": "0",
+          "gad7_item3": "1",
+          "gad7_item4": "0",
+          "gad7_item5": "0",
+          "gad7_item6": "0",
+          "gad7_item7": "0",
+          "auditc_item1": "1",
+          "auditc_item2": "0",
+          "auditc_item3": "0"
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+        ],
+        "duracao_min": 31,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+            "nome": "Triagem de Saúde Mental",
+            "classificacoes_contidas": [
+              "elegivel",
+              "minima",
+              "sem_indicacao_de_risco"
+            ]
+          }
+        }
+      },
+      "ordem": 21,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 3
+      }
+    },
+    {
+      "cpf": "77997995528",
+      "nome": "Marcos Moreira Ferreira Araújo",
+      "linha_csv": 24,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 37
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 22,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": "internacao",
+        "dias_atras": 20
+      }
+    },
+    {
+      "cpf": "03778892533",
+      "nome": "Rafael Rodrigues Correia",
+      "linha_csv": 25,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "L40.9",
+              "descricao_cid10": "Psoríase, não especificada",
+              "desde": "2024-09-19",
+              "status": "em-remissao",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 14
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 23,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "evasao",
+        "dias_atras": 15
+      }
+    },
+    {
+      "cpf": "33221418884",
+      "nome": "Gustavo Freitas Ramos",
+      "linha_csv": 26,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 39
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 24,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 25
+      }
+    },
+    {
+      "cpf": "77901043229",
+      "nome": "Arthur Souza Correia",
+      "linha_csv": 28,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E11.9",
+              "descricao_cid10": "Diabetes mellitus tipo 2",
+              "desde": "2020-03-04",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 33
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 25,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "95205852739",
+      "nome": "Renato Peixoto Araújo Pereira",
+      "linha_csv": 29,
+      "categoria": "conflito_alergia",
+      "cenario": "conflito_dipirona",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Dipirona",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "grave",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2026-03-11"
+            },
+            {
+              "descricao": "Glibenclamida",
+              "dose": "5mg",
+              "frequencia": "1x ao dia (antes do café)",
+              "desde": "2022-06-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Febre e dor de cabeça desde ontem.",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 119,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 78,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 93,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 17,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.1,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 38,
+        "duracao_triagem_min": 10
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "hipotese": "síndrome gripal",
+        "evitar": [
+          "dipirona",
+          "metamizol"
+        ],
+        "alergia": "Dipirona"
+      },
+      "ordem": 26,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 4
+      }
+    },
+    {
+      "cpf": "16928451106",
+      "nome": "Alexandre Ribeiro Lima",
+      "linha_csv": 30,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "gastrointestinal",
+              "gravidade": "moderada",
+              "descricao_reacao": "Dispneia leve",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "moderada",
+                  "descricao": null,
+                  "data_ocorrencia": "2026-06-26"
+                },
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "moderada",
+                  "descricao": "Dispneia leve",
+                  "data_ocorrencia": "2020-05-06"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 32
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 27,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "82911467809",
+      "nome": "Rafael Cavalcanti Moreira Rodrigues",
+      "linha_csv": 32,
+      "categoria": "interacao_medicamentosa",
+      "cenario": "interacao_hipoglicemiante",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Insulina NPH",
+              "dose": "UI conforme glicemia",
+              "frequencia": "2x ao dia",
+              "desde": "2022-04-08"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E11.9",
+              "descricao_cid10": "Diabetes mellitus tipo 2",
+              "desde": "2018-07-07",
+              "status": "em-remissao",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Tontura, suor frio e tremores há 2 horas após pular o almoço.",
+        "desde_quando_horas": 2,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 124,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 102,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          },
+          {
+            "tipo_parametro": "glicemia-capilar",
+            "valor_numerico": 52,
+            "unidade": "mg-dL"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 21,
+        "duracao_triagem_min": 7
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "efeito_adverso",
+        "em_uso": "sulfonilureia/insulina",
+        "risco": "hipoglicemia"
+      },
+      "ordem": 28,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 8
+      }
+    },
+    {
+      "cpf": "10943969077",
+      "nome": "Diego Rodrigues Lima",
+      "linha_csv": 33,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Frutos do mar",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "moderada",
+              "descricao_reacao": "Prurido intenso",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "grave",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2021-07-25"
+                },
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "leve",
+                  "descricao": null,
+                  "data_ocorrencia": "2021-05-09"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2021-12-05"
+            },
+            {
+              "descricao": "Hidroclorotiazida",
+              "dose": "25mg",
+              "frequencia": "1x ao dia",
+              "desde": "2026-08-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "G40.9",
+              "descricao_cid10": "Epilepsia, não especificada",
+              "desde": "2012-08-08",
+              "status": "em-remissao",
+              "observacoes": "Em acompanhamento ambulatorial"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 27
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 29,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "73210469660",
+      "nome": "Vinícius Tavares Reis Almeida",
+      "linha_csv": 34,
+      "categoria": "alergia_nao_registrada",
+      "cenario": "alergia_nova_amoxicilina",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de garganta e febre baixa há 2 dias.",
+        "desde_quando_horas": 48,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 125,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 75,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 90,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 18,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.0,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 36,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": {
+        "queixa_principal": "Retorna com manchas e sintomas após usar o medicamento (Amoxicilina).",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 124,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 89,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 17,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "novas_alergias": [
+          {
+            "substancia": "Amoxicilina",
+            "tipo_reacao": "cutanea",
+            "gravidade": "moderada",
+            "descricao_reacao": "Manchas vermelhas e coceira pelo corpo no segundo dia de tratamento.",
+            "flag_confirmado": true
+          }
+        ],
+        "duracao_min": 25,
+        "dias_apos": 3
+      },
+      "esperado": {
+        "tipo": "alergia_nova",
+        "substancia": "Amoxicilina"
+      },
+      "ordem": 30,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 22
+      }
+    },
+    {
+      "cpf": "41687849919",
+      "nome": "Marcelo Machado Martins",
+      "linha_csv": 35,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Levotiroxina",
+              "dose": "75mcg",
+              "frequencia": "1x ao dia (jejum)",
+              "desde": "2024-09-27"
+            },
+            {
+              "descricao": "Omeprazol",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (jejum)",
+              "desde": "2023-09-02"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2025-08-05",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 37
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 31,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "51694097455",
+      "nome": "Lucas Alves Moraes",
+      "linha_csv": 36,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 16
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 32,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "02838578626",
+      "nome": "Roberto Rocha Souza Correia",
+      "linha_csv": 37,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Látex",
+              "flag_confirmado": true,
+              "tipo_reacao": "sistemica",
+              "gravidade": "leve",
+              "descricao_reacao": "Edema de lábios",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "moderada",
+                  "descricao": null,
+                  "data_ocorrencia": "2018-12-24"
+                },
+                {
+                  "manifestacao": "respiratoria",
+                  "gravidade": "leve",
+                  "descricao": "Queda de pressão",
+                  "data_ocorrencia": "2023-05-16"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 21
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 33,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "15747338420",
+      "nome": "Rodrigo Monteiro Tavares",
+      "linha_csv": 38,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Sinvastatina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (noite)",
+              "desde": "2022-10-08"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 21
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 34,
+      "consulta": {
+        "cenario": "encerrada-transferencia",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "transferencia",
+        "dias_atras": 2
+      }
+    },
+    {
+      "cpf": "62067240005",
+      "nome": "Heitor Nunes Lima Alves",
+      "linha_csv": 39,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 24
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 35,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "66851612216",
+      "nome": "Felipe Alves Cardoso Reis",
+      "linha_csv": 40,
+      "categoria": "alergia_nao_registrada",
+      "cenario": "alergia_nova_cefalexina",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Amlodipina",
+              "dose": "5mg",
+              "frequencia": "1x ao dia",
+              "desde": "2023-05-07"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "AB+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Ferida no pé com vermelhidão e secreção há 4 dias.",
+        "desde_quando_horas": 96,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 121,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 78,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 79,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 13,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 37.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 30,
+        "duracao_triagem_min": 11
+      },
+      "reavaliacao": {
+        "queixa_principal": "Retorna com manchas e sintomas após usar o medicamento (Cefalexina).",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 121,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 78,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 88,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "novas_alergias": [
+          {
+            "substancia": "Cefalexina",
+            "tipo_reacao": "cutanea",
+            "gravidade": "leve",
+            "descricao_reacao": "Exantema pruriginoso no tronco após três doses.",
+            "flag_confirmado": true
+          }
+        ],
+        "duracao_min": 12,
+        "dias_apos": 5
+      },
+      "esperado": {
+        "tipo": "alergia_nova",
+        "substancia": "Cefalexina"
+      },
+      "ordem": 36,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 19
+      }
+    },
+    {
+      "cpf": "70728679027",
+      "nome": "Marcos Moreira Ramos Correia",
+      "linha_csv": 42,
+      "categoria": "protocolo",
+      "cenario": "cardiometabolico_moderado",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Glibenclamida",
+              "dose": "5mg",
+              "frequencia": "1x ao dia (antes do café)",
+              "desde": "2023-11-29"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "I10",
+              "descricao_cid10": "Hipertensão essencial",
+              "desde": "2022-01-01",
+              "status": "em-remissao",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de cabeça na nuca e tontura há 3 dias; pressão alta nas medidas de casa.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 166,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 102,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 84,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 166,
+          "pa_diastolica": 102,
+          "fumante_atual": true,
+          "diabetes_diagnosticado": false,
+          "dislipidemia_diagnosticada": false,
+          "idade": 42,
+          "imc": 44.5
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+        ],
+        "duracao_min": 35,
+        "duracao_triagem_min": 11
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+            "nome": "Rastreio de Risco Cardiovascular e Metabólico",
+            "classificacoes_contidas": [
+              "hipertensao_estagio_2",
+              "obesidade_grau_3",
+              "risco_moderado"
+            ],
+            "pontos_risco": 1
+          }
+        }
+      },
+      "ordem": 37,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": "alta",
+        "dias_atras": 19
+      }
+    },
+    {
+      "cpf": "00478686358",
+      "nome": "Renato Almeida Santos",
+      "linha_csv": 43,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 38
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 38,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "40892687029",
+      "nome": "Marcelo Teixeira Gomes",
+      "linha_csv": 44,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 35
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 39,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "99642353644",
+      "nome": "Heitor Pereira Correia",
+      "linha_csv": 46,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Sinvastatina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (noite)",
+              "desde": "2023-09-02"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 31
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 40,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "86008484070",
+      "nome": "Sérgio Dantas Cardoso",
+      "linha_csv": 47,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 28
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 41,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "59180339719",
+      "nome": "Eduardo Araújo Ribeiro Alves",
+      "linha_csv": 48,
+      "categoria": "alergia_nao_registrada",
+      "cenario": "alergia_nova_ibuprofeno",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor nas costas após carregar peso, há 3 dias.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 120,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 77,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 78,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 19,
+        "duracao_triagem_min": 7
+      },
+      "reavaliacao": {
+        "queixa_principal": "Retorna com manchas e sintomas após usar o medicamento (Ibuprofeno).",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 125,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 81,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 90,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 19,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "novas_alergias": [
+          {
+            "substancia": "Ibuprofeno",
+            "tipo_reacao": "respiratoria",
+            "gravidade": "moderada",
+            "descricao_reacao": "Falta de ar e chiado após tomar o comprimido.",
+            "flag_confirmado": true
+          }
+        ],
+        "duracao_min": 11,
+        "dias_apos": 2
+      },
+      "esperado": {
+        "tipo": "alergia_nova",
+        "substancia": "Ibuprofeno"
+      },
+      "ordem": 42,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 5
+      }
+    },
+    {
+      "cpf": "82622444788",
+      "nome": "Renata Freitas Ferreira",
+      "linha_csv": 50,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 30
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 43,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "73741672459",
+      "nome": "Patricia Costa Araújo",
+      "linha_csv": 51,
+      "categoria": "alergia_nao_registrada",
+      "cenario": "alergia_nova_dipirona",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Febre e dor no corpo desde ontem.",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 122,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 93,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 19,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.0,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 23,
+        "duracao_triagem_min": 6
+      },
+      "reavaliacao": {
+        "queixa_principal": "Retorna com manchas e sintomas após usar o medicamento (Dipirona).",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 119,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 92,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 17,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "novas_alergias": [
+          {
+            "substancia": "Dipirona",
+            "tipo_reacao": "cutanea",
+            "gravidade": "leve",
+            "descricao_reacao": "Urticária leve poucas horas após a primeira dose.",
+            "flag_confirmado": true
+          }
+        ],
+        "duracao_min": 25,
+        "dias_apos": 4
+      },
+      "esperado": {
+        "tipo": "alergia_nova",
+        "substancia": "Dipirona"
+      },
+      "ordem": 44,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 18
+      }
+    },
+    {
+      "cpf": "75679825015",
+      "nome": "Aline Gomes Araújo",
+      "linha_csv": 52,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Fluoxetina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia",
+              "desde": "2023-07-19"
+            },
+            {
+              "descricao": "Alopurinol",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2025-07-14"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 38
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 45,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": "internacao",
+        "dias_atras": 11
+      }
+    },
+    {
+      "cpf": "82553714785",
+      "nome": "Tatiane Reis Ramos",
+      "linha_csv": 53,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M54.5",
+              "descricao_cid10": "Dor lombar baixa",
+              "desde": "2025-03-16",
+              "status": "em-remissao",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 10
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 46,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "87676772150",
+      "nome": "Vanessa Machado Freitas Moraes",
+      "linha_csv": 54,
+      "categoria": "protocolo",
+      "cenario": "cardiometabolico_baixo",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Quer fazer um check-up de rotina, sem queixas.",
+        "desde_quando_horas": null,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 116,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 74,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 72,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 116,
+          "pa_diastolica": 74,
+          "fumante_atual": false,
+          "diabetes_diagnosticado": false,
+          "dislipidemia_diagnosticada": false,
+          "idade": 31,
+          "imc": 19.4
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+        ],
+        "duracao_min": 40,
+        "duracao_triagem_min": 9
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+            "nome": "Rastreio de Risco Cardiovascular e Metabólico",
+            "classificacoes_contidas": [
+              "baixo_risco",
+              "eutrofico",
+              "otima"
+            ],
+            "pontos_risco": 0
+          }
+        }
+      },
+      "ordem": 47,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 20
+      }
+    },
+    {
+      "cpf": "62923309588",
+      "nome": "Beatriz Rocha Reis",
+      "linha_csv": 55,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Látex",
+              "flag_confirmado": true,
+              "tipo_reacao": "gastrointestinal",
+              "gravidade": "moderada",
+              "descricao_reacao": "Dispneia leve",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cardiovascular",
+                  "gravidade": "leve",
+                  "descricao": "Urticária generalizada",
+                  "data_ocorrencia": "2021-02-14"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M54.5",
+              "descricao_cid10": "Dor lombar baixa",
+              "desde": "2013-06-03",
+              "status": "ativa",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 36
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 48,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "75901751884",
+      "nome": "Amanda Tavares Costa",
+      "linha_csv": 56,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Penicilina",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "moderada",
+              "descricao_reacao": null,
+              "reacoes_extras": [
+                {
+                  "manifestacao": "gastrointestinal",
+                  "gravidade": "grave",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2020-05-31"
+                },
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "moderada",
+                  "descricao": "Dispneia leve",
+                  "data_ocorrencia": "2025-02-17"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 40
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 49,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "61103712977",
+      "nome": "Paula Araújo Carvalho",
+      "linha_csv": 57,
+      "categoria": "protocolo",
+      "cenario": "news2_alto",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Falta de ar importante, febre alta e muito cansaço há 2 dias.",
+        "desde_quando_horas": 48,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 98,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 62,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 112,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 24,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 92,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "frequencia_respiratoria": 24,
+          "spo2": 92,
+          "uso_oxigenio_suplementar": "sim",
+          "temperatura": 38.8,
+          "pressao_arterial_sistolica": 98,
+          "frequencia_cardiaca": 112,
+          "nivel_consciencia": "alerta"
+        },
+        "valor_avpu": "A",
+        "protocolos": [
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+        ],
+        "duracao_min": 36,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+            "nome": "NEWS2",
+            "escore_total": 11,
+            "override_disparado": false,
+            "risco": "alto"
+          }
+        }
+      },
+      "ordem": 50,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 17
+      }
+    },
+    {
+      "cpf": "10202758800",
+      "nome": "Isabela Santos Rodrigues",
+      "linha_csv": 60,
+      "categoria": "protocolo",
+      "cenario": "saude_mental_menor",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Alopurinol",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-08-15"
+            },
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2025-10-15"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Responsável relata desânimo e queda no rendimento escolar.",
+        "desde_quando_horas": 336,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 111,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 71,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 83,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.5,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "idade": 14,
+          "sexo_biologico": "feminino",
+          "phq9_item1": "1",
+          "phq9_item2": "1",
+          "phq9_item3": "0",
+          "phq9_item4": "1",
+          "phq9_item5": "0",
+          "phq9_item6": "0",
+          "phq9_item7": "0",
+          "phq9_item8": "0",
+          "phq9_item9": "0",
+          "gad7_item1": "1",
+          "gad7_item2": "0",
+          "gad7_item3": "0",
+          "gad7_item4": "1",
+          "gad7_item5": "0",
+          "gad7_item6": "0",
+          "gad7_item7": "0",
+          "auditc_item1": "0",
+          "auditc_item2": "0",
+          "auditc_item3": "0"
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+        ],
+        "duracao_min": 32,
+        "duracao_triagem_min": 10
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+            "nome": "Triagem de Saúde Mental",
+            "classificacoes_contidas": [
+              "nao_elegivel"
+            ],
+            "aviso": "menor de 18: os demais módulos dependem do gatilho cadastrado no banco"
+          }
+        }
+      },
+      "ordem": 51,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 18
+      }
+    },
+    {
+      "cpf": "13800030756",
+      "nome": "Larissa Barbosa Costa Moreira",
+      "linha_csv": 61,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 35
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 52,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "75973832074",
+      "nome": "Mariana Gomes Ribeiro",
+      "linha_csv": 62,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B-"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 11
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 53,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "65574313235",
+      "nome": "Sofia Santos Rocha",
+      "linha_csv": 63,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "I25.1",
+              "descricao_cid10": "Doença cardíaca isquêmica aterosclerótica",
+              "desde": "2016-11-07",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            },
+            {
+              "codigo_cid10": "E11.9",
+              "descricao_cid10": "Diabetes mellitus tipo 2",
+              "desde": "2020-01-25",
+              "status": "ativa",
+              "observacoes": "Em acompanhamento ambulatorial"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 30
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 54,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "65199410180",
+      "nome": "Isabela Alves Gomes Costa",
+      "linha_csv": 64,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 15
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 55,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "65787598598",
+      "nome": "Bruna Cavalcanti Lima Ferreira",
+      "linha_csv": 65,
+      "categoria": "protocolo",
+      "cenario": "geriatrico_queda",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Caiu duas vezes no banheiro nos últimos meses.",
+        "desde_quando_horas": 1440,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 132,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 80,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 74,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 132,
+          "pa_diastolica": 80,
+          "numero_medicamentos": 0,
+          "queda_ultimo_ano": true,
+          "marcha_alterada": false,
+          "imc": 35.1
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+        ],
+        "duracao_min": 12,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+            "nome": "Avaliação Geriátrica Básica",
+            "classificacoes_contidas": [
+              "limitrofe",
+              "obesidade_grau_2",
+              "risco_aumentado_de_queda",
+              "sem_alerta"
+            ]
+          }
+        }
+      },
+      "ordem": 56,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 25
+      }
+    },
+    {
+      "cpf": "59059929322",
+      "nome": "Paula Ribeiro Santos",
+      "linha_csv": 66,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "AAS",
+              "flag_confirmado": true,
+              "tipo_reacao": "anafilaxia",
+              "gravidade": "moderada",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "moderada",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2022-08-05"
+                },
+                {
+                  "manifestacao": "respiratoria",
+                  "gravidade": "grave",
+                  "descricao": null,
+                  "data_ocorrencia": "2024-06-07"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "AAS",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-08-20"
+            },
+            {
+              "descricao": "Furosemida",
+              "dose": "40mg",
+              "frequencia": "1x ao dia (manhã)",
+              "desde": "2022-11-11"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2022-09-17",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 21
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 57,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "54522675224",
+      "nome": "Monica Tavares Almeida",
+      "linha_csv": 67,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2017-09-26",
+              "status": "em-remissao",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 27
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 58,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "70433154179",
+      "nome": "Fabiana Teixeira Rocha Ribeiro",
+      "linha_csv": 68,
+      "categoria": "acompanhamento_cronico",
+      "cenario": "acompanhamento_m17",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2022-11-04",
+              "status": "ativa",
+              "observacoes": "Em acompanhamento ambulatorial"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor no joelho ao subir escadas, pior no fim do dia.",
+        "desde_quando_horas": 720,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 121,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 78,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 75,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 13,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 97,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 33,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "acompanhamento",
+        "cid": "M17"
+      },
+      "ordem": 59,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 3
+      }
+    },
+    {
+      "cpf": "88444310689",
+      "nome": "Gabriela Souza Freitas",
+      "linha_csv": 69,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Budesonida",
+              "dose": "200mcg",
+              "frequencia": "2x ao dia (inalatório)",
+              "desde": "2022-11-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "J45.9",
+              "descricao_cid10": "Asma, não especificada",
+              "desde": "2016-11-14",
+              "status": "ativa",
+              "observacoes": null
+            },
+            {
+              "codigo_cid10": "I25.1",
+              "descricao_cid10": "Doença cardíaca isquêmica aterosclerótica",
+              "desde": "2024-05-03",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 14
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 60,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": "evasao",
+        "dias_atras": 23
+      }
+    },
+    {
+      "cpf": "34902115883",
+      "nome": "Beatriz Dantas Gomes Souza",
+      "linha_csv": 70,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Insulina NPH",
+              "dose": "UI conforme glicemia",
+              "frequencia": "2x ao dia",
+              "desde": "2025-04-18"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 32
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 61,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 23
+      }
+    },
+    {
+      "cpf": "51168685400",
+      "nome": "Renata Rocha Souza Freitas",
+      "linha_csv": 71,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Sulfametoxazol",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "moderada",
+              "descricao_reacao": "Urticária generalizada",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "moderada",
+                  "descricao": "Queda de pressão",
+                  "data_ocorrencia": "2025-02-11"
+                },
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "moderada",
+                  "descricao": "Queda de pressão",
+                  "data_ocorrencia": "2026-04-28"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Amlodipina",
+              "dose": "5mg",
+              "frequencia": "1x ao dia",
+              "desde": "2023-06-09"
+            },
+            {
+              "descricao": "Hidroclorotiazida",
+              "dose": "25mg",
+              "frequencia": "1x ao dia",
+              "desde": "2025-04-29"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 33
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 62,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "30745054439",
+      "nome": "Vanessa Silva Peixoto",
+      "linha_csv": 72,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Budesonida",
+              "dose": "200mcg",
+              "frequencia": "2x ao dia (inalatório)",
+              "desde": "2024-07-21"
+            },
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2024-11-30"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 13
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 63,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 11
+      }
+    },
+    {
+      "cpf": "30705345700",
+      "nome": "Carla Alves Rocha",
+      "linha_csv": 73,
+      "categoria": "conflito_alergia",
+      "cenario": "conflito_penicilina",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Penicilina",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "leve",
+              "descricao_reacao": null,
+              "reacoes_extras": [
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "grave",
+                  "descricao": null,
+                  "data_ocorrencia": "2019-04-02"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "J45.9",
+              "descricao_cid10": "Asma, não especificada",
+              "desde": "2022-04-14",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de garganta forte com placas brancas e febre há 3 dias.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 124,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 100,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 13,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.6,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 38,
+        "duracao_triagem_min": 4
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "hipotese": "faringoamigdalite bacteriana",
+        "evitar": [
+          "penicilina",
+          "amoxicilina",
+          "ampicilina"
+        ],
+        "alergia": "Penicilina"
+      },
+      "ordem": 64,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": "alta",
+        "dias_atras": 3
+      }
+    },
+    {
+      "cpf": "34944665725",
+      "nome": "Vanessa Pereira Santos",
+      "linha_csv": 74,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Amlodipina",
+              "dose": "5mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-04-13"
+            },
+            {
+              "descricao": "Fluoxetina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia",
+              "desde": "2026-09-22"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "AB+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E66.9",
+              "descricao_cid10": "Obesidade, não especificada",
+              "desde": "2026-05-30",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 27
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 65,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": "alta",
+        "dias_atras": 10
+      }
+    },
+    {
+      "cpf": "09652074470",
+      "nome": "Carla Monteiro Almeida",
+      "linha_csv": 75,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 16
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 66,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": "evasao",
+        "dias_atras": 24
+      }
+    },
+    {
+      "cpf": "91738168417",
+      "nome": "Sofia Moraes Freitas",
+      "linha_csv": 76,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "N18.3",
+              "descricao_cid10": "Doença renal crônica estágio 3",
+              "desde": "2025-05-28",
+              "status": "em-remissao",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 37
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 67,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "47898562593",
+      "nome": "Renata Gomes Lima",
+      "linha_csv": 77,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Camarão",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "moderada",
+              "descricao_reacao": "Vômitos e diarreia",
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 37
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 68,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "91411739370",
+      "nome": "Raquel Teixeira Martins",
+      "linha_csv": 78,
+      "categoria": "acompanhamento_cronico",
+      "cenario": "acompanhamento_e04",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E04.1",
+              "descricao_cid10": "Bócio nodular não tóxico",
+              "desde": "2012-08-22",
+              "status": "em-remissao",
+              "observacoes": "Controlada com medicação"
+            },
+            {
+              "codigo_cid10": "K21.9",
+              "descricao_cid10": "Doença do refluxo gastroesofágico",
+              "desde": "2017-03-19",
+              "status": "ativa",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Retorno para acompanhar o nódulo da tireoide, sem queixas novas.",
+        "desde_quando_horas": null,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 125,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 75,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 18,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 32,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "acompanhamento",
+        "cid": "E04"
+      },
+      "ordem": 69,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 27
+      }
+    },
+    {
+      "cpf": "44701204560",
+      "nome": "Isabela Peixoto Martins",
+      "linha_csv": 79,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Glúten",
+              "flag_confirmado": true,
+              "tipo_reacao": "gastrointestinal",
+              "gravidade": "grave",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 28
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 70,
+      "consulta": {
+        "cenario": "encerrada-internacao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "internacao",
+        "dias_atras": 30
+      }
+    },
+    {
+      "cpf": "62120216940",
+      "nome": "Larissa Machado Araújo Pereira",
+      "linha_csv": 80,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 11
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 71,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 17
+      }
+    },
+    {
+      "cpf": "37562890013",
+      "nome": "Tatiane Cavalcanti Ribeiro Freitas",
+      "linha_csv": 81,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Paracetamol",
+              "dose": "750mg",
+              "frequencia": "se dor, máx 3x/dia",
+              "desde": "2022-09-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 40
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 72,
+      "consulta": {
+        "cenario": "em-triagem",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "99757113085",
+      "nome": "Daniela Fonseca Correia",
+      "linha_csv": 82,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Levotiroxina",
+              "dose": "75mcg",
+              "frequencia": "1x ao dia (jejum)",
+              "desde": "2022-06-21"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E78.5",
+              "descricao_cid10": "Dislipidemia, não especificada",
+              "desde": "2016-05-17",
+              "status": "ativa",
+              "observacoes": "Em acompanhamento ambulatorial"
+            },
+            {
+              "codigo_cid10": "G40.9",
+              "descricao_cid10": "Epilepsia, não especificada",
+              "desde": "2025-05-23",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 22
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 73,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 18
+      }
+    },
+    {
+      "cpf": "77982708099",
+      "nome": "Leticia Reis Peixoto",
+      "linha_csv": 83,
+      "categoria": "protocolo",
+      "cenario": "news2_medio",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "leve",
+              "descricao_reacao": "Dispneia leve",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "gastrointestinal",
+                  "gravidade": "leve",
+                  "descricao": "Dispneia leve",
+                  "data_ocorrencia": "2024-11-12"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Febre e tosse com catarro há 3 dias.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 108,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 70,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 104,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 22,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 94,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.4,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "frequencia_respiratoria": 22,
+          "spo2": 94,
+          "uso_oxigenio_suplementar": "nao",
+          "temperatura": 38.4,
+          "pressao_arterial_sistolica": 108,
+          "frequencia_cardiaca": 104,
+          "nivel_consciencia": "alerta"
+        },
+        "valor_avpu": "A",
+        "protocolos": [
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+        ],
+        "duracao_min": 22,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+            "nome": "NEWS2",
+            "escore_total": 6,
+            "override_disparado": false,
+            "risco": "medio"
+          }
+        }
+      },
+      "ordem": 74,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "83339452288",
+      "nome": "Amanda Correia Fonseca",
+      "linha_csv": 84,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Levotiroxina",
+              "dose": "75mcg",
+              "frequencia": "1x ao dia (jejum)",
+              "desde": "2025-01-05"
+            },
+            {
+              "descricao": "Hidroclorotiazida",
+              "dose": "25mg",
+              "frequencia": "1x ao dia",
+              "desde": "2022-10-13"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 40
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 75,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "evasao",
+        "dias_atras": 3
+      }
+    },
+    {
+      "cpf": "86384066653",
+      "nome": "Vanessa Machado Pereira Teixeira",
+      "linha_csv": 85,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 26
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 76,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "56164840830",
+      "nome": "Patricia Souza Almeida",
+      "linha_csv": 87,
+      "categoria": "protocolo",
+      "cenario": "cardiometabolico_elevado",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2022-12-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E11.9",
+              "descricao_cid10": "Diabetes mellitus tipo 2",
+              "desde": "2018-11-06",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            },
+            {
+              "codigo_cid10": "I10",
+              "descricao_cid10": "Hipertensão essencial",
+              "desde": "2012-03-15",
+              "status": "em-remissao",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Sede intensa, urina em excesso e visão turva há 5 dias.",
+        "desde_quando_horas": 120,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 184,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 112,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 96,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.7,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          },
+          {
+            "tipo_parametro": "glicemia-capilar",
+            "valor_numerico": 286,
+            "unidade": "mg-dL"
+          }
+        ],
+        "input_json": {
+          "pa_sistolica": 184,
+          "pa_diastolica": 112,
+          "fumante_atual": true,
+          "diabetes_diagnosticado": true,
+          "dislipidemia_diagnosticada": false,
+          "idade": 60,
+          "imc": 33.5
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+        ],
+        "duracao_min": 35,
+        "duracao_triagem_min": 6
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+            "nome": "Rastreio de Risco Cardiovascular e Metabólico",
+            "classificacoes_contidas": [
+              "hipertensao_estagio_3",
+              "obesidade_grau_1",
+              "risco_elevado"
+            ],
+            "pontos_risco": 3
+          }
+        }
+      },
+      "ordem": 77,
+      "consulta": {
+        "cenario": "encerrada-transferencia",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": "transferencia",
+        "dias_atras": 25
+      }
+    },
+    {
+      "cpf": "02481934652",
+      "nome": "Monica Fonseca Cavalcanti",
+      "linha_csv": 88,
+      "categoria": "interacao_medicamentosa",
+      "cenario": "interacao_aas",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Contraste iodado",
+              "flag_confirmado": true,
+              "tipo_reacao": "gastrointestinal",
+              "gravidade": "moderada",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cardiovascular",
+                  "gravidade": "moderada",
+                  "descricao": "Dispneia leve",
+                  "data_ocorrencia": "2023-05-16"
+                },
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "leve",
+                  "descricao": "Urticária generalizada",
+                  "data_ocorrencia": "2026-05-07"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "AAS",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2026-04-13"
+            },
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2026-05-12"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "AB-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "L40.9",
+              "descricao_cid10": "Psoríase, não especificada",
+              "desde": "2023-02-28",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor no joelho e nas costas há 5 dias; quer tomar ibuprofeno por conta própria.",
+        "desde_quando_horas": 120,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 129,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 81,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 79,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 19,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 40,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "interacao",
+        "em_uso": "AAS",
+        "risco": "AINE + AAS: risco de sangramento"
+      },
+      "ordem": 78,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 14
+      }
+    },
+    {
+      "cpf": "99688143502",
+      "nome": "Paula Moraes Araújo",
+      "linha_csv": 89,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 13
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 79,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "49135775904",
+      "nome": "Bruna Fonseca Gomes",
+      "linha_csv": 90,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Ovo",
+              "flag_confirmado": true,
+              "tipo_reacao": "gastrointestinal",
+              "gravidade": "leve",
+              "descricao_reacao": "Edema de lábios",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "gastrointestinal",
+                  "gravidade": "leve",
+                  "descricao": "Vômitos e diarreia",
+                  "data_ocorrencia": "2025-10-12"
+                },
+                {
+                  "manifestacao": "respiratoria",
+                  "gravidade": "moderada",
+                  "descricao": null,
+                  "data_ocorrencia": "2023-12-18"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "J45.9",
+              "descricao_cid10": "Asma, não especificada",
+              "desde": "2011-11-28",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 80,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "88725639412",
+      "nome": "Eliana Gomes Moreira",
+      "linha_csv": 91,
+      "categoria": "conflito_alergia",
+      "cenario": "conflito_sulfametoxazol",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Sulfametoxazol",
+              "flag_confirmado": true,
+              "tipo_reacao": "sistemica",
+              "gravidade": "leve",
+              "descricao_reacao": null,
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "grave",
+                  "descricao": null,
+                  "data_ocorrencia": "2020-08-28"
+                },
+                {
+                  "manifestacao": "anafilaxia",
+                  "gravidade": "moderada",
+                  "descricao": null,
+                  "data_ocorrencia": "2026-03-17"
+                }
+              ]
+            },
+            {
+              "substancia": "Leite",
+              "flag_confirmado": true,
+              "tipo_reacao": "anafilaxia",
+              "gravidade": "moderada",
+              "descricao_reacao": "Dispneia leve",
+              "reacoes_extras": []
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Omeprazol",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (jejum)",
+              "desde": "2023-09-06"
+            },
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2025-04-24"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Ardência ao urinar, urgência e dor em baixo ventre há 2 dias.",
+        "desde_quando_horas": 48,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 119,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 81,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 86,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 15,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 37.5,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 14,
+        "duracao_triagem_min": 10
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "hipotese": "infecção urinária",
+        "evitar": [
+          "sulfametoxazol",
+          "sulfametoxazol-trimetoprima"
+        ],
+        "alergia": "Sulfametoxazol"
+      },
+      "ordem": 81,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 2
+      }
+    },
+    {
+      "cpf": "90827231822",
+      "nome": "Patricia Fonseca Ferreira",
+      "linha_csv": 92,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Furosemida",
+              "dose": "40mg",
+              "frequencia": "1x ao dia (manhã)",
+              "desde": "2024-01-26"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 20
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 82,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "SAMU",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "04137977240",
+      "nome": "Daniela Carvalho Gomes",
+      "linha_csv": 93,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 27
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 83,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "regulacao",
+        "desfecho_final": "evasao",
+        "dias_atras": 16
+      }
+    },
+    {
+      "cpf": "14986430009",
+      "nome": "Aline Gomes Ribeiro",
+      "linha_csv": 94,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Furosemida",
+              "dose": "40mg",
+              "frequencia": "1x ao dia (manhã)",
+              "desde": "2025-06-20"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "B+"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 18
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 84,
+      "consulta": {
+        "cenario": "aguardando-medico",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "14656693880",
+      "nome": "Larissa Souza Costa Freitas",
+      "linha_csv": 96,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Ovo",
+              "flag_confirmado": true,
+              "tipo_reacao": "sistemica",
+              "gravidade": "leve",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "moderada",
+                  "descricao": "Prurido intenso",
+                  "data_ocorrencia": "2021-03-11"
+                },
+                {
+                  "manifestacao": "cardiovascular",
+                  "gravidade": "moderada",
+                  "descricao": "Prurido intenso",
+                  "data_ocorrencia": "2024-11-04"
+                }
+              ]
+            },
+            {
+              "substancia": "Glúten",
+              "flag_confirmado": true,
+              "tipo_reacao": "cutanea",
+              "gravidade": "moderada",
+              "descricao_reacao": "Edema de lábios",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "respiratoria",
+                  "gravidade": "moderada",
+                  "descricao": "Urticária generalizada",
+                  "data_ocorrencia": "2026-01-24"
+                },
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "leve",
+                  "descricao": "Urticária generalizada",
+                  "data_ocorrencia": "2025-10-10"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "desconhecido"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "duracao_min": 19
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 85,
+      "consulta": {
+        "cenario": "em-atendimento",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": null,
+        "dias_atras": 0
+      }
+    },
+    {
+      "cpf": "90714163309",
+      "nome": "Maria Rodrigues Ferreira Reis",
+      "linha_csv": 97,
+      "categoria": "protocolo",
+      "cenario": "saude_mental_moderada",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "O+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "N18.3",
+              "descricao_cid10": "Doença renal crônica estágio 3",
+              "desde": "2013-12-23",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            },
+            {
+              "codigo_cid10": "F33.1",
+              "descricao_cid10": "Transtorno depressivo recorrente",
+              "desde": "2018-12-28",
+              "status": "ativa",
+              "observacoes": null
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Tristeza, cansaço e dificuldade para dormir há semanas.",
+        "desde_quando_horas": 504,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 123,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 79,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 76,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 19,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.9,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "idade": 59,
+          "sexo_biologico": "feminino",
+          "phq9_item1": "2",
+          "phq9_item2": "2",
+          "phq9_item3": "2",
+          "phq9_item4": "2",
+          "phq9_item5": "2",
+          "phq9_item6": "1",
+          "phq9_item7": "1",
+          "phq9_item8": "1",
+          "phq9_item9": "0",
+          "gad7_item1": "2",
+          "gad7_item2": "2",
+          "gad7_item3": "2",
+          "gad7_item4": "2",
+          "gad7_item5": "1",
+          "gad7_item6": "1",
+          "gad7_item7": "1",
+          "auditc_item1": "2",
+          "auditc_item2": "1",
+          "auditc_item3": "1"
+        },
+        "valor_avpu": null,
+        "protocolos": [
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+        ],
+        "duracao_min": 11,
+        "duracao_triagem_min": 7
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+            "nome": "Triagem de Saúde Mental",
+            "classificacoes_contidas": [
+              "consumo_de_risco",
+              "elegivel",
+              "moderada"
+            ]
+          }
+        }
+      },
+      "ordem": 86,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 19
+      }
+    },
+    {
+      "cpf": "67808562742",
+      "nome": "Andrea Teixeira Peixoto",
+      "linha_csv": 98,
+      "categoria": "protocolo",
+      "cenario": "news2_baixo",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Metformina",
+              "dose": "850mg",
+              "frequencia": "2x ao dia",
+              "desde": "2023-10-29"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "AB-"
+        },
+        "doenca_cronica": {
+          "possui": false,
+          "itens": []
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de cabeça leve, sem outros sintomas.",
+        "desde_quando_horas": 24,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 124,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 80,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 76,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": {
+          "frequencia_respiratoria": 16,
+          "spo2": 98,
+          "uso_oxigenio_suplementar": "nao",
+          "temperatura": 36.8,
+          "pressao_arterial_sistolica": 124,
+          "frequencia_cardiaca": 76,
+          "nivel_consciencia": "alerta"
+        },
+        "valor_avpu": "A",
+        "protocolos": [
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+        ],
+        "duracao_min": 15,
+        "duracao_triagem_min": 8
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "protocolos": {
+          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+            "nome": "NEWS2",
+            "escore_total": 0,
+            "override_disparado": false,
+            "risco": "baixo"
+          }
+        }
+      },
+      "ordem": 87,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 14
+      }
+    },
+    {
+      "cpf": "22702672817",
+      "nome": "Alex Peixoto Monteiro Machado",
+      "linha_csv": 99,
+      "categoria": "conflito_alergia",
+      "cenario": "conflito_penicilina",
+      "historico": {
+        "alergias": {
+          "possui": true,
+          "itens": [
+            {
+              "substancia": "Ovo",
+              "flag_confirmado": true,
+              "tipo_reacao": "sistemica",
+              "gravidade": "moderada",
+              "descricao_reacao": "Broncoespasmo",
+              "reacoes_extras": []
+            },
+            {
+              "substancia": "Penicilina",
+              "flag_confirmado": true,
+              "tipo_reacao": "cardiovascular",
+              "gravidade": "moderada",
+              "descricao_reacao": "Dispneia leve",
+              "reacoes_extras": [
+                {
+                  "manifestacao": "sistemica",
+                  "gravidade": "moderada",
+                  "descricao": "Dispneia leve",
+                  "data_ocorrencia": "2025-03-01"
+                },
+                {
+                  "manifestacao": "cutanea",
+                  "gravidade": "leve",
+                  "descricao": null,
+                  "data_ocorrencia": "2026-05-10"
+                }
+              ]
+            }
+          ]
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "E04.1",
+              "descricao_cid10": "Bócio nodular não tóxico",
+              "desde": "2016-11-30",
+              "status": "ativa",
+              "observacoes": "Controlada com medicação"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor de garganta forte com placas brancas e febre há 3 dias.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 121,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 76,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 98,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 15,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 98,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 38.6,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 19,
+        "duracao_triagem_min": 12
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "hipotese": "faringoamigdalite bacteriana",
+        "evitar": [
+          "penicilina",
+          "amoxicilina",
+          "ampicilina"
+        ],
+        "alergia": "Penicilina"
+      },
+      "ordem": 88,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 21
+      }
+    },
+    {
+      "cpf": "64759876200",
+      "nome": "Joao Machado Dantas Almeida",
+      "linha_csv": 100,
+      "categoria": "basico",
+      "cenario": "basico",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": true,
+          "itens": [
+            {
+              "descricao": "Sinvastatina",
+              "dose": "20mg",
+              "frequencia": "1x ao dia (noite)",
+              "desde": "2025-04-10"
+            },
+            {
+              "descricao": "Alopurinol",
+              "dose": "100mg",
+              "frequencia": "1x ao dia",
+              "desde": "2023-05-19"
+            }
+          ]
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "A-"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "M17.0",
+              "descricao_cid10": "Artrose primária do joelho",
+              "desde": "2021-06-28",
+              "status": "ativa",
+              "observacoes": "Em acompanhamento ambulatorial"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "duracao_min": 19
+      },
+      "reavaliacao": null,
+      "esperado": null,
+      "ordem": 89,
+      "consulta": {
+        "cenario": "evasao",
+        "origem_encaminhamento": "transferencia",
+        "desfecho_final": "evasao",
+        "dias_atras": 14
+      }
+    },
+    {
+      "cpf": "68845783197",
+      "nome": "Sam Lima Dias",
+      "linha_csv": 101,
+      "categoria": "interacao_medicamentosa",
+      "cenario": "interacao_renal",
+      "historico": {
+        "alergias": {
+          "possui": false,
+          "itens": []
+        },
+        "medicamentos": {
+          "possui": false,
+          "itens": []
+        },
+        "tipo_sanguineo": {
+          "possui": true,
+          "tipo_sanguineo": "AB+"
+        },
+        "doenca_cronica": {
+          "possui": true,
+          "itens": [
+            {
+              "codigo_cid10": "N18.3",
+              "descricao_cid10": "Doença renal crônica estágio 3",
+              "desde": "2014-07-07",
+              "status": "ativa",
+              "observacoes": "Diagnóstico recente"
+            },
+            {
+              "codigo_cid10": "J45.9",
+              "descricao_cid10": "Asma, não especificada",
+              "desde": "2013-03-16",
+              "status": "ativa",
+              "observacoes": "Diagnóstico recente"
+            }
+          ]
+        }
+      },
+      "atendimento": {
+        "queixa_principal": "Dor lombar forte há 3 dias; tomou diclofenaco emprestado de um vizinho.",
+        "desde_quando_horas": 72,
+        "sinais_vitais": [
+          {
+            "tipo_parametro": "pa-sistolica",
+            "valor_numerico": 135,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "pa-diastolica",
+            "valor_numerico": 83,
+            "unidade": "mmHg",
+            "sitio_medicao": "manguito-braco-esquerdo"
+          },
+          {
+            "tipo_parametro": "frequencia-cardiaca",
+            "valor_numerico": 79,
+            "unidade": "bpm"
+          },
+          {
+            "tipo_parametro": "frequencia-respiratoria",
+            "valor_numerico": 16,
+            "unidade": "irpm"
+          },
+          {
+            "tipo_parametro": "spo2",
+            "valor_numerico": 99,
+            "unidade": "%",
+            "sitio_medicao": "oximetria-digital"
+          },
+          {
+            "tipo_parametro": "temperatura",
+            "valor_numerico": 36.8,
+            "unidade": "°C",
+            "sitio_medicao": "axilar"
+          }
+        ],
+        "input_json": null,
+        "valor_avpu": null,
+        "protocolos": [],
+        "duracao_min": 21,
+        "duracao_triagem_min": 6
+      },
+      "reavaliacao": null,
+      "esperado": {
+        "tipo": "interacao",
+        "em_uso": "anti-hipertensivo/diurético + doença renal crônica",
+        "risco": "AINE: piora da função renal"
+      },
+      "ordem": 90,
+      "consulta": {
+        "cenario": "encerrada-alta",
+        "origem_encaminhamento": "espontanea",
+        "desfecho_final": "alta",
+        "dias_atras": 27
+      }
+    }
+  ]
+}
