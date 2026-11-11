@@ -1302,7 +1302,7 @@ CREATE TABLE `prescricao` (
   `id_resultado` bigint(20) DEFAULT NULL,
   `id_output_origem` bigint(20) DEFAULT NULL,
   `origem_sugestao` enum('medico','bion_ia','protocolo') NOT NULL DEFAULT 'medico',
-  `criado_em` datetime NOT NULL DEFAULT utc_timestamp(),
+  `criado_em` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id_prescricao`),
   UNIQUE KEY `uq_prescricao_uuid` (`uuid_prescricao`),
   KEY `id_resultado_prescricao` (`id_resultado_prescricao`),
