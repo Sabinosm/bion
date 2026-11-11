@@ -107,7 +107,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0"
         ],
         "duracao_min": 27,
         "duracao_triagem_min": 11
@@ -115,7 +115,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0": {
             "nome": "Avaliação Geriátrica Básica",
             "classificacoes_contidas": [
               "obesidade_grau_3",
@@ -550,7 +550,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0"
         ],
         "duracao_min": 36,
         "duracao_triagem_min": 6
@@ -558,7 +558,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0": {
             "nome": "Avaliação Geriátrica Básica",
             "classificacoes_contidas": [
               "alerta_polifarmacia",
@@ -1608,7 +1608,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7"
         ],
         "duracao_min": 31,
         "duracao_triagem_min": 12
@@ -1616,7 +1616,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7": {
             "nome": "Triagem de Saúde Mental",
             "classificacoes_contidas": [
               "elegivel",
@@ -2743,7 +2743,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+          "361ece22-57b3-417c-9a18-a6fd8abb6593"
         ],
         "duracao_min": 35,
         "duracao_triagem_min": 11
@@ -2751,7 +2751,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+          "361ece22-57b3-417c-9a18-a6fd8abb6593": {
             "nome": "Rastreio de Risco Cardiovascular e Metabólico",
             "classificacoes_contidas": [
               "hipertensao_estagio_2",
@@ -3395,7 +3395,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+          "361ece22-57b3-417c-9a18-a6fd8abb6593"
         ],
         "duracao_min": 40,
         "duracao_triagem_min": 9
@@ -3403,7 +3403,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+          "361ece22-57b3-417c-9a18-a6fd8abb6593": {
             "nome": "Rastreio de Risco Cardiovascular e Metabólico",
             "classificacoes_contidas": [
               "baixo_risco",
@@ -3616,7 +3616,7 @@
         },
         "valor_avpu": "A",
         "protocolos": [
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9"
         ],
         "duracao_min": 36,
         "duracao_triagem_min": 12
@@ -3624,7 +3624,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9": {
             "nome": "NEWS2",
             "escore_total": 11,
             "override_disparado": false,
@@ -3741,7 +3741,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7"
         ],
         "duracao_min": 32,
         "duracao_triagem_min": 10
@@ -3749,7 +3749,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7": {
             "nome": "Triagem de Saúde Mental",
             "classificacoes_contidas": [
               "nao_elegivel"
@@ -4002,7 +4002,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140"
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0"
         ],
         "duracao_min": 12,
         "duracao_triagem_min": 8
@@ -4010,7 +4010,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+          "84b2cffe-7e9b-4662-aa7f-33c32be704d0": {
             "nome": "Avaliação Geriátrica Básica",
             "classificacoes_contidas": [
               "limitrofe",
@@ -5139,7 +5139,7 @@
         },
         "valor_avpu": "A",
         "protocolos": [
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9"
         ],
         "duracao_min": 22,
         "duracao_triagem_min": 12
@@ -5147,7 +5147,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9": {
             "nome": "NEWS2",
             "escore_total": 6,
             "override_disparado": false,
@@ -5351,7 +5351,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "f3e206b3-af60-4d90-9b22-57ba5210b434"
+          "361ece22-57b3-417c-9a18-a6fd8abb6593"
         ],
         "duracao_min": 35,
         "duracao_triagem_min": 6
@@ -5359,7 +5359,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+          "361ece22-57b3-417c-9a18-a6fd8abb6593": {
             "nome": "Rastreio de Risco Cardiovascular e Metabólico",
             "classificacoes_contidas": [
               "hipertensao_estagio_3",
@@ -6045,7 +6045,7 @@
         },
         "valor_avpu": null,
         "protocolos": [
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d"
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7"
         ],
         "duracao_min": 11,
         "duracao_triagem_min": 7
@@ -6053,7 +6053,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+          "0e91549c-33bf-4d00-98fc-a52172cbc1c7": {
             "nome": "Triagem de Saúde Mental",
             "classificacoes_contidas": [
               "consumo_de_risco",
@@ -6152,7 +6152,7 @@
         },
         "valor_avpu": "A",
         "protocolos": [
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5"
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9"
         ],
         "duracao_min": 15,
         "duracao_triagem_min": 8
@@ -6160,7 +6160,7 @@
       "reavaliacao": null,
       "esperado": {
         "protocolos": {
-          "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9": {
             "nome": "NEWS2",
             "escore_total": 0,
             "override_disparado": false,
