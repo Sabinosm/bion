@@ -1,11 +1,11 @@
-CREATE DATABASE `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
+CREATE DATABASE `bion` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 
-use `bion_testes` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
+use `bion` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 
 -- Desativar verificação de FK
 SET FOREIGN_KEY_CHECKS = 0;
 
--- bion_testes.catalogo_fluxogramas_mts definition
+-- bion.catalogo_fluxogramas_mts definition
 
 CREATE TABLE `catalogo_fluxogramas_mts` (
   `id_fluxo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -19,7 +19,7 @@ CREATE TABLE `catalogo_fluxogramas_mts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_medicamentos definition
+-- bion.catalogo_medicamentos definition
 
 CREATE TABLE `catalogo_medicamentos` (
   `id_catalogo_medicamentos` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -37,7 +37,7 @@ CREATE TABLE `catalogo_medicamentos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_modulos definition
+-- bion.catalogo_modulos definition
 
 CREATE TABLE `catalogo_modulos` (
   `id_modulo` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -61,7 +61,7 @@ CREATE TABLE `catalogo_modulos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.contraindicacoes definition
+-- bion.contraindicacoes definition
 
 CREATE TABLE `contraindicacoes` (
   `id_contraindicacao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -74,7 +74,7 @@ CREATE TABLE `contraindicacoes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.indicacoes_terapeuticas definition
+-- bion.indicacoes_terapeuticas definition
 
 CREATE TABLE `indicacoes_terapeuticas` (
   `id_indicacao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -87,7 +87,7 @@ CREATE TABLE `indicacoes_terapeuticas` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.loinc_sinal_vital definition
+-- bion.loinc_sinal_vital definition
 
 CREATE TABLE `loinc_sinal_vital` (
   `tipo_parametro` varchar(40) NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE `loinc_sinal_vital` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.loinc_termo definition
+-- bion.loinc_termo definition
 
 CREATE TABLE `loinc_termo` (
   `loinc_num` varchar(10) NOT NULL,
@@ -126,7 +126,7 @@ CREATE TABLE `loinc_termo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
--- bion_testes.protocolo_catalogo definition
+-- bion.protocolo_catalogo definition
 
 CREATE TABLE `protocolo_catalogo` (
   `id_protocolo_catalogo` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -151,7 +151,7 @@ CREATE TABLE `protocolo_catalogo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.tipo_jurisdicao definition
+-- bion.tipo_jurisdicao definition
 
 CREATE TABLE `tipo_jurisdicao` (
   `id_tipo_jurisdicao` tinyint(4) NOT NULL,
@@ -163,7 +163,7 @@ CREATE TABLE `tipo_jurisdicao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.variavel_clinica definition
+-- bion.variavel_clinica definition
 
 CREATE TABLE `variavel_clinica` (
   `id_variavel` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -185,7 +185,7 @@ CREATE TABLE `variavel_clinica` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_exames definition
+-- bion.catalogo_exames definition
 
 CREATE TABLE `catalogo_exames` (
   `id_catalogo_exame` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -211,7 +211,7 @@ CREATE TABLE `catalogo_exames` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_exames_conteudo definition
+-- bion.catalogo_exames_conteudo definition
 
 CREATE TABLE `catalogo_exames_conteudo` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -236,7 +236,7 @@ CREATE TABLE `catalogo_exames_conteudo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
--- bion_testes.catalogo_exames_conteudo_consulta definition
+-- bion.catalogo_exames_conteudo_consulta definition
 
 CREATE TABLE `catalogo_exames_conteudo_consulta` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -254,7 +254,7 @@ CREATE TABLE `catalogo_exames_conteudo_consulta` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
--- bion_testes.catalogo_medicamentos_contraindicacoes definition
+-- bion.catalogo_medicamentos_contraindicacoes definition
 
 CREATE TABLE `catalogo_medicamentos_contraindicacoes` (
   `id_catalogo` bigint(20) NOT NULL,
@@ -266,7 +266,7 @@ CREATE TABLE `catalogo_medicamentos_contraindicacoes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_medicamentos_indicacoes definition
+-- bion.catalogo_medicamentos_indicacoes definition
 
 CREATE TABLE `catalogo_medicamentos_indicacoes` (
   `id_catalogo` bigint(20) NOT NULL,
@@ -278,7 +278,7 @@ CREATE TABLE `catalogo_medicamentos_indicacoes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.catalogo_medicamentos_sinonimos definition
+-- bion.catalogo_medicamentos_sinonimos definition
 
 CREATE TABLE `catalogo_medicamentos_sinonimos` (
   `id_sinonimo` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -292,7 +292,7 @@ CREATE TABLE `catalogo_medicamentos_sinonimos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.interacoes_medicamentos definition
+-- bion.interacoes_medicamentos definition
 
 CREATE TABLE `interacoes_medicamentos` (
   `id_interacao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -317,7 +317,7 @@ CREATE TABLE `interacoes_medicamentos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.log_sincronizacao_catalogo definition
+-- bion.log_sincronizacao_catalogo definition
 
 CREATE TABLE `log_sincronizacao_catalogo` (
   `id_log_sincronizacao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -336,7 +336,7 @@ CREATE TABLE `log_sincronizacao_catalogo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.loinc_painel_item definition
+-- bion.loinc_painel_item definition
 
 CREATE TABLE `loinc_painel_item` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -352,7 +352,7 @@ CREATE TABLE `loinc_painel_item` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
--- bion_testes.loinc_termo_traducao definition
+-- bion.loinc_termo_traducao definition
 
 CREATE TABLE `loinc_termo_traducao` (
   `loinc_num` varchar(10) NOT NULL,
@@ -370,7 +370,7 @@ CREATE TABLE `loinc_termo_traducao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
--- bion_testes.modulo_versao definition
+-- bion.modulo_versao definition
 
 CREATE TABLE `modulo_versao` (
   `id_modulo_versao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -393,7 +393,7 @@ CREATE TABLE `modulo_versao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.modulo_versao_campo definition
+-- bion.modulo_versao_campo definition
 
 CREATE TABLE `modulo_versao_campo` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -409,7 +409,7 @@ CREATE TABLE `modulo_versao_campo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.protocolo_mts definition
+-- bion.protocolo_mts definition
 
 CREATE TABLE `protocolo_mts` (
   `id_protocolo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -423,7 +423,7 @@ CREATE TABLE `protocolo_mts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.protocolo_versao definition
+-- bion.protocolo_versao definition
 
 CREATE TABLE `protocolo_versao` (
   `id_versao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -442,7 +442,7 @@ CREATE TABLE `protocolo_versao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.regiao_geografica definition
+-- bion.regiao_geografica definition
 
 CREATE TABLE `regiao_geografica` (
   `id_regiao_geografica` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -463,7 +463,7 @@ CREATE TABLE `regiao_geografica` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.empresas definition
+-- bion.empresas definition
 
 CREATE TABLE `empresas` (
   `id_empresa` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -487,7 +487,7 @@ CREATE TABLE `empresas` (
 ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.protocolo_composicao definition
+-- bion.protocolo_composicao definition
 
 CREATE TABLE `protocolo_composicao` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -505,7 +505,7 @@ CREATE TABLE `protocolo_composicao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.protocolo_composicao_config definition
+-- bion.protocolo_composicao_config definition
 
 CREATE TABLE `protocolo_composicao_config` (
   `id_protocolo_versao` bigint(20) NOT NULL,
@@ -517,7 +517,7 @@ CREATE TABLE `protocolo_composicao_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.usuarios definition
+-- bion.usuarios definition
 
 CREATE TABLE `usuarios` (
   `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -548,7 +548,7 @@ CREATE TABLE `usuarios` (
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.configuracao definition
+-- bion.configuracao definition
 
 CREATE TABLE `configuracao` (
   `id_configuracao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -563,7 +563,7 @@ CREATE TABLE `configuracao` (
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.configuracao_protocolo definition
+-- bion.configuracao_protocolo definition
 
 CREATE TABLE `configuracao_protocolo` (
   `id_configuracao_protocolo` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -581,7 +581,7 @@ CREATE TABLE `configuracao_protocolo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.credencial_totp definition
+-- bion.credencial_totp definition
 
 CREATE TABLE `credencial_totp` (
   `id_credencial` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -596,7 +596,7 @@ CREATE TABLE `credencial_totp` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.credencial_webauthn definition
+-- bion.credencial_webauthn definition
 
 CREATE TABLE `credencial_webauthn` (
   `id_credencial` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -614,7 +614,7 @@ CREATE TABLE `credencial_webauthn` (
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.empresa_identificador definition
+-- bion.empresa_identificador definition
 
 CREATE TABLE `empresa_identificador` (
   `id_empresa_identificador` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -630,7 +630,7 @@ CREATE TABLE `empresa_identificador` (
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.empresa_protocolo definition
+-- bion.empresa_protocolo definition
 
 CREATE TABLE `empresa_protocolo` (
   `id_empresa` bigint(20) NOT NULL,
@@ -651,7 +651,7 @@ CREATE TABLE `empresa_protocolo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.log_acesso definition
+-- bion.log_acesso definition
 
 CREATE TABLE `log_acesso` (
   `id_log` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -675,7 +675,7 @@ CREATE TABLE `log_acesso` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.log_alteracao definition
+-- bion.log_alteracao definition
 
 CREATE TABLE `log_alteracao` (
   `id_alteracao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -705,7 +705,7 @@ CREATE TABLE `log_alteracao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.paciente definition
+-- bion.paciente definition
 
 CREATE TABLE `paciente` (
   `id_paciente` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -737,7 +737,7 @@ CREATE TABLE `paciente` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.paciente_dados_pessoais definition
+-- bion.paciente_dados_pessoais definition
 
 CREATE TABLE `paciente_dados_pessoais` (
   `id_paciente_p` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -765,7 +765,7 @@ CREATE TABLE `paciente_dados_pessoais` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.papel_profissional definition
+-- bion.papel_profissional definition
 
 CREATE TABLE `papel_profissional` (
   `id_papel_profissional` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -788,7 +788,7 @@ CREATE TABLE `papel_profissional` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.protocolo_escore_config definition
+-- bion.protocolo_escore_config definition
 
 CREATE TABLE `protocolo_escore_config` (
   `id_escore_config` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -811,7 +811,7 @@ CREATE TABLE `protocolo_escore_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.stepup_reautenticacao definition
+-- bion.stepup_reautenticacao definition
 
 CREATE TABLE `stepup_reautenticacao` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -830,7 +830,7 @@ CREATE TABLE `stepup_reautenticacao` (
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.stepup_token definition
+-- bion.stepup_token definition
 
 CREATE TABLE `stepup_token` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -847,7 +847,7 @@ CREATE TABLE `stepup_token` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.consentimento_lgpd definition
+-- bion.consentimento_lgpd definition
 
 CREATE TABLE `consentimento_lgpd` (
   `id_consentimento` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -875,7 +875,7 @@ CREATE TABLE `consentimento_lgpd` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.consentimento_sessao_assinatura definition
+-- bion.consentimento_sessao_assinatura definition
 
 CREATE TABLE `consentimento_sessao_assinatura` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -910,7 +910,7 @@ CREATE TABLE `consentimento_sessao_assinatura` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.consulta definition
+-- bion.consulta definition
 
 CREATE TABLE `consulta` (
   `id_consulta` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -940,7 +940,7 @@ CREATE TABLE `consulta` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.atendimento definition
+-- bion.atendimento definition
 
 CREATE TABLE `atendimento` (
   `id_atendimento` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -965,7 +965,7 @@ CREATE TABLE `atendimento` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.coleta_clinica definition
+-- bion.coleta_clinica definition
 
 CREATE TABLE `coleta_clinica` (
   `id_coleta` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -979,7 +979,7 @@ CREATE TABLE `coleta_clinica` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.conduta_enfermagem definition
+-- bion.conduta_enfermagem definition
 
 CREATE TABLE `conduta_enfermagem` (
   `id_conduta` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -999,7 +999,7 @@ CREATE TABLE `conduta_enfermagem` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.doenca_cronica definition
+-- bion.doenca_cronica definition
 
 CREATE TABLE `doenca_cronica` (
   `id_doenca_cronica` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1047,7 +1047,7 @@ CREATE TABLE `doenca_cronica` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.input_protocolo definition
+-- bion.input_protocolo definition
 
 CREATE TABLE `input_protocolo` (
   `id_input` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1065,7 +1065,7 @@ CREATE TABLE `input_protocolo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.input_protocolo_execucao definition
+-- bion.input_protocolo_execucao definition
 
 CREATE TABLE `input_protocolo_execucao` (
   `id_input_execucao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1089,7 +1089,7 @@ CREATE TABLE `input_protocolo_execucao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.medicamentos_em_uso definition
+-- bion.medicamentos_em_uso definition
 
 CREATE TABLE `medicamentos_em_uso` (
   `id_medicamentos_uso` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1139,7 +1139,7 @@ CREATE TABLE `medicamentos_em_uso` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.observacao_tipo_sanguineo definition
+-- bion.observacao_tipo_sanguineo definition
 
 CREATE TABLE `observacao_tipo_sanguineo` (
   `id_observacao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1162,7 +1162,7 @@ CREATE TABLE `observacao_tipo_sanguineo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.output_bion definition
+-- bion.output_bion definition
 
 CREATE TABLE `output_bion` (
   `id_output` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1192,7 +1192,7 @@ CREATE TABLE `output_bion` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.resultado_prescricao definition
+-- bion.resultado_prescricao definition
 
 CREATE TABLE `resultado_prescricao` (
   `id_resultado` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1227,7 +1227,7 @@ CREATE TABLE `resultado_prescricao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.sinal_vital definition
+-- bion.sinal_vital definition
 
 CREATE TABLE `sinal_vital` (
   `id_sinal_vital` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1252,7 +1252,7 @@ CREATE TABLE `sinal_vital` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.alergia definition
+-- bion.alergia definition
 
 CREATE TABLE `alergia` (
   `id_alergia` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1288,7 +1288,7 @@ CREATE TABLE `alergia` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.prescricao definition
+-- bion.prescricao definition
 
 CREATE TABLE `prescricao` (
   `id_prescricao` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1318,7 +1318,7 @@ CREATE TABLE `prescricao` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.prescricao_exame definition
+-- bion.prescricao_exame definition
 
 CREATE TABLE `prescricao_exame` (
   `id_prescricao_exame` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -1341,7 +1341,7 @@ CREATE TABLE `prescricao_exame` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- bion_testes.reacao_alergia definition
+-- bion.reacao_alergia definition
 
 CREATE TABLE `reacao_alergia` (
   `id_reacao` bigint(20) NOT NULL AUTO_INCREMENT,
