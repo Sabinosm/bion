@@ -103,8 +103,8 @@ def _registrar_blueprints(app: Flask):
     # --- Tudo que vive sob /atendimentos (mesmo prefixo, de propósito) ---
     app.register_blueprint(atendimento_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(bp_binario, url_prefix="/v1/api/atendimentos")
-    app.register_blueprint(bp_dados_clinicos, url_prefix="/v1/api/atendimentos")          # antes: /dadosClinicos
-    app.register_blueprint(bp_conduta_enfermagem, url_prefix="/v1/api/atendimentos")      # antes: /conduta-enfermagem
+    app.register_blueprint(bp_dados_clinicos, url_prefix="/v1/api/atendimentos")         
+    app.register_blueprint(bp_conduta_enfermagem, url_prefix="/v1/api/atendimentos")      
     app.register_blueprint(alergia_escrita_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(doenca_cronica_escrita_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(med_em_uso_escrita_bp, url_prefix="/v1/api/atendimentos")
