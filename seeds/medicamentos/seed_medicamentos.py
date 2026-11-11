@@ -26,20 +26,16 @@ import logging
 import os
 import sys
 
-from src.main import create_app
-from src.domains.medicamentos.services import sincronizar_catalogo_service
-from src.domains.medicamentos.interacoes import sincronizar_interacoes_service
+from seeds.medicamentos import sincronizar_catalogo_service
+from seeds.medicamentos import sincronizar_interacoes_service
 from dotenv import load_dotenv
+from .seed_principio_normalizado import seed as seed_principio_normalizado
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    alvo = sys.argv[1] if len(sys.argv) > 1 else "todos"
+def seed(alvo, app):
+    alvo = alvo.lower()
 
     if alvo not in ("catalogo", "interacoes", "todos"):
         print(f"Alvo desconhecido: {alvo!r}. Use: catalogo | interacoes | todos.")
@@ -54,7 +50,7 @@ def main():
     # Mesma variável de ambiente que app.py usa -- sem isso, a
     # sincronização sempre rodaria com config de "development",
     # mesmo quando disparada em produção.
-    app = create_app(os.getenv("FLASK_ENV", "development"))
+    app = app
 
     falhas = 0
     with app.app_context():
@@ -69,4 +65,5 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(seed())
+    sys.exit(seed_principio_normalizado())

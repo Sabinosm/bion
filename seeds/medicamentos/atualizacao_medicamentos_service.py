@@ -38,8 +38,8 @@ from datetime import datetime, timezone
 from src.models import db
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from src.models.catalogos.log_sincronizacao_catalogo import LogSincronizacaoCatalogo
-from ..repository import CatalogoMedicamentosRepository
-from ..normalizacao import normalizar_nome
+from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
+from src.domains.medicamentos.normalizacao import normalizar_nome
 
 logger = logging.getLogger(__name__)
 

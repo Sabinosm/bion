@@ -14,7 +14,7 @@ from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
 from src.domains.medicamentos.normalizacao import normalizar_nome
 
 
-def main():
+def seed():
     app = create_app(os.getenv("FLASK_ENV", "development"))
     with app.app_context():
         pendentes = CatalogoMedicamentos.query.filter(
@@ -28,4 +28,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    seed()

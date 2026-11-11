@@ -22,12 +22,12 @@ import os
 import time
 from collections import Counter
 from urllib.parse import quote
-from ..normalizacao import normalizar_nome
+from src.domains.medicamentos.normalizacao import normalizar_nome
 import requests
 from src.models import db
 from src.models.catalogos.catalogo_medicamentos import CatalogoMedicamentos
-from .atualizacao_interacoes_service import AtualizacaoInteracoesService
-from ..repository import CatalogoMedicamentosRepository
+from src.domains.medicamentos.interacoes.atualizacao_interacoes_service import AtualizacaoInteracoesService
+from src.domains.medicamentos.repository import CatalogoMedicamentosRepository
 
 logger = logging.getLogger(__name__)
 

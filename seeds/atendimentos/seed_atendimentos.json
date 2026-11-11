@@ -8,19 +8,19 @@
   },
   "protocolos": {
     "news2": {
-      "uuid": "41ab91ff-6d62-44cf-96d3-3f4806ca51f5",
+      "uuid": "3eb41c57-d36a-4a66-b7fa-2a6ed77f3af9",
       "nome": "NEWS2"
     },
     "geriatrica": {
-      "uuid": "d31cf487-e665-42aa-b78e-a39b3f0e8140",
+      "uuid": "84b2cffe-7e9b-4662-aa7f-33c32be704d0",
       "nome": "Avaliação Geriátrica Básica"
     },
     "saude_mental": {
-      "uuid": "12f508b6-08f9-46e4-8751-df5c86a07f6d",
+      "uuid": "0e91549c-33bf-4d00-98fc-a52172cbc1c7",
       "nome": "Triagem de Saúde Mental"
     },
     "cardiometabolico": {
-      "uuid": "f3e206b3-af60-4d90-9b22-57ba5210b434",
+      "uuid": "361ece22-57b3-417c-9a18-a6fd8abb6593",
       "nome": "Rastreio de Risco Cardiovascular e Metabólico"
     }
   },

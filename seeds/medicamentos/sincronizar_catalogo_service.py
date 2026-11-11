@@ -29,7 +29,7 @@ from datetime import date
 import requests
 
 from .atualizacao_medicamentos_service import AtualizacaoMedicamentosService
-from ..normalizacao import normalizar_nome
+from src.domains.medicamentos.normalizacao import normalizar_nome
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def buscar_itens_anvisa() -> tuple[list[dict], str]:
     """
     Baixa o CSV de dados abertos da ANVISA e converte para o formato
     esperado por AtualizacaoMedicamentosService.sincronizar:
-    {"principio_ativo": ..., "classe_farmaceutica": ..., "nomes_comerciais": [...]}.
+    {"principio_ativo": , "classe_farmaceutica": ..., "nomes_comerciais": [...]}.
 
     Pontos de atenção do CSV:
     - Delimitador ";", encoding ANSI/1252 (não UTF-8).
