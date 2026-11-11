@@ -64,7 +64,7 @@ def _registrar_blueprints(app: Flask):
     from src.domains.auditoria.controller import bp as auditoria_bp
     from src.domains.dados_clinicos.controller import bp_dados_clinicos
     from src.domains.download.download_controller import bp_download_pdf
-    from src.domains.paciente.controllers import pessoal_bp, bp_alergia, bp_doenca_cronica, lgpd_bp, bp_med_em_uso,p_clinico_bp, consentimento_digital_bp
+    from src.domains.paciente.controllers import pessoal_bp, bp_alergia, bp_doenca_cronica, lgpd_bp, bp_med_em_uso,p_clinico_bp, consentimento_digital_bp, bp_tipo_sanguineo
 
     from src.domains.paciente.controllers.alergia_controller import bp_escrita as alergia_escrita_bp
     from src.domains.paciente.controllers.doenca_cronica_controller import bp_escrita as doenca_cronica_escrita_bp
@@ -109,16 +109,20 @@ def _registrar_blueprints(app: Flask):
     app.register_blueprint(doenca_cronica_escrita_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(med_em_uso_escrita_bp, url_prefix="/v1/api/atendimentos")
     app.register_blueprint(tipo_sanguineo_escrita_bp, url_prefix="/v1/api/atendimentos")
-
+    
+    # --- Tudo que vive sobre atendimentos mas se refere ao paciente, não ao atendimento em si ---
+    app.register_blueprint(bp_alergia, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(bp_doenca_cronica, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(bp_med_em_uso, url_prefix="/v1/api/pacientes")
+    app.register_blueprint(bp_tipo_sanguineo, url_prefix="/v1/api/pacientes")
+    
     app.register_blueprint(prescricao_bp, url_prefix="/v1/api/prescricoes")
     app.register_blueprint(bp_resultado_prescricao, url_prefix="/v1/api/prescricoes")
     app.register_blueprint(bp_prescricao_exame, url_prefix="/v1/api/prescricoes")
     app.register_blueprint(auditoria_bp, url_prefix="/v1/api/auditoria")
     app.register_blueprint(pessoal_bp, url_prefix="/v1/api/pacientes/pessoal")
     app.register_blueprint(p_clinico_bp, url_prefix="/v1/api/pacientes/clinico")
-    app.register_blueprint(bp_alergia, url_prefix="/v1/api/dadosClinicos/alergia")
-    app.register_blueprint(bp_doenca_cronica, url_prefix="/v1/api/dadosClinicos/doencaCronica")
-    app.register_blueprint(bp_med_em_uso, url_prefix="/v1/api/dadosClinicos/MedicamentosUso")
+ 
     app.register_blueprint(lgpd_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(consentimento_digital_bp, url_prefix="/v1/api/pacientes/consentimento-digital")
     app.register_blueprint(bp_estatisticas, url_prefix="/v1/api/estatisticas")
