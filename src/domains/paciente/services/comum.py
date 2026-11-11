@@ -39,7 +39,7 @@ def paciente_ou_404(paciente_repo, uuid_paciente: str, id_empresa: int):
     """
     p = paciente_repo.find_by_uuid(uuid_paciente, id_empresa)
     if not p:
-        raise DadosInvalidosError(f"Paciente não encontrado: {uuid_paciente}")
+        raise RecursoNaoEncontradoError(f"Paciente não encontrado: {uuid_paciente}")
     return p
 
 
