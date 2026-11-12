@@ -7,7 +7,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- bion.catalogo_fluxogramas_mts definition
 
-CREATE TABLE `catalogo_fluxogramas_mts` (
+CREATE TABLE IF NOT EXISTS `catalogo_fluxogramas_mts` (
   `id_fluxo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_fluxo_mts` char(36) NOT NULL,
   `codigo_fluxograma` varchar(50) NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE `catalogo_fluxogramas_mts` (
 
 -- bion.catalogo_medicamentos definition
 
-CREATE TABLE `catalogo_medicamentos` (
+CREATE TABLE IF NOT EXISTS `catalogo_medicamentos` (
   `id_catalogo_medicamentos` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_catalogo_medicamentos` char(36) NOT NULL,
   `principio_ativo` varchar(255) DEFAULT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE `catalogo_medicamentos` (
 
 -- bion.catalogo_modulos definition
 
-CREATE TABLE `catalogo_modulos` (
+CREATE TABLE IF NOT EXISTS `catalogo_modulos` (
   `id_modulo` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_modulo` char(36) NOT NULL,
   `nome_modulo` varchar(255) NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE `catalogo_modulos` (
 
 -- bion.contraindicacoes definition
 
-CREATE TABLE `contraindicacoes` (
+CREATE TABLE IF NOT EXISTS `contraindicacoes` (
   `id_contraindicacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_contraindicacao` varchar(36) NOT NULL,
   `nome` varchar(255) NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE `contraindicacoes` (
 
 -- bion.indicacoes_terapeuticas definition
 
-CREATE TABLE `indicacoes_terapeuticas` (
+CREATE TABLE IF NOT EXISTS `indicacoes_terapeuticas` (
   `id_indicacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_indicacao` varchar(36) NOT NULL,
   `nome` varchar(255) NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE `indicacoes_terapeuticas` (
 
 -- bion.loinc_sinal_vital definition
 
-CREATE TABLE `loinc_sinal_vital` (
+CREATE TABLE IF NOT EXISTS `loinc_sinal_vital` (
   `tipo_parametro` varchar(40) NOT NULL,
   `codigo_loinc` varchar(20) NOT NULL,
   `display_loinc` varchar(150) NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE `loinc_sinal_vital` (
 
 -- bion.loinc_termo definition
 
-CREATE TABLE `loinc_termo` (
+CREATE TABLE IF NOT EXISTS `loinc_termo` (
   `loinc_num` varchar(10) NOT NULL,
   `componente` varchar(255) DEFAULT NULL,
   `propriedade` varchar(255) DEFAULT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE `loinc_termo` (
 
 -- bion.protocolo_catalogo definition
 
-CREATE TABLE `protocolo_catalogo` (
+CREATE TABLE IF NOT EXISTS `protocolo_catalogo` (
   `id_protocolo_catalogo` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_protocolo_catalogo` char(36) NOT NULL,
   `nome_protocolo` varchar(255) NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE `protocolo_catalogo` (
 
 -- bion.tipo_jurisdicao definition
 
-CREATE TABLE `tipo_jurisdicao` (
+CREATE TABLE IF NOT EXISTS `tipo_jurisdicao` (
   `id_tipo_jurisdicao` tinyint(4) NOT NULL,
   `codigo` varchar(30) NOT NULL,
   `display` varchar(100) NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE `tipo_jurisdicao` (
 
 -- bion.variavel_clinica definition
 
-CREATE TABLE `variavel_clinica` (
+CREATE TABLE IF NOT EXISTS `variavel_clinica` (
   `id_variavel` bigint(20) NOT NULL AUTO_INCREMENT,
   `codigo` varchar(100) NOT NULL,
   `nome` varchar(255) NOT NULL,
@@ -187,7 +187,7 @@ CREATE TABLE `variavel_clinica` (
 
 -- bion.catalogo_exames definition
 
-CREATE TABLE `catalogo_exames` (
+CREATE TABLE IF NOT EXISTS `catalogo_exames` (
   `id_catalogo_exame` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_catalogo_exame` char(36) NOT NULL,
   `codigo_tuss` varchar(20) DEFAULT NULL,
@@ -213,7 +213,7 @@ CREATE TABLE `catalogo_exames` (
 
 -- bion.catalogo_exames_conteudo definition
 
-CREATE TABLE `catalogo_exames_conteudo` (
+CREATE TABLE IF NOT EXISTS `catalogo_exames_conteudo` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_catalogo_exame` bigint(20) NOT NULL,
   `idioma` varchar(5) NOT NULL,
@@ -238,7 +238,7 @@ CREATE TABLE `catalogo_exames_conteudo` (
 
 -- bion.catalogo_exames_conteudo_consulta definition
 
-CREATE TABLE `catalogo_exames_conteudo_consulta` (
+CREATE TABLE IF NOT EXISTS `catalogo_exames_conteudo_consulta` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_catalogo_exame` bigint(20) NOT NULL,
   `idioma` varchar(5) NOT NULL,
@@ -256,7 +256,7 @@ CREATE TABLE `catalogo_exames_conteudo_consulta` (
 
 -- bion.catalogo_medicamentos_contraindicacoes definition
 
-CREATE TABLE `catalogo_medicamentos_contraindicacoes` (
+CREATE TABLE IF NOT EXISTS `catalogo_medicamentos_contraindicacoes` (
   `id_catalogo` bigint(20) NOT NULL,
   `id_contraindicacao` bigint(20) NOT NULL,
   PRIMARY KEY (`id_catalogo`,`id_contraindicacao`),
@@ -268,7 +268,7 @@ CREATE TABLE `catalogo_medicamentos_contraindicacoes` (
 
 -- bion.catalogo_medicamentos_indicacoes definition
 
-CREATE TABLE `catalogo_medicamentos_indicacoes` (
+CREATE TABLE IF NOT EXISTS `catalogo_medicamentos_indicacoes` (
   `id_catalogo` bigint(20) NOT NULL,
   `id_indicacao` bigint(20) NOT NULL,
   PRIMARY KEY (`id_catalogo`,`id_indicacao`),
@@ -280,7 +280,7 @@ CREATE TABLE `catalogo_medicamentos_indicacoes` (
 
 -- bion.catalogo_medicamentos_sinonimos definition
 
-CREATE TABLE `catalogo_medicamentos_sinonimos` (
+CREATE TABLE IF NOT EXISTS `catalogo_medicamentos_sinonimos` (
   `id_sinonimo` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_catalogo` bigint(20) NOT NULL,
   `nome_normalizado` varchar(255) NOT NULL,
@@ -294,7 +294,7 @@ CREATE TABLE `catalogo_medicamentos_sinonimos` (
 
 -- bion.interacoes_medicamentos definition
 
-CREATE TABLE `interacoes_medicamentos` (
+CREATE TABLE IF NOT EXISTS `interacoes_medicamentos` (
   `id_interacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_interacao` char(36) NOT NULL,
   `id_medicamento_A` bigint(20) DEFAULT NULL,
@@ -319,7 +319,7 @@ CREATE TABLE `interacoes_medicamentos` (
 
 -- bion.log_sincronizacao_catalogo definition
 
-CREATE TABLE `log_sincronizacao_catalogo` (
+CREATE TABLE IF NOT EXISTS `log_sincronizacao_catalogo` (
   `id_log_sincronizacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_log_sincronizacao` varchar(36) NOT NULL,
   `id_catalogo` bigint(20) NOT NULL,
@@ -338,7 +338,7 @@ CREATE TABLE `log_sincronizacao_catalogo` (
 
 -- bion.loinc_painel_item definition
 
-CREATE TABLE `loinc_painel_item` (
+CREATE TABLE IF NOT EXISTS `loinc_painel_item` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `painel_loinc` varchar(10) NOT NULL,
   `filho_loinc` varchar(10) NOT NULL,
@@ -354,7 +354,7 @@ CREATE TABLE `loinc_painel_item` (
 
 -- bion.loinc_termo_traducao definition
 
-CREATE TABLE `loinc_termo_traducao` (
+CREATE TABLE IF NOT EXISTS `loinc_termo_traducao` (
   `loinc_num` varchar(10) NOT NULL,
   `idioma` varchar(10) NOT NULL,
   `componente` varchar(255) DEFAULT NULL,
@@ -372,7 +372,7 @@ CREATE TABLE `loinc_termo_traducao` (
 
 -- bion.modulo_versao definition
 
-CREATE TABLE `modulo_versao` (
+CREATE TABLE IF NOT EXISTS `modulo_versao` (
   `id_modulo_versao` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_modulo` bigint(20) NOT NULL,
   `numero_versao` varchar(20) NOT NULL,
@@ -395,7 +395,7 @@ CREATE TABLE `modulo_versao` (
 
 -- bion.modulo_versao_campo definition
 
-CREATE TABLE `modulo_versao_campo` (
+CREATE TABLE IF NOT EXISTS `modulo_versao_campo` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_modulo_versao` bigint(20) NOT NULL,
   `id_variavel` bigint(20) NOT NULL,
@@ -411,7 +411,7 @@ CREATE TABLE `modulo_versao_campo` (
 
 -- bion.protocolo_mts definition
 
-CREATE TABLE `protocolo_mts` (
+CREATE TABLE IF NOT EXISTS `protocolo_mts` (
   `id_protocolo_mts` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_fluxo_mts` bigint(20) DEFAULT NULL,
   `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
@@ -425,7 +425,7 @@ CREATE TABLE `protocolo_mts` (
 
 -- bion.protocolo_versao definition
 
-CREATE TABLE `protocolo_versao` (
+CREATE TABLE IF NOT EXISTS `protocolo_versao` (
   `id_versao` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_protocolo_catalogo` bigint(20) NOT NULL,
   `numero_versao` varchar(20) NOT NULL,
@@ -444,7 +444,7 @@ CREATE TABLE `protocolo_versao` (
 
 -- bion.regiao_geografica definition
 
-CREATE TABLE `regiao_geografica` (
+CREATE TABLE IF NOT EXISTS `regiao_geografica` (
   `id_regiao_geografica` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_regiao_geografica` char(36) NOT NULL,
   `nome_regiao` varchar(255) NOT NULL,
@@ -465,7 +465,7 @@ CREATE TABLE `regiao_geografica` (
 
 -- bion.empresas definition
 
-CREATE TABLE `empresas` (
+CREATE TABLE IF NOT EXISTS `empresas` (
   `id_empresa` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_empresa` char(36) NOT NULL,
   `nome_fantasia` varchar(255) NOT NULL,
@@ -489,7 +489,7 @@ CREATE TABLE `empresas` (
 
 -- bion.protocolo_composicao definition
 
-CREATE TABLE `protocolo_composicao` (
+CREATE TABLE IF NOT EXISTS `protocolo_composicao` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_protocolo_versao` bigint(20) NOT NULL,
   `id_modulo_versao` bigint(20) NOT NULL,
@@ -507,7 +507,7 @@ CREATE TABLE `protocolo_composicao` (
 
 -- bion.protocolo_composicao_config definition
 
-CREATE TABLE `protocolo_composicao_config` (
+CREATE TABLE IF NOT EXISTS `protocolo_composicao_config` (
   `id_protocolo_versao` bigint(20) NOT NULL,
   `agregacao` enum('nenhuma','soma','maximo','pior_categoria','any_flag') NOT NULL DEFAULT 'nenhuma',
   `regra_gatilho_json` longtext DEFAULT NULL,
@@ -519,7 +519,7 @@ CREATE TABLE `protocolo_composicao_config` (
 
 -- bion.usuarios definition
 
-CREATE TABLE `usuarios` (
+CREATE TABLE IF NOT EXISTS `usuarios` (
   `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_usuario` char(36) NOT NULL,
   `id_empresa` bigint(20) NOT NULL,
@@ -550,7 +550,7 @@ CREATE TABLE `usuarios` (
 
 -- bion.configuracao definition
 
-CREATE TABLE `configuracao` (
+CREATE TABLE IF NOT EXISTS `configuracao` (
   `id_configuracao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_configuracao` char(36) NOT NULL,
   `id_usuario` bigint(20) DEFAULT NULL,
@@ -565,7 +565,7 @@ CREATE TABLE `configuracao` (
 
 -- bion.configuracao_protocolo definition
 
-CREATE TABLE `configuracao_protocolo` (
+CREATE TABLE IF NOT EXISTS `configuracao_protocolo` (
   `id_configuracao_protocolo` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_configuracao` bigint(20) DEFAULT NULL,
   `id_protocolo` bigint(20) DEFAULT NULL,
@@ -583,7 +583,7 @@ CREATE TABLE `configuracao_protocolo` (
 
 -- bion.credencial_totp definition
 
-CREATE TABLE `credencial_totp` (
+CREATE TABLE IF NOT EXISTS `credencial_totp` (
   `id_credencial` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_usuario` bigint(20) NOT NULL,
   `secret` varchar(255) NOT NULL,
@@ -598,7 +598,7 @@ CREATE TABLE `credencial_totp` (
 
 -- bion.credencial_webauthn definition
 
-CREATE TABLE `credencial_webauthn` (
+CREATE TABLE IF NOT EXISTS `credencial_webauthn` (
   `id_credencial` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_usuario` bigint(20) NOT NULL,
   `credential_id` varchar(255) NOT NULL,
@@ -616,7 +616,7 @@ CREATE TABLE `credencial_webauthn` (
 
 -- bion.empresa_identificador definition
 
-CREATE TABLE `empresa_identificador` (
+CREATE TABLE IF NOT EXISTS `empresa_identificador` (
   `id_empresa_identificador` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_empresa` bigint(20) NOT NULL,
   `tipo_identificador` enum('cnpj','cnes') NOT NULL,
@@ -632,7 +632,7 @@ CREATE TABLE `empresa_identificador` (
 
 -- bion.empresa_protocolo definition
 
-CREATE TABLE `empresa_protocolo` (
+CREATE TABLE IF NOT EXISTS `empresa_protocolo` (
   `id_empresa` bigint(20) NOT NULL,
   `id_protocolo_catalogo` bigint(20) NOT NULL,
   `ativo` tinyint(1) NOT NULL DEFAULT 1,
@@ -653,7 +653,7 @@ CREATE TABLE `empresa_protocolo` (
 
 -- bion.log_acesso definition
 
-CREATE TABLE `log_acesso` (
+CREATE TABLE IF NOT EXISTS `log_acesso` (
   `id_log` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_empresa` bigint(20) NOT NULL,
   `uuid_log` char(36) NOT NULL,
@@ -677,7 +677,7 @@ CREATE TABLE `log_acesso` (
 
 -- bion.log_alteracao definition
 
-CREATE TABLE `log_alteracao` (
+CREATE TABLE IF NOT EXISTS `log_alteracao` (
   `id_alteracao` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_empresa` bigint(20) DEFAULT NULL,
   `uuid_alteracao` char(36) NOT NULL,
@@ -707,7 +707,7 @@ CREATE TABLE `log_alteracao` (
 
 -- bion.paciente definition
 
-CREATE TABLE `paciente` (
+CREATE TABLE IF NOT EXISTS `paciente` (
   `id_paciente` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_paciente` char(36) NOT NULL,
   `identificacao_anonima` varchar(255) DEFAULT NULL,
@@ -739,7 +739,7 @@ CREATE TABLE `paciente` (
 
 -- bion.paciente_dados_pessoais definition
 
-CREATE TABLE `paciente_dados_pessoais` (
+CREATE TABLE IF NOT EXISTS `paciente_dados_pessoais` (
   `id_paciente_p` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_paciente_p` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -767,7 +767,7 @@ CREATE TABLE `paciente_dados_pessoais` (
 
 -- bion.papel_profissional definition
 
-CREATE TABLE `papel_profissional` (
+CREATE TABLE IF NOT EXISTS `papel_profissional` (
   `id_papel_profissional` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_papel_profissional` char(36) NOT NULL,
   `id_usuario` bigint(20) NOT NULL,
@@ -790,7 +790,7 @@ CREATE TABLE `papel_profissional` (
 
 -- bion.protocolo_escore_config definition
 
-CREATE TABLE `protocolo_escore_config` (
+CREATE TABLE IF NOT EXISTS `protocolo_escore_config` (
   `id_escore_config` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_escore_config` char(36) NOT NULL,
   `id_protocolo_catalogo` bigint(20) NOT NULL,
@@ -813,7 +813,7 @@ CREATE TABLE `protocolo_escore_config` (
 
 -- bion.stepup_reautenticacao definition
 
-CREATE TABLE `stepup_reautenticacao` (
+CREATE TABLE IF NOT EXISTS `stepup_reautenticacao` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_usuario` bigint(20) NOT NULL,
   `acao` varchar(100) NOT NULL,
@@ -832,7 +832,7 @@ CREATE TABLE `stepup_reautenticacao` (
 
 -- bion.stepup_token definition
 
-CREATE TABLE `stepup_token` (
+CREATE TABLE IF NOT EXISTS `stepup_token` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_usuario` bigint(20) NOT NULL,
   `acao` varchar(100) NOT NULL,
@@ -849,7 +849,7 @@ CREATE TABLE `stepup_token` (
 
 -- bion.consentimento_lgpd definition
 
-CREATE TABLE `consentimento_lgpd` (
+CREATE TABLE IF NOT EXISTS `consentimento_lgpd` (
   `id_consentimento` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_consentimento` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -877,7 +877,7 @@ CREATE TABLE `consentimento_lgpd` (
 
 -- bion.consentimento_sessao_assinatura definition
 
-CREATE TABLE `consentimento_sessao_assinatura` (
+CREATE TABLE IF NOT EXISTS `consentimento_sessao_assinatura` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `token` varchar(64) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -912,7 +912,7 @@ CREATE TABLE `consentimento_sessao_assinatura` (
 
 -- bion.consulta definition
 
-CREATE TABLE `consulta` (
+CREATE TABLE IF NOT EXISTS `consulta` (
   `id_consulta` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_consulta` char(36) NOT NULL,
   `iniciada_por` bigint(20) DEFAULT NULL,
@@ -942,7 +942,7 @@ CREATE TABLE `consulta` (
 
 -- bion.atendimento definition
 
-CREATE TABLE `atendimento` (
+CREATE TABLE IF NOT EXISTS `atendimento` (
   `id_atendimento` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_atendimento` char(36) NOT NULL,
   `id_consulta` bigint(20) NOT NULL,
@@ -967,7 +967,7 @@ CREATE TABLE `atendimento` (
 
 -- bion.coleta_clinica definition
 
-CREATE TABLE `coleta_clinica` (
+CREATE TABLE IF NOT EXISTS `coleta_clinica` (
   `id_coleta` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_coleta` char(36) NOT NULL,
   `id_atendimento` bigint(20) NOT NULL,
@@ -981,7 +981,7 @@ CREATE TABLE `coleta_clinica` (
 
 -- bion.conduta_enfermagem definition
 
-CREATE TABLE `conduta_enfermagem` (
+CREATE TABLE IF NOT EXISTS `conduta_enfermagem` (
   `id_conduta` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_atendimento` bigint(20) NOT NULL,
   `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
@@ -1001,7 +1001,7 @@ CREATE TABLE `conduta_enfermagem` (
 
 -- bion.doenca_cronica definition
 
-CREATE TABLE `doenca_cronica` (
+CREATE TABLE IF NOT EXISTS `doenca_cronica` (
   `id_doenca_cronica` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_doenca_cronica` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -1049,7 +1049,7 @@ CREATE TABLE `doenca_cronica` (
 
 -- bion.input_protocolo definition
 
-CREATE TABLE `input_protocolo` (
+CREATE TABLE IF NOT EXISTS `input_protocolo` (
   `id_input` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_input` char(36) NOT NULL,
   `id_coleta_clinica` bigint(20) DEFAULT NULL,
@@ -1067,7 +1067,7 @@ CREATE TABLE `input_protocolo` (
 
 -- bion.input_protocolo_execucao definition
 
-CREATE TABLE `input_protocolo_execucao` (
+CREATE TABLE IF NOT EXISTS `input_protocolo_execucao` (
   `id_input_execucao` bigint(20) NOT NULL AUTO_INCREMENT,
   `id_input` bigint(20) DEFAULT NULL,
   `id_protocolo_catalogo` bigint(20) DEFAULT NULL,
@@ -1091,7 +1091,7 @@ CREATE TABLE `input_protocolo_execucao` (
 
 -- bion.medicamentos_em_uso definition
 
-CREATE TABLE `medicamentos_em_uso` (
+CREATE TABLE IF NOT EXISTS `medicamentos_em_uso` (
   `id_medicamentos_uso` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_medicamentos_uso` char(36) NOT NULL,
   `id_catalogo` bigint(20) DEFAULT NULL,
@@ -1141,7 +1141,7 @@ CREATE TABLE `medicamentos_em_uso` (
 
 -- bion.observacao_tipo_sanguineo definition
 
-CREATE TABLE `observacao_tipo_sanguineo` (
+CREATE TABLE IF NOT EXISTS `observacao_tipo_sanguineo` (
   `id_observacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_observacao` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -1164,7 +1164,7 @@ CREATE TABLE `observacao_tipo_sanguineo` (
 
 -- bion.output_bion definition
 
-CREATE TABLE `output_bion` (
+CREATE TABLE IF NOT EXISTS `output_bion` (
   `id_output` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_output` char(36) NOT NULL,
   `output_ia_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`output_ia_json`)),
@@ -1194,7 +1194,7 @@ CREATE TABLE `output_bion` (
 
 -- bion.resultado_prescricao definition
 
-CREATE TABLE `resultado_prescricao` (
+CREATE TABLE IF NOT EXISTS `resultado_prescricao` (
   `id_resultado` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_resultado` char(36) NOT NULL,
   `id_atendimento` bigint(20) NOT NULL,
@@ -1229,7 +1229,7 @@ CREATE TABLE `resultado_prescricao` (
 
 -- bion.sinal_vital definition
 
-CREATE TABLE `sinal_vital` (
+CREATE TABLE IF NOT EXISTS `sinal_vital` (
   `id_sinal_vital` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_sinal_vital` char(36) NOT NULL,
   `id_atendimento` bigint(20) NOT NULL,
@@ -1254,7 +1254,7 @@ CREATE TABLE `sinal_vital` (
 
 -- bion.alergia definition
 
-CREATE TABLE `alergia` (
+CREATE TABLE IF NOT EXISTS `alergia` (
   `id_alergia` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_alergia` char(36) NOT NULL,
   `id_paciente` bigint(20) NOT NULL,
@@ -1290,7 +1290,7 @@ CREATE TABLE `alergia` (
 
 -- bion.prescricao definition
 
-CREATE TABLE `prescricao` (
+CREATE TABLE IF NOT EXISTS `prescricao` (
   `id_prescricao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_prescricao` varchar(36) NOT NULL,
   `id_resultado_prescricao` bigint(20) DEFAULT NULL,
@@ -1320,7 +1320,7 @@ CREATE TABLE `prescricao` (
 
 -- bion.prescricao_exame definition
 
-CREATE TABLE `prescricao_exame` (
+CREATE TABLE IF NOT EXISTS `prescricao_exame` (
   `id_prescricao_exame` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_prescricao_exame` char(36) NOT NULL,
   `id_resultado` bigint(20) DEFAULT NULL,
@@ -1343,7 +1343,7 @@ CREATE TABLE `prescricao_exame` (
 
 -- bion.reacao_alergia definition
 
-CREATE TABLE `reacao_alergia` (
+CREATE TABLE IF NOT EXISTS `reacao_alergia` (
   `id_reacao` bigint(20) NOT NULL AUTO_INCREMENT,
   `uuid_reacao` char(36) NOT NULL,
   `id_alergia` bigint(20) NOT NULL,
