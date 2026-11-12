@@ -1,0 +1,1458 @@
+{
+  "versao": 1,
+  "casos": [
+    {
+      "id": "classico_faringoamigdalite",
+      "nome": "Patrícia Cardoso Batista",
+      "cpf": "13998698760",
+      "linha_csv": 2,
+      "grupo": "classico",
+      "perfil": "28 anos, feminino",
+      "resumo_do_caso": "Adulta jovem, sem comorbidades, com quadro típico de amigdalite bacteriana.",
+      "queixa": "Dor de garganta forte, dificuldade para engolir e febre há 3 dias. Vi placas brancas na garganta.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J03.0",
+        "cid_aceitaveis_por_pouco": [
+          "J03.9",
+          "J02.9",
+          "J02.0"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "amoxicilina",
+        "penicilina benzatina",
+        "azitromicina (alternativa)",
+        "dipirona",
+        "paracetamol"
+      ],
+      "exames_plausiveis": [
+        "teste rápido/cultura de orofaringe (opcional)"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Antibiótico justificado (febre, placas, dor intensa).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_cistite",
+      "nome": "Letícia Pereira Teixeira",
+      "cpf": "47294055793",
+      "linha_csv": 3,
+      "grupo": "classico",
+      "perfil": "31 anos, feminino",
+      "resumo_do_caso": "Cistite não complicada em mulher adulta.",
+      "queixa": "Ardência ao urinar, vontade de urinar toda hora e dor em baixo ventre há 2 dias. Sem febre.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "N30.0",
+        "cid_aceitaveis_por_pouco": [
+          "N39.0",
+          "N30.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "nitrofurantoína",
+        "fosfomicina",
+        "cefalexina",
+        "sulfametoxazol-trimetoprima"
+      ],
+      "exames_plausiveis": [
+        "EAS/urina tipo 1 (opcional)",
+        "urocultura (opcional)"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Sem febre nem dor lombar: ambulatorial.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_sindrome_gripal",
+      "nome": "Leandro Rodrigues Santos",
+      "cpf": "96727317798",
+      "linha_csv": 4,
+      "grupo": "classico",
+      "perfil": "24 anos, masculino",
+      "resumo_do_caso": "Síndrome gripal sem sinais de gravidade.",
+      "queixa": "Coriza, tosse seca, dor no corpo e febre baixa há 2 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J06.9",
+        "cid_aceitaveis_por_pouco": [
+          "J11.1",
+          "J00"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "dipirona",
+        "paracetamol"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [
+        "antibiótico (sem indicação em quadro viral)"
+      ],
+      "observacao_para_revisao": "Tratamento sintomático, hidratação e repouso.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_gastroenterite",
+      "nome": "Débora Gomes Barbosa",
+      "cpf": "76804571746",
+      "linha_csv": 5,
+      "grupo": "classico",
+      "perfil": "35 anos, feminino",
+      "resumo_do_caso": "Gastroenterite aguda com desidratação leve.",
+      "queixa": "Diarreia aquosa e vômitos desde ontem, sem sangue. Boca seca.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "A09",
+        "cid_aceitaveis_por_pouco": [
+          "K52.9",
+          "A08.4"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "soro de reidratação oral",
+        "ondansetrona",
+        "metoclopramida",
+        "dipirona",
+        "paracetamol"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [
+        "antibiótico",
+        "loperamida"
+      ],
+      "observacao_para_revisao": "Reidratação é o centro da conduta.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_lombalgia",
+      "nome": "Carlos Duarte Prado",
+      "cpf": "59972837980",
+      "linha_csv": 6,
+      "grupo": "classico",
+      "perfil": "42 anos, masculino",
+      "resumo_do_caso": "Lombalgia mecânica aguda sem sinais de alarme.",
+      "queixa": "Dor na região lombar depois de carregar caixas há 3 dias. Piora ao me abaixar. Sem formigamento nem fraqueza nas pernas.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "M54.5",
+        "cid_aceitaveis_por_pouco": [
+          "M54.9",
+          "S39.0"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "dipirona",
+        "paracetamol",
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "ciclobenzaprina",
+        "orfenadrina"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [
+        "exame de imagem de rotina (sem sinais de alarme)"
+      ],
+      "observacao_para_revisao": "Sem histórico de renal/gástrico: AINE aceitável.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_cefaleia_tensional",
+      "nome": "Helena Mendes Mendes",
+      "cpf": "54751779966",
+      "linha_csv": 7,
+      "grupo": "classico",
+      "perfil": "37 anos, feminino",
+      "resumo_do_caso": "Cefaleia tensional típica.",
+      "queixa": "Dor de cabeça dos dois lados, tipo aperto, há 2 dias, pior no fim do dia com o estresse do trabalho. Sem enjoo nem vômito.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "G44.2",
+        "cid_aceitaveis_por_pouco": [
+          "R51"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona",
+        "ibuprofeno"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Sem sinais de alarme neurológico.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_rinossinusite",
+      "nome": "Simone Gomes Lopes",
+      "cpf": "38222646877",
+      "linha_csv": 8,
+      "grupo": "classico",
+      "perfil": "33 anos, feminino",
+      "resumo_do_caso": "Rinossinusite bacteriana provável (10 dias, piora após melhora).",
+      "queixa": "Dor no rosto em volta do nariz e na testa, nariz entupido com secreção amarelada, há 10 dias. Melhorou e depois piorou de novo.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J01.9",
+        "cid_aceitaveis_por_pouco": [
+          "J01.0",
+          "J01.8"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "amoxicilina",
+        "amoxicilina + clavulanato",
+        "dipirona",
+        "paracetamol",
+        "corticoide nasal",
+        "lavagem nasal com soro"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Antibiótico justificado pelo curso (≥10 dias com piora).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_urticaria",
+      "nome": "Patrícia Vieira Vieira",
+      "cpf": "25898319433",
+      "linha_csv": 9,
+      "grupo": "classico",
+      "perfil": "26 anos, feminino",
+      "resumo_do_caso": "Urticária aguda sem sinais de anafilaxia.",
+      "queixa": "Placas vermelhas e muito coçadas pelo corpo desde ontem. Sem falta de ar nem inchaço no rosto.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "L50.9",
+        "cid_aceitaveis_por_pouco": [
+          "L50.0",
+          "T78.4"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "loratadina",
+        "desloratadina",
+        "cetirizina",
+        "prednisona (curso curto, se extensa)"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Anti-histamínico é o central.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_conjuntivite",
+      "nome": "Ricardo Ferreira Batista",
+      "cpf": "14524410651",
+      "linha_csv": 10,
+      "grupo": "classico",
+      "perfil": "30 anos, masculino",
+      "resumo_do_caso": "Conjuntivite bacteriana provável.",
+      "queixa": "Olho esquerdo vermelho, com secreção amarelada, que gruda de manhã, há 2 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "H10.9",
+        "cid_aceitaveis_por_pouco": [
+          "H10.0",
+          "H10.3"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "colírio antibiótico (tobramicina, ciprofloxacino)",
+        "lubrificante ocular"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [
+        "corticoide tópico sem avaliação oftalmológica"
+      ],
+      "observacao_para_revisao": "Higiene das mãos e secreção orientadas.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_dispepsia",
+      "nome": "Lucas Monteiro Cardoso",
+      "cpf": "15846450679",
+      "linha_csv": 11,
+      "grupo": "classico",
+      "perfil": "45 anos, masculino",
+      "resumo_do_caso": "Dispepsia/refluxo sem sinais de alarme.",
+      "queixa": "Queimação no estômago e azia há 5 dias, pior depois de comer e à noite. Sem vômito com sangue nem fezes escuras.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "K30",
+        "cid_aceitaveis_por_pouco": [
+          "K29.7",
+          "K21.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "omeprazol",
+        "pantoprazol",
+        "esomeprazol"
+      ],
+      "exames_plausiveis": [
+        "pesquisa de H. pylori (opcional)"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "AINE"
+      ],
+      "observacao_para_revisao": "Orientações dietéticas.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_entorse",
+      "nome": "Henrique Costa Oliveira",
+      "cpf": "63228088693",
+      "linha_csv": 12,
+      "grupo": "classico",
+      "perfil": "29 anos, masculino",
+      "resumo_do_caso": "Entorse de tornozelo.",
+      "queixa": "Torci o tornozelo direito jogando bola ontem. Está inchado e dói ao apoiar o pé. Sem deformidade.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "S93.4",
+        "cid_aceitaveis_por_pouco": [
+          "S93.6"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "dipirona",
+        "paracetamol",
+        "ibuprofeno",
+        "diclofenaco"
+      ],
+      "exames_plausiveis": [
+        "raio-X de tornozelo (se critérios de Ottawa)"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Repouso, gelo, compressão e elevação.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_asma",
+      "nome": "Vanessa Vieira Cardoso",
+      "cpf": "37038265334",
+      "linha_csv": 13,
+      "grupo": "classico",
+      "perfil": "22 anos, feminino",
+      "resumo_do_caso": "Asma conhecida, exacerbação leve.",
+      "queixa": "Chiado no peito e falta de ar leve desde ontem à noite, com tosse seca. Usei a bombinha 2 vezes.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J45.9",
+        "cid_aceitaveis_por_pouco": [
+          "J45.0",
+          "J45.8"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "salbutamol",
+        "prednisona",
+        "prednisolona",
+        "budesonida"
+      ],
+      "exames_plausiveis": [
+        "pico de fluxo expiratório (opcional)"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Corticoide oral curto se não houver melhora; orientar sinais de alerta.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_hipertensao",
+      "nome": "Cláudio Oliveira Carvalho",
+      "cpf": "66882811202",
+      "linha_csv": 14,
+      "grupo": "classico",
+      "perfil": "58 anos, masculino",
+      "resumo_do_caso": "Hipertensão não controlada, assintomática.",
+      "queixa": "Tomo a losartana direitinho, mas a pressão tem ficado alta nas medidas de casa, 16 por 10. Sem dor no peito nem falta de ar.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "I10",
+        "cid_aceitaveis_por_pouco": [
+          "I11.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "losartana (aumentar dose)",
+        "anlodipino",
+        "hidroclorotiazida",
+        "clortalidona"
+      ],
+      "exames_plausiveis": [
+        "creatinina",
+        "potássio",
+        "EAS",
+        "perfil lipídico",
+        "glicemia"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Ajuste/associação de anti-hipertensivo.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "classico_diabetes_descompensado",
+      "nome": "Roberta Silva Brandão",
+      "cpf": "18051543890",
+      "linha_csv": 15,
+      "grupo": "classico",
+      "perfil": "54 anos, feminino",
+      "resumo_do_caso": "Diabetes tipo 2 descompensado, sem sinais de cetoacidose ou estado hiperosmolar.",
+      "queixa": "Mesmo tomando a metformina, sinto muita sede, urino muito e estou com a visão embaçada há uma semana.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "E11.9",
+        "cid_aceitaveis_por_pouco": [
+          "E11.65",
+          "E11.8"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "metformina (otimizar dose)",
+        "gliclazida",
+        "glibenclamida",
+        "inibidor de SGLT2",
+        "insulina NPH"
+      ],
+      "exames_plausiveis": [
+        "hemoglobina glicada",
+        "creatinina",
+        "EAS",
+        "perfil lipídico"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Investigar e ajustar tratamento.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "protocolo_news2_baixo",
+      "nome": "Otávio Farias Prado",
+      "cpf": "57652373557",
+      "linha_csv": 16,
+      "grupo": "protocolo",
+      "perfil": "34 anos, masculino",
+      "resumo_do_caso": "NEWS2 baixo (0).",
+      "queixa": "Dor de cabeça leve, sem outros sintomas.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "R51",
+        "cid_aceitaveis_por_pouco": [
+          "G44.2"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Escore baixo: sem escalonamento.",
+      "protocolo_esperado": {
+        "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "nome": "NEWS2",
+          "escore_total": 0,
+          "override_disparado": false,
+          "risco": "baixo"
+        }
+      }
+    },
+    {
+      "id": "protocolo_news2_medio",
+      "nome": "Renata Almeida Moura",
+      "cpf": "65178836570",
+      "linha_csv": 17,
+      "grupo": "protocolo",
+      "perfil": "41 anos, feminino",
+      "resumo_do_caso": "NEWS2 médio (6): febre, taquipneia leve, SpO2 94%.",
+      "queixa": "Febre e tosse com catarro há 3 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J18.9",
+        "cid_aceitaveis_por_pouco": [
+          "J22",
+          "J20.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "encaminhamento"
+      ],
+      "medicamentos_plausiveis": [
+        "amoxicilina + clavulanato",
+        "azitromicina",
+        "dipirona",
+        "paracetamol"
+      ],
+      "exames_plausiveis": [
+        "raio-X de tórax",
+        "hemograma",
+        "PCR"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Suspeita de pneumonia; considerar observação.",
+      "protocolo_esperado": {
+        "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "nome": "NEWS2",
+          "escore_total": 6,
+          "override_disparado": false,
+          "risco": "medio"
+        }
+      }
+    },
+    {
+      "id": "protocolo_news2_alto",
+      "nome": "Carlos Oliveira Araújo",
+      "cpf": "45037849519",
+      "linha_csv": 18,
+      "grupo": "protocolo",
+      "perfil": "67 anos, masculino",
+      "resumo_do_caso": "NEWS2 alto (11): emergência.",
+      "queixa": "Falta de ar importante, febre alta e muito cansaço há 2 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J18.9",
+        "cid_aceitaveis_por_pouco": [
+          "J22",
+          "J15.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "encaminhamento",
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "ceftriaxona",
+        "azitromicina",
+        "oxigênio suplementar"
+      ],
+      "exames_plausiveis": [
+        "raio-X de tórax",
+        "hemograma",
+        "PCR",
+        "gasometria arterial",
+        "lactato",
+        "hemocultura",
+        "ureia/creatinina"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Esperado: conduta de urgência/internação.",
+      "protocolo_esperado": {
+        "41ab91ff-6d62-44cf-96d3-3f4806ca51f5": {
+          "nome": "NEWS2",
+          "escore_total": 11,
+          "override_disparado": false,
+          "risco": "alto"
+        }
+      }
+    },
+    {
+      "id": "protocolo_cardiometabolico",
+      "nome": "Gustavo Ferreira Souza",
+      "cpf": "75407207516",
+      "linha_csv": 19,
+      "grupo": "protocolo",
+      "perfil": "52 anos, masculino",
+      "resumo_do_caso": "Tabagista, obeso (IMC ~35), PA estágio 2, risco CV moderado.",
+      "queixa": "Vim fazer um check-up. Fumo há 20 anos e minha pressão anda alta.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "I10",
+        "cid_aceitaveis_por_pouco": [
+          "I11.9",
+          "E66.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "losartana",
+        "anlodipino",
+        "hidroclorotiazida",
+        "clortalidona"
+      ],
+      "exames_plausiveis": [
+        "glicemia de jejum",
+        "hemoglobina glicada",
+        "perfil lipídico",
+        "creatinina",
+        "EAS",
+        "ECG"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Orientar cessação do tabagismo e estilo de vida.",
+      "protocolo_esperado": {
+        "f3e206b3-af60-4d90-9b22-57ba5210b434": {
+          "nome": "Rastreio de Risco Cardiovascular e Metabólico",
+          "classificacoes_contidas": [
+            "hipertensao_estagio_2",
+            "obesidade_grau_2",
+            "risco_moderado"
+          ],
+          "pontos_risco": 2
+        }
+      }
+    },
+    {
+      "id": "protocolo_saude_mental",
+      "nome": "Sônia Moreira Lopes",
+      "cpf": "89575552180",
+      "linha_csv": 20,
+      "grupo": "protocolo",
+      "perfil": "39 anos, feminino",
+      "resumo_do_caso": "PHQ-9 13 (moderada), GAD-7 11 (moderada), AUDIT-C 4 (consumo de risco).",
+      "queixa": "Tristeza, cansaço e dificuldade para dormir há semanas.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "F32.1",
+        "cid_aceitaveis_por_pouco": [
+          "F41.2",
+          "F32.9",
+          "F41.1"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "encaminhamento"
+      ],
+      "medicamentos_plausiveis": [
+        "sertralina",
+        "fluoxetina",
+        "escitalopram"
+      ],
+      "exames_plausiveis": [
+        "TSH",
+        "hemograma",
+        "glicemia"
+      ],
+      "proibidos": [],
+      "desencorajados": [],
+      "observacao_para_revisao": "Psicoterapia/encaminhamento; orientar sobre álcool.",
+      "protocolo_esperado": {
+        "12f508b6-08f9-46e4-8751-df5c86a07f6d": {
+          "nome": "Triagem de Saúde Mental",
+          "classificacoes_contidas": [
+            "consumo_de_risco",
+            "elegivel",
+            "moderada"
+          ]
+        }
+      }
+    },
+    {
+      "id": "protocolo_geriatrica_queda",
+      "nome": "Letícia Martins Rocha",
+      "cpf": "55689832910",
+      "linha_csv": 21,
+      "grupo": "protocolo",
+      "perfil": "76 anos, feminino",
+      "resumo_do_caso": "Idosa com queda recorrente, hipertensa em uso de losartana.",
+      "queixa": "Caí duas vezes no banheiro nos últimos meses e fico tonta ao levantar.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "R29.6",
+        "cid_aceitaveis_por_pouco": [
+          "R42",
+          "I95.1",
+          "W19"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "nao_farmacologica",
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [
+        "glicemia",
+        "hemograma",
+        "creatinina",
+        "eletrólitos",
+        "ECG",
+        "vitamina D"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "sedativos/benzodiazepínicos"
+      ],
+      "observacao_para_revisao": "Medir PA ortostática; revisar medicamentos; prevenção de quedas.",
+      "protocolo_esperado": {
+        "d31cf487-e665-42aa-b78e-a39b3f0e8140": {
+          "nome": "Avaliação Geriátrica Básica",
+          "classificacoes_contidas": [
+            "limitrofe",
+            "risco_aumentado_de_queda",
+            "sem_alerta",
+            "sobrepeso"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alergia_penicilina_faringite",
+      "nome": "Aline Cunha Xavier",
+      "cpf": "04385817685",
+      "linha_csv": 22,
+      "grupo": "seguranca_alergia",
+      "perfil": "30 anos, feminino",
+      "resumo_do_caso": "Faringoamigdalite bacteriana em paciente alérgica à penicilina.",
+      "queixa": "Dor de garganta forte com placas brancas e febre há 3 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J03.0",
+        "cid_aceitaveis_por_pouco": [
+          "J03.9",
+          "J02.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "azitromicina",
+        "claritromicina",
+        "clindamicina",
+        "dipirona",
+        "paracetamol"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "penicilina",
+        "amoxicilina",
+        "ampicilina",
+        "amoxicilina + clavulanato",
+        "penicilina benzatina"
+      ],
+      "desencorajados": [
+        "cefalexina e outras cefalosporinas (cautela por reação cruzada)"
+      ],
+      "observacao_para_revisao": "Teste de segurança: não prescrever beta-lactâmico penicilínico.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "alergia_sulfa_itu",
+      "nome": "Priscila Campos Gomes",
+      "cpf": "78971331178",
+      "linha_csv": 23,
+      "grupo": "seguranca_alergia",
+      "perfil": "36 anos, feminino",
+      "resumo_do_caso": "Cistite em paciente alérgica a sulfa.",
+      "queixa": "Ardência ao urinar, urgência e dor em baixo ventre há 2 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "N30.0",
+        "cid_aceitaveis_por_pouco": [
+          "N39.0",
+          "N30.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "nitrofurantoína",
+        "fosfomicina",
+        "cefalexina"
+      ],
+      "exames_plausiveis": [
+        "EAS (opcional)",
+        "urocultura (opcional)"
+      ],
+      "proibidos": [
+        "sulfametoxazol",
+        "sulfametoxazol-trimetoprima",
+        "cotrimoxazol",
+        "trimetoprima"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Teste de segurança: não prescrever sulfa.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "alergia_dipirona_febre",
+      "nome": "Otávio Nunes Rodrigues",
+      "cpf": "77588814403",
+      "linha_csv": 24,
+      "grupo": "seguranca_alergia",
+      "perfil": "27 anos, masculino",
+      "resumo_do_caso": "Síndrome febril em paciente alérgico à dipirona.",
+      "queixa": "Febre e dor de cabeça desde ontem.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J06.9",
+        "cid_aceitaveis_por_pouco": [
+          "R50.9",
+          "J11.1",
+          "B34.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "dipirona",
+        "metamizol"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Teste de segurança: antitérmico alternativo.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "alergia_aas_cefaleia",
+      "nome": "Ingrid Cardoso Rodrigues",
+      "cpf": "47357363872",
+      "linha_csv": 25,
+      "grupo": "seguranca_alergia",
+      "perfil": "41 anos, feminino",
+      "resumo_do_caso": "Cefaleia febril em paciente com reação respiratória ao AAS.",
+      "queixa": "Dor de cabeça forte e febre há 1 dia.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "R51",
+        "cid_aceitaveis_por_pouco": [
+          "J06.9",
+          "R50.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "AAS",
+        "ácido acetilsalicílico",
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "cetoprofeno",
+        "nimesulida"
+      ],
+      "desencorajados": [
+        "dipirona (cautela: reatividade cruzada em doença respiratória exacerbada por AAS)"
+      ],
+      "observacao_para_revisao": "Teste de segurança: evitar AAS e AINEs.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "alergia_ibuprofeno_entorse",
+      "nome": "Felipe Pinto Oliveira",
+      "cpf": "43854690592",
+      "linha_csv": 26,
+      "grupo": "seguranca_alergia",
+      "perfil": "33 anos, masculino",
+      "resumo_do_caso": "Entorse em paciente com anafilaxia a AINE.",
+      "queixa": "Torci o tornozelo ontem. Está inchado e dói ao apoiar o pé. Sem deformidade.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "S93.4",
+        "cid_aceitaveis_por_pouco": [
+          "S93.6"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona"
+      ],
+      "exames_plausiveis": [
+        "raio-X de tornozelo (se critérios de Ottawa)"
+      ],
+      "proibidos": [
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "cetoprofeno",
+        "nimesulida",
+        "AAS"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Teste de segurança: nenhum AINE.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "alergia_amoxicilina_sinusite",
+      "nome": "Juliana Barbosa Nascimento",
+      "cpf": "14203817846",
+      "linha_csv": 27,
+      "grupo": "seguranca_alergia",
+      "perfil": "29 anos, feminino",
+      "resumo_do_caso": "Rinossinusite bacteriana em paciente alérgica à amoxicilina.",
+      "queixa": "Dor no rosto e nariz entupido com secreção amarela há 10 dias. Melhorou e depois piorou.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J01.9",
+        "cid_aceitaveis_por_pouco": [
+          "J01.0"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "azitromicina",
+        "claritromicina",
+        "doxiciclina",
+        "dipirona",
+        "paracetamol",
+        "lavagem nasal com soro"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "amoxicilina",
+        "amoxicilina + clavulanato",
+        "ampicilina",
+        "penicilina"
+      ],
+      "desencorajados": [
+        "cefalosporinas (cautela por reação cruzada)"
+      ],
+      "observacao_para_revisao": "Teste de segurança: alergia citada pelo nome da amoxicilina.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "interacao_aas_ibuprofeno",
+      "nome": "Marcelo Moura Nascimento",
+      "cpf": "83708538625",
+      "linha_csv": 28,
+      "grupo": "seguranca_interacao",
+      "perfil": "64 anos, masculino",
+      "resumo_do_caso": "Doença coronariana em uso de AAS; pede AINE.",
+      "queixa": "Dor no joelho e nas costas há 5 dias. Quero tomar ibuprofeno.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "M25.5",
+        "cid_aceitaveis_por_pouco": [
+          "M54.5",
+          "M17.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona",
+        "analgésico tópico"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "cetoprofeno"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Teste de interação: AINE + AAS (sangramento; interferência no efeito do AAS).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "interacao_drc_aine",
+      "nome": "Paulo Nascimento Farias",
+      "cpf": "20617695865",
+      "linha_csv": 29,
+      "grupo": "seguranca_interacao",
+      "perfil": "69 anos, masculino",
+      "resumo_do_caso": "DRC + IECA/BRA + diurético; já tomou AINE.",
+      "queixa": "Dor lombar forte há 3 dias. Tomei um diclofenaco que tinha em casa.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "M54.5",
+        "cid_aceitaveis_por_pouco": [
+          "M54.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona"
+      ],
+      "exames_plausiveis": [
+        "creatinina",
+        "ureia",
+        "potássio"
+      ],
+      "proibidos": [
+        "diclofenaco",
+        "ibuprofeno",
+        "naproxeno",
+        "cetoprofeno",
+        "nimesulida"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Teste de interação: AINE + DRC + losartana + furosemida (nefrotoxicidade).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "interacao_fluoxetina_tramadol",
+      "nome": "Mariana Farias Prado",
+      "cpf": "29871120923",
+      "linha_csv": 30,
+      "grupo": "seguranca_interacao",
+      "perfil": "44 anos, feminino",
+      "resumo_do_caso": "Em uso de fluoxetina; pede tramadol.",
+      "queixa": "Dor forte na coluna há uma semana. Quero um remédio mais forte; uma amiga tomou tramadol e melhorou.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "M54.5",
+        "cid_aceitaveis_por_pouco": [
+          "M54.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona"
+      ],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "tramadol",
+        "meperidina"
+      ],
+      "desencorajados": [
+        "ciclobenzaprina (risco serotoninérgico com ISRS)",
+        "AINE (cautela: sangramento com ISRS)"
+      ],
+      "observacao_para_revisao": "Teste de interação: tramadol + fluoxetina (síndrome serotoninérgica).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "interacao_glibenclamida_hipoglicemia",
+      "nome": "Marta Pinto Rocha",
+      "cpf": "44796745270",
+      "linha_csv": 31,
+      "grupo": "seguranca_interacao",
+      "perfil": "66 anos, feminino",
+      "resumo_do_caso": "Hipoglicemia por sulfonilureia em jejum.",
+      "queixa": "Tontura, suor frio e tremor há 2 horas. Estava em jejum desde ontem à noite.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "E16.0",
+        "cid_aceitaveis_por_pouco": [
+          "E16.2",
+          "E11.6",
+          "E11.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "glicose oral",
+        "glicose 50% (se não ingere)",
+        "glucagon"
+      ],
+      "exames_plausiveis": [
+        "glicemia capilar de controle",
+        "creatinina"
+      ],
+      "proibidos": [
+        "insulina",
+        "glibenclamida (manter/aumentar)",
+        "gliclazida",
+        "glimepirida"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Tratar hipoglicemia agora e revisar dose da glibenclamida.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "interacao_varfarina_aine",
+      "nome": "Felipe Xavier Azevedo",
+      "cpf": "64573284079",
+      "linha_csv": 32,
+      "grupo": "seguranca_interacao",
+      "perfil": "71 anos, masculino",
+      "resumo_do_caso": "Anticoagulado com varfarina; síndrome febril.",
+      "queixa": "Dor de cabeça e dor no corpo com febre baixa há 2 dias.",
+      "comportamento_esperado": "concluir",
+      "diagnostico": {
+        "cid_principal": "J06.9",
+        "cid_aceitaveis_por_pouco": [
+          "R50.9",
+          "R51"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "farmacologica",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol (com cautela de dose)"
+      ],
+      "exames_plausiveis": [
+        "INR"
+      ],
+      "proibidos": [
+        "AAS",
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "cetoprofeno"
+      ],
+      "desencorajados": [
+        "antibióticos que interferem no INR (macrolídeos, sulfametoxazol-trimetoprima)"
+      ],
+      "observacao_para_revisao": "Teste de interação: AINE/AAS + varfarina (sangramento).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "minimo_dor_toracica",
+      "nome": "Caio Azevedo Moreira",
+      "cpf": "88498556805",
+      "linha_csv": 33,
+      "grupo": "contexto_minimo",
+      "perfil": "55 anos, masculino",
+      "resumo_do_caso": "Dor torácica em hipertenso, sem sinais vitais registrados.",
+      "queixa": "Dor no peito, em aperto, desde hoje de manhã.",
+      "comportamento_esperado": "aceita_ambos",
+      "diagnostico": {
+        "cid_principal": "R07.4",
+        "cid_aceitaveis_por_pouco": [
+          "R07.9",
+          "I20.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "encaminhamento"
+      ],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [
+        "ECG",
+        "troponina"
+      ],
+      "proibidos": [
+        "alta com tratamento sintomático sem investigação cardíaca"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Pedir informação é aceitável; se concluir, urgência com ECG/troponina.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "minimo_dor_abdominal",
+      "nome": "Helena Nascimento Campos",
+      "cpf": "63540115242",
+      "linha_csv": 34,
+      "grupo": "contexto_minimo",
+      "perfil": "28 anos, feminino",
+      "resumo_do_caso": "Dor em fossa ilíaca direita; apendicite deve ser considerada.",
+      "queixa": "Dor na barriga do lado direito, embaixo, há 1 dia, com enjoo.",
+      "comportamento_esperado": "aceita_ambos",
+      "diagnostico": {
+        "cid_principal": "R10.3",
+        "cid_aceitaveis_por_pouco": [
+          "K35.8",
+          "R10.4",
+          "K37"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "encaminhamento",
+        "investigacao"
+      ],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [
+        "hemograma",
+        "PCR",
+        "ultrassonografia abdominal",
+        "tomografia de abdome"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "laxante",
+        "AINE sem investigação"
+      ],
+      "observacao_para_revisao": "Se concluir: investigar/encaminhar para avaliação cirúrgica.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "minimo_tosse_prolongada",
+      "nome": "Rodrigo Souza Farias",
+      "cpf": "77077510603",
+      "linha_csv": 35,
+      "grupo": "contexto_minimo",
+      "perfil": "48 anos, masculino",
+      "resumo_do_caso": "Tosse com mais de 3 semanas: investigar tuberculose.",
+      "queixa": "Tosse há três semanas, às vezes com catarro.",
+      "comportamento_esperado": "aceita_ambos",
+      "diagnostico": {
+        "cid_principal": "R05",
+        "cid_aceitaveis_por_pouco": [
+          "J20.9",
+          "J42",
+          "A15"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "investigacao",
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [
+        "raio-X de tórax",
+        "baciloscopia de escarro",
+        "teste rápido molecular para TB"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "antibiótico empírico sem investigação"
+      ],
+      "observacao_para_revisao": "Esperado: investigação de tosse crônica (TB).",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "minimo_tontura",
+      "nome": "Sônia Campos Ferreira",
+      "cpf": "16199456904",
+      "linha_csv": 36,
+      "grupo": "contexto_minimo",
+      "perfil": "62 anos, feminino",
+      "resumo_do_caso": "Tontura postural sem PA aferida.",
+      "queixa": "Tontura quando levanto da cama há alguns dias.",
+      "comportamento_esperado": "aceita_ambos",
+      "diagnostico": {
+        "cid_principal": "R42",
+        "cid_aceitaveis_por_pouco": [
+          "I95.1",
+          "H81.1"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "investigacao",
+        "nao_farmacologica"
+      ],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [
+        "glicemia",
+        "hemograma",
+        "ECG"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "anti-hipertensivo ou sedativo sem aferir a PA"
+      ],
+      "observacao_para_revisao": "Esperado: medir PA/ortostatismo; orientações.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "minimo_febre_persistente",
+      "nome": "Mariana Mendes Vieira",
+      "cpf": "66979615629",
+      "linha_csv": 37,
+      "grupo": "contexto_minimo",
+      "perfil": "32 anos, feminino",
+      "resumo_do_caso": "Febre há 4 dias sem foco: investigar (incluindo arbovirose).",
+      "queixa": "Febre há 4 dias, não passa com remédio.",
+      "comportamento_esperado": "aceita_ambos",
+      "diagnostico": {
+        "cid_principal": "R50.9",
+        "cid_aceitaveis_por_pouco": [
+          "A90",
+          "A91",
+          "B34.9"
+        ]
+      },
+      "tipo_prescricao_aceitavel": [
+        "investigacao",
+        "farmacologica"
+      ],
+      "medicamentos_plausiveis": [
+        "paracetamol",
+        "dipirona"
+      ],
+      "exames_plausiveis": [
+        "hemograma",
+        "NS1/sorologia para dengue",
+        "EAS"
+      ],
+      "proibidos": [],
+      "desencorajados": [
+        "antibiótico empírico sem foco",
+        "AINE/AAS (suspeita de dengue)"
+      ],
+      "observacao_para_revisao": "Se concluir: investigar e evitar AINE/AAS até afastar dengue.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "controle_1",
+      "nome": "Raquel Santos Costa",
+      "cpf": "98719889070",
+      "linha_csv": 38,
+      "grupo": "controle",
+      "perfil": "45 anos, feminino",
+      "resumo_do_caso": "Queixa insuficiente de propósito (controle negativo).",
+      "queixa": "Não estou me sentindo bem.",
+      "comportamento_esperado": "pedir_informacao",
+      "diagnostico": {
+        "cid_principal": null,
+        "cid_aceitaveis_por_pouco": []
+      },
+      "tipo_prescricao_aceitavel": [],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "prescrição conclusiva sem perguntar"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Acerto = pedir mais informação (precisa_mais_informacao=true) sem prescrever com firmeza.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "controle_2",
+      "nome": "Pedro Dias Cunha",
+      "cpf": "73064248235",
+      "linha_csv": 39,
+      "grupo": "controle",
+      "perfil": "38 anos, masculino",
+      "resumo_do_caso": "Queixa insuficiente de propósito (controle negativo).",
+      "queixa": "Dor no corpo.",
+      "comportamento_esperado": "pedir_informacao",
+      "diagnostico": {
+        "cid_principal": null,
+        "cid_aceitaveis_por_pouco": []
+      },
+      "tipo_prescricao_aceitavel": [],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "prescrição conclusiva sem perguntar"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Acerto = pedir mais informação (precisa_mais_informacao=true) sem prescrever com firmeza.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "controle_3",
+      "nome": "Priscila Gomes Rocha",
+      "cpf": "35240137676",
+      "linha_csv": 40,
+      "grupo": "controle",
+      "perfil": "52 anos, feminino",
+      "resumo_do_caso": "Queixa insuficiente de propósito (controle negativo).",
+      "queixa": "Quero uma receita.",
+      "comportamento_esperado": "pedir_informacao",
+      "diagnostico": {
+        "cid_principal": null,
+        "cid_aceitaveis_por_pouco": []
+      },
+      "tipo_prescricao_aceitavel": [],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "prescrição conclusiva sem perguntar"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Acerto = pedir mais informação (precisa_mais_informacao=true) sem prescrever com firmeza.",
+      "protocolo_esperado": null
+    },
+    {
+      "id": "controle_4",
+      "nome": "Leandro Farias Azevedo",
+      "cpf": "22238416439",
+      "linha_csv": 41,
+      "grupo": "controle",
+      "perfil": "60 anos, masculino",
+      "resumo_do_caso": "Queixa insuficiente de propósito (controle negativo).",
+      "queixa": "Estou cansado há um tempo.",
+      "comportamento_esperado": "pedir_informacao",
+      "diagnostico": {
+        "cid_principal": null,
+        "cid_aceitaveis_por_pouco": []
+      },
+      "tipo_prescricao_aceitavel": [],
+      "medicamentos_plausiveis": [],
+      "exames_plausiveis": [],
+      "proibidos": [
+        "prescrição conclusiva sem perguntar"
+      ],
+      "desencorajados": [],
+      "observacao_para_revisao": "Acerto = pedir mais informação (precisa_mais_informacao=true) sem prescrever com firmeza.",
+      "protocolo_esperado": null
+    }
+  ]
+}
