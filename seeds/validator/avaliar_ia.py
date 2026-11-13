@@ -88,11 +88,18 @@ class ProjetoReal:
         return NS(uuid=abertos[-1].uuid, id_usuario=abertos[-1].realizado_por)
 
     # ------------------------------------------------------------ IA
+    def _nova_transacao(self):
+        """Encerra a transação aberta. A resposta é gravada por OUTRA sessão; dentro de uma transação
+        antiga (isolamento por transação, ex.: REPEATABLE READ) o status continuaria 'processando'
+        para sempre, mesmo com a IA já tendo respondido."""
+        self.db.session.rollback()
+
     def iniciar(self, at) -> str:
         out = self.servico.iniciar(at.uuid, self.empresa, at.id_usuario, eh_medico=True)
         return out.uuid
 
     def status(self, uuid_output: str, id_usuario: int) -> dict:
+        self._nova_transacao()
         return self.servico.status(uuid_output, self.empresa, id_usuario)
 
     def _modelo(self, padrao: str):
@@ -103,7 +110,8 @@ class ProjetoReal:
 
     def ler(self, uuid_output: str) -> dict:
         Out = self._modelo(r"OutputBion")
-        self.db.session.expire_all()  # a resposta é gravada por outra sessão/thread
+        self._nova_transacao()  # a resposta é gravada por outra sessão/thread
+        self.db.session.expire_all()
         row = Out.query.filter_by(uuid=uuid_output).first()
         num = lambda x: float(x) if x is not None else None  # noqa: E731
         return {"status": row.status, "erro": row.erro_codigo, "output_ia": row.output_ia_json,
@@ -173,20 +181,66 @@ def validar(casos: list, projeto) -> list:
     return problemas
 
 
+ABERTOS = ("timeout", "processando", "erro_status")  # enviados, mas sem resposta registrada
+
+
+def _finalizar(rec: dict, st: dict, projeto, t_ini, relogio):
+    """Lê a resposta pronta (concluída ou com falha) e a guarda no registro."""
+    lido = projeto.ler(rec["uuid_output"])
+    rec.update(lido)
+    if t_ini is not None:
+        rec["duracao_s"] = round(relogio() - t_ini, 1)
+    rec["catalogo"] = projeto.resolver_catalogo(lido.get("output_ia")) if lido.get("status") == "concluido" else {}
+    if lido.get("status") == "falhou":
+        rec["erro"] = st.get("erro_codigo") or lido.get("erro")
+    else:
+        rec.pop("erro", None)
+
+
+def _recuperar(respostas: dict, projeto, relogio, log) -> int:
+    """Envios anteriores que ficaram em timeout/processando podem ter terminado depois:
+    lê a resposta existente em vez de reenviar (evita avaliação duplicada)."""
+    n = 0
+    for rec in respostas.values():
+        if rec.get("status") in ABERTOS and rec.get("uuid_output"):
+            try:
+                st = projeto.status(rec["uuid_output"], rec["id_usuario"])
+            except Exception:
+                continue
+            if st.get("status") in ("concluido", "falhou"):
+                _finalizar(rec, st, projeto, None, relogio)
+                n += 1
+    if n:
+        log(f"  {n} resposta(s) de envios anteriores recuperada(s) sem reenviar.")
+    return n
+
+
 def coletar(casos: list, projeto, saida: Path, lote: int = 5, intervalo: float = 60.0, timeout: float = 240.0,
             poll: float = 3.0, refazer: bool = False, ate: int = None, dormir=time.sleep, relogio=time.monotonic,
             log=print) -> dict:
     respostas = _carregar(saida)
+    if not refazer:
+        if _recuperar(respostas, projeto, relogio, log):
+            _salvar(saida, respostas)
     pendentes = [c for c in casos if refazer or (respostas.get(c["id"]) or {}).get("status") != "concluido"]
     if ate:
         pendentes = pendentes[:ate]
-    log(f"{len(pendentes)} caso(s) a enviar, em lotes de {lote} a cada {intervalo:.0f}s "
+    log(f"{len(pendentes)} caso(s) a processar, em lotes de {lote} a cada {intervalo:.0f}s "
         f"({len(casos) - len(pendentes)} já concluídos).")
 
     for inicio in range(0, len(pendentes), lote):
         t0 = relogio()
         em_curso = {}
         for c in pendentes[inicio:inicio + lote]:
+            anterior = respostas.get(c["id"]) or {}
+            if not refazer and anterior.get("uuid_output") and anterior.get("status") in ABERTOS:
+                try:  # já enviado: só continua a esperar, sem reenviar (a menos que a saída não exista mais)
+                    projeto.status(anterior["uuid_output"], anterior["id_usuario"])
+                    anterior["status"] = "processando"
+                    em_curso[c["id"]] = (anterior, t0)
+                    continue
+                except Exception:
+                    pass
             rec = {"id": c["id"], "enviado_em": _agora_iso()}
             try:
                 at = projeto.localizar_atendimento(c["cpf"])
@@ -206,17 +260,12 @@ def coletar(casos: list, projeto, saida: Path, lote: int = 5, intervalo: float =
                     del em_curso[cid]
                     continue
                 if st.get("status") in ("concluido", "falhou"):
-                    lido = projeto.ler(rec["uuid_output"])
-                    rec.update(lido)
-                    rec["duracao_s"] = round(relogio() - t_ini, 1)
-                    rec["catalogo"] = projeto.resolver_catalogo(lido.get("output_ia")) if lido.get("status") == "concluido" else {}
-                    if lido.get("status") == "falhou":
-                        rec["erro"] = st.get("erro_codigo") or lido.get("erro")
+                    _finalizar(rec, st, projeto, t_ini, relogio)
                     del em_curso[cid]
             if em_curso:
                 dormir(poll)
         for cid, (rec, _) in em_curso.items():
-            rec.update(status="timeout", erro=f"sem resposta em {timeout:.0f}s")
+            rec.update(status="timeout", erro=f"sem resposta em {timeout:.0f}s (rode de novo: a resposta é recuperada sem reenviar)")
 
         _salvar(saida, respostas)
         feitos = min(inicio + lote, len(pendentes))
