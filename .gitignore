@@ -39,3 +39,8 @@ storage/
 resultado_interacoes.txt
 resultado_catalogo.txt
 tests/
+
+# testes validacao IA
+relatorio_avaliacao.md
+resultado_avaliacao.json
+respostas_ia.json

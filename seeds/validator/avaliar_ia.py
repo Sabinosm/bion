@@ -291,7 +291,7 @@ def _obter_app():
         return create_app()
 
 
-def main():
+def main(app):
     ap = argparse.ArgumentParser()
     ap.add_argument("--empresa", type=int, required=True)
     ap.add_argument("--colinha", default=str(COLINHA_PADRAO))
@@ -307,7 +307,7 @@ def main():
     a = ap.parse_args()
 
     r = avaliar_ia(a.empresa, Path(a.colinha), Path(a.respostas), None, a.lote, a.intervalo, a.timeout, a.ate, a.refazer,
-                   a.validar, not a.sem_classificar, a.gravar_notas, app=_obter_app())
+                   a.validar, not a.sem_classificar, a.gravar_notas, app=app)
     if a.validar:
         print(f"{r['total'] - len(r['problemas'])}/{r['total']} atendimentos prontos.")
         for i, p in r["problemas"]:
